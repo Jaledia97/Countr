@@ -10,28 +10,41 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
   VaultDao(super.db);
 
   /// Streams items filtered by collection type.
-  /// If collectionType is 'All Collections' or 'all', returns all records.
-  Stream<List<VaultItem>> watchItemsByCollection(String collectionType) {
+  /// If [onlyOwned] is true, filters for quantity > 0 (personal vault inventory).
+  /// If [limit] is provided, caps the returned rows to prevent UI thread memory spikes.
+  Stream<List<VaultItem>> watchItemsByCollection(
+    String collectionType, {
+    bool onlyOwned = false,
+    int? limit,
+    int? offset,
+  }) {
     final normalized = _normalizeCollectionType(collectionType);
-    if (normalized == 'all') {
-      return (select(vaultItems)
-            ..orderBy([
-              (t) => OrderingTerm(
-                    expression: t.acquiredDate,
-                    mode: OrderingMode.desc,
-                  )
-            ]))
-          .watch();
+    final query = select(vaultItems);
+
+    if (normalized != 'all') {
+      query.where((t) => t.collectionType.equals(normalized));
     }
-    return (select(vaultItems)
-          ..where((t) => t.collectionType.equals(normalized))
-          ..orderBy([
-            (t) => OrderingTerm(
-                  expression: t.acquiredDate,
-                  mode: OrderingMode.desc,
-                )
-          ]))
-        .watch();
+
+    if (onlyOwned) {
+      query.where((t) => t.quantity.isBiggerThanValue(0));
+    }
+
+    query.orderBy([
+      (t) => OrderingTerm(
+            expression: t.acquiredDate,
+            mode: OrderingMode.desc,
+          ),
+      (t) => OrderingTerm(
+            expression: t.name,
+            mode: OrderingMode.asc,
+          ),
+    ]);
+
+    if (limit != null) {
+      query.limit(limit, offset: offset);
+    }
+
+    return query.watch();
   }
 
   /// Normalizes display collection titles to internal collection types.

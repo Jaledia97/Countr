@@ -16,12 +16,32 @@ final vaultDaoProvider = Provider<VaultDao>((ref) {
   return db.vaultDao;
 });
 
+/// Controls whether the Vault tab displays:
+/// - false (default): 'My Vault' (owned cards only, quantity > 0)
+/// - true: 'Catalog Reference' (unowned reference cards from bulk hydration, capped at 100)
+final vaultShowCatalogProvider = StateProvider<bool>((ref) => false);
+
 /// Reactive StreamProvider that queries VaultItems based on activeGameContextProvider.
 /// Automatically re-emits when the user switches collection context or database mutates.
 final vaultItemsStreamProvider = StreamProvider<List<VaultItem>>((ref) {
   final activeGame = ref.watch(activeGameContextProvider);
   final dao = ref.watch(vaultDaoProvider);
-  return dao.watchItemsByCollection(activeGame);
+  final showCatalog = ref.watch(vaultShowCatalogProvider);
+
+  if (showCatalog) {
+    // When viewing catalog reference, limit to 100 items to guarantee smooth 60fps rendering
+    return dao.watchItemsByCollection(
+      activeGame,
+      onlyOwned: false,
+      limit: 100,
+    );
+  }
+
+  // Default: Stream owned inventory only (quantity > 0)
+  return dao.watchItemsByCollection(
+    activeGame,
+    onlyOwned: true,
+  );
 });
 
 /// Model holding calculated portfolio ledger financial summaries

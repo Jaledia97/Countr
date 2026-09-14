@@ -11,9 +11,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **Command Center to Vault Navigation**: Selecting any collection in the Global Command Center menu now automatically routes to the Vault tab (`/vault`) with the selected collection context immediately applied and active.
+- **Catalog vs. Inventory Filter Modes**: Added `'All Vault'` (owned items) and `'Catalog (Ref)'` (Scryfall reference dictionary) filter chips in `VaultScreen` with dedicated Riverpod toggle (`vaultShowCatalogProvider`).
 
 ### Changed
+- **Viewport Virtualization with Slivers**: Refactored `VaultScreen` from `SingleChildScrollView` + `ListView.builder(shrinkWrap: true)` to `CustomScrollView` + `SliverList.builder`. Ensures locked 60fps/120fps scrolling performance with constant O(1) widget instantiation across 75,000+ bulk-hydrated cards.
+- **Paginated & Filtered Database Queries (`VaultDao`)**: Extended `watchItemsByCollection()` to accept `onlyOwned` and `limit` options, preventing unbounded in-memory deserialization of 75,000+ card records on tab switch.
 - **Collections Accordion Decoupling**: Added `onCollectionSelected` callback to [CollectionsAccordion](file:///Users/jomelaledia/freeSpc/Countr/lib/features/command_center/presentation/widgets/collections_accordion.dart), cleanly separating collection selection handling from menu dismissal.
+
+### Fixed
+- **Vault Tab Crash & UI Freeze (OOM / Layout Lockup)**: Resolved application freezing and memory pressure watchdog crashes when navigating to the Vault tab after Scryfall bulk hydration. Eliminated single-frame measurement of 75,000 card widgets and decoupled owned inventory from catalog dictionary data.
 
 ### Planned / Upcoming
 - Phase 3: Hardware Camera & Real-Time Card Scanner integration.

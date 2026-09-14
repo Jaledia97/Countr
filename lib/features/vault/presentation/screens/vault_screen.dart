@@ -26,6 +26,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
 
   final List<String> _filters = [
     'All Vault',
+    'Catalog (Ref)',
     'Graded Slabs',
     'Raw Singles',
     'Comics',
@@ -215,250 +216,332 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // MTG Bulk Hydration Engine Live Status
-            if (hydrationState.status != HydrationStatus.idle) ...[
-              const HydrationProgressCard(),
-              const SizedBox(height: 16),
-            ],
+      body: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            sliver: SliverToBoxAdapter(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // MTG Bulk Hydration Engine Live Status
+                  if (hydrationState.status != HydrationStatus.idle) ...[
+                    const HydrationProgressCard(),
+                    const SizedBox(height: 16),
+                  ],
 
-            // Dynamic Portfolio Summary Ledger Card
-            _buildPortfolioSummaryCard(summary),
+                  // Dynamic Portfolio Summary Ledger Card
+                  _buildPortfolioSummaryCard(summary),
 
-            const SizedBox(height: 20),
+                  const SizedBox(height: 20),
 
-            // Interactive Search Field (Maintains state freeze)
-            TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: 'Search cards, sets, or cert numbers...',
-                hintStyle: AppTypography.bodySecondary,
-                prefixIcon:
-                    const Icon(Icons.search, color: AppColors.textSecondary),
-                suffixIcon: _searchController.text.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear, size: 18),
-                        onPressed: () {
-                          setState(() {
-                            _searchController.clear();
-                          });
-                        },
-                      )
-                    : null,
-                filled: true,
-                fillColor: AppColors.surface,
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: AppColors.surfaceBorder),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: AppColors.surfaceBorder),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: AppColors.accentCyan),
-                ),
-              ),
-              onChanged: (_) => setState(() {}),
-            ),
-
-            const SizedBox(height: 16),
-
-            // Filter Chips
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: List.generate(_filters.length, (index) {
-                  final isSelected = _selectedFilterIndex == index;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: FilterChip(
-                      selected: isSelected,
-                      label: Text(_filters[index]),
-                      onSelected: (selected) {
-                        setState(() {
-                          _selectedFilterIndex = index;
-                        });
-                      },
-                      labelStyle: TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w600,
-                        color: isSelected
-                            ? AppColors.accentCyan
-                            : AppColors.textSecondary,
-                      ),
-                      backgroundColor: AppColors.surface,
-                      selectedColor: AppColors.accentCyan.withValues(alpha: 0.15),
-                      side: BorderSide(
-                        color: isSelected
-                            ? AppColors.accentCyan
-                            : AppColors.surfaceBorder,
-                      ),
-                    ),
-                  );
-                }),
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            // Live Drift Vault Items Stream
-            asyncItems.when(
-              data: (items) {
-                // Apply local search query
-                final query = _searchController.text.toLowerCase().trim();
-                var filtered = items.where((item) {
-                  if (query.isEmpty) return true;
-                  return item.name.toLowerCase().contains(query) ||
-                      item.setOrSeries.toLowerCase().contains(query) ||
-                      item.condition.toLowerCase().contains(query);
-                }).toList();
-
-                // Apply quick filter chips
-                if (_selectedFilterIndex == 1) {
-                  filtered = filtered.where((i) => i.isGraded).toList();
-                } else if (_selectedFilterIndex == 2) {
-                  filtered = filtered.where((i) => !i.isGraded).toList();
-                } else if (_selectedFilterIndex == 3) {
-                  filtered = filtered.where((i) => i.collectionType == 'comic').toList();
-                } else if (_selectedFilterIndex == 4) {
-                  filtered = filtered
-                      .where((i) => i.currentMarketPrice > i.acquiredPrice)
-                      .toList();
-                }
-
-                if (filtered.isEmpty) {
-                  return Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(32),
-                    decoration: BoxDecoration(
-                      color: AppColors.surface,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: AppColors.surfaceBorder),
-                    ),
-                    child: Column(
-                      children: [
-                        const Icon(
-                          Icons.inventory_2_outlined,
-                          size: 44,
-                          color: AppColors.textMuted,
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          'No items found in $activeGame',
-                          style: AppTypography.heading2,
-                        ),
-                        const SizedBox(height: 6),
-                        const Text(
-                          'Tap below to seed initial mock ledger records.',
-                          style: AppTypography.caption,
-                        ),
-                        const SizedBox(height: 16),
-                        Wrap(
-                          alignment: WrapAlignment.center,
-                          spacing: 12,
-                          runSpacing: 10,
-                          children: [
-                            ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.accentCyan,
-                                foregroundColor: AppColors.textDark,
-                              ),
-                              icon: const Icon(Icons.add_circle_outline_rounded),
-                              label: const Text('Seed Database'),
-                              onPressed: () async {
-                                await ref.read(vaultDaoProvider).seedDatabase();
-                              },
-                            ),
-                            OutlinedButton.icon(
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: AppColors.accentViolet,
-                                side: const BorderSide(
-                                    color: AppColors.accentViolet),
-                              ),
-                              icon: const Icon(Icons.bolt_rounded),
-                              label: const Text('Hydrate MTG Catalog'),
+                  // Interactive Search Field (Maintains state freeze)
+                  TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      hintText: 'Search cards, sets, or cert numbers...',
+                      hintStyle: AppTypography.bodySecondary,
+                      prefixIcon: const Icon(Icons.search,
+                          color: AppColors.textSecondary),
+                      suffixIcon: _searchController.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear, size: 18),
                               onPressed: () {
-                                ref
-                                    .read(hydrationControllerProvider.notifier)
-                                    .startHydration();
+                                setState(() {
+                                  _searchController.clear();
+                                });
                               },
-                            ),
-                          ],
-                        ),
-                      ],
+                            )
+                          : null,
+                      filled: true,
+                      fillColor: AppColors.surface,
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide:
+                            const BorderSide(color: AppColors.surfaceBorder),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide:
+                            const BorderSide(color: AppColors.surfaceBorder),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide:
+                            const BorderSide(color: AppColors.accentCyan),
+                      ),
                     ),
-                  );
-                }
+                    onChanged: (_) => setState(() {}),
+                  ),
 
-                return ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
+                  const SizedBox(height: 16),
+
+                  // Filter Chips with My Vault vs. Catalog Reference Mode
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: List.generate(_filters.length, (index) {
+                        final isSelected = _selectedFilterIndex == index;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: FilterChip(
+                            selected: isSelected,
+                            label: Text(_filters[index]),
+                            onSelected: (selected) {
+                              setState(() {
+                                _selectedFilterIndex = index;
+                                // Mode 1: Catalog Reference toggle
+                                if (index == 1) {
+                                  ref
+                                      .read(vaultShowCatalogProvider.notifier)
+                                      .state = true;
+                                } else {
+                                  ref
+                                      .read(vaultShowCatalogProvider.notifier)
+                                      .state = false;
+                                }
+                              });
+                            },
+                            labelStyle: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w600,
+                              color: isSelected
+                                  ? AppColors.accentCyan
+                                  : AppColors.textSecondary,
+                            ),
+                            backgroundColor: AppColors.surface,
+                            selectedColor:
+                                AppColors.accentCyan.withValues(alpha: 0.15),
+                            side: BorderSide(
+                              color: isSelected
+                                  ? AppColors.accentCyan
+                                  : AppColors.surfaceBorder,
+                            ),
+                          ),
+                        );
+                      }),
+                    ),
+                  ),
+
+                  if (_selectedFilterIndex == 1) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: AppColors.accentCyan.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                            color: AppColors.accentCyan.withValues(alpha: 0.3)),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.info_outline_rounded,
+                              color: AppColors.accentCyan, size: 16),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Browsing MTG Catalog Reference (unowned cards). Capped at top 100 for high performance.',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: AppColors.accentCyan,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
+                  const SizedBox(height: 16),
+                ],
+              ),
+            ),
+          ),
+
+          // Live Drift Vault Items Stream (Virtualized Slivers)
+          asyncItems.when(
+            data: (items) {
+              // Apply local search query
+              final query = _searchController.text.toLowerCase().trim();
+              var filtered = items.where((item) {
+                if (query.isEmpty) return true;
+                return item.name.toLowerCase().contains(query) ||
+                    item.setOrSeries.toLowerCase().contains(query) ||
+                    item.condition.toLowerCase().contains(query);
+              }).toList();
+
+              // Apply quick filter chips
+              if (_selectedFilterIndex == 2) {
+                filtered = filtered.where((i) => i.isGraded).toList();
+              } else if (_selectedFilterIndex == 3) {
+                filtered = filtered.where((i) => !i.isGraded).toList();
+              } else if (_selectedFilterIndex == 4) {
+                filtered = filtered
+                    .where((i) => i.collectionType == 'comic')
+                    .toList();
+              } else if (_selectedFilterIndex == 5) {
+                filtered = filtered
+                    .where((i) => i.currentMarketPrice > i.acquiredPrice)
+                    .toList();
+              }
+
+              if (filtered.isEmpty) {
+                return SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  sliver: SliverToBoxAdapter(
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(32),
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: AppColors.surfaceBorder),
+                      ),
+                      child: Column(
+                        children: [
+                          const Icon(
+                            Icons.inventory_2_outlined,
+                            size: 44,
+                            color: AppColors.textMuted,
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            _selectedFilterIndex == 1
+                                ? 'No catalog cards found'
+                                : 'No owned items in $activeGame',
+                            style: AppTypography.heading2,
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            _selectedFilterIndex == 1
+                                ? 'Hydrate the MTG dictionary or modify your search filter.'
+                                : 'Tap below to seed initial mock ledger records or hydrate catalog.',
+                            style: AppTypography.caption,
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 16),
+                          Wrap(
+                            alignment: WrapAlignment.center,
+                            spacing: 12,
+                            runSpacing: 10,
+                            children: [
+                              ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.accentCyan,
+                                  foregroundColor: AppColors.textDark,
+                                ),
+                                icon: const Icon(
+                                    Icons.add_circle_outline_rounded),
+                                label: const Text('Seed Database'),
+                                onPressed: () async {
+                                  await ref
+                                      .read(vaultDaoProvider)
+                                      .seedDatabase();
+                                },
+                              ),
+                              OutlinedButton.icon(
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: AppColors.accentViolet,
+                                  side: const BorderSide(
+                                      color: AppColors.accentViolet),
+                                ),
+                                icon: const Icon(Icons.bolt_rounded),
+                                label: const Text('Hydrate MTG Catalog'),
+                                onPressed: () {
+                                  ref
+                                      .read(
+                                          hydrationControllerProvider.notifier)
+                                      .startHydration();
+                                },
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }
+
+              // True Viewport Virtualization: Only instantiates visible cards on screen
+              return SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                sliver: SliverList.builder(
                   itemCount: filtered.length,
                   itemBuilder: (context, index) {
                     return VaultItemCard(item: filtered[index]);
                   },
-                );
-              },
-              loading: () => const Padding(
+                ),
+              );
+            },
+            loading: () => const SliverFillRemaining(
+              hasScrollBody: false,
+              child: Padding(
                 padding: EdgeInsets.all(40),
                 child: Center(
-                  child: CircularProgressIndicator(color: AppColors.accentCyan),
-                ),
-              ),
-              error: (err, stack) => Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AppColors.accentRose.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.accentRose),
-                ),
-                child: Text(
-                  'Database Ledger Error: $err',
-                  style: const TextStyle(color: AppColors.accentRose),
+                  child:
+                      CircularProgressIndicator(color: AppColors.accentCyan),
                 ),
               ),
             ),
-
-            const SizedBox(height: 20),
-
-            // State Freeze Status Callout
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.surfaceRaised,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: AppColors.accentEmerald.withValues(alpha: 0.4),
+            error: (err, stack) => SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              sliver: SliverToBoxAdapter(
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.accentRose.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.accentRose),
+                  ),
+                  child: Text(
+                    'Database Ledger Error: $err',
+                    style: const TextStyle(color: AppColors.accentRose),
+                  ),
                 ),
               ),
-              child: Row(
-                children: [
-                  const Icon(Icons.ac_unit_rounded,
-                      color: AppColors.accentEmerald, size: 20),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'State Frozen: Item count (${summary.totalItemCount + _manualItemCount}) and search query ("${_searchController.text}") persist when switching between Feed, Vault, and Decks.',
-                      style: const TextStyle(
-                        fontSize: 11.5,
-                        color: AppColors.textPrimary,
-                        height: 1.3,
+            ),
+          ),
+
+          // State Freeze Status Callout at the bottom
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+            sliver: SliverToBoxAdapter(
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceRaised,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: AppColors.accentEmerald.withValues(alpha: 0.4),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.ac_unit_rounded,
+                        color: AppColors.accentEmerald, size: 20),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'State Frozen: Item count (${summary.totalItemCount + _manualItemCount}) and search query ("${_searchController.text}") persist when switching between Feed, Vault, and Decks.',
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          color: AppColors.textPrimary,
+                          height: 1.3,
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
