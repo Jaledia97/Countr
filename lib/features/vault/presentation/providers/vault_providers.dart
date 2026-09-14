@@ -64,6 +64,8 @@ final vaultPortfolioSummaryProvider = Provider<VaultPortfolioSummary>((ref) {
       int count = 0;
 
       for (final item in items) {
+        // Filter strictly for owned inventory (quantity > 0); catalog dictionary items have quantity 0
+        if (item.quantity <= 0) continue;
         marketVal += (item.currentMarketPrice * item.quantity);
         costBasis += (item.acquiredPrice * item.quantity);
         count += item.quantity;

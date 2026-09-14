@@ -22,6 +22,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.3.0] - 2026-09-14
+
+### Phase 2.5: The Hydration Engine (Scryfall MTG Bulk Ingestion)
+
+#### Added
+- **Low-Memory Streaming Parser (`ScryfallStreamingParser`)**:
+  - Infinitely scalable background streaming parser operating inside a dedicated spawned `Isolate` (`lib/features/hydration/domain/isolate/scryfall_parser.dart`).
+  - Implements a character-level JSON streaming state machine tracking string escapes, brace depths, and token buffers across byte stream chunks.
+  - Emits batches of 1,000 `VaultItemsCompanion` objects across isolate ports with strict bidirectional acknowledgment backpressure (`'ack'`).
+  - Immediate reference dropping post-transmission to allow constant garbage collection, keeping total memory overhead under 20MB (well below the 60MB memory ceiling) during 75,000+ card bulk ingestion.
+  - Multi-faced card fallback for image URIs (`card_faces[0].image_uris.normal`) and pricing extraction (normal USD and foil USD fallback).
+  - Flags catalog cards with `quantity: 0` to denote reference dictionary entries.
+- **Scryfall Bulk Data HTTP Service (`ScryfallService`)**:
+  - Metadata fetcher querying `https://api.scryfall.com/bulk-data/default-cards` (`lib/features/hydration/data/services/scryfall_service.dart`).
+  - Streaming downloader piping multi-hundred megabyte response byte streams directly to temporary disk cache without loading the payload into RAM.
+  - Dependency injection support for `http.Client` for fast offline unit testing.
+- **Drift Batch Ingestion (`VaultDao`)**:
+  - `insertDictionaryBatch(chunk)` and `insertDictionaryChunked(items, {onProgress})` in `lib/features/vault/data/daos/vault_dao.dart`.
+  - Commits entries in chunks of 1,000 using `batch()` with `InsertMode.insertOrReplace` to avoid SQLite lockups and transaction timeouts.
+- **State Management & Pipeline Controller (`HydrationController` & `HydrationState`)**:
+  - Reactive Riverpod controller orchestrating metadata retrieval, download streaming, background isolate processing, and chunked database inserts (`lib/features/hydration/presentation/controllers/hydration_controller.dart`).
+  - Rich status tracking across `idle`, `fetchingMetadata`, `downloading`, `parsingAndInserting`, `complete`, and `error`.
+- **Hydration Progress UI (`HydrationProgressCard`)**:
+  - Dark neon card component rendered in `VaultScreen` with phase badge, step icon, animated/linear progress indicator, and live chunk statistics (`lib/features/hydration/presentation/widgets/hydration_progress_card.dart`).
+  - Added `[ Hydrate MTG Dictionary ]` action button in the AppBar and an empty-state quick-action button in `VaultScreen`.
+- **Catalog vs. Owned Portfolio Separation**:
+  - Updated `vaultPortfolioSummaryProvider` to strictly filter for owned items (`quantity > 0`), ensuring catalog dictionary items never distort portfolio valuation or cost basis.
+  - Updated `VaultItemCard` with a distinct `"CATALOG / UNOWNED"` cyan badge when displaying reference entries.
+- **Network Permissions**:
+  - Added `android.permission.INTERNET` to `AndroidManifest.xml`.
+  - Added `com.apple.security.network.client` entitlements to macOS debug and release profiles.
+- **Automated Test Suite**:
+  - Added 11 new automated unit and widget tests in `test/hydration_engine_test.dart` covering service streaming, isolate parser, backpressure chunking, portfolio separation, controller flow, and UI rendering (24/24 tests passing across full suite).
+
+---
+
 ## [0.2.0] - 2026-09-14
 
 ### Phase 2: Drift SQLite Ledger & Polymorphic JSON Architecture

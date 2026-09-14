@@ -5,6 +5,9 @@ import 'package:countr/core/constants/app_typography.dart';
 import 'package:countr/core/state/app_state.dart';
 import 'package:countr/features/vault/presentation/providers/vault_providers.dart';
 import 'package:countr/features/vault/presentation/widgets/vault_item_card.dart';
+import 'package:countr/features/hydration/presentation/controllers/hydration_state.dart';
+import 'package:countr/features/hydration/presentation/providers/hydration_providers.dart';
+import 'package:countr/features/hydration/presentation/widgets/hydration_progress_card.dart';
 
 /// Vault Screen (Safe / Collection Inventory).
 /// Phase 2: Infinitely scalable, offline-first local database using Drift
@@ -84,6 +87,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
     final activeGame = ref.watch(activeGameContextProvider);
     final asyncItems = ref.watch(vaultItemsStreamProvider);
     final summary = ref.watch(vaultPortfolioSummaryProvider);
+    final hydrationState = ref.watch(hydrationControllerProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -178,6 +182,13 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
         ),
         actions: [
           IconButton(
+            icon: const Icon(Icons.bolt_rounded, color: AppColors.accentCyan),
+            tooltip: 'Hydrate MTG Dictionary',
+            onPressed: () {
+              ref.read(hydrationControllerProvider.notifier).startHydration();
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.sync_rounded),
             tooltip: 'Reseed Database',
             onPressed: () async {
@@ -209,6 +220,12 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // MTG Bulk Hydration Engine Live Status
+            if (hydrationState.status != HydrationStatus.idle) ...[
+              const HydrationProgressCard(),
+              const SizedBox(height: 16),
+            ],
+
             // Dynamic Portfolio Summary Ledger Card
             _buildPortfolioSummaryCard(summary),
 
@@ -344,16 +361,37 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
                           style: AppTypography.caption,
                         ),
                         const SizedBox(height: 16),
-                        ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.accentCyan,
-                            foregroundColor: AppColors.textDark,
-                          ),
-                          icon: const Icon(Icons.add_circle_outline_rounded),
-                          label: const Text('Seed Database'),
-                          onPressed: () async {
-                            await ref.read(vaultDaoProvider).seedDatabase();
-                          },
+                        Wrap(
+                          alignment: WrapAlignment.center,
+                          spacing: 12,
+                          runSpacing: 10,
+                          children: [
+                            ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.accentCyan,
+                                foregroundColor: AppColors.textDark,
+                              ),
+                              icon: const Icon(Icons.add_circle_outline_rounded),
+                              label: const Text('Seed Database'),
+                              onPressed: () async {
+                                await ref.read(vaultDaoProvider).seedDatabase();
+                              },
+                            ),
+                            OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppColors.accentViolet,
+                                side: const BorderSide(
+                                    color: AppColors.accentViolet),
+                              ),
+                              icon: const Icon(Icons.bolt_rounded),
+                              label: const Text('Hydrate MTG Catalog'),
+                              onPressed: () {
+                                ref
+                                    .read(hydrationControllerProvider.notifier)
+                                    .startHydration();
+                              },
+                            ),
+                          ],
                         ),
                       ],
                     ),

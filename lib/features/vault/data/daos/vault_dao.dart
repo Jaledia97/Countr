@@ -156,6 +156,44 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
   Future<int> insertItem(VaultItemsCompanion item) =>
       into(vaultItems).insert(item);
 
+  /// Inserts large lists of catalog/dictionary items in chunks of 1,000 using batch().
+  /// Prevents database lockups, transaction limits, and OOM crashes.
+  Future<void> insertDictionaryChunked(
+    List<VaultItemsCompanion> items, {
+    void Function(int inserted, int total)? onProgress,
+  }) async {
+    const chunkSize = 1000;
+    final total = items.length;
+    var inserted = 0;
+
+    for (var i = 0; i < total; i += chunkSize) {
+      final end = (i + chunkSize < total) ? i + chunkSize : total;
+      final chunk = items.sublist(i, end);
+
+      await batch((b) {
+        b.insertAll(
+          vaultItems,
+          chunk,
+          mode: InsertMode.insertOrReplace,
+        );
+      });
+
+      inserted += chunk.length;
+      onProgress?.call(inserted, total);
+    }
+  }
+
+  /// Inserts a single chunk of dictionary items (used by streaming isolate pipeline).
+  Future<void> insertDictionaryBatch(List<VaultItemsCompanion> chunk) async {
+    await batch((b) {
+      b.insertAll(
+        vaultItems,
+        chunk,
+        mode: InsertMode.insertOrReplace,
+      );
+    });
+  }
+
   /// Deletes all items (used for test resets).
   Future<int> clearAllItems() => delete(vaultItems).go();
 }
