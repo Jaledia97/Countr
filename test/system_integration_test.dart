@@ -127,6 +127,7 @@ void main() {
       expect(find.textContaining('Charizard ex'), findsNothing);
 
       // Filter: Raw Singles (Index 3)
+      await tester.ensureVisible(find.text('Raw Singles'));
       await tester.tap(find.text('Raw Singles'));
       await tester.pumpAndSettle();
 
@@ -139,6 +140,7 @@ void main() {
       // Filter: High P/L (Index 5)
       // Ultimate Fallout (+40%), One Ring (+203%), TJ Watt (+800%) are profit.
       // Charizard ex (-27.8%) is loss.
+      await tester.ensureVisible(find.text('High P/L'));
       await tester.tap(find.text('High P/L'));
       await tester.pumpAndSettle();
 
@@ -155,9 +157,15 @@ void main() {
     testWidgets('ScannerModal toggles flash and switches scan modes cleanly',
         (WidgetTester tester) async {
       await tester.pumpWidget(
-        const MaterialApp(
-          home: Scaffold(
-            body: ScannerModal(),
+        ProviderScope(
+          overrides: [
+            appDatabaseProvider.overrideWithValue(db),
+            vaultDaoProvider.overrideWithValue(db.vaultDao),
+          ],
+          child: const MaterialApp(
+            home: Scaffold(
+              body: ScannerModal(),
+            ),
           ),
         ),
       );

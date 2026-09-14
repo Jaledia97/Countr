@@ -111,3 +111,40 @@ final vaultPortfolioSummaryProvider = Provider<VaultPortfolioSummary>((ref) {
     ),
   );
 });
+
+/// View mode for Vault screen (All Vault vs Binders View)
+enum VaultViewMode {
+  allVault,
+  binders,
+}
+
+final vaultViewModeProvider =
+    StateProvider<VaultViewMode>((ref) => VaultViewMode.allVault);
+
+/// Reactive StreamProvider for items staged in the Inbox
+final inboxItemsStreamProvider = StreamProvider<List<VaultItem>>((ref) {
+  final dao = ref.watch(vaultDaoProvider);
+  return dao.watchInboxItems();
+});
+
+/// Reactive count of items in the Inbox
+final inboxItemCountProvider = Provider<int>((ref) {
+  final asyncInbox = ref.watch(inboxItemsStreamProvider);
+  return asyncInbox.maybeWhen(
+    data: (items) => items.fold<int>(0, (sum, i) => sum + i.quantity),
+    orElse: () => 0,
+  );
+});
+
+/// Reactive StreamProvider for binders filtered by activeGameContextProvider
+final bindersStreamProvider = StreamProvider<List<VaultBinder>>((ref) {
+  final activeGame = ref.watch(activeGameContextProvider);
+  final dao = ref.watch(vaultDaoProvider);
+  return dao.watchBindersByCollection(activeGame);
+});
+
+/// Reactive StreamProvider for item counts per binder
+final binderItemCountsProvider = StreamProvider<Map<String, int>>((ref) {
+  final dao = ref.watch(vaultDaoProvider);
+  return dao.watchBinderItemCounts();
+});

@@ -45,5 +45,9 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Countr requires camera access to scan and identify trading cards in real time.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Countr requires microphone access when capturing card inspection videos.</string>
 </dict>
 </plist>

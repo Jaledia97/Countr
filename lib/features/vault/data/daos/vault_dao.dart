@@ -1,11 +1,13 @@
 import 'package:drift/drift.dart';
+import 'package:uuid/uuid.dart';
 import 'package:countr/core/database/app_database.dart';
+import 'package:countr/core/database/tables/vault_binders_table.dart';
 import 'package:countr/core/database/tables/vault_items_table.dart';
 
 part 'vault_dao.g.dart';
 
-/// Data Access Object for VaultItems with polymorphic queries and seeding.
-@DriftAccessor(tables: [VaultItems])
+/// Data Access Object for VaultItems and VaultBinders with polymorphic queries and seeding.
+@DriftAccessor(tables: [VaultItems, VaultBinders])
 class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
   VaultDao(super.db);
 
@@ -45,6 +47,42 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     }
 
     return query.watch();
+  }
+
+  /// One-shot query to fetch cards by collection type.
+  Future<List<VaultItem>> getItemsByCollection(
+    String collectionType, {
+    bool onlyOwned = false,
+    int? limit,
+    int? offset,
+  }) {
+    final normalized = _normalizeCollectionType(collectionType);
+    final query = select(vaultItems);
+
+    if (normalized != 'all') {
+      query.where((t) => t.collectionType.equals(normalized));
+    }
+
+    if (onlyOwned) {
+      query.where((t) => t.quantity.isBiggerThanValue(0));
+    }
+
+    query.orderBy([
+      (t) => OrderingTerm(
+            expression: t.acquiredDate,
+            mode: OrderingMode.desc,
+          ),
+      (t) => OrderingTerm(
+            expression: t.name,
+            mode: OrderingMode.asc,
+          ),
+    ]);
+
+    if (limit != null) {
+      query.limit(limit, offset: offset);
+    }
+
+    return query.get();
   }
 
   /// Normalizes display collection titles to internal collection types.
@@ -218,4 +256,215 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
 
   /// Deletes all items (used for test resets).
   Future<int> clearAllItems() => delete(vaultItems).go();
+
+  // ---------------------------------------------------------------------------
+  // PHASE 3: VAULT BINDER METHODS
+  // ---------------------------------------------------------------------------
+
+  /// Streams all binders filtered by collection type (or all collections).
+  Stream<List<VaultBinder>> watchBindersByCollection(String collectionType) {
+    final normalized = _normalizeCollectionType(collectionType);
+    final query = select(vaultBinders);
+    if (normalized != 'all') {
+      query.where((t) => t.collectionType.equals(normalized));
+    }
+    query.orderBy([
+      (t) => OrderingTerm(expression: t.createdAt, mode: OrderingMode.desc),
+    ]);
+    return query.watch();
+  }
+
+  /// Creates a new custom Vault Binder with an active game context.
+  Future<VaultBinder> createBinder({
+    required String name,
+    required String collectionType,
+  }) async {
+    final id = const Uuid().v4();
+    final normalized = _normalizeCollectionType(collectionType);
+    final binder = VaultBindersCompanion.insert(
+      id: id,
+      name: name.trim().isEmpty ? 'Untitled Binder' : name.trim(),
+      collectionType: normalized == 'all' ? 'mtg' : normalized,
+      createdAt: DateTime.now(),
+    );
+    await into(vaultBinders).insert(binder);
+    return (select(vaultBinders)..where((t) => t.id.equals(id))).getSingle();
+  }
+
+  /// Streams a map of binderId -> total items anchored inside that binder.
+  Stream<Map<String, int>> watchBinderItemCounts() {
+    final query = select(vaultItems)
+      ..where((t) =>
+          t.quantity.isBiggerThanValue(0) & t.primaryBinderId.isNotNull());
+    return query.watch().map((items) {
+      final counts = <String, int>{};
+      for (final item in items) {
+        final loc = item.primaryBinderId;
+        if (loc != null) {
+          counts[loc] = (counts[loc] ?? 0) + item.quantity;
+        }
+      }
+      return counts;
+    });
+  }
+
+  /// Bulk assigns a list of item IDs to their physical home anchor (binder).
+  Future<int> assignItemsToBinder(
+      List<String> itemIds, String targetBinderId) async {
+    return (update(vaultItems)..where((t) => t.id.isIn(itemIds))).write(
+      VaultItemsCompanion(
+        primaryBinderId: Value(targetBinderId),
+      ),
+    );
+  }
+
+  /// Alias for assignItemsToBinder
+  Future<int> moveItemsToBinder(
+          List<String> itemIds, String targetBinderId) =>
+      assignItemsToBinder(itemIds, targetBinderId);
+
+  /// Streams all owned cards anchored to a specific physical binder.
+  Stream<List<VaultItem>> watchItemsByBinder(String binderId) {
+    return (select(vaultItems)
+          ..where((t) =>
+              t.primaryBinderId.equals(binderId) &
+              t.quantity.isBiggerThanValue(0))
+          ..orderBy([
+            (t) => OrderingTerm(
+                expression: t.lastPriceUpdate, mode: OrderingMode.desc),
+            (t) => OrderingTerm(expression: t.name, mode: OrderingMode.asc),
+          ]))
+        .watch();
+  }
+
+  // ---------------------------------------------------------------------------
+  // PHASE 3: INBOX HOLDING AREA
+  // ---------------------------------------------------------------------------
+
+  /// Streams all owned cards currently staged in the "Inbox" holding area (primaryBinderId is NULL).
+  Stream<List<VaultItem>> watchInboxItems() {
+    return (select(vaultItems)
+          ..where((t) =>
+              t.primaryBinderId.isNull() &
+              t.quantity.isBiggerThanValue(0))
+          ..orderBy([
+            (t) => OrderingTerm(
+                expression: t.lastPriceUpdate, mode: OrderingMode.desc),
+            (t) => OrderingTerm(expression: t.name, mode: OrderingMode.asc),
+          ]))
+        .watch();
+  }
+
+  // ---------------------------------------------------------------------------
+  // PHASE 3: REAL-TIME SCANNER CARD MATCHING
+  // ---------------------------------------------------------------------------
+
+  /// Real-time search in SQLite for a card matching OCR candidates.
+  Future<VaultItem?> matchScannedCard({
+    required String candidateName,
+    String? collectorNumber,
+    String? setCode,
+    String? collectionType,
+  }) async {
+    final cleanCandidate = candidateName.trim().toLowerCase();
+    if (cleanCandidate.length < 2) return null;
+
+    final query = select(vaultItems);
+    if (collectionType != null && collectionType.isNotEmpty) {
+      final normalized = _normalizeCollectionType(collectionType);
+      if (normalized != 'all') {
+        query.where((t) => t.collectionType.equals(normalized));
+      }
+    }
+
+    // 1. Exact name match (case-insensitive)
+    final exactMatches = await (select(vaultItems)
+          ..where((t) => t.name.lower().equals(cleanCandidate)))
+        .get();
+
+    if (exactMatches.isNotEmpty) {
+      if (collectorNumber != null && collectorNumber.isNotEmpty) {
+        final match = exactMatches.firstWhere(
+          (i) =>
+              i.dynamicData.contains('"collector_number":"$collectorNumber"') ||
+              i.dynamicData.contains('"collector_number": "$collectorNumber"'),
+          orElse: () => exactMatches.first,
+        );
+        return match;
+      }
+      return exactMatches.first;
+    }
+
+    // 2. Substring match
+    final subMatches = await (select(vaultItems)
+          ..where((t) => t.name.lower().like('%$cleanCandidate%'))
+          ..limit(10))
+        .get();
+
+    if (subMatches.isNotEmpty) {
+      if (collectorNumber != null && collectorNumber.isNotEmpty) {
+        final match = subMatches.firstWhere(
+          (i) =>
+              i.dynamicData.contains('"collector_number":"$collectorNumber"') ||
+              i.dynamicData.contains('"collector_number": "$collectorNumber"'),
+          orElse: () => subMatches.first,
+        );
+        return match;
+      }
+      return subMatches.first;
+    }
+
+    return null;
+  }
+
+  /// Instantly UPSERTs a matched card into the user's Inbox holding area.
+  Future<void> upsertScannedCardToInbox(
+    VaultItem card, {
+    bool isFoil = false,
+  }) async {
+    final existing = await (select(vaultItems)..where((t) => t.id.equals(card.id)))
+        .getSingleOrNull();
+
+    if (existing == null) {
+      await into(vaultItems).insert(
+        VaultItemsCompanion.insert(
+          id: card.id,
+          collectionType: card.collectionType,
+          name: card.name,
+          setOrSeries: card.setOrSeries,
+          imageUrl: card.imageUrl,
+          acquiredPrice: card.currentMarketPrice,
+          acquiredDate: DateTime.now(),
+          quantity: const Value(1),
+          condition: isFoil ? 'NM (Foil)' : 'NM',
+          isGraded: const Value(false),
+          personalNotes: isFoil
+              ? const Value('Scanned Foil / Variant')
+              : const Value('Edge Scanned'),
+          currentMarketPrice: card.currentMarketPrice,
+          lastPriceUpdate: DateTime.now(),
+          dynamicData: card.dynamicData,
+          primaryBinderId: const Value(null),
+        ),
+      );
+    } else {
+      final newQuantity = existing.quantity > 0 ? existing.quantity + 1 : 1;
+      final newNotes = existing.personalNotes != null &&
+              existing.personalNotes!.isNotEmpty
+          ? existing.personalNotes
+          : (isFoil ? 'Scanned Foil / Variant' : 'Edge Scanned');
+
+      await (update(vaultItems)..where((t) => t.id.equals(card.id))).write(
+        VaultItemsCompanion(
+          quantity: Value(newQuantity),
+          primaryBinderId: Value(existing.primaryBinderId),
+          currentMarketPrice: Value(card.currentMarketPrice),
+          lastPriceUpdate: Value(DateTime.now()),
+          condition:
+              isFoil ? const Value('NM (Foil)') : Value(existing.condition),
+          personalNotes: Value(newNotes),
+        ),
+      );
+    }
+  }
 }

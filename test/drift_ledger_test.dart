@@ -221,6 +221,7 @@ void main() {
         lastPriceUpdate: now,
         dynamicData:
             '{"mana": "2UB", "type": "Creature", "power": 3, "toughness": 2}',
+        primaryBinderId: null,
       );
       final pokeItem = VaultItem(
         id: 'item-pokemon-charizard',
@@ -236,6 +237,7 @@ void main() {
         currentMarketPrice: 3.25,
         lastPriceUpdate: now,
         dynamicData: '{"hp": 120, "stage": "Basic"}',
+        primaryBinderId: null,
       );
 
       await tester.pumpWidget(

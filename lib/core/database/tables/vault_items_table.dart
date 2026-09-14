@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import 'vault_binders_table.dart';
 
 /// The Comprehensive Ledger Schema (VaultItems)
 /// Acts as an "end-all-be-all" financial portfolio ledger for
@@ -20,6 +21,12 @@ class VaultItems extends Table {
   BoolColumn get isGraded =>
       boolean().named('is_graded').withDefault(const Constant(false))();
   TextColumn get personalNotes => text().named('personal_notes').nullable()();
+
+  // Physical Home Anchor (NULL = unassigned / Inbox)
+  TextColumn get primaryBinderId => text()
+      .named('primary_binder_id')
+      .nullable()
+      .references(VaultBinders, #id)();
 
   // Live Market Engine
   RealColumn get currentMarketPrice => real().named('current_market_price')();
