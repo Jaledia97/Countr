@@ -63,6 +63,7 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
   bool _isCameraAvailable = false;
   bool _isScanningPaused = false;
   int _sessionScanCount = 0;
+  DateTime? _lastIdleLogTime;
 
   final List<String> _scanModes = [
     'RAW CARD',
@@ -108,11 +109,11 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
 
       final controller = CameraController(
         backCamera,
-        ResolutionPreset.max,
+        ResolutionPreset.veryHigh,
         enableAudio: false,
         imageFormatGroup: Platform.isIOS
             ? ImageFormatGroup.bgra8888
-            : ImageFormatGroup.yuv420,
+            : ImageFormatGroup.nv21,
       );
 
       await controller.initialize();
@@ -126,6 +127,8 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
 
       // Start the live frame stream for on-device OCR
       await controller.startImageStream(_processCameraFrame);
+
+      debugPrint('[Countr Scanner] Camera successfully started: ${backCamera.name} (${controller.resolutionPreset}, ${controller.imageFormatGroup})');
 
       setState(() {
         _isCameraAvailable = true;
@@ -230,6 +233,7 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
       final inputImage = CameraImageConverter.toInputImage(
         image: image,
         camera: camera,
+        deviceOrientation: _cameraController?.value.deviceOrientation,
       );
 
       if (inputImage == null) return;
@@ -239,12 +243,23 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
       final ocrResult = OcrHeuristicMatcher.parseRecognizedText(recognized);
 
       if (cleanedLines.isEmpty) {
+        final now = DateTime.now();
+        if (_lastIdleLogTime == null ||
+            now.difference(_lastIdleLogTime!) > const Duration(seconds: 2)) {
+          _lastIdleLogTime = now;
+          debugPrint('[Countr Scanner] Video stream active (${image.width}x${image.height}): awaiting card in reticle...');
+        }
         await _autoAdjustController?.onFrameResult(matched: false);
         return;
       }
 
       final dao = ref.read(vaultDaoProvider);
       final activeGame = ref.read(activeGameContextProvider);
+
+      debugPrint('[Countr Scanner OCR] Recognized ${cleanedLines.length} candidate lines: $cleanedLines (Active Game: $activeGame)');
+      if (ocrResult.collectorNumber != null || ocrResult.setCode != null) {
+        debugPrint('[Countr Scanner OCR] Collector: ${ocrResult.collectorNumber}, Set: ${ocrResult.setCode}');
+      }
 
       final card = await dao.matchScannedCard(
         cleanedLines,
@@ -254,6 +269,7 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
       );
 
       if (card != null) {
+        debugPrint('>>> [Countr Scanner MATCH SUCCESS] Card "${card.name}" matched! Set: "${card.setOrSeries}", ID: "${card.id}" (Context: $activeGame)');
         // Auto-Routing: Instantly stop image stream, play haptic, and route to Inbox
         if (_cameraController != null &&
             _cameraController!.value.isInitialized &&
@@ -267,10 +283,11 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
         await _autoAdjustController?.onFrameResult(matched: true);
         await _onCardMatched(card);
       } else {
+        debugPrint('[Countr Scanner NO MATCH] No card in database matched lines: $cleanedLines in active context: "$activeGame"');
         await _autoAdjustController?.onFrameResult(matched: false);
       }
-    } catch (e) {
-      debugPrint('OCR stream exception: $e');
+    } catch (e, stack) {
+      debugPrint('[Countr Scanner ERROR] OCR stream exception: $e\n$stack');
     } finally {
       _isProcessingFrame = false;
     }
@@ -280,6 +297,8 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
   /// and automatically routes into the Inbox screen.
   Future<void> _onCardMatched(VaultItem card) async {
     final dao = ref.read(vaultDaoProvider);
+
+    debugPrint('>>> [Countr Scanner AUTO-ROUTE] Adding "${card.name}" to Inbox and opening InboxScreen modal...');
 
     // Instant UPSERT to Inbox
     await dao.upsertScannedCardToInbox(card, isFoil: _isFoilMode);

@@ -21,11 +21,13 @@ class CameraImageConverter {
     if (Platform.isIOS || image.format.group == ImageFormatGroup.bgra8888) {
       bytes = image.planes.first.bytes;
     } else {
-      final WriteBuffer allBytes = WriteBuffer();
-      for (final plane in image.planes) {
-        allBytes.putUint8List(plane.bytes);
+      // If CameraX provided single-plane NV21 or BGRA:
+      if (image.planes.length == 1) {
+        bytes = image.planes.first.bytes;
+      } else {
+        // Multi-plane YUV420_888 to NV21 conversion
+        bytes = _convertYuv420ToNv21(image);
       }
-      bytes = allBytes.done().buffer.asUint8List();
     }
 
     final metadata = InputImageMetadata(
@@ -38,11 +40,65 @@ class CameraImageConverter {
     return InputImage.fromBytes(bytes: bytes, metadata: metadata);
   }
 
+  /// Converts multi-plane Android YUV420_888 to contiguous NV21 bytes
+  /// with proper stride padding and UV interleaving.
+  static Uint8List _convertYuv420ToNv21(CameraImage image) {
+    final width = image.width;
+    final height = image.height;
+    final yPlane = image.planes[0];
+    final uPlane = image.planes[1];
+    final vPlane = image.planes[2];
+
+    final yBuffer = yPlane.bytes;
+    final uBuffer = uPlane.bytes;
+    final vBuffer = vPlane.bytes;
+
+    final numPixels = width * height;
+    final nv21 = Uint8List(numPixels + (numPixels ~/ 2));
+
+    // 1. Copy Y plane (handling row padding if bytesPerRow != width)
+    int idY = 0;
+    final yRowStride = yPlane.bytesPerRow;
+    for (int row = 0; row < height; row++) {
+      final rowOffset = row * yRowStride;
+      if (rowOffset + width <= yBuffer.length) {
+        nv21.setRange(idY, idY + width, yBuffer, rowOffset);
+      }
+      idY += width;
+    }
+
+    // 2. Interleave V and U planes (NV21 format: V0, U0, V1, U1...)
+    final int vRowStride = vPlane.bytesPerRow;
+    final int uRowStride = uPlane.bytesPerRow;
+    final int vPixelStride = vPlane.bytesPerPixel ?? 2;
+    final int uPixelStride = uPlane.bytesPerPixel ?? 2;
+    int idUV = numPixels;
+    final int uvHeight = height ~/ 2;
+    final int uvWidth = width ~/ 2;
+
+    for (int row = 0; row < uvHeight; row++) {
+      final vRowOffset = row * vRowStride;
+      final uRowOffset = row * uRowStride;
+      for (int col = 0; col < uvWidth; col++) {
+        final vIndex = vRowOffset + (col * vPixelStride);
+        final uIndex = uRowOffset + (col * uPixelStride);
+        if (vIndex < vBuffer.length && uIndex < uBuffer.length && idUV + 1 < nv21.length) {
+          nv21[idUV++] = vBuffer[vIndex];
+          nv21[idUV++] = uBuffer[uIndex];
+        }
+      }
+    }
+
+    return nv21;
+  }
+
   /// Determines the ML Kit [InputImageFormat] from [CameraImage].
   static InputImageFormat? getInputImageFormat(CameraImage image) {
     if (Platform.isIOS || image.format.group == ImageFormatGroup.bgra8888) {
       return InputImageFormat.bgra8888;
-    } else if (Platform.isAndroid || image.format.group == ImageFormatGroup.yuv420) {
+    } else if (Platform.isAndroid ||
+        image.format.group == ImageFormatGroup.nv21 ||
+        image.format.group == ImageFormatGroup.yuv420) {
       return InputImageFormat.nv21;
     }
     return InputImageFormatValue.fromRawValue(image.format.raw);

@@ -84,6 +84,42 @@ void main() {
             dynamicData: '{"collector_number":"232","rarity":"rare"}',
           ),
         );
+
+    await db.vaultDao.into(db.vaultItems).insert(
+          VaultItemsCompanion.insert(
+            id: 'mtg-boseiju',
+            collectionType: 'mtg',
+            name: 'Boseiju, Who Endures',
+            setOrSeries: 'Kamigawa: Neon Dynasty',
+            imageUrl: 'https://example.com/boseiju.jpg',
+            acquiredPrice: 30.0,
+            acquiredDate: DateTime.now(),
+            quantity: const Value(0),
+            condition: 'NM',
+            isGraded: const Value(false),
+            currentMarketPrice: 38.0,
+            lastPriceUpdate: DateTime.now(),
+            dynamicData: '{"collector_number":"266","rarity":"rare"}',
+          ),
+        );
+
+    await db.vaultDao.into(db.vaultItems).insert(
+          VaultItemsCompanion.insert(
+            id: 'mtg-obyra',
+            collectionType: 'mtg',
+            name: "Obyra's Attendants // Desperate Parry",
+            setOrSeries: 'Wilds of Eldraine',
+            imageUrl: 'https://example.com/obyra.jpg',
+            acquiredPrice: 0.25,
+            acquiredDate: DateTime.now(),
+            quantity: const Value(0),
+            condition: 'NM',
+            isGraded: const Value(false),
+            currentMarketPrice: 0.35,
+            lastPriceUpdate: DateTime.now(),
+            dynamicData: '{"collector_number":"061","rarity":"common"}',
+          ),
+        );
   });
 
   tearDown(() async {
@@ -147,6 +183,26 @@ void main() {
       final matchRaw = await db.vaultDao.matchScannedCard(['"Lifetime" Pass Holder'], 'mtg');
       expect(matchRaw, isNotNull);
       expect(matchRaw!.id, equals('mtg-lifetime-pass-holder'));
+    });
+
+    test('correctly matches card names with commas (e.g. Boseiju, Who Endures)', () async {
+      final match = await db.vaultDao.matchScannedCard(['boseiju who endures'], 'mtg');
+      expect(match, isNotNull);
+      expect(match!.id, equals('mtg-boseiju'));
+      expect(match.name, equals('Boseiju, Who Endures'));
+    });
+
+    test('correctly matches split / adventure cards by front-face name', () async {
+      final match = await db.vaultDao.matchScannedCard(['obyras attendants'], 'mtg');
+      expect(match, isNotNull);
+      expect(match!.id, equals('mtg-obyra'));
+      expect(match.name, equals("Obyra's Attendants // Desperate Parry"));
+    });
+
+    test('correctly matches smart curly apostrophes (e.g. Urza’s Saga)', () async {
+      final match = await db.vaultDao.matchScannedCard(['urza’s saga'], 'mtg');
+      expect(match, isNotNull);
+      expect(match!.id, equals('mtg-urzas-saga'));
     });
 
     test('collector number override prioritizes collector number match over name', () async {

@@ -90,6 +90,11 @@ class OcrHeuristicMatcher {
   static List<String> extractCleanedLines(RecognizedText recognizedText) {
     final cleaned = <String>[];
     for (final block in recognizedText.blocks) {
+      // Evaluate the block as a whole (catches multi-line card names like "Archangel\nAvacyn")
+      final blockSanitized = sanitizeText(block.text);
+      if (blockSanitized.length >= 3 && !cleaned.contains(blockSanitized)) {
+        cleaned.add(blockSanitized);
+      }
       for (final line in block.lines) {
         final sanitized = sanitizeText(line.text);
         if (sanitized.length >= 3 && !cleaned.contains(sanitized)) {

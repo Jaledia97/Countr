@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 import 'package:countr/core/database/app_database.dart';
 import 'package:countr/core/database/tables/vault_binders_table.dart';
@@ -423,7 +424,7 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
               AND "quantity" = 0
               AND (
                 "name" = ? COLLATE NOCASE
-                OR replace(replace(replace(lower("name"), char(34), ''), char(39), ''), '-', '') = ?
+                OR replace(replace(replace(replace(replace(replace(replace(replace(lower(substr("name", 1, instr("name" || ' //', ' //') - 1)), char(34), ''), char(39), ''), '-', ''), ',', ''), ':', ''), '.', ''), '’', ''), '‘', '') = ?
               )
             LIMIT 1;
             '''
@@ -432,7 +433,7 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
             WHERE "quantity" = 0
               AND (
                 "name" = ? COLLATE NOCASE
-                OR replace(replace(replace(lower("name"), char(34), ''), char(39), ''), '-', '') = ?
+                OR replace(replace(replace(replace(replace(replace(replace(replace(lower(substr("name", 1, instr("name" || ' //', ' //') - 1)), char(34), ''), char(39), ''), '-', ''), ',', ''), ':', ''), '.', ''), '’', ''), '‘', '') = ?
               )
             LIMIT 1;
             ''';
@@ -447,7 +448,10 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
         readsFrom: {vaultItems},
       ).map((row) => vaultItems.map(row.data)).getSingleOrNull();
 
-      if (catalogMatch != null) return catalogMatch;
+      if (catalogMatch != null) {
+        debugPrint('[VaultDao.matchScannedCard] Matched catalog item: "${catalogMatch.name}" from line: "$line" (context: $normalized)');
+        return catalogMatch;
+      }
     }
 
     // 4. Fallback: Check all items (including owned cards quantity > 0) with exact match
@@ -458,7 +462,7 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
             WHERE "collection_type" = ?
               AND (
                 "name" = ? COLLATE NOCASE
-                OR replace(replace(replace(lower("name"), char(34), ''), char(39), ''), '-', '') = ?
+                OR replace(replace(replace(replace(replace(replace(replace(replace(lower(substr("name", 1, instr("name" || ' //', ' //') - 1)), char(34), ''), char(39), ''), '-', ''), ',', ''), ':', ''), '.', ''), '’', ''), '‘', '') = ?
               )
             LIMIT 1;
             '''
@@ -466,7 +470,7 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
             SELECT * FROM "vault_items"
             WHERE (
               "name" = ? COLLATE NOCASE
-              OR replace(replace(replace(lower("name"), char(34), ''), char(39), ''), '-', '') = ?
+              OR replace(replace(replace(replace(replace(replace(replace(replace(lower(substr("name", 1, instr("name" || ' //', ' //') - 1)), char(34), ''), char(39), ''), '-', ''), ',', ''), ':', ''), '.', ''), '’', ''), '‘', '') = ?
             )
             LIMIT 1;
             ''';
@@ -481,7 +485,10 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
         readsFrom: {vaultItems},
       ).map((row) => vaultItems.map(row.data)).getSingleOrNull();
 
-      if (fallbackMatch != null) return fallbackMatch;
+      if (fallbackMatch != null) {
+        debugPrint('[VaultDao.matchScannedCard] Matched inventory item: "${fallbackMatch.name}" from line: "$line" (context: $normalized)');
+        return fallbackMatch;
+      }
     }
 
     return null;
