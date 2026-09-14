@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Comprehensive System & Integration Test Suite**: Added 8 automated integration and stress tests in [system_integration_test.dart](file:///Users/jomelaledia/freeSpc/Countr/test/system_integration_test.dart) covering interactive Vault search and clear, filter chip isolation (Graded Slabs, Raw Singles, High P/L), full-screen scanner flash toggles and mode selectors, social post hype/wishlist interactions, DAO limit/offset pagination, database wiping/reseeding cycles, polymorphic JSON error resilience, and character-boundary split chunk streaming.
 - **Command Center to Vault Navigation**: Selecting any collection in the Global Command Center menu now automatically routes to the Vault tab (`/vault`) with the selected collection context immediately applied and active.
 - **Catalog vs. Inventory Filter Modes**: Added `'All Vault'` (owned items) and `'Catalog (Ref)'` (Scryfall reference dictionary) filter chips in `VaultScreen` with dedicated Riverpod toggle (`vaultShowCatalogProvider`).
 
