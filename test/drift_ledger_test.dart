@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart' as drift;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -91,6 +92,65 @@ void main() {
           await db.vaultDao.watchItemsByCollection('Sports Cards').first;
       expect(sportsItems.length, 1);
       expect(sportsItems.first.collectionType, 'sports_card');
+    });
+
+    test(
+        'insertDictionaryBatch true UPSERT updates catalog metadata while strictly preserving user inventory fields on ID conflict',
+        () async {
+      // 1. Verify pre-existing seeded user item (The One Ring)
+      final preItems = await db.vaultDao.watchItemsByCollection('mtg').first;
+      expect(preItems.length, 1);
+      final preMtg = preItems.first;
+      expect(preMtg.id, 'item-mtg-one-ring');
+      expect(preMtg.quantity, 1);
+      expect(preMtg.acquiredPrice, 15.00);
+      expect(preMtg.condition, 'NM');
+      expect(preMtg.isGraded, false);
+      expect(preMtg.personalNotes, contains('Pulled from collector booster'));
+      expect(preMtg.currentMarketPrice, 45.50);
+
+      // 2. Incoming Scryfall bulk companion with matching ID, updated market price and oracle text,
+      // but catalog defaults (quantity: 0, acquiredPrice: 0.0, personalNotes: null).
+      final incomingBulkCard = VaultItemsCompanion.insert(
+        id: 'item-mtg-one-ring',
+        collectionType: 'mtg',
+        name: 'The One Ring (Updated Oracle Text)',
+        setOrSeries: 'Tales of Middle-earth Special Edition',
+        imageUrl: 'https://cards.scryfall.io/large/the_one_ring_new.jpg',
+        acquiredPrice: 0.0, // Catalog default
+        acquiredDate: DateTime.now(), // Catalog default
+        quantity: const drift.Value(0), // UNOWNED CATALOG ENTRY
+        condition: 'HP', // Incoming catalog dummy value
+        isGraded: const drift.Value(false),
+        personalNotes: const drift.Value(null),
+        currentMarketPrice: 125.00, // Updated live market price
+        lastPriceUpdate: DateTime.now(),
+        dynamicData:
+            '{"mana": "4", "type": "Legendary Artifact", "oracle_text": "Indestructible"}',
+      );
+
+      // 3. Ingest chunk with true UPSERT
+      await db.vaultDao.insertDictionaryBatch([incomingBulkCard]);
+
+      // 4. Verify the card in database
+      final postItems = await db.vaultDao.watchItemsByCollection('mtg').first;
+      expect(postItems.length, 1);
+      final postMtg = postItems.first;
+
+      // Catalog fields MUST be updated:
+      expect(postMtg.name, 'The One Ring (Updated Oracle Text)');
+      expect(postMtg.setOrSeries, 'Tales of Middle-earth Special Edition');
+      expect(postMtg.imageUrl,
+          'https://cards.scryfall.io/large/the_one_ring_new.jpg');
+      expect(postMtg.currentMarketPrice, 125.00);
+      expect(postMtg.dynamicData, contains('"oracle_text": "Indestructible"'));
+
+      // User inventory fields MUST BE PRESERVED (NOT wiped):
+      expect(postMtg.quantity, 1); // Preserved!
+      expect(postMtg.acquiredPrice, 15.00); // Preserved!
+      expect(postMtg.condition, 'NM'); // Preserved!
+      expect(postMtg.personalNotes,
+          contains('Pulled from collector booster')); // Preserved!
     });
 
     testWidgets(

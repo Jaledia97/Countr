@@ -171,6 +171,8 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
 
   /// Inserts large lists of catalog/dictionary items in chunks of 1,000 using batch().
   /// Prevents database lockups, transaction limits, and OOM crashes.
+  /// Uses Drift's true UPSERT (DoUpdate) to update catalog metadata while strictly
+  /// preserving all user inventory fields (quantity, acquiredPrice, condition, personalNotes).
   Future<void> insertDictionaryChunked(
     List<VaultItemsCompanion> items, {
     void Function(int inserted, int total)? onProgress,
@@ -183,26 +185,33 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
       final end = (i + chunkSize < total) ? i + chunkSize : total;
       final chunk = items.sublist(i, end);
 
-      await batch((b) {
-        b.insertAll(
-          vaultItems,
-          chunk,
-          mode: InsertMode.insertOrReplace,
-        );
-      });
+      await insertDictionaryBatch(chunk);
 
       inserted += chunk.length;
       onProgress?.call(inserted, total);
     }
   }
 
-  /// Inserts a single chunk of dictionary items (used by streaming isolate pipeline).
+  /// Inserts a single chunk of dictionary items with true UPSERT conflict resolution.
+  /// Upon an ID conflict, overwrites ONLY catalog-level fields (pricing, images, metadata)
+  /// and explicitly preserves all user-level inventory fields.
   Future<void> insertDictionaryBatch(List<VaultItemsCompanion> chunk) async {
     await batch((b) {
       b.insertAll(
         vaultItems,
         chunk,
-        mode: InsertMode.insertOrReplace,
+        onConflict: DoUpdate<$VaultItemsTable, VaultItem>.withExcluded(
+          (old, excluded) => VaultItemsCompanion.custom(
+            name: excluded.name,
+            setOrSeries: excluded.setOrSeries,
+            imageUrl: excluded.imageUrl,
+            currentMarketPrice: excluded.currentMarketPrice,
+            lastPriceUpdate: excluded.lastPriceUpdate,
+            dynamicData: excluded.dynamicData,
+            collectionType: excluded.collectionType,
+          ),
+          target: [vaultItems.id],
+        ),
       );
     });
   }

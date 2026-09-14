@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Collections Accordion Decoupling**: Added `onCollectionSelected` callback to [CollectionsAccordion](file:///Users/jomelaledia/freeSpc/Countr/lib/features/command_center/presentation/widgets/collections_accordion.dart), cleanly separating collection selection handling from menu dismissal.
 
 ### Fixed
+- **Database Data-Wipe Prevention (True UPSERT with DoUpdate)**: Replaced dangerous `InsertMode.insertOrReplace` in `VaultDao.insertDictionaryBatch` and `insertDictionaryChunked` with Drift's native `DoUpdate.withExcluded`. On primary key (`id`) conflict, the engine overwrites only catalog metadata (`name`, `setOrSeries`, `imageUrl`, `currentMarketPrice`, `lastPriceUpdate`, `dynamicData`, `collectionType`) while strictly preserving user-level portfolio fields (`quantity`, `acquiredPrice`, `acquiredDate`, `condition`, `isGraded`, `personalNotes`).
 - **Vault Tab Crash & UI Freeze (OOM / Layout Lockup)**: Resolved application freezing and memory pressure watchdog crashes when navigating to the Vault tab after Scryfall bulk hydration. Eliminated single-frame measurement of 75,000 card widgets and decoupled owned inventory from catalog dictionary data.
 
 ### Planned / Upcoming
