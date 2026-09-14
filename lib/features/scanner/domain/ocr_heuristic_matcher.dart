@@ -74,6 +74,44 @@ class OcrHeuristicMatcher {
     'illustrator',
   };
 
+  /// Strips ALL punctuation (quotes, commas, hyphens, etc.) from input,
+  /// leaving only alphanumeric characters and spaces, and lowercases everything.
+  static String sanitizeText(String input) {
+    return input
+        .replaceAll(RegExp(r"[^\w\s]"), '') // Strip all punctuation & symbols
+        .replaceAll(RegExp(r'\s+'), ' ')    // Collapse multiple whitespace
+        .trim()
+        .toLowerCase();
+  }
+
+  /// Extracts individual lines from ML Kit [RecognizedText] blocks,
+  /// strips all punctuation, lowercases them, and filters out noise lines (< 3 characters).
+  /// Never concatenates the entire OCR RecognizedText into one giant string.
+  static List<String> extractCleanedLines(RecognizedText recognizedText) {
+    final cleaned = <String>[];
+    for (final block in recognizedText.blocks) {
+      for (final line in block.lines) {
+        final sanitized = sanitizeText(line.text);
+        if (sanitized.length >= 3 && !cleaned.contains(sanitized)) {
+          cleaned.add(sanitized);
+        }
+      }
+    }
+    return cleaned;
+  }
+
+  /// Sanitizes a flat list of raw text lines into clean alphanumeric lines.
+  static List<String> sanitizeLines(List<String> rawLines) {
+    final cleaned = <String>[];
+    for (final line in rawLines) {
+      final sanitized = sanitizeText(line);
+      if (sanitized.length >= 3 && !cleaned.contains(sanitized)) {
+        cleaned.add(sanitized);
+      }
+    }
+    return cleaned;
+  }
+
   /// Parses an ML Kit [RecognizedText] object, leveraging bounding box positions.
   static OcrScanResult parseRecognizedText(RecognizedText recognizedText) {
     if (recognizedText.blocks.isEmpty) {

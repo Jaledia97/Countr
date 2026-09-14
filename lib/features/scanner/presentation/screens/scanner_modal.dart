@@ -64,9 +64,6 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
   bool _isScanningPaused = false;
   int _sessionScanCount = 0;
 
-  String? _lastMatchedCardName;
-  DateTime? _lastMatchTimestamp;
-
   final List<String> _scanModes = [
     'RAW CARD',
     'SLAB / GRADED',
@@ -238,40 +235,40 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
       if (inputImage == null) return;
 
       final recognized = await _textRecognizer.processImage(inputImage);
+      final cleanedLines = OcrHeuristicMatcher.extractCleanedLines(recognized);
       final ocrResult = OcrHeuristicMatcher.parseRecognizedText(recognized);
 
-      bool matched = false;
+      if (cleanedLines.isEmpty) {
+        await _autoAdjustController?.onFrameResult(matched: false);
+        return;
+      }
+
       final dao = ref.read(vaultDaoProvider);
       final activeGame = ref.read(activeGameContextProvider);
 
-      for (final candidate in ocrResult.candidateNames) {
-        final card = await dao.matchScannedCard(
-          candidateName: candidate,
-          collectorNumber: ocrResult.collectorNumber,
-          setCode: ocrResult.setCode,
-          collectionType: activeGame,
-        );
+      final card = await dao.matchScannedCard(
+        cleanedLines,
+        activeGame,
+        collectorNumber: ocrResult.collectorNumber,
+        setCode: ocrResult.setCode,
+      );
 
-        if (card != null) {
-          // Debounce same card scan within 2.5 seconds
-          final now = DateTime.now();
-          if (_lastMatchedCardName == card.name &&
-              _lastMatchTimestamp != null &&
-              now.difference(_lastMatchTimestamp!).inMilliseconds < 2500) {
-            matched = true;
-            break;
-          }
-
-          matched = true;
-          _lastMatchedCardName = card.name;
-          _lastMatchTimestamp = now;
-
-          await _onCardMatched(card);
-          break;
+      if (card != null) {
+        // Auto-Routing: Instantly stop image stream, play haptic, and route to Inbox
+        if (_cameraController != null &&
+            _cameraController!.value.isInitialized &&
+            _cameraController!.value.isStreamingImages) {
+          try {
+            await _cameraController!.stopImageStream();
+          } catch (_) {}
         }
-      }
 
-      await _autoAdjustController?.onFrameResult(matched: matched);
+        HapticFeedback.mediumImpact();
+        await _autoAdjustController?.onFrameResult(matched: true);
+        await _onCardMatched(card);
+      } else {
+        await _autoAdjustController?.onFrameResult(matched: false);
+      }
     } catch (e) {
       debugPrint('OCR stream exception: $e');
     } finally {
@@ -279,14 +276,13 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
     }
   }
 
+  /// Staged card handling: adds card to inbox, displays feedback,
+  /// and automatically routes into the Inbox screen.
   Future<void> _onCardMatched(VaultItem card) async {
     final dao = ref.read(vaultDaoProvider);
 
     // Instant UPSERT to Inbox
     await dao.upsertScannedCardToInbox(card, isFoil: _isFoilMode);
-
-    // Haptic pulse & visual feedback
-    HapticFeedback.mediumImpact();
 
     if (mounted) {
       setState(() {
@@ -304,7 +300,7 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Added to Inbox: ${card.name} ${_isFoilMode ? "(Foil)" : ""}',
+                  'Auto-Detected: ${card.name} ${_isFoilMode ? "(Foil)" : ""}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontWeight: FontWeight.w700),
@@ -317,6 +313,14 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
           duration: const Duration(milliseconds: 1800),
         ),
       );
+
+      // Auto-Routing: Open the Inbox screen
+      await InboxScreen.show(context);
+
+      // Cleanly resume camera streaming upon returning from Inbox
+      if (mounted && !_isScanningPaused) {
+        await _resumeScanning();
+      }
 
       Future.delayed(const Duration(milliseconds: 600), () {
         if (mounted) {
@@ -362,38 +366,9 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
     }
   }
 
-  /// Shutter trigger: in live mode or simulated mode, scans the top card
-  /// or first available card to verify pipeline on simulator/test environments.
-  Future<void> _triggerManualScan() async {
-    final dao = ref.read(vaultDaoProvider);
-    final activeGame = ref.read(activeGameContextProvider);
-
-    // Look for any card in current collection
-    final items = await dao.getItemsByCollection(activeGame, limit: 1);
-    if (items.isNotEmpty) {
-      await _onCardMatched(items.first);
-    } else {
-      // Fallback: create mock card and add to inbox
-      final mock = VaultItem(
-        id: 'manual-scan-${DateTime.now().millisecondsSinceEpoch}',
-        collectionType: activeGame == 'all' ? 'mtg' : activeGame,
-        name: 'Black Lotus (Scanned)',
-        setOrSeries: 'Limited Edition Alpha',
-        imageUrl: '',
-        acquiredPrice: 25000.0,
-        acquiredDate: DateTime.now(),
-        quantity: 1,
-        condition: _isFoilMode ? 'NM (Foil)' : 'NM',
-        isGraded: false,
-        personalNotes: _isFoilMode ? 'Scanned Foil / Variant' : 'Edge Scanned',
-        currentMarketPrice: 27500.0,
-        lastPriceUpdate: DateTime.now(),
-        dynamicData: '{"collector_number":"232","rarity":"rare"}',
-        primaryBinderId: null,
-      );
-      await _onCardMatched(mock);
-    }
-  }
+  /// Test helper to simulate detection of a card in headless or widget test environments.
+  @visibleForTesting
+  Future<void> simulateCardDetection(VaultItem card) => _onCardMatched(card);
 
   @override
   void dispose() {
@@ -989,44 +964,70 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
                     ),
                   ),
 
-                  const SizedBox(height: 18),
+                  const SizedBox(height: 16),
 
-                  // Shutter Button
-                  GestureDetector(
-                    onTap: _triggerManualScan,
-                    child: Container(
-                      width: 72,
-                      height: 72,
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: _isGreenFlash
-                              ? AppColors.accentEmerald
-                              : AppColors.accentCyan,
-                          width: 3,
-                        ),
+                  // Continuous Streaming Live Indicator (Zero Keystrokes)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 18, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.75),
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(
+                        color: _isScanningPaused
+                            ? AppColors.accentAmber
+                            : (_isGreenFlash
+                                ? AppColors.accentEmerald
+                                : AppColors.accentCyan.withValues(alpha: 0.6)),
                       ),
-                      child: Container(
-                        decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.white,
+                      boxShadow: [
+                        BoxShadow(
+                          color: (_isGreenFlash
+                                  ? AppColors.accentEmerald
+                                  : AppColors.accentCyan)
+                              .withValues(alpha: 0.15),
+                          blurRadius: 10,
                         ),
-                        child: const Icon(
-                          Icons.camera_alt_rounded,
-                          color: Color(0xFF090B0E),
-                          size: 32,
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: _isScanningPaused
+                                ? AppColors.accentAmber
+                                : AppColors.accentEmerald,
+                          ),
                         ),
-                      ),
+                        const SizedBox(width: 8),
+                        Text(
+                          _isScanningPaused
+                              ? 'SCANNER PAUSED (BATTERY SAVER)'
+                              : 'CONTINUOUS STREAM ACTIVE • AUTO-DETECTING',
+                          style: TextStyle(
+                            color: _isScanningPaused
+                                ? AppColors.accentAmber
+                                : Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.6,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
 
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 8),
                   Text(
-                    'TAP TO CAPTURE & STAGE TO INBOX',
+                    'ALIGN CARD WITHIN FRAME TO AUTO-CAPTURE & STAGE',
                     style: AppTypography.caption.copyWith(
                       color: AppColors.textSecondary,
-                      letterSpacing: 1.2,
+                      letterSpacing: 1.0,
+                      fontSize: 10,
                     ),
                   ),
                 ],

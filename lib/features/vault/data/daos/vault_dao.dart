@@ -3,6 +3,7 @@ import 'package:uuid/uuid.dart';
 import 'package:countr/core/database/app_database.dart';
 import 'package:countr/core/database/tables/vault_binders_table.dart';
 import 'package:countr/core/database/tables/vault_items_table.dart';
+import 'package:countr/features/scanner/domain/ocr_heuristic_matcher.dart';
 
 part 'vault_dao.g.dart';
 
@@ -359,59 +360,128 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
   // PHASE 3: REAL-TIME SCANNER CARD MATCHING
   // ---------------------------------------------------------------------------
 
-  /// Real-time search in SQLite for a card matching OCR candidates.
-  Future<VaultItem?> matchScannedCard({
-    required String candidateName,
+  /// Real-time search in SQLite for a card matching OCR candidate lines.
+  /// Strictly requires line-by-line exact matching on cleaned lines and guards against
+  /// empty or short noise lines (< 3 characters) to eliminate false positives
+  /// (such as the "Lifetime" Pass Holder bug).
+  Future<VaultItem?> matchScannedCard(
+    List<String> cleanedOcrLines,
+    String activeContext, {
     String? collectorNumber,
     String? setCode,
-    String? collectionType,
   }) async {
-    final cleanCandidate = candidateName.trim().toLowerCase();
-    if (cleanCandidate.length < 2) return null;
+    // 1. Empty String & Short Guard: If empty or all lines < 3 chars, return null immediately
+    if (cleanedOcrLines.isEmpty) return null;
 
-    final query = select(vaultItems);
-    if (collectionType != null && collectionType.isNotEmpty) {
-      final normalized = _normalizeCollectionType(collectionType);
-      if (normalized != 'all') {
-        query.where((t) => t.collectionType.equals(normalized));
+    final validLines = cleanedOcrLines
+        .map((l) => OcrHeuristicMatcher.sanitizeText(l))
+        .where((l) => l.length >= 3)
+        .toList();
+
+    if (validLines.isEmpty) return null;
+
+    final normalized = _normalizeCollectionType(activeContext);
+
+    // 2. Collector Number Override: If a collector number pattern exists, prioritize querying it
+    if (collectorNumber != null && collectorNumber.trim().isNotEmpty) {
+      final cleanCollector = collectorNumber.trim();
+      final collectorQuery = select(vaultItems)
+        ..where((t) {
+          Expression<bool> predicate = t.dynamicData
+                  .like('%"collector_number":"$cleanCollector"%') |
+              t.dynamicData.like('%"collector_number": "$cleanCollector"%');
+          if (normalized != 'all') {
+            predicate = predicate & t.collectionType.equals(normalized);
+          }
+          return predicate;
+        })
+        ..limit(5);
+
+      final collectorMatches = await collectorQuery.get();
+      if (collectorMatches.isNotEmpty) {
+        // If any line matches the card's cleaned name, return that exact card
+        for (final card in collectorMatches) {
+          final cardCleaned = OcrHeuristicMatcher.sanitizeText(card.name);
+          if (validLines.contains(cardCleaned)) {
+            return card;
+          }
+        }
+        // If single collector match in the active collection, return it
+        if (collectorMatches.length == 1) {
+          return collectorMatches.first;
+        }
       }
     }
 
-    // 1. Exact name match (case-insensitive)
-    final exactMatches = await (select(vaultItems)
-          ..where((t) => t.name.lower().equals(cleanCandidate)))
-        .get();
+    // 3. Line-by-Line Exact Match (No fuzzy LIKE):
+    // First, query catalog reference items (quantity == 0)
+    for (final line in validLines) {
+      final sqlCatalog = normalized != 'all'
+          ? r'''
+            SELECT * FROM "vault_items"
+            WHERE "collection_type" = ?
+              AND "quantity" = 0
+              AND (
+                "name" = ? COLLATE NOCASE
+                OR replace(replace(replace(lower("name"), char(34), ''), char(39), ''), '-', '') = ?
+              )
+            LIMIT 1;
+            '''
+          : r'''
+            SELECT * FROM "vault_items"
+            WHERE "quantity" = 0
+              AND (
+                "name" = ? COLLATE NOCASE
+                OR replace(replace(replace(lower("name"), char(34), ''), char(39), ''), '-', '') = ?
+              )
+            LIMIT 1;
+            ''';
 
-    if (exactMatches.isNotEmpty) {
-      if (collectorNumber != null && collectorNumber.isNotEmpty) {
-        final match = exactMatches.firstWhere(
-          (i) =>
-              i.dynamicData.contains('"collector_number":"$collectorNumber"') ||
-              i.dynamicData.contains('"collector_number": "$collectorNumber"'),
-          orElse: () => exactMatches.first,
-        );
-        return match;
-      }
-      return exactMatches.first;
+      final catalogMatch = await customSelect(
+        sqlCatalog,
+        variables: [
+          if (normalized != 'all') Variable.withString(normalized),
+          Variable.withString(line),
+          Variable.withString(line),
+        ],
+        readsFrom: {vaultItems},
+      ).map((row) => vaultItems.map(row.data)).getSingleOrNull();
+
+      if (catalogMatch != null) return catalogMatch;
     }
 
-    // 2. Substring match
-    final subMatches = await (select(vaultItems)
-          ..where((t) => t.name.lower().like('%$cleanCandidate%'))
-          ..limit(10))
-        .get();
+    // 4. Fallback: Check all items (including owned cards quantity > 0) with exact match
+    for (final line in validLines) {
+      final sqlFallback = normalized != 'all'
+          ? r'''
+            SELECT * FROM "vault_items"
+            WHERE "collection_type" = ?
+              AND (
+                "name" = ? COLLATE NOCASE
+                OR replace(replace(replace(lower("name"), char(34), ''), char(39), ''), '-', '') = ?
+              )
+            LIMIT 1;
+            '''
+          : r'''
+            SELECT * FROM "vault_items"
+            WHERE (
+              "name" = ? COLLATE NOCASE
+              OR replace(replace(replace(lower("name"), char(34), ''), char(39), ''), '-', '') = ?
+            )
+            LIMIT 1;
+            ''';
 
-    if (subMatches.isNotEmpty) {
-      if (collectorNumber != null && collectorNumber.isNotEmpty) {
-        final match = subMatches.firstWhere(
-          (i) =>
-              i.dynamicData.contains('"collector_number":"$collectorNumber"') ||
-              i.dynamicData.contains('"collector_number": "$collectorNumber"'),
-          orElse: () => subMatches.first,
-        );
-        return match;
-      }
-      return subMatches.first;
+      final fallbackMatch = await customSelect(
+        sqlFallback,
+        variables: [
+          if (normalized != 'all') Variable.withString(normalized),
+          Variable.withString(line),
+          Variable.withString(line),
+        ],
+        readsFrom: {vaultItems},
+      ).map((row) => vaultItems.map(row.data)).getSingleOrNull();
+
+      if (fallbackMatch != null) return fallbackMatch;
     }
 
     return null;

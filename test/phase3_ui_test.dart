@@ -298,25 +298,51 @@ void main() {
       expect(find.text('Scanner Camera Active'), findsOneWidget);
       expect(find.text('Foil/Variant'), findsOneWidget);
       expect(find.byIcon(Icons.inbox_rounded), findsOneWidget);
+      expect(find.text('CONTINUOUS STREAM ACTIVE • AUTO-DETECTING'), findsOneWidget);
+      expect(find.text('ALIGN CARD WITHIN FRAME TO AUTO-CAPTURE & STAGE'), findsOneWidget);
 
       // Toggle Foil/Variant chip
       await tester.tap(find.text('Foil/Variant'));
       await tester.pump(const Duration(milliseconds: 200));
 
-      // Tap Shutter to perform simulated scan
-      await tester.tap(find.byIcon(Icons.camera_alt_rounded).last);
+      // Simulate real-time card auto-detection from continuous stream
+      final state = tester.state(find.byType(ScannerModal)) as dynamic;
+      final mockCard = VaultItem(
+        id: 'auto-scan-1',
+        collectionType: 'mtg',
+        name: 'Sol Ring',
+        setOrSeries: 'Commander',
+        imageUrl: '',
+        acquiredPrice: 1.5,
+        acquiredDate: DateTime.now(),
+        quantity: 1,
+        condition: 'NM',
+        isGraded: false,
+        personalNotes: null,
+        currentMarketPrice: 2.0,
+        lastPriceUpdate: DateTime.now(),
+        dynamicData: '{}',
+        primaryBinderId: null,
+      );
+
+      // Trigger detection without blocking before pumping the modal route
+      final detectionFuture = state.simulateCardDetection(mockCard);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
 
-      // Session scan badge counter appears with 1
+      // Verifies auto-routing directly into InboxScreen
+      expect(find.byType(InboxScreen), findsOneWidget);
+      expect(find.text('Sol Ring'), findsOneWidget);
+
+      // Return to Scanner via back button in AppBar
+      await tester.tap(find.byIcon(Icons.arrow_back_ios_new_rounded));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      await detectionFuture;
+
+      // Restores ScannerModal and displays session counter badge '1'
+      expect(find.byType(ScannerModal), findsOneWidget);
       expect(find.text('1'), findsOneWidget);
-
-      // Second scan increments to 2
-      await tester.tap(find.byIcon(Icons.camera_alt_rounded).last);
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
-
-      expect(find.text('2'), findsOneWidget);
 
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(seconds: 4));

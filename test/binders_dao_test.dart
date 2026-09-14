@@ -106,17 +106,17 @@ void main() {
 
       // Match exact name
       final matchExact = await dao.matchScannedCard(
-        candidateName: 'Sol Ring',
-        collectionType: 'mtg',
+        ['Sol Ring'],
+        'mtg',
       );
       expect(matchExact, isNotNull);
       expect(matchExact!.id, equals('card-sol-ring'));
 
-      // Match substring with collector number
+      // Match with collector number
       final matchSub = await dao.matchScannedCard(
-        candidateName: 'Sol',
+        ['random text'],
+        'mtg',
         collectorNumber: '400',
-        collectionType: 'mtg',
       );
       expect(matchSub, isNotNull);
       expect(matchSub!.id, equals('card-sol-ring'));
