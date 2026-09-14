@@ -1,0 +1,120 @@
+# Changelog
+
+All notable changes to the **Countr** project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+---
+
+## [Unreleased]
+
+### Planned / Upcoming
+- Initialize GitHub repository and push current codebase.
+- Phase 3: Hardware Camera & Real-Time Card Scanner integration.
+- Phase 4: Local Deck Builder & Interactive Deck Construction engine.
+- Phase 5: Local Match / Life Counter and Game Tracker (`Play / Track`).
+
+---
+
+## [0.2.0] - 2026-09-14
+
+### Phase 2: Drift SQLite Ledger & Polymorphic JSON Architecture
+
+#### Added
+- **Drift SQLite Local Database (`AppDatabase`)**:
+  - Offline-first local database using Drift and SQLite (`lib/core/database/app_database.dart`).
+  - Schema migration strategy with automatic initial mock data seeding on first open (`beforeOpen`).
+- **Comprehensive Ledger Schema (`VaultItems`)**:
+  - Granular table definition (`lib/core/database/tables/vault_items_table.dart`):
+    - **Core Identity**: `id` (Text UUID, PK), `collection_type` (Text: `'mtg'`, `'pokemon'`, `'comic'`, `'sports_card'`), `name` (Text), `set_or_series` (Text), `image_url` (Text).
+    - **Personal Inventory**: `acquired_price` (Real), `acquired_date` (DateTime), `quantity` (Int, default 1), `condition` (Text), `is_graded` (Bool, default false), `personal_notes` (Text, nullable).
+    - **Financial Ledger**: `current_market_price` (Real), `last_price_update` (DateTime).
+    - **Polymorphic Engine**: `dynamic_data` (Text, stringified JSON) to store item-specific attributes without schema bloating.
+- **Data Access Object (`VaultDao`)**:
+  - `watchItemsByCollection(collectionType)` reactive stream query supporting individual collections or `'All Collections'` (`lib/features/vault/data/daos/vault_dao.dart`).
+  - `seedDatabase()` inserting 4 hyper-detailed mock portfolio records:
+    1. **Magic: The Gathering**: *The One Ring (Serialized #007/100)* — \$15.00 cost basis vs. \$45.50 TMV (+203.3%), Near Mint raw, dynamic JSON: `{"mana": "2UB", "type": "Creature", "power": 3, "toughness": 2}`.
+    2. **Pokémon TCG**: *Charizard ex* (Scarlet & Violet: 151) — \$4.50 cost basis vs. \$3.25 TMV (-27.8%), Lightly Played raw, dynamic JSON: `{"hp": 120, "stage": "Basic"}`.
+    3. **Comic Books**: *Ultimate Fallout #4 (1st Miles Morales)* — \$150.00 cost basis vs. \$210.00 TMV (+40.0%), CGC 9.8 graded slab, dynamic JSON: `{"issue": 1, "publisher": "Marvel"}`.
+    4. **Sports Cards**: *T.J. Watt Prizm Silver Rookie* (2017 Panini Prizm) — \$20.00 cost basis vs. \$180.00 TMV (+800.0%), PSA 10 Gem Mint graded slab, dynamic JSON: `{"sport": "Football", "team": "Steelers", "is_rookie": true}`.
+- **Polymorphic JSON UI Engine (`PolymorphicAttributeChip`)**:
+  - Widget parsing `dynamic_data` with an exhaustive switch statement (`lib/features/vault/presentation/widgets/polymorphic_attribute_chip.dart`):
+    - MTG: Mana Cost, Type, Power / Toughness.
+    - Pokémon: HP and Evolution Stage.
+    - Comic Books: Publisher and Issue Number.
+    - Sports Cards: Sport, Team, and Rookie Card badge.
+- **Riverpod Reactive Layer**:
+  - `appDatabaseProvider`: Singleton database provider with lifecycle disposal (`lib/features/vault/presentation/providers/vault_providers.dart`).
+  - `vaultDaoProvider`: DAO provider binding.
+  - `vaultItemsStreamProvider`: Reactive stream provider bound to `activeGameContextProvider`.
+  - `vaultPortfolioSummaryProvider`: Computed provider calculating Total Market Value, Total Cost Basis, Profit/Loss, P/L %, and Item Count.
+- **Financial Ledger UI**:
+  - `VaultItemCard`: Detailed card displaying Acquired Price, Live TMV, condition/grade slab badge, polymorphic chip, and color-coded financial delta (`lib/features/vault/presentation/widgets/vault_item_card.dart`).
+  - `_buildPortfolioSummaryCard`: Real-time portfolio performance card displaying Estimated Vault Value and percentage return.
+- **Automated Test Suite**:
+  - `test/drift_ledger_test.dart` testing DAO filtering, seeding verification, polymorphic chip parsing, and P/L styling.
+
+#### Changed
+- **Cross-Platform SQLite Migration (`drift_flutter`)**:
+  - Migrated from deprecated `sqlite3_flutter_libs` to official `drift_flutter: ^0.3.1`.
+  - Configured `openConnection()` in `lib/core/database/connection/connection.dart` to use `driftDatabase(name: 'countr_vault')`, ensuring full native support across macOS, iOS, Android, Linux, Windows, and Web.
+  - Added automated fallback to `NativeDatabase.memory()` when `FLUTTER_TEST` environment is active.
+- **Vault Screen Refactor**:
+  - Updated `VaultScreen` to listen directly to the Drift reactive stream.
+  - Maintained local state freeze for search queries and filter chips across tab navigation.
+
+#### Fixed
+- **Database Ledger Error**: Eliminated dynamic library linkage errors (`Failed to load dynamic library 'libsqlite3.dylib'`) on macOS and mobile targets by replacing deprecated libraries with `drift_flutter`.
+- **Test Runner Deadlock**: Resolved `fakeAsync` event loop hang in `testWidgets` caused by awaiting native isolate streams inside fake async zones.
+- **Pending Timers on Test Disposal**: Added explicit timer flushes at the conclusion of widget tests to satisfy `!timersPending` test assertions.
+- **Loss Delta Sign Formatting**: Fixed negative financial deltas so losses properly render both the percentage and dollar amount (e.g. `-27.8% (-$1.25)`).
+
+---
+
+## [0.1.0] - 2026-09-14
+
+### Phase 1: The Foundation Shell
+
+#### Added
+- **Enterprise Architecture**:
+  - Feature-First Clean Architecture structure (`core/` and `features/`).
+  - Zero cloud dependencies — strictly offline-first/local-first design.
+- **Declarative Routing (`go_router`)**:
+  - Implemented `StatefulShellRoute.indexedStack` maintaining 4 primary branches: Feed, Vault, Decks, and Menu dummy branch (`lib/core/router/app_router.dart`).
+  - Enabled **Local State Freezing**: Navigating between Feed, Vault, and Decks preserves scroll positions, search text, and internal component state.
+- **Custom Bottom Navigation Bar**:
+  - 5 flush, equal-sized (20% width) touch targets with identical vertical alignment (`lib/features/shell/presentation/widgets/custom_bottom_nav_bar.dart`):
+    - Index 0: Feed (`Icons.home_rounded`)
+    - Index 1: Vault (`Icons.shield_rounded`)
+    - Index 2: Scanner (`Icons.camera_alt_rounded`) with distinctive cyan accent styling
+    - Index 3: Decks (`Icons.style_rounded`)
+    - Index 4: Menu (`Icons.menu_rounded`)
+- **Full-Screen Scanner Viewfinder Modal**:
+  - Full-screen modal overlay labeled `"Scanner Camera Active"` triggered by center navigation button (`lib/features/scanner/presentation/screens/scanner_modal.dart`).
+  - Features camera reticle animation, rule-of-thirds grid, flashlight toggle, and scan mode selector (Raw Card, Slab/Graded, Comic Book, Barcode).
+- **Morphing Global Command Center (Menu)**:
+  - Origin-anchored modal animation expanding directly from the bottom-right menu button (`lib/features/command_center/presentation/widgets/morphing_command_center.dart`).
+  - **Accordion 1 ("Collections +")**: Selects active game context ("All Collections", "Magic: The Gathering", "Pokémon TCG", "Comic Books") and updates Riverpod `activeGameContextProvider` (`lib/features/command_center/presentation/widgets/collections_accordion.dart`).
+  - **Accordion 2 ("Play / Track +")**: Nested expandable accordion organizing game formats:
+    - MTG: Commander, Standard, Draft.
+    - Pokémon: Standard, Gym Leader Challenge (GLC).
+    - Lorcana: Core / Standard, Draft.
+- **Social Feed & Modular Post Architecture**:
+  - Clean Feed App Bar (`Text("Countr")` + Search, Mail, and Notifications action icons).
+  - Cleaned up redundant context tabs and eliminated top title clipping.
+  - Reusable PostCard shell with `clipBehavior: Clip.antiAlias`.
+  - Reusable PostHeader (Avatar, User handle, Timestamp, Location pill).
+  - Reusable PostActionBar (4 touch targets: `[♡ HYPE]`, `[💬 COMMENT]`, `[+ WISHLIST]`, `[⇆ TRADE]`).
+  - Three distinct feed post variants:
+    - Text Post (`text_post_body.dart`).
+    - Single Pull Post (`single_pull_post_body.dart` with square card display and value tag).
+    - Multi-Pull Post (`multi_pull_post_body.dart` with 2x2 card grid and "+ SEE MORE" overlay).
+- **Interactive Vault Screen & Dynamic Dropdown Title**:
+  - Replaced static title with interactive `PopupMenuButton` (`My Vault ▾`, `MTG Vault ▾`, `Pokémon Vault ▾`, `Comics Vault ▾`).
+  - Tied directly to Riverpod `activeGameContextProvider` to synchronize state with the Command Center menu.
+- **Design System & Theme**:
+  - Dark collector aesthetic palette (`lib/core/constants/app_colors.dart`): Deep Void (`#0B0E14`), Surface (`#141923`), Neon Cyan (`#00F2FE`), Emerald Green (`#10B981`), Amber Gold (`#F59E0B`), Arcane Violet (`#8B5CF6`), and Rose Red (`#F43F5E`).
+  - Typography system (`lib/core/constants/app_typography.dart`) and Material 3 dark theme (`lib/core/theme/app_theme.dart`).
+- **Automated Tests**:
+  - Comprehensive suite of 8 widget and integration tests in `test/widget_test.dart`.
