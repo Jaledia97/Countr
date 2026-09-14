@@ -361,6 +361,18 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
   // PHASE 3: REAL-TIME SCANNER CARD MATCHING
   // ---------------------------------------------------------------------------
 
+  static const String _sqliteNameNormalized = r'''
+    replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(
+      lower(
+        substr(
+          substr("name", 1, instr("name" || ' //', ' //') - 1),
+          1,
+          instr(substr("name", 1, instr("name" || ' //', ' //') - 1) || ' (', ' (') - 1
+        )
+      ),
+      char(34), ''), char(39), ''), '-', ''), ',', ''), ':', ''), '.', ''), '’', ''), '‘', ''), '!', ''), '?', ''), ';', ''), '&', '')
+  ''';
+
   /// Real-time search in SQLite for a card matching OCR candidate lines.
   /// Strictly requires line-by-line exact matching on cleaned lines and guards against
   /// empty or short noise lines (< 3 characters) to eliminate false positives
@@ -418,22 +430,22 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     // First, query catalog reference items (quantity == 0)
     for (final line in validLines) {
       final sqlCatalog = normalized != 'all'
-          ? r'''
+          ? '''
             SELECT * FROM "vault_items"
             WHERE "collection_type" = ?
               AND "quantity" = 0
               AND (
                 "name" = ? COLLATE NOCASE
-                OR replace(replace(replace(replace(replace(replace(replace(replace(lower(substr("name", 1, instr("name" || ' //', ' //') - 1)), char(34), ''), char(39), ''), '-', ''), ',', ''), ':', ''), '.', ''), '’', ''), '‘', '') = ?
+                OR $_sqliteNameNormalized = ?
               )
             LIMIT 1;
             '''
-          : r'''
+          : '''
             SELECT * FROM "vault_items"
             WHERE "quantity" = 0
               AND (
                 "name" = ? COLLATE NOCASE
-                OR replace(replace(replace(replace(replace(replace(replace(replace(lower(substr("name", 1, instr("name" || ' //', ' //') - 1)), char(34), ''), char(39), ''), '-', ''), ',', ''), ':', ''), '.', ''), '’', ''), '‘', '') = ?
+                OR $_sqliteNameNormalized = ?
               )
             LIMIT 1;
             ''';
@@ -457,20 +469,20 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     // 4. Fallback: Check all items (including owned cards quantity > 0) with exact match
     for (final line in validLines) {
       final sqlFallback = normalized != 'all'
-          ? r'''
+          ? '''
             SELECT * FROM "vault_items"
             WHERE "collection_type" = ?
               AND (
                 "name" = ? COLLATE NOCASE
-                OR replace(replace(replace(replace(replace(replace(replace(replace(lower(substr("name", 1, instr("name" || ' //', ' //') - 1)), char(34), ''), char(39), ''), '-', ''), ',', ''), ':', ''), '.', ''), '’', ''), '‘', '') = ?
+                OR $_sqliteNameNormalized = ?
               )
             LIMIT 1;
             '''
-          : r'''
+          : '''
             SELECT * FROM "vault_items"
             WHERE (
               "name" = ? COLLATE NOCASE
-              OR replace(replace(replace(replace(replace(replace(replace(replace(lower(substr("name", 1, instr("name" || ' //', ' //') - 1)), char(34), ''), char(39), ''), '-', ''), ',', ''), ':', ''), '.', ''), '’', ''), '‘', '') = ?
+              OR $_sqliteNameNormalized = ?
             )
             LIMIT 1;
             ''';
@@ -488,6 +500,34 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
       if (fallbackMatch != null) {
         debugPrint('[VaultDao.matchScannedCard] Matched inventory item: "${fallbackMatch.name}" from line: "$line" (context: $normalized)');
         return fallbackMatch;
+      }
+    }
+
+    // 5. Cross-Collection Fallback: If active context didn't match, search across all collections
+    if (normalized != 'all') {
+      for (final line in validLines) {
+        final sqlAny = '''
+          SELECT * FROM "vault_items"
+          WHERE (
+            "name" = ? COLLATE NOCASE
+            OR $_sqliteNameNormalized = ?
+          )
+          LIMIT 1;
+        ''';
+
+        final anyMatch = await customSelect(
+          sqlAny,
+          variables: [
+            Variable.withString(line),
+            Variable.withString(line),
+          ],
+          readsFrom: {vaultItems},
+        ).map((row) => vaultItems.map(row.data)).getSingleOrNull();
+
+        if (anyMatch != null) {
+          debugPrint('[VaultDao.matchScannedCard] Matched cross-collection item: "${anyMatch.name}" from line: "$line" (collection: "${anyMatch.collectionType}")');
+          return anyMatch;
+        }
       }
     }
 

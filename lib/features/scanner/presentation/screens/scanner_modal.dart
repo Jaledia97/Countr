@@ -64,6 +64,8 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
   bool _isScanningPaused = false;
   int _sessionScanCount = 0;
   DateTime? _lastIdleLogTime;
+  String? _lastMatchedCardId;
+  DateTime? _lastMatchTimestamp;
 
   final List<String> _scanModes = [
     'RAW CARD',
@@ -170,8 +172,12 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
   }
 
   /// Resumes camera preview and live frame stream.
-  Future<void> _resumeScanning() async {
-    if (!_isScanningPaused) return;
+  Future<void> _resumeScanning({bool force = false}) async {
+    if (!force && !_isScanningPaused && (_cameraController != null && _cameraController!.value.isStreamingImages)) {
+      return;
+    }
+
+    _isProcessingFrame = false;
 
     if (_cameraController != null && _cameraController!.value.isInitialized) {
       try {
@@ -182,6 +188,7 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
       try {
         if (!_cameraController!.value.isStreamingImages) {
           await _cameraController!.startImageStream(_processCameraFrame);
+          debugPrint('[Countr Scanner] Camera image stream resumed successfully.');
         }
       } catch (e) {
         debugPrint('Error restarting image stream: $e');
@@ -216,7 +223,7 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
     if (!mounted) return;
     await InboxScreen.show(context);
     if (!wasAlreadyPaused && mounted) {
-      await _resumeScanning();
+      await _resumeScanning(force: true);
     }
   }
 
@@ -269,13 +276,24 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
       );
 
       if (card != null) {
+        // Debounce same card in reticle (4 seconds) to avoid immediate re-trigger loop
+        if (_lastMatchedCardId == card.id &&
+            _lastMatchTimestamp != null &&
+            DateTime.now().difference(_lastMatchTimestamp!) < const Duration(seconds: 4)) {
+          return;
+        }
+        _lastMatchedCardId = card.id;
+        _lastMatchTimestamp = DateTime.now();
+
         debugPrint('>>> [Countr Scanner MATCH SUCCESS] Card "${card.name}" matched! Set: "${card.setOrSeries}", ID: "${card.id}" (Context: $activeGame)');
-        // Auto-Routing: Instantly stop image stream, play haptic, and route to Inbox
+        // Auto-Routing: Instantly pause preview and stop image stream to save battery
         if (_cameraController != null &&
-            _cameraController!.value.isInitialized &&
-            _cameraController!.value.isStreamingImages) {
+            _cameraController!.value.isInitialized) {
           try {
-            await _cameraController!.stopImageStream();
+            if (_cameraController!.value.isStreamingImages) {
+              await _cameraController!.stopImageStream();
+            }
+            await _cameraController!.pausePreview();
           } catch (_) {}
         }
 
@@ -337,8 +355,9 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
       await InboxScreen.show(context);
 
       // Cleanly resume camera streaming upon returning from Inbox
-      if (mounted && !_isScanningPaused) {
-        await _resumeScanning();
+      if (mounted) {
+        debugPrint('[Countr Scanner] Returned from InboxScreen, restarting camera stream...');
+        await _resumeScanning(force: true);
       }
 
       Future.delayed(const Duration(milliseconds: 600), () {

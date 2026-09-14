@@ -120,6 +120,60 @@ void main() {
             dynamicData: '{"collector_number":"061","rarity":"common"}',
           ),
         );
+
+    await db.vaultDao.into(db.vaultItems).insert(
+          VaultItemsCompanion.insert(
+            id: 'pokemon-pikachu',
+            collectionType: 'pokemon',
+            name: 'Pikachu',
+            setOrSeries: 'Base Set',
+            imageUrl: 'https://example.com/pikachu.jpg',
+            acquiredPrice: 15.0,
+            acquiredDate: DateTime.now(),
+            quantity: const Value(0),
+            condition: 'NM',
+            isGraded: const Value(false),
+            currentMarketPrice: 20.0,
+            lastPriceUpdate: DateTime.now(),
+            dynamicData: '{"collector_number":"058"}',
+          ),
+        );
+
+    await db.vaultDao.into(db.vaultItems).insert(
+          VaultItemsCompanion.insert(
+            id: 'mtg-one-ring',
+            collectionType: 'mtg',
+            name: 'The One Ring (Serialized #001/100)',
+            setOrSeries: 'The Lord of the Rings: Tales of Middle-earth',
+            imageUrl: 'https://example.com/onering.jpg',
+            acquiredPrice: 2000000.0,
+            acquiredDate: DateTime.now(),
+            quantity: const Value(0),
+            condition: 'NM',
+            isGraded: const Value(false),
+            currentMarketPrice: 2000000.0,
+            lastPriceUpdate: DateTime.now(),
+            dynamicData: '{"collector_number":"001"}',
+          ),
+        );
+
+    await db.vaultDao.into(db.vaultItems).insert(
+          VaultItemsCompanion.insert(
+            id: 'mtg-kaboom',
+            collectionType: 'mtg',
+            name: 'Kaboom!',
+            setOrSeries: 'Onslaught',
+            imageUrl: 'https://example.com/kaboom.jpg',
+            acquiredPrice: 0.50,
+            acquiredDate: DateTime.now(),
+            quantity: const Value(0),
+            condition: 'NM',
+            isGraded: const Value(false),
+            currentMarketPrice: 0.75,
+            lastPriceUpdate: DateTime.now(),
+            dynamicData: '{"collector_number":"214"}',
+          ),
+        );
   });
 
   tearDown(() async {
@@ -203,6 +257,29 @@ void main() {
       final match = await db.vaultDao.matchScannedCard(['urza’s saga'], 'mtg');
       expect(match, isNotNull);
       expect(match!.id, equals('mtg-urzas-saga'));
+    });
+
+    test('correctly falls back to cross-collection cards when active context does not match', () async {
+      // Active context is MTG, but Pikachu is seeded under pokemon
+      final match = await db.vaultDao.matchScannedCard(['pikachu'], 'mtg');
+      expect(match, isNotNull);
+      expect(match!.id, equals('pokemon-pikachu'));
+      expect(match.name, equals('Pikachu'));
+      expect(match.collectionType, equals('pokemon'));
+    });
+
+    test('correctly matches card names with parenthesized subtitles or variants (e.g. The One Ring)', () async {
+      final match = await db.vaultDao.matchScannedCard(['the one ring'], 'mtg');
+      expect(match, isNotNull);
+      expect(match!.id, equals('mtg-one-ring'));
+      expect(match.name, equals('The One Ring (Serialized #001/100)'));
+    });
+
+    test('correctly matches card names with exclamation points (e.g. Kaboom!)', () async {
+      final match = await db.vaultDao.matchScannedCard(['kaboom'], 'mtg');
+      expect(match, isNotNull);
+      expect(match!.id, equals('mtg-kaboom'));
+      expect(match.name, equals('Kaboom!'));
     });
 
     test('collector number override prioritizes collector number match over name', () async {
