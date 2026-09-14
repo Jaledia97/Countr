@@ -16,10 +16,12 @@ import '../../../../core/state/app_state.dart';
 /// and triggers a floating SnackBar.
 class CollectionsAccordion extends ConsumerWidget {
   final VoidCallback onGameSelected;
+  final ValueChanged<String>? onCollectionSelected;
 
   const CollectionsAccordion({
     super.key,
     required this.onGameSelected,
+    this.onCollectionSelected,
   });
 
   static const List<Map<String, dynamic>> _collections = [
@@ -153,10 +155,13 @@ class CollectionsAccordion extends ConsumerWidget {
                     // 1. Update State Hook
                     ref.read(activeGameContextProvider.notifier).state = title;
 
-                    // 2. Close Morphed Menu
+                    // 2. Notify collection selected (e.g. route to Vault)
+                    onCollectionSelected?.call(title);
+
+                    // 3. Close Morphed Menu
                     onGameSelected();
 
-                    // 3. Display SnackBar
+                    // 4. Display SnackBar
                     ScaffoldMessenger.of(context).hideCurrentSnackBar();
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
@@ -169,7 +174,7 @@ class CollectionsAccordion extends ConsumerWidget {
                             const SizedBox(width: 10),
                             Expanded(
                               child: Text(
-                                'Active Game Context: $title',
+                                'Viewing $title in Vault',
                                 style: const TextStyle(
                                   color: AppColors.textPrimary,
                                   fontWeight: FontWeight.w700,

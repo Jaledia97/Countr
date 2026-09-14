@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_typography.dart';
 import '../../../../core/state/app_state.dart';
@@ -225,6 +226,9 @@ class _MorphingCommandCenterState extends ConsumerState<MorphingCommandCenter> {
 
                   // Accordion 1: Collections +
                   CollectionsAccordion(
+                    onCollectionSelected: (collection) {
+                      context.go('/vault');
+                    },
                     onGameSelected: () {
                       Navigator.of(context).pop();
                     },

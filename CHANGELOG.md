@@ -9,8 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Command Center to Vault Navigation**: Selecting any collection in the Global Command Center menu now automatically routes to the Vault tab (`/vault`) with the selected collection context immediately applied and active.
+
+### Changed
+- **Collections Accordion Decoupling**: Added `onCollectionSelected` callback to [CollectionsAccordion](file:///Users/jomelaledia/freeSpc/Countr/lib/features/command_center/presentation/widgets/collections_accordion.dart), cleanly separating collection selection handling from menu dismissal.
+
 ### Planned / Upcoming
-- Initialize GitHub repository and push current codebase.
 - Phase 3: Hardware Camera & Real-Time Card Scanner integration.
 - Phase 4: Local Deck Builder & Interactive Deck Construction engine.
 - Phase 5: Local Match / Life Counter and Game Tracker (`Play / Track`).

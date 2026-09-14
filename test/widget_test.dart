@@ -278,5 +278,38 @@ void main() {
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(milliseconds: 100));
     });
+
+    testWidgets(
+        'Selecting a collection in Command Center routes to Vault tab with updated context',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(
+        const ProviderScope(
+          child: CountrApp(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Tap Menu (Far Right) to open Command Center
+      await tester.tap(find.text('Menu'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(find.text('COMMAND CENTER'), findsOneWidget);
+
+      // Select "Pokémon TCG" from the Collections accordion
+      await tester.tap(find.text('Pokémon TCG'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      // Command Center modal is closed
+      expect(find.text('COMMAND CENTER'), findsNothing);
+
+      // App is routed to Vault tab with Pokémon context
+      expect(find.text('Pokémon Vault'), findsOneWidget);
+
+      // Unmount widget tree and flush Drift stream disposal timer
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(milliseconds: 100));
+    });
   });
 }
