@@ -31,9 +31,31 @@ class ScryfallService {
     }
 
     final data = jsonDecode(response.body) as Map<String, dynamic>;
-    final downloadUri = data['download_uri'] as String?;
+
+    // Scryfall bulk data now defaults to jsonl_download_uri (.jsonl.gz),
+    // but gracefully fallback to legacy download_uri or download_url.
+    String? downloadUri = (data['jsonl_download_uri'] ??
+        data['download_uri'] ??
+        data['download_url']) as String?;
+
+    // If querying the list endpoint /bulk-data, search for 'default_cards'
+    if (downloadUri == null && data['data'] is List) {
+      final list = data['data'] as List;
+      final defaultCardsItem = list.firstWhere(
+        (item) => item is Map && item['type'] == 'default_cards',
+        orElse: () => list.isNotEmpty && list.first is Map ? list.first : null,
+      );
+      if (defaultCardsItem is Map) {
+        downloadUri = (defaultCardsItem['jsonl_download_uri'] ??
+            defaultCardsItem['download_uri'] ??
+            defaultCardsItem['download_url']) as String?;
+      }
+    }
+
     if (downloadUri == null || downloadUri.isEmpty) {
-      throw const FormatException('Scryfall bulk metadata response missing "download_uri".');
+      throw FormatException(
+        'Scryfall bulk metadata response missing download URI. Keys received: ${data.keys.toList()}',
+      );
     }
 
     return downloadUri;

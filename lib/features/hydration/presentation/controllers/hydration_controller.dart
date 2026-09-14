@@ -62,8 +62,11 @@ class HydrationController extends StateNotifier<HydrationState> {
             ? await _tempDirProvider()
             : Directory.systemTemp;
 
+        final ext = downloadUri.contains('.jsonl.gz')
+            ? 'jsonl.gz'
+            : (downloadUri.contains('.gz') ? 'gz' : 'json');
         final targetPath =
-            '${tempDir.path}/scryfall_bulk_cards_${DateTime.now().millisecondsSinceEpoch}.json';
+            '${tempDir.path}/scryfall_bulk_cards_${DateTime.now().millisecondsSinceEpoch}.$ext';
 
         tempFile = await _scryfallService.downloadBulkFile(
           downloadUri: downloadUri,

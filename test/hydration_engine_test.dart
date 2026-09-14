@@ -24,16 +24,18 @@ void main() {
   drift.driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
 
   group('Phase 2.5 - ScryfallService Tests', () {
-    test('fetchBulkDownloadUri extracts download_uri from Scryfall metadata',
+    test('fetchBulkDownloadUri extracts jsonl_download_uri from Scryfall metadata',
         () async {
       final mockClient = MockClient((request) async {
-        expect(request.url.path, '/bulk-data/default-cards');
         return http.Response(
           jsonEncode({
             'object': 'bulk_data',
+            'id': 'e2ef41e3-5778-4bc2-af3f-78eca4dd9c23',
             'type': 'default_cards',
-            'download_uri':
-                'https://data.scryfall.io/default-cards/default-cards-2026.json',
+            'name': 'Default Cards',
+            'jsonl_download_uri':
+                'https://data.scryfall.io/default-cards/default-cards-2026.jsonl.gz',
+            'compressed_size': 78247919,
           }),
           200,
         );
@@ -41,8 +43,38 @@ void main() {
 
       final service = ScryfallService(client: mockClient);
       final uri = await service.fetchBulkDownloadUri();
-      expect(
-          uri, 'https://data.scryfall.io/default-cards/default-cards-2026.json');
+      expect(uri,
+          'https://data.scryfall.io/default-cards/default-cards-2026.jsonl.gz');
+    });
+
+    test('fetchBulkDownloadUri extracts default_cards from list response',
+        () async {
+      final mockClient = MockClient((request) async {
+        return http.Response(
+          jsonEncode({
+            'object': 'list',
+            'has_more': false,
+            'data': [
+              {
+                'object': 'bulk_data',
+                'type': 'oracle_cards',
+                'jsonl_download_uri': 'https://data.scryfall.io/oracle.jsonl.gz',
+              },
+              {
+                'object': 'bulk_data',
+                'type': 'default_cards',
+                'jsonl_download_uri':
+                    'https://data.scryfall.io/default.jsonl.gz',
+              }
+            ],
+          }),
+          200,
+        );
+      });
+
+      final service = ScryfallService(client: mockClient);
+      final uri = await service.fetchBulkDownloadUri();
+      expect(uri, 'https://data.scryfall.io/default.jsonl.gz');
     });
 
     test('downloadBulkFile streams bytes directly to disk file with progress',
@@ -218,6 +250,42 @@ void main() {
 
       // Cleanup
       await tempFile.delete();
+    });
+
+    test('parseFileInIsolate handles gzipped JSONL (.jsonl.gz) files transparently',
+        () async {
+      final cards = List.generate(
+          15,
+          (i) => {
+                'id': 'gz-card-$i',
+                'name': 'Gzip Card #$i',
+                'set_name': 'Gzip Set',
+                'prices': {'usd': '3.50'},
+              });
+
+      // JSONL format: each line is a JSON object
+      final jsonlLines = cards.map((c) => jsonEncode(c)).join('\n');
+      final gzippedBytes = gzip.encode(utf8.encode(jsonlLines));
+
+      final tempGzFile = File(
+          '${Directory.systemTemp.path}/test_cards_${DateTime.now().millisecondsSinceEpoch}.jsonl.gz');
+      await tempGzFile.writeAsBytes(gzippedBytes);
+
+      final parser = ScryfallStreamingParser();
+      int receivedCount = 0;
+
+      final total = await parser.parseFileInIsolate(
+        filePath: tempGzFile.path,
+        chunkSize: 5,
+        onChunk: (chunk, countSoFar) async {
+          receivedCount += chunk.length;
+        },
+      );
+
+      expect(total, 15);
+      expect(receivedCount, 15);
+
+      await tempGzFile.delete();
     });
   });
 

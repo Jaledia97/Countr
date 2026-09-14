@@ -128,7 +128,21 @@ void _scryfallStreamParserIsolateEntry(_ParserIsolateParams params) async {
   final buffer = StringBuffer();
 
   try {
-    final stream = file.openRead().transform(utf8.decoder);
+    // Detect gzip by file extension or magic bytes (0x1F, 0x8B)
+    bool isGzip = params.filePath.endsWith('.gz');
+    if (!isGzip && await file.length() >= 2) {
+      try {
+        final header = await file.openRead(0, 2).first;
+        if (header.length >= 2 && header[0] == 0x1F && header[1] == 0x8B) {
+          isGzip = true;
+        }
+      } catch (_) {}
+    }
+
+    final rawStream = file.openRead();
+    final Stream<List<int>> byteStream =
+        isGzip ? rawStream.transform(gzip.decoder) : rawStream;
+    final stream = byteStream.cast<List<int>>().transform(utf8.decoder);
 
     await for (final textChunk in stream) {
       final len = textChunk.length;
@@ -287,6 +301,7 @@ class ScryfallStreamingParser {
   Stream<List<VaultItemsCompanion>> parseStream(
     Stream<List<int>> byteStream, {
     int chunkSize = 1000,
+    bool isGzip = false,
   }) async* {
     var currentChunk = <VaultItemsCompanion>[];
     int depth = 0;
@@ -294,7 +309,11 @@ class ScryfallStreamingParser {
     bool isEscaped = false;
     final buffer = StringBuffer();
 
-    await for (final textChunk in byteStream.cast<List<int>>().transform(utf8.decoder)) {
+    final Stream<List<int>> effectiveStream =
+        isGzip ? byteStream.transform(gzip.decoder) : byteStream;
+
+    await for (final textChunk
+        in effectiveStream.cast<List<int>>().transform(utf8.decoder)) {
       final len = textChunk.length;
       for (var i = 0; i < len; i++) {
         final codeUnit = textChunk.codeUnitAt(i);

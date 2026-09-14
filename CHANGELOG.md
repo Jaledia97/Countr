@@ -54,7 +54,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added `android.permission.INTERNET` to `AndroidManifest.xml`.
   - Added `com.apple.security.network.client` entitlements to macOS debug and release profiles.
 - **Automated Test Suite**:
-  - Added 11 new automated unit and widget tests in `test/hydration_engine_test.dart` covering service streaming, isolate parser, backpressure chunking, portfolio separation, controller flow, and UI rendering (24/24 tests passing across full suite).
+  - Added 13 automated unit and widget tests in `test/hydration_engine_test.dart` covering service streaming, isolate parser, backpressure chunking, portfolio separation, controller flow, and UI rendering (26/26 tests passing across full suite).
+
+#### Fixed
+- **Scryfall Metadata `jsonl_download_uri` Support**: Resolved `FormatException: Scryfall bulk metadata response missing "download_uri"` caused by Scryfall's migration to gzipped JSON Lines (`.jsonl.gz`) format. The metadata parser now dynamically extracts `jsonl_download_uri`, falling back to legacy `download_uri` and list endpoint structures.
+- **On-the-Fly Gzip Decompression**: Added automatic native `gzip.decoder` stream decompression in `ScryfallStreamingParser`, allowing the engine to download compressed 78MB archives (reducing network bandwidth by 75%) and decompress them transparently during isolate streaming.
 
 ---
 
