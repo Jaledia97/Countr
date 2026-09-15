@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
@@ -19,6 +20,7 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
   Stream<List<VaultItem>> watchItemsByCollection(
     String collectionType, {
     bool onlyOwned = false,
+    String? searchQuery,
     int? limit,
     int? offset,
   }) {
@@ -36,6 +38,11 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     query.where((t) =>
         t.primaryBinderId.isNull() |
         t.primaryBinderId.equals('INBOX').not());
+
+    if (searchQuery != null && searchQuery.trim().isNotEmpty) {
+      final term = '%${searchQuery.trim()}%';
+      query.where((t) => t.name.like(term) | t.setOrSeries.like(term));
+    }
 
     query.orderBy([
       (t) => OrderingTerm(
@@ -59,6 +66,7 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
   Future<List<VaultItem>> getItemsByCollection(
     String collectionType, {
     bool onlyOwned = false,
+    String? searchQuery,
     int? limit,
     int? offset,
   }) {
@@ -77,6 +85,11 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
         t.primaryBinderId.isNull() |
         t.primaryBinderId.equals('INBOX').not());
 
+    if (searchQuery != null && searchQuery.trim().isNotEmpty) {
+      final term = '%${searchQuery.trim()}%';
+      query.where((t) => t.name.like(term) | t.setOrSeries.like(term));
+    }
+
     query.orderBy([
       (t) => OrderingTerm(
             expression: t.acquiredDate,
@@ -93,6 +106,41 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     }
 
     return query.get();
+  }
+
+  /// Updates personal notes and deck history tags for a vault item without wiping existing dynamicData.
+  Future<int> updateItemNotesAndDecks(
+    String id, {
+    String? personalNotes,
+    List<String>? deckTags,
+    String? communityNotes,
+  }) async {
+    final existing =
+        await (select(vaultItems)..where((t) => t.id.equals(id))).getSingleOrNull();
+    if (existing == null) return 0;
+
+    Map<String, dynamic> data = {};
+    if (existing.dynamicData.isNotEmpty) {
+      try {
+        data = jsonDecode(existing.dynamicData) as Map<String, dynamic>;
+      } catch (_) {}
+    }
+
+    if (deckTags != null) {
+      data['deck_history'] = deckTags;
+    }
+    if (communityNotes != null) {
+      data['use_cases'] = communityNotes;
+    }
+
+    return (update(vaultItems)..where((t) => t.id.equals(id))).write(
+      VaultItemsCompanion(
+        personalNotes: personalNotes != null
+            ? Value(personalNotes)
+            : const Value.absent(),
+        dynamicData: Value(jsonEncode(data)),
+      ),
+    );
   }
 
   /// Normalizes display collection titles to internal collection types.

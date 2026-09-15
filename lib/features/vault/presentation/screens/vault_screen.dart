@@ -7,9 +7,11 @@ import 'package:countr/core/state/app_state.dart';
 import 'package:countr/features/hydration/presentation/controllers/hydration_state.dart';
 import 'package:countr/features/hydration/presentation/providers/hydration_providers.dart';
 import 'package:countr/features/hydration/presentation/widgets/hydration_progress_card.dart';
+import 'dart:async';
 import 'package:countr/features/vault/presentation/providers/vault_providers.dart';
 import 'package:countr/features/vault/presentation/screens/binder_detail_screen.dart';
 import 'package:countr/features/vault/presentation/widgets/vault_item_card.dart';
+import 'package:countr/features/vault/presentation/widgets/vault_item_tile.dart';
 
 /// Vault Screen (Safe / Collection Inventory).
 /// Phase 2 & 3: Infinitely scalable, offline-first local database using Drift
@@ -23,8 +25,25 @@ class VaultScreen extends ConsumerStatefulWidget {
 
 class _VaultScreenState extends ConsumerState<VaultScreen> {
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+  Timer? _debounceTimer;
   int _selectedFilterIndex = 0;
   int _manualItemCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    final maxScroll = _scrollController.position.maxScrollExtent;
+    final currentScroll = _scrollController.position.pixels;
+    if (currentScroll >= maxScroll - 300) {
+      ref.read(vaultPaginationLimitProvider.notifier).update((l) => l + 50);
+    }
+  }
 
   final List<String> _filters = [
     'All Vault',
@@ -81,6 +100,8 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
+    _scrollController.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -177,6 +198,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
     final summary = ref.watch(vaultPortfolioSummaryProvider);
     final hydrationState = ref.watch(hydrationControllerProvider);
     final viewMode = ref.watch(vaultViewModeProvider);
+    final cardLayout = ref.watch(cardDisplayLayoutProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -300,6 +322,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
         ],
       ),
       body: CustomScrollView(
+        controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
           SliverPadding(
@@ -334,6 +357,8 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
                                 setState(() {
                                   _searchController.clear();
                                 });
+                                ref.read(vaultSearchQueryProvider.notifier).state = '';
+                                ref.read(vaultPaginationLimitProvider.notifier).state = 50;
                               },
                             )
                           : null,
@@ -357,7 +382,14 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
                             const BorderSide(color: AppColors.accentCyan),
                       ),
                     ),
-                    onChanged: (_) => setState(() {}),
+                    onChanged: (val) {
+                      setState(() {});
+                      _debounceTimer?.cancel();
+                      _debounceTimer = Timer(const Duration(milliseconds: 250), () {
+                        ref.read(vaultSearchQueryProvider.notifier).state = val.trim();
+                        ref.read(vaultPaginationLimitProvider.notifier).state = 50;
+                      });
+                    },
                   ),
 
                   const SizedBox(height: 16),
@@ -442,6 +474,110 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
                           ),
                         ),
                         const SizedBox(width: 8),
+
+                        // Display Layout Switcher: [ List | Tiles ] (When All Vault is active)
+                        if (viewMode == VaultViewMode.allVault) ...[
+                          Container(
+                            height: 38,
+                            padding: const EdgeInsets.all(3),
+                            decoration: BoxDecoration(
+                              color: AppColors.surface,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: AppColors.surfaceBorder),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                GestureDetector(
+                                  key: const Key('vault_layout_list_button'),
+                                  onTap: () => ref
+                                      .read(cardDisplayLayoutProvider.notifier)
+                                      .state = CardDisplayLayout.list,
+                                  child: Container(
+                                    padding:
+                                        const EdgeInsets.symmetric(horizontal: 10),
+                                    decoration: BoxDecoration(
+                                      color: cardLayout == CardDisplayLayout.list
+                                          ? AppColors.surfaceRaised
+                                          : Colors.transparent,
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    alignment: Alignment.center,
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.view_list_rounded,
+                                          size: 16,
+                                          color: cardLayout == CardDisplayLayout.list
+                                              ? AppColors.accentCyan
+                                              : AppColors.textSecondary,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          'List',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: cardLayout == CardDisplayLayout.list
+                                                ? FontWeight.w700
+                                                : FontWeight.w500,
+                                            color: cardLayout == CardDisplayLayout.list
+                                                ? AppColors.accentCyan
+                                                : AppColors.textSecondary,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                GestureDetector(
+                                  key: const Key('vault_layout_grid_button'),
+                                  onTap: () => ref
+                                      .read(cardDisplayLayoutProvider.notifier)
+                                      .state = CardDisplayLayout.grid,
+                                  child: Container(
+                                    padding:
+                                        const EdgeInsets.symmetric(horizontal: 10),
+                                    decoration: BoxDecoration(
+                                      color: cardLayout == CardDisplayLayout.grid
+                                          ? AppColors.surfaceRaised
+                                          : Colors.transparent,
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    alignment: Alignment.center,
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.grid_view_rounded,
+                                          size: 16,
+                                          color: cardLayout == CardDisplayLayout.grid
+                                              ? AppColors.accentCyan
+                                              : AppColors.textSecondary,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          'Tiles',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: cardLayout == CardDisplayLayout.grid
+                                                ? FontWeight.w700
+                                                : FontWeight.w500,
+                                            color: cardLayout == CardDisplayLayout.grid
+                                                ? AppColors.accentCyan
+                                                : AppColors.textSecondary,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
 
                         // [ + New Binder ] Button
                         ElevatedButton.icon(
@@ -844,6 +980,31 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
           );
         }
 
+        final cardLayout = ref.watch(cardDisplayLayoutProvider);
+
+        if (cardLayout == CardDisplayLayout.grid) {
+          final screenWidth = MediaQuery.of(context).size.width;
+          final columns = _calculateGridColumns(screenWidth);
+
+          return SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            sliver: SliverGrid(
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: columns,
+                crossAxisSpacing: 10,
+                mainAxisSpacing: 10,
+                childAspectRatio: 0.64,
+              ),
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  return VaultItemTile(item: filtered[index]);
+                },
+                childCount: filtered.length,
+              ),
+            ),
+          );
+        }
+
         return SliverPadding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
           sliver: SliverList.builder(
@@ -881,6 +1042,14 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
         ),
       ),
     );
+  }
+
+  int _calculateGridColumns(double screenWidth) {
+    if (screenWidth < 420) return 2;
+    if (screenWidth < 600) return 3;
+    if (screenWidth < 900) return 4;
+    if (screenWidth < 1200) return 5;
+    return 6;
   }
 
   Widget _buildPortfolioSummaryCard(VaultPortfolioSummary summary) {

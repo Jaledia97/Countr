@@ -16,28 +16,42 @@ final vaultDaoProvider = Provider<VaultDao>((ref) {
   return db.vaultDao;
 });
 
+/// Card display layout for the Vault cards view (List vs. ManaBox-style Grid/Tile)
+enum CardDisplayLayout { list, grid }
+
+/// Controls whether cards are displayed in list or grid/tile layout
+final cardDisplayLayoutProvider = StateProvider<CardDisplayLayout>((ref) => CardDisplayLayout.list);
+
+/// Global search query entered in the Vault screen
+final vaultSearchQueryProvider = StateProvider<String>((ref) => '');
+
+/// Pagination item limit for infinite scrolling in the Vault screen
+final vaultPaginationLimitProvider = StateProvider<int>((ref) => 50);
+
 /// Controls whether the Vault tab displays:
 /// - false (default): 'My Vault' (owned cards only, quantity > 0)
 /// - true: 'Catalog Reference' (unowned reference cards from bulk hydration, capped at 100)
 final vaultShowCatalogProvider = StateProvider<bool>((ref) => false);
 
-/// Reactive StreamProvider that queries VaultItems based on activeGameContextProvider.
+/// Reactive StreamProvider that queries VaultItems based on activeGameContextProvider,
+/// active search query, catalog mode, and infinite-scroll pagination limit.
 /// Automatically re-emits when the user switches collection context or database mutates.
 final vaultItemsStreamProvider = StreamProvider<List<VaultItem>>((ref) {
   final activeGame = ref.watch(activeGameContextProvider);
   final dao = ref.watch(vaultDaoProvider);
   final showCatalog = ref.watch(vaultShowCatalogProvider);
+  final searchQuery = ref.watch(vaultSearchQueryProvider).trim();
+  final paginationLimit = ref.watch(vaultPaginationLimitProvider);
 
   if (showCatalog) {
-    // When viewing catalog reference, limit to 100 items to guarantee smooth 60fps rendering
     return dao.watchItemsByCollection(
       activeGame,
       onlyOwned: false,
-      limit: 100,
+      searchQuery: searchQuery.isNotEmpty ? searchQuery : null,
+      limit: paginationLimit,
     );
   }
 
-  // Default: Stream owned inventory only (quantity > 0)
   return dao.watchItemsByCollection(
     activeGame,
     onlyOwned: true,

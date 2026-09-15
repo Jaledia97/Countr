@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:countr/core/constants/app_colors.dart';
 import 'package:countr/core/constants/app_typography.dart';
 import 'package:countr/core/database/app_database.dart';
+import 'card_detail_sheet.dart';
 import 'polymorphic_attribute_chip.dart';
 
 /// Individual Ledger Card for a VaultItem.
@@ -33,8 +34,13 @@ class VaultItemCard extends StatelessWidget {
           width: 1,
         ),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: () => CardDetailSheet.show(context, item),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -300,8 +306,10 @@ class VaultItemCard extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
+    ),
+  ),
+);
+}
 
   IconData _getTypeIcon(String type) {
     switch (type.toLowerCase()) {

@@ -15,6 +15,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.4.1] - 2026-09-15
+
+### Phase 3.1: Full SQLite Catalog Search, ManaBox-Style Tile Grid & Interactive Card Details
+
+#### Added
+- **ManaBox-Style Tile/Grid View Switcher**:
+  - Implemented `cardDisplayLayoutProvider` (`CardDisplayLayout { list, grid }`) and responsive layout toggle buttons `[ List | Tiles ]` in the horizontal scroll controls of `VaultScreen`.
+  - Created `VaultItemTile` widget displaying high-resolution artwork, quantity and unowned badges, foil/graded indicators, and live TMV pricing with tap-to-detail interaction.
+  - Implemented adaptive responsive columns based on screen width (2 columns on phones <420px, 3 on 420–600px, 4 on 600–900px, 5–6 on tablets/desktop >900px) with fixed 0.64 card aspect ratio.
+- **Full-Database SQLite Catalog Search & Infinite Scrolling**:
+  - Upgraded `VaultDao.watchItemsByCollection` and `getItemsByCollection` with optional SQL `searchQuery`, `limit`, and `offset` filtering natively across `name` and `setOrSeries` using `LIKE %query%`.
+  - Fixed Catalog (Ref) tab querying: eliminated the previous 100-item memory bottleneck so searches query the entire 75,000+ card Scryfall database in SQLite.
+  - Added infinite scrolling pagination controller (`vaultPaginationLimitProvider`) to lazily stream items in 50-card chunks on scroll threshold.
+  - Debounced search queries by 250ms with one-tap search field clearing and filter reset.
+- **Interactive Card Detail Modal Sheet (`CardDetailSheet`)**:
+  - Built expandable `DraggableScrollableSheet` modal presenting complete card metadata:
+    - High-resolution card artwork with fallback placeholder.
+    - Type line, mana cost, and rarity badges.
+    - Full Oracle rules text, flavor text, power/toughness, and loyalty counters.
+    - Format legalities chips across Standard, Pioneer, Modern, Legacy, Vintage, Commander, and Pauper.
+    - Official rulings and textbox clarifications.
+    - User-specific portfolio financial ledger metrics (acquired price, live market value, net profit/loss, and ROI %).
+    - Dynamic deck history tags (`deck_history`) with interactive tag addition and deletion.
+    - Editable personal strategy notes and combo suggestions saved with instant feedback.
+    - Quick "Add to Vault / Inbox" action for unowned catalog cards.
+  - Added `VaultDao.updateItemNotesAndDecks` to safely persist user notes and deck placements inside `dynamicData` without schema migrations.
+- **Automated Unit & Widget Tests**:
+  - Created `test/vault_search_pagination_test.dart` (6 tests) covering SQLite search query matching, pagination limits/offsets, note/deck updates, and Riverpod catalog stream filtering.
+  - Created `test/vault_view_switcher_and_detail_test.dart` (3 tests) covering List vs Grid layout toggling, responsive tile rendering, modal opening, oracle/financial data display, and unowned card vault imports.
+
+---
+
 ## [0.4.0] - 2026-09-15
 
 ### Phase 3: Dynamic Full-Frame Scanner, Hybrid Matching Engine & Inbox Data Isolation

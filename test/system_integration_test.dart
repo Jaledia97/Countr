@@ -117,6 +117,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Filter: Graded Slabs (Index 2)
+      await tester.ensureVisible(find.text('Graded Slabs'));
       await tester.tap(find.text('Graded Slabs'));
       await tester.pumpAndSettle();
 
