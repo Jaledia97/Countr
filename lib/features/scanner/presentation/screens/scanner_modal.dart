@@ -12,8 +12,10 @@ import '../../../../core/database/app_database.dart';
 import '../../../../core/state/app_state.dart';
 import '../../../vault/presentation/providers/vault_providers.dart';
 import '../../domain/adaptive_auto_adjust_controller.dart';
+import '../../domain/card_perimeter_calculator.dart';
 import '../../domain/ocr_heuristic_matcher.dart';
 import '../../utils/camera_image_converter.dart';
+import '../widgets/dynamic_scanner_overlay.dart';
 import 'inbox_screen.dart';
 
 /// Full-screen Edge Scanner modal featuring live camera streaming,
@@ -59,7 +61,10 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
   bool _isFoilMode = false;
   bool _isExposureLocked = false;
   bool _isGreenFlash = false;
-  bool _isProcessingFrame = false;
+  bool _isProcessing = false;
+  int _frameCount = 0;
+  Rect? _detectedCardBounds;
+  DateTime? _lastCardDetectedTime;
   bool _isCameraAvailable = false;
   bool _isScanningPaused = false;
   int _sessionScanCount = 0;
@@ -177,7 +182,7 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
       return;
     }
 
-    _isProcessingFrame = false;
+    _isProcessing = false;
 
     if (_cameraController != null && _cameraController!.value.isInitialized) {
       try {
@@ -227,11 +232,15 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
     }
   }
 
-  /// Evaluates each camera stream frame with performance lock dropping frames
-  /// while ML Kit or SQLite processing is busy, or while scanner is paused.
+  /// Evaluates each camera stream frame with deterministic frame skipping
+  /// (1 in 10 frames, ~3-6 FPS) and strict asynchronous lock to prevent CPU/GPU choking
+  /// and permanent camera stream freezes.
   Future<void> _processCameraFrame(CameraImage image) async {
-    if (_isProcessingFrame || _isScanningPaused) return; // Strict frame drop lock for 60fps UI & battery
-    _isProcessingFrame = true;
+    _frameCount++;
+    if (_frameCount % 10 != 0 || _isProcessing || _isScanningPaused) {
+      return;
+    }
+    _isProcessing = true;
 
     try {
       final camera = _cameraController?.description;
@@ -246,6 +255,38 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
       if (inputImage == null) return;
 
       final recognized = await _textRecognizer.processImage(inputImage);
+
+      // R1: Dynamic card bounding perimeter calculation
+      if (recognized.blocks.isNotEmpty && mounted) {
+        final rawSize = inputImage.metadata?.size ??
+            Size(image.width.toDouble(), image.height.toDouble());
+        final uprightSize = CardPerimeterCalculator.getUprightImageSize(
+          rawSize: rawSize,
+          rotation: inputImage.metadata?.rotation,
+        );
+
+        final perimeter = CardPerimeterCalculator.calculatePerimeter(
+          recognized.blocks,
+          imageSize: uprightSize,
+        );
+
+        if (perimeter != null) {
+          final screenSize = MediaQuery.of(context).size;
+          _detectedCardBounds = CardPerimeterCalculator.mapImageRectToScreen(
+            imageRect: perimeter,
+            imageSize: uprightSize,
+            screenSize: screenSize,
+          );
+          _lastCardDetectedTime = DateTime.now();
+        }
+      } else {
+        if (_lastCardDetectedTime == null ||
+            DateTime.now().difference(_lastCardDetectedTime!) >
+                const Duration(milliseconds: 1200)) {
+          _detectedCardBounds = null;
+        }
+      }
+
       final cleanedLines = OcrHeuristicMatcher.extractCleanedLines(recognized);
       final ocrResult = OcrHeuristicMatcher.parseRecognizedText(recognized);
 
@@ -254,7 +295,8 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
         if (_lastIdleLogTime == null ||
             now.difference(_lastIdleLogTime!) > const Duration(seconds: 2)) {
           _lastIdleLogTime = now;
-          debugPrint('[Countr Scanner] Video stream active (${image.width}x${image.height}): awaiting card in reticle...');
+          debugPrint(
+              '[Countr Scanner] Video stream active (${image.width}x${image.height}): awaiting card in frame...');
         }
         await _autoAdjustController?.onFrameResult(matched: false);
         return;
@@ -263,9 +305,11 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
       final dao = ref.read(vaultDaoProvider);
       final activeGame = ref.read(activeGameContextProvider);
 
-      debugPrint('[Countr Scanner OCR] Recognized ${cleanedLines.length} candidate lines: $cleanedLines (Active Game: $activeGame)');
+      debugPrint(
+          '[Countr Scanner OCR] Recognized ${cleanedLines.length} candidate lines: $cleanedLines (Active Game: $activeGame)');
       if (ocrResult.collectorNumber != null || ocrResult.setCode != null) {
-        debugPrint('[Countr Scanner OCR] Collector: ${ocrResult.collectorNumber}, Set: ${ocrResult.setCode}');
+        debugPrint(
+            '[Countr Scanner OCR] Collector: ${ocrResult.collectorNumber}, Set: ${ocrResult.setCode}');
       }
 
       final card = await dao.matchScannedCard(
@@ -276,16 +320,18 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
       );
 
       if (card != null) {
-        // Debounce same card in reticle (4 seconds) to avoid immediate re-trigger loop
+        // Debounce same card in frame (4 seconds) to avoid immediate re-trigger loop
         if (_lastMatchedCardId == card.id &&
             _lastMatchTimestamp != null &&
-            DateTime.now().difference(_lastMatchTimestamp!) < const Duration(seconds: 4)) {
+            DateTime.now().difference(_lastMatchTimestamp!) <
+                const Duration(seconds: 4)) {
           return;
         }
         _lastMatchedCardId = card.id;
         _lastMatchTimestamp = DateTime.now();
 
-        debugPrint('>>> [Countr Scanner MATCH SUCCESS] Card "${card.name}" matched! Set: "${card.setOrSeries}", ID: "${card.id}" (Context: $activeGame)');
+        debugPrint(
+            '>>> [Countr Scanner MATCH SUCCESS] Card "${card.name}" matched! Set: "${card.setOrSeries}", ID: "${card.id}" (Context: $activeGame)');
         // Auto-Routing: Instantly pause preview and stop image stream to save battery
         if (_cameraController != null &&
             _cameraController!.value.isInitialized) {
@@ -301,13 +347,17 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
         await _autoAdjustController?.onFrameResult(matched: true);
         await _onCardMatched(card);
       } else {
-        debugPrint('[Countr Scanner NO MATCH] No card in database matched lines: $cleanedLines in active context: "$activeGame"');
+        debugPrint(
+            '[Countr Scanner NO MATCH] No card in database matched lines: $cleanedLines in active context: "$activeGame"');
         await _autoAdjustController?.onFrameResult(matched: false);
       }
     } catch (e, stack) {
       debugPrint('[Countr Scanner ERROR] OCR stream exception: $e\n$stack');
     } finally {
-      _isProcessingFrame = false;
+      _isProcessing = false;
+      if (mounted) {
+        setState(() {});
+      }
     }
   }
 
@@ -408,6 +458,26 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
   @visibleForTesting
   Future<void> simulateCardDetection(VaultItem card) => _onCardMatched(card);
 
+  @visibleForTesting
+  int get frameCount => _frameCount;
+
+  @visibleForTesting
+  bool get isProcessing => _isProcessing;
+
+  @visibleForTesting
+  bool get isProcessingFrame => _isProcessing;
+
+  @visibleForTesting
+  Rect? get detectedCardBounds => _detectedCardBounds;
+
+  @visibleForTesting
+  void simulateDetectedBounds(Rect? bounds) =>
+      setState(() => _detectedCardBounds = bounds);
+
+  @visibleForTesting
+  Future<void> processCameraFrameForTesting(CameraImage image) =>
+      _processCameraFrame(image);
+
   @override
   void dispose() {
     _scanLineController.dispose();
@@ -440,242 +510,129 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
                 child: CustomPaint(painter: _CameraGridPainter()),
               ),
 
-            // Viewfinder & Scanning Reticle
+            // Dynamic ManaBox-Style Reactive Scanner Overlay
+            DynamicScannerOverlay(
+              cardBounds: _detectedCardBounds,
+              isGreenFlash: _isGreenFlash,
+              isPaused: _isScanningPaused,
+              scanLineAnimation: _scanLineController,
+            ),
+
+            // Center Status Banner (Floating unconstrained status & controls)
             Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 36),
-                child: AspectRatio(
-                  aspectRatio: 0.70, // Standard card ratio ~2.5 x 3.5
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 250),
-                    clipBehavior: Clip.antiAlias,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 32),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.85),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: _isScanningPaused
+                        ? AppColors.accentAmber
+                        : (_isGreenFlash
+                            ? AppColors.accentEmerald
+                            : AppColors.accentCyan),
+                    width: 1.4,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: (_isScanningPaused
+                              ? AppColors.accentAmber
+                              : (_isGreenFlash
+                                  ? AppColors.accentEmerald
+                                  : AppColors.accentCyan))
+                          .withValues(alpha: 0.2),
+                      blurRadius: 12,
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      _isScanningPaused
+                          ? Icons.pause_circle_filled_rounded
+                          : (_isGreenFlash
+                              ? Icons.check_circle_outline_rounded
+                              : Icons.camera_alt_rounded),
+                      color: _isScanningPaused
+                          ? AppColors.accentAmber
+                          : (_isGreenFlash
+                              ? AppColors.accentEmerald
+                              : AppColors.accentCyan),
+                      size: 28,
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      _isScanningPaused
+                          ? 'SCANNING PAUSED'
+                          : (_isGreenFlash
+                              ? 'CARD IDENTIFIED!'
+                              : 'Scanner Camera Active'),
+                      style: TextStyle(
                         color: _isScanningPaused
                             ? AppColors.accentAmber
                             : (_isGreenFlash
                                 ? AppColors.accentEmerald
-                                : AppColors.accentCyan.withValues(alpha: 0.6)),
-                        width: _isGreenFlash ? 3.0 : 1.5,
+                                : Colors.white),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.5,
                       ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: _isScanningPaused
-                              ? AppColors.accentAmber.withValues(alpha: 0.3)
-                              : (_isGreenFlash
-                                  ? AppColors.accentEmerald.withValues(alpha: 0.4)
-                                  : AppColors.accentCyan.withValues(alpha: 0.15)),
-                          blurRadius: _isGreenFlash ? 30 : 20,
-                          spreadRadius: _isGreenFlash ? 4 : 2,
-                        ),
-                      ],
                     ),
-                    child: Stack(
-                      children: [
-                        // Reticle Corners
-                        _ReticleCorner(
-                          top: 0,
-                          left: 0,
-                          isTop: true,
-                          isLeft: true,
-                          color: _isGreenFlash
-                              ? AppColors.accentEmerald
-                              : AppColors.accentCyan,
-                        ),
-                        _ReticleCorner(
-                          top: 0,
-                          right: 0,
-                          isTop: true,
-                          isLeft: false,
-                          color: _isGreenFlash
-                              ? AppColors.accentEmerald
-                              : AppColors.accentCyan,
-                        ),
-                        _ReticleCorner(
-                          bottom: 0,
-                          left: 0,
-                          isTop: false,
-                          isLeft: true,
-                          color: _isGreenFlash
-                              ? AppColors.accentEmerald
-                              : AppColors.accentCyan,
-                        ),
-                        _ReticleCorner(
-                          bottom: 0,
-                          right: 0,
-                          isTop: false,
-                          isLeft: false,
-                          color: _isGreenFlash
-                              ? AppColors.accentEmerald
-                              : AppColors.accentCyan,
-                        ),
-
-                        // Animated Scanning Line (Active only when scanning)
-                        if (!_isScanningPaused)
-                          AnimatedBuilder(
-                            animation: _scanLineController,
-                            builder: (context, child) {
-                              return Align(
-                                alignment: Alignment(
-                                  0.0,
-                                  (_scanLineController.value * 2) - 1.0,
-                                ),
-                                child: Container(
-                                  height: 2.5,
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      colors: [
-                                        Colors.transparent,
-                                        (_isGreenFlash
-                                                ? AppColors.accentEmerald
-                                                : AppColors.accentCyan)
-                                            .withValues(alpha: 0.8),
-                                        Colors.white,
-                                        (_isGreenFlash
-                                                ? AppColors.accentEmerald
-                                                : AppColors.accentCyan)
-                                            .withValues(alpha: 0.8),
-                                        Colors.transparent,
-                                      ],
-                                    ),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: (_isGreenFlash
-                                                ? AppColors.accentEmerald
-                                                : AppColors.accentCyan)
-                                            .withValues(alpha: 0.7),
-                                        blurRadius: 10,
-                                        spreadRadius: 2,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            },
+                    const SizedBox(height: 3),
+                    Text(
+                      _isScanningPaused
+                          ? 'Battery Saver Active • Camera Idle'
+                          : (_isCameraAvailable
+                              ? 'Point at card in ${activeGame.toUpperCase()} collection'
+                              : 'Simulation Mode (Ready)'),
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: AppColors.textSecondary.withValues(alpha: 0.9),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    if (_isScanningPaused) ...[
+                      const SizedBox(height: 10),
+                      GestureDetector(
+                        onTap: _resumeScanning,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 6,
                           ),
-
-                        // Center Status Banner
-                        Center(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 12,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: 0.85),
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(
-                                color: _isScanningPaused
-                                    ? AppColors.accentAmber
-                                    : (_isGreenFlash
-                                        ? AppColors.accentEmerald
-                                        : AppColors.accentCyan),
-                                width: 1.4,
+                          decoration: BoxDecoration(
+                            color: AppColors.accentEmerald,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.play_arrow_rounded,
+                                size: 16,
+                                color: AppColors.textDark,
                               ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: (_isScanningPaused
-                                          ? AppColors.accentAmber
-                                          : (_isGreenFlash
-                                              ? AppColors.accentEmerald
-                                              : AppColors.accentCyan))
-                                      .withValues(alpha: 0.2),
-                                  blurRadius: 12,
+                              SizedBox(width: 4),
+                              Text(
+                                'Resume Scanner',
+                                style: TextStyle(
+                                  color: AppColors.textDark,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
                                 ),
-                              ],
-                            ),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  _isScanningPaused
-                                      ? Icons.pause_circle_filled_rounded
-                                      : (_isGreenFlash
-                                          ? Icons.check_circle_outline_rounded
-                                          : Icons.camera_alt_rounded),
-                                  color: _isScanningPaused
-                                      ? AppColors.accentAmber
-                                      : (_isGreenFlash
-                                          ? AppColors.accentEmerald
-                                          : AppColors.accentCyan),
-                                  size: 28,
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  _isScanningPaused
-                                      ? 'SCANNING PAUSED'
-                                      : (_isGreenFlash
-                                          ? 'CARD IDENTIFIED!'
-                                          : 'Scanner Camera Active'),
-                                  style: TextStyle(
-                                    color: _isScanningPaused
-                                        ? AppColors.accentAmber
-                                        : (_isGreenFlash
-                                            ? AppColors.accentEmerald
-                                            : Colors.white),
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: 0.5,
-                                  ),
-                                ),
-                                const SizedBox(height: 3),
-                                Text(
-                                  _isScanningPaused
-                                      ? 'Battery Saver Active • Camera Idle'
-                                      : (_isCameraAvailable
-                                          ? 'Point at card in ${activeGame.toUpperCase()} collection'
-                                          : 'Simulation Mode (Ready)'),
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    color: AppColors.textSecondary
-                                        .withValues(alpha: 0.9),
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                                if (_isScanningPaused) ...[
-                                  const SizedBox(height: 10),
-                                  GestureDetector(
-                                    onTap: _resumeScanning,
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 14,
-                                        vertical: 6,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: AppColors.accentEmerald,
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: const Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(
-                                            Icons.play_arrow_rounded,
-                                            size: 16,
-                                            color: AppColors.textDark,
-                                          ),
-                                          SizedBox(width: 4),
-                                          Text(
-                                            'Resume Scanner',
-                                            style: TextStyle(
-                                              color: AppColors.textDark,
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.w800,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
                         ),
-                      ],
-                    ),
-                  ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
             ),
@@ -1116,98 +1073,6 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
       ),
     );
   }
-}
-
-class _ReticleCorner extends StatelessWidget {
-  final double? top;
-  final double? bottom;
-  final double? left;
-  final double? right;
-  final bool isTop;
-  final bool isLeft;
-  final Color color;
-
-  const _ReticleCorner({
-    this.top,
-    this.bottom,
-    this.left,
-    this.right,
-    required this.isTop,
-    required this.isLeft,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    const double length = 24.0;
-    const double thickness = 3.0;
-
-    return Positioned(
-      top: top,
-      bottom: bottom,
-      left: left,
-      right: right,
-      child: SizedBox(
-        width: length,
-        height: length,
-        child: CustomPaint(
-          painter: _CornerPainter(
-            isTop: isTop,
-            isLeft: isLeft,
-            thickness: thickness,
-            color: color,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _CornerPainter extends CustomPainter {
-  final bool isTop;
-  final bool isLeft;
-  final double thickness;
-  final Color color;
-
-  _CornerPainter({
-    required this.isTop,
-    required this.isLeft,
-    required this.thickness,
-    required this.color,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = thickness
-      ..style = PaintingStyle.stroke;
-
-    final path = Path();
-    if (isTop && isLeft) {
-      path.moveTo(0, size.height);
-      path.lineTo(0, 0);
-      path.lineTo(size.width, 0);
-    } else if (isTop && !isLeft) {
-      path.moveTo(size.width, size.height);
-      path.lineTo(size.width, 0);
-      path.lineTo(0, 0);
-    } else if (!isTop && isLeft) {
-      path.moveTo(0, 0);
-      path.lineTo(0, size.height);
-      path.lineTo(size.width, size.height);
-    } else {
-      path.moveTo(size.width, 0);
-      path.lineTo(size.width, size.height);
-      path.lineTo(0, size.height);
-    }
-
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _CornerPainter oldDelegate) =>
-      oldDelegate.color != color;
 }
 
 class _CameraGridPainter extends CustomPainter {

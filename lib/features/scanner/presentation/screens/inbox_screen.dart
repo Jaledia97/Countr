@@ -46,10 +46,28 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
 
   void _clearSelection() {
     setState(() {
-      _selectedIds.clear;
       _selectedIds.clear();
       _isSelectionMode = false;
     });
+  }
+
+  Future<void> _handleBulkDelete() async {
+    final count = _selectedIds.length;
+    if (count == 0) return;
+    final idsToDelete = _selectedIds.toList();
+    final dao = ref.read(vaultDaoProvider);
+    await dao.deleteItems(idsToDelete);
+    _clearSelection();
+    if (mounted) {
+      ScaffoldMessenger.of(context).clearSnackBars();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Deleted $count item${count == 1 ? '' : 's'} from Inbox'),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   Future<void> _handleMoveToBinder(List<VaultItem> allItems) async {
@@ -447,8 +465,54 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
                   final item = items[index];
                   final isSelected = _selectedIds.contains(item.id);
 
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 12),
+                  return Dismissible(
+                    key: Key('inbox_item_${item.id}'),
+                    direction: _isSelectionMode
+                        ? DismissDirection.none
+                        : DismissDirection.endToStart,
+                    background: Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.redAccent.shade700,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      alignment: Alignment.centerRight,
+                      padding: const EdgeInsets.only(right: 20),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.delete_outline_rounded,
+                            color: Colors.white,
+                            size: 24,
+                          ),
+                          SizedBox(width: 8),
+                          Text(
+                            'Delete',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    onDismissed: (direction) async {
+                      final dao = ref.read(vaultDaoProvider);
+                      await dao.deleteItem(item.id);
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).clearSnackBars();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Deleted "${item.name}" from Inbox'),
+                          behavior: SnackBarBehavior.floating,
+                          duration: const Duration(seconds: 2),
+                        ),
+                      );
+                    },
+                    child: Container(
+                      margin: const EdgeInsets.only(bottom: 12),
                     decoration: BoxDecoration(
                       color: isSelected
                           ? AppColors.accentCyan.withValues(alpha: 0.12)
@@ -617,49 +681,83 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
                         ),
                       ),
                     ),
-                  );
-                },
-              ),
+                  ),
+                );
+              },
+            ),
 
-              // Bottom Action Bar when items selected
-              if (_isSelectionMode && _selectedIds.isNotEmpty)
-                Positioned(
-                  bottom: 24,
-                  left: 20,
-                  right: 20,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.4),
-                          blurRadius: 16,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.accentCyan,
-                        foregroundColor: AppColors.textDark,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        elevation: 6,
+            // Bottom Action Bar when items selected
+            if (_isSelectionMode && _selectedIds.isNotEmpty)
+              Positioned(
+                bottom: 24,
+                left: 20,
+                right: 20,
+                child: Container(
+                  decoration: BoxDecoration(
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.4),
+                        blurRadius: 16,
+                        offset: const Offset(0, 4),
                       ),
-                      icon: const Icon(Icons.drive_file_move_rounded, size: 22),
-                      label: Text(
-                        'Move to Binder (${_selectedIds.length})',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.5,
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.accentCyan,
+                            foregroundColor: AppColors.textDark,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            elevation: 6,
+                          ),
+                          icon: const Icon(Icons.drive_file_move_rounded, size: 22),
+                          label: Text(
+                            'Move to Binder (${_selectedIds.length})',
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.5,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          onPressed: () => _handleMoveToBinder(items),
                         ),
                       ),
-                      onPressed: () => _handleMoveToBinder(items),
-                    ),
+                      const SizedBox(width: 12),
+                      ElevatedButton.icon(
+                        key: const Key('inbox_trash_button'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.redAccent.shade700,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 16,
+                            horizontal: 20,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          elevation: 6,
+                        ),
+                        icon: const Icon(Icons.delete_outline_rounded, size: 22),
+                        label: const Text(
+                          'Trash',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                        onPressed: () => _handleBulkDelete(),
+                      ),
+                    ],
                   ),
                 ),
+              ),
             ],
           );
         },

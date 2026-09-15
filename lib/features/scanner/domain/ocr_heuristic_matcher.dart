@@ -74,6 +74,10 @@ class OcrHeuristicMatcher {
     'illustrator',
   };
 
+  /// Strips all non-alphanumeric characters (spaces, punctuation, quotes, symbols)
+  /// and converts the string to lowercase.
+  static String sanitize(String input) => countrSanitize(input);
+
   /// Strips ALL punctuation (quotes, commas, hyphens, etc.) from input,
   /// leaving only alphanumeric characters and spaces, and lowercases everything.
   static String sanitizeText(String input) {
@@ -250,4 +254,13 @@ class OcrHeuristicMatcher {
 
     return cleaned;
   }
+}
+
+/// Strips all non-alphanumeric characters (spaces, punctuation, quotes, symbols)
+/// and converts the string to lowercase.
+String sanitize(String input) => countrSanitize(input);
+
+/// Strips all non-alphanumeric characters and converts the string to lowercase.
+String countrSanitize(String input) {
+  return input.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
 }

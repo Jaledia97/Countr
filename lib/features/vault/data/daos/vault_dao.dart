@@ -33,6 +33,10 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
       query.where((t) => t.quantity.isBiggerThanValue(0));
     }
 
+    query.where((t) =>
+        t.primaryBinderId.isNull() |
+        t.primaryBinderId.equals('INBOX').not());
+
     query.orderBy([
       (t) => OrderingTerm(
             expression: t.acquiredDate,
@@ -68,6 +72,10 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     if (onlyOwned) {
       query.where((t) => t.quantity.isBiggerThanValue(0));
     }
+
+    query.where((t) =>
+        t.primaryBinderId.isNull() |
+        t.primaryBinderId.equals('INBOX').not());
 
     query.orderBy([
       (t) => OrderingTerm(
@@ -297,12 +305,14 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
   Stream<Map<String, int>> watchBinderItemCounts() {
     final query = select(vaultItems)
       ..where((t) =>
-          t.quantity.isBiggerThanValue(0) & t.primaryBinderId.isNotNull());
+          t.quantity.isBiggerThanValue(0) &
+          t.primaryBinderId.isNotNull() &
+          t.primaryBinderId.equals('INBOX').not());
     return query.watch().map((items) {
       final counts = <String, int>{};
       for (final item in items) {
         final loc = item.primaryBinderId;
-        if (loc != null) {
+        if (loc != null && loc != 'INBOX') {
           counts[loc] = (counts[loc] ?? 0) + item.quantity;
         }
       }
@@ -343,11 +353,11 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
   // PHASE 3: INBOX HOLDING AREA
   // ---------------------------------------------------------------------------
 
-  /// Streams all owned cards currently staged in the "Inbox" holding area (primaryBinderId is NULL).
+  /// Streams all owned cards currently staged in the "Inbox" holding area (primaryBinderId == 'INBOX').
   Stream<List<VaultItem>> watchInboxItems() {
     return (select(vaultItems)
           ..where((t) =>
-              t.primaryBinderId.isNull() &
+              t.primaryBinderId.equals('INBOX') &
               t.quantity.isBiggerThanValue(0))
           ..orderBy([
             (t) => OrderingTerm(
@@ -358,175 +368,282 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
   }
 
   // ---------------------------------------------------------------------------
+  // PHASE 3: ITEM DELETION
+  // ---------------------------------------------------------------------------
+
+  /// Permanently deletes a single item from SQLite by its ID.
+  Future<int> deleteItem(String id) {
+    return (delete(vaultItems)..where((t) => t.id.equals(id))).go();
+  }
+
+  /// Permanently deletes multiple items from SQLite by their IDs.
+  Future<int> deleteItems(List<String> ids) {
+    if (ids.isEmpty) return Future.value(0);
+    return (delete(vaultItems)..where((t) => t.id.isIn(ids))).go();
+  }
+
+  // ---------------------------------------------------------------------------
   // PHASE 3: REAL-TIME SCANNER CARD MATCHING
   // ---------------------------------------------------------------------------
 
-  static const String _sqliteNameNormalized = r'''
-    replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(
-      lower(
-        substr(
-          substr("name", 1, instr("name" || ' //', ' //') - 1),
-          1,
-          instr(substr("name", 1, instr("name" || ' //', ' //') - 1) || ' (', ' (') - 1
-        )
-      ),
-      char(34), ''), char(39), ''), '-', ''), ',', ''), ':', ''), '.', ''), '’', ''), '‘', ''), '!', ''), '?', ''), ';', ''), '&', '')
-  ''';
+  /// Extracts the base card name by stripping split / adventure card delimiter (' //')
+  /// and variant / serialized subtitle (' (').
+  String _extractBaseCardName(String name) {
+    var base = name;
+    final slashIndex = base.indexOf(' //');
+    if (slashIndex != -1) base = base.substring(0, slashIndex);
+    final parenIndex = base.indexOf(' (');
+    if (parenIndex != -1) base = base.substring(0, parenIndex);
+    return base.trim();
+  }
 
-  /// Real-time search in SQLite for a card matching OCR candidate lines.
-  /// Strictly requires line-by-line exact matching on cleaned lines and guards against
-  /// empty or short noise lines (< 3 characters) to eliminate false positives
-  /// (such as the "Lifetime" Pass Holder bug).
+  /// Real-time hybrid search in SQLite and Dart for a card matching OCR candidate lines.
+  ///
+  /// Requirement R3 Hybrid Matching Engine:
+  /// - Step 1 (Regex Override): Extracts collector number patterns (xxx/yyy, #xxx, SV01-xxx)
+  ///   or uses explicit collectorNumber parameter and queries dynamic_data LIMIT 1.
+  /// - Step 2 (SQL Wide Net): Filters OCR lines length >= 4 (ordered descending by length),
+  ///   extracts first 5 characters, and queries SQLite:
+  ///   `WHERE name LIKE '$firstFiveChars%' AND quantity == 0 LIMIT 25`.
+  /// - Step 3 (Dart `contains` Verification): Iterates candidate items in memory, sanitizes
+  ///   names via [sanitize], and confirms match via `sanitizedOcrLine.contains(sanitizedDbName)`
+  ///   or `sanitizedOcrLine.contains(sanitizedBaseDbName)`.
   Future<VaultItem?> matchScannedCard(
     List<String> cleanedOcrLines,
     String activeContext, {
     String? collectorNumber,
     String? setCode,
   }) async {
-    // 1. Empty String & Short Guard: If empty or all lines < 3 chars, return null immediately
-    if (cleanedOcrLines.isEmpty) return null;
-
-    final validLines = cleanedOcrLines
-        .map((l) => OcrHeuristicMatcher.sanitizeText(l))
-        .where((l) => l.length >= 3)
-        .toList();
-
-    if (validLines.isEmpty) return null;
+    // -------------------------------------------------------------------------
+    // Guard: Empty Input Check
+    // -------------------------------------------------------------------------
+    if (cleanedOcrLines.isEmpty &&
+        (collectorNumber == null || collectorNumber.trim().isEmpty)) {
+      return null;
+    }
 
     final normalized = _normalizeCollectionType(activeContext);
 
-    // 2. Collector Number Override: If a collector number pattern exists, prioritize querying it
-    if (collectorNumber != null && collectorNumber.trim().isNotEmpty) {
-      final cleanCollector = collectorNumber.trim();
-      final collectorQuery = select(vaultItems)
-        ..where((t) {
-          Expression<bool> predicate = t.dynamicData
-                  .like('%"collector_number":"$cleanCollector"%') |
-              t.dynamicData.like('%"collector_number": "$cleanCollector"%');
-          if (normalized != 'all') {
-            predicate = predicate & t.collectionType.equals(normalized);
-          }
-          return predicate;
-        })
-        ..limit(5);
+    // -------------------------------------------------------------------------
+    // STEP 1: Collector Number Regex Override
+    // -------------------------------------------------------------------------
+    String? effectiveCollector = collectorNumber?.trim();
+    if (effectiveCollector == null || effectiveCollector.isEmpty) {
+      final fractionPattern = RegExp(r'\b(\d{1,4})\s*[/]\s*(\d{1,4})\b');
+      final setDashPattern =
+          RegExp(r'\b([A-Za-z0-9]{2,5})\s*[-–—]\s*(\d{1,4})\b');
+      final hashPattern =
+          RegExp(r'\b(?:NO\.?|#)\s*(\d{1,4})\b', caseSensitive: false);
 
-      final collectorMatches = await collectorQuery.get();
-      if (collectorMatches.isNotEmpty) {
-        // If any line matches the card's cleaned name, return that exact card
-        for (final card in collectorMatches) {
-          final cardCleaned = OcrHeuristicMatcher.sanitizeText(card.name);
-          if (validLines.contains(cardCleaned)) {
-            return card;
+      for (final line in cleanedOcrLines) {
+        final fMatch = fractionPattern.firstMatch(line);
+        if (fMatch != null) {
+          final num = fMatch.group(1)!;
+          final denom = fMatch.group(2)!;
+          // Guard against creature P/T stat boxes like 2/2 or 5/5
+          if (num != denom || (int.tryParse(num) ?? 0) > 20) {
+            effectiveCollector = num;
+            break;
           }
         }
-        // If single collector match in the active collection, return it
-        if (collectorMatches.length == 1) {
-          return collectorMatches.first;
+        final sMatch = setDashPattern.firstMatch(line);
+        if (sMatch != null) {
+          effectiveCollector = sMatch.group(2);
+          break;
+        }
+        final hMatch = hashPattern.firstMatch(line);
+        if (hMatch != null) {
+          effectiveCollector = hMatch.group(1);
+          break;
         }
       }
     }
 
-    // 3. Line-by-Line Exact Match (No fuzzy LIKE):
-    // First, query catalog reference items (quantity == 0)
-    for (final line in validLines) {
-      final sqlCatalog = normalized != 'all'
-          ? '''
-            SELECT * FROM "vault_items"
-            WHERE "collection_type" = ?
-              AND "quantity" = 0
-              AND (
-                "name" = ? COLLATE NOCASE
-                OR $_sqliteNameNormalized = ?
-              )
-            LIMIT 1;
-            '''
-          : '''
-            SELECT * FROM "vault_items"
-            WHERE "quantity" = 0
-              AND (
-                "name" = ? COLLATE NOCASE
-                OR $_sqliteNameNormalized = ?
-              )
-            LIMIT 1;
-            ''';
+    if (effectiveCollector != null && effectiveCollector.isNotEmpty) {
+      final cleanNum = effectiveCollector.trim();
+      final numCandidates = {cleanNum};
+      if (cleanNum.length <= 3) {
+        numCandidates.add(cleanNum.padLeft(3, '0'));
+      }
+      final stripped = cleanNum.replaceFirst(RegExp(r'^0+'), '');
+      if (stripped.isNotEmpty) {
+        numCandidates.add(stripped);
+      }
 
-      final catalogMatch = await customSelect(
-        sqlCatalog,
-        variables: [
-          if (normalized != 'all') Variable.withString(normalized),
-          Variable.withString(line),
-          Variable.withString(line),
-        ],
-        readsFrom: {vaultItems},
-      ).map((row) => vaultItems.map(row.data)).getSingleOrNull();
+      Expression<bool> buildCollectorPred(VaultItems t) {
+        Expression<bool>? p;
+        for (final num in numCandidates) {
+          final pred1 = t.dynamicData.like('%"collector_number":"$num"%') |
+              t.dynamicData.like('%"collector_number": "$num"%');
+          p = p == null ? pred1 : (p | pred1);
+        }
+        return p!;
+      }
 
-      if (catalogMatch != null) {
-        debugPrint('[VaultDao.matchScannedCard] Matched catalog item: "${catalogMatch.name}" from line: "$line" (context: $normalized)');
-        return catalogMatch;
+      var collectorMatch = await (select(vaultItems)
+            ..where((t) {
+              final pred = buildCollectorPred(t);
+              if (normalized != 'all') {
+                return pred & t.collectionType.equals(normalized);
+              }
+              return pred;
+            })
+            ..limit(1))
+          .getSingleOrNull();
+
+      if (collectorMatch == null && normalized != 'all') {
+        collectorMatch = await (select(vaultItems)
+              ..where(buildCollectorPred)
+              ..limit(1))
+            .getSingleOrNull();
+      }
+
+      if (collectorMatch != null) {
+        debugPrint(
+            '[VaultDao.matchScannedCard] Matched via collector number ($cleanNum): "${collectorMatch.name}"');
+        return collectorMatch;
       }
     }
 
-    // 4. Fallback: Check all items (including owned cards quantity > 0) with exact match
-    for (final line in validLines) {
-      final sqlFallback = normalized != 'all'
-          ? '''
-            SELECT * FROM "vault_items"
-            WHERE "collection_type" = ?
-              AND (
-                "name" = ? COLLATE NOCASE
-                OR $_sqliteNameNormalized = ?
-              )
-            LIMIT 1;
-            '''
-          : '''
-            SELECT * FROM "vault_items"
-            WHERE (
-              "name" = ? COLLATE NOCASE
-              OR $_sqliteNameNormalized = ?
-            )
-            LIMIT 1;
-            ''';
+    // -------------------------------------------------------------------------
+    // STEP 2: Filter OCR Lines & SQL Wide Net
+    // -------------------------------------------------------------------------
+    // Filter lines length >= 4 (or fallback to >= 3 if no lines >= 4)
+    var eligibleLines = cleanedOcrLines
+        .map((l) => l.trim())
+        .where((l) => l.length >= 4)
+        .toList();
 
-      final fallbackMatch = await customSelect(
-        sqlFallback,
+    if (eligibleLines.isEmpty) {
+      eligibleLines = cleanedOcrLines
+          .map((l) => l.trim())
+          .where((l) => l.length >= 3)
+          .toList();
+    }
+
+    if (eligibleLines.isEmpty) return null;
+
+    // Filter out lines that lack at least 3 alphanumeric characters
+    eligibleLines = eligibleLines.where((l) {
+      final stripped = l.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '');
+      return stripped.length >= 3;
+    }).toList();
+
+    if (eligibleLines.isEmpty) return null;
+
+    // Sort descending by length to test the longest, most descriptive lines first
+    eligibleLines.sort((a, b) => b.length.compareTo(a.length));
+
+    // Internal helper for Step 2 (SQL Wide Net) and Step 3 (Dart verification)
+    Future<VaultItem?> verifyCandidatesForLine(
+      String line, {
+      required bool catalogOnly,
+      required String collection,
+    }) async {
+      final cleanLine = line.replaceFirst(RegExp(r'^[^a-zA-Z0-9]+'), '').trim();
+      if (cleanLine.length < 3) return null;
+
+      final firstFive = cleanLine.length >= 5 ? cleanLine.substring(0, 5) : cleanLine;
+      final alphaLine = cleanLine.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '');
+      final alphaFive = alphaLine.length >= 5 ? alphaLine.substring(0, 5) : alphaLine;
+      final firstWord = cleanLine.split(RegExp(r'\s+')).first;
+
+      final sql = '''
+        SELECT * FROM "vault_items"
+        WHERE ${collection != 'all' ? '"collection_type" = ? AND ' : ''}
+              ${catalogOnly ? '"quantity" = 0 AND ' : ''}
+              (
+                "name" LIKE ?
+                OR "name" LIKE ?
+                OR replace(replace(replace("name", char(34), ''), char(39), ''), '’', '') LIKE ?
+                ${firstWord.length >= 3 && firstWord.length < 5 ? 'OR "name" LIKE ?' : ''}
+              )
+        LIMIT 25;
+      ''';
+
+      final candidates = await customSelect(
+        sql,
         variables: [
-          if (normalized != 'all') Variable.withString(normalized),
-          Variable.withString(line),
-          Variable.withString(line),
+          if (collection != 'all') Variable.withString(collection),
+          Variable.withString('$firstFive%'),
+          Variable.withString('"$firstFive%'),
+          Variable.withString('$alphaFive%'),
+          if (firstWord.length >= 3 && firstWord.length < 5) Variable.withString('$firstWord%'),
         ],
         readsFrom: {vaultItems},
-      ).map((row) => vaultItems.map(row.data)).getSingleOrNull();
+      ).map((row) => vaultItems.map(row.data)).get();
 
-      if (fallbackMatch != null) {
-        debugPrint('[VaultDao.matchScannedCard] Matched inventory item: "${fallbackMatch.name}" from line: "$line" (context: $normalized)');
-        return fallbackMatch;
+      if (candidates.isEmpty) return null;
+
+      final sanitizedOcrLine = sanitize(line);
+
+      // STEP 3: Dart contains verification
+      // Pass A: Exact match pass (prioritizes identical titles)
+      for (final card in candidates) {
+        final sanitizedDb = sanitize(card.name);
+        final sanitizedBase = sanitize(_extractBaseCardName(card.name));
+        if (sanitizedOcrLine == sanitizedDb || sanitizedOcrLine == sanitizedBase) {
+          return card;
+        }
+      }
+
+      // Pass B: Substring containment pass (prioritizes longer candidate names)
+      final sortedCandidates = List<VaultItem>.from(candidates)
+        ..sort((a, b) {
+          final lenA = sanitize(_extractBaseCardName(a.name)).length;
+          final lenB = sanitize(_extractBaseCardName(b.name)).length;
+          return lenB.compareTo(lenA);
+        });
+
+      for (final card in sortedCandidates) {
+        final sanitizedDb = sanitize(card.name);
+        final sanitizedBase = sanitize(_extractBaseCardName(card.name));
+        if (sanitizedBase.length >= 3 &&
+            (sanitizedOcrLine.contains(sanitizedDb) ||
+             sanitizedOcrLine.contains(sanitizedBase))) {
+          return card;
+        }
+      }
+
+      return null;
+    }
+
+    // -------------------------------------------------------------------------
+    // Tiered Verification Passes
+    // -------------------------------------------------------------------------
+
+    // Pass 1: Catalog reference items (quantity == 0) in active collection context
+    for (final line in eligibleLines) {
+      final match = await verifyCandidatesForLine(line, catalogOnly: true, collection: normalized);
+      if (match != null) {
+        debugPrint('[VaultDao.matchScannedCard] Matched catalog item: "${match.name}" from line: "$line" (context: $normalized)');
+        return match;
       }
     }
 
-    // 5. Cross-Collection Fallback: If active context didn't match, search across all collections
+    // Pass 2: Owned inventory items (quantity >= 0) in active collection context
+    for (final line in eligibleLines) {
+      final match = await verifyCandidatesForLine(line, catalogOnly: false, collection: normalized);
+      if (match != null) {
+        debugPrint('[VaultDao.matchScannedCard] Matched inventory item: "${match.name}" from line: "$line" (context: $normalized)');
+        return match;
+      }
+    }
+
+    // Pass 3: Cross-collection search fallback
     if (normalized != 'all') {
-      for (final line in validLines) {
-        final sqlAny = '''
-          SELECT * FROM "vault_items"
-          WHERE (
-            "name" = ? COLLATE NOCASE
-            OR $_sqliteNameNormalized = ?
-          )
-          LIMIT 1;
-        ''';
-
-        final anyMatch = await customSelect(
-          sqlAny,
-          variables: [
-            Variable.withString(line),
-            Variable.withString(line),
-          ],
-          readsFrom: {vaultItems},
-        ).map((row) => vaultItems.map(row.data)).getSingleOrNull();
-
-        if (anyMatch != null) {
-          debugPrint('[VaultDao.matchScannedCard] Matched cross-collection item: "${anyMatch.name}" from line: "$line" (collection: "${anyMatch.collectionType}")');
-          return anyMatch;
+      for (final line in eligibleLines) {
+        final match = await verifyCandidatesForLine(line, catalogOnly: true, collection: 'all');
+        if (match != null) {
+          debugPrint('[VaultDao.matchScannedCard] Matched cross-collection catalog item: "${match.name}" from line: "$line" (collection: "${match.collectionType}")');
+          return match;
+        }
+      }
+      for (final line in eligibleLines) {
+        final match = await verifyCandidatesForLine(line, catalogOnly: false, collection: 'all');
+        if (match != null) {
+          debugPrint('[VaultDao.matchScannedCard] Matched cross-collection inventory item: "${match.name}" from line: "$line" (collection: "${match.collectionType}")');
+          return match;
         }
       }
     }
@@ -561,7 +678,7 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
           currentMarketPrice: card.currentMarketPrice,
           lastPriceUpdate: DateTime.now(),
           dynamicData: card.dynamicData,
-          primaryBinderId: const Value(null),
+          primaryBinderId: const Value('INBOX'),
         ),
       );
     } else {
@@ -574,7 +691,7 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
       await (update(vaultItems)..where((t) => t.id.equals(card.id))).write(
         VaultItemsCompanion(
           quantity: Value(newQuantity),
-          primaryBinderId: Value(existing.primaryBinderId),
+          primaryBinderId: const Value('INBOX'),
           currentMarketPrice: Value(card.currentMarketPrice),
           lastPriceUpdate: Value(DateTime.now()),
           condition:

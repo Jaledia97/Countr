@@ -9,32 +9,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-- **Comprehensive System & Integration Test Suite**: Added 8 automated integration and stress tests in [system_integration_test.dart](file:///Users/jomelaledia/freeSpc/Countr/test/system_integration_test.dart) covering interactive Vault search and clear, filter chip isolation (Graded Slabs, Raw Singles, High P/L), full-screen scanner flash toggles and mode selectors, social post hype/wishlist interactions, DAO limit/offset pagination, database wiping/reseeding cycles, polymorphic JSON error resilience, and character-boundary split chunk streaming.
-- **Command Center to Vault Navigation**: Selecting any collection in the Global Command Center menu now automatically routes to the Vault tab (`/vault`) with the selected collection context immediately applied and active.
-- **Catalog vs. Inventory Filter Modes**: Added `'All Vault'` (owned items) and `'Catalog (Ref)'` (Scryfall reference dictionary) filter chips in `VaultScreen` with dedicated Riverpod toggle (`vaultShowCatalogProvider`).
-
-### Changed
-- **Viewport Virtualization with Slivers**: Refactored `VaultScreen` from `SingleChildScrollView` + `ListView.builder(shrinkWrap: true)` to `CustomScrollView` + `SliverList.builder`. Ensures locked 60fps/120fps scrolling performance with constant O(1) widget instantiation across 75,000+ bulk-hydrated cards.
-- **Paginated & Filtered Database Queries (`VaultDao`)**: Extended `watchItemsByCollection()` to accept `onlyOwned` and `limit` options, preventing unbounded in-memory deserialization of 75,000+ card records on tab switch.
-- **Collections Accordion Decoupling**: Added `onCollectionSelected` callback to [CollectionsAccordion](file:///Users/jomelaledia/freeSpc/Countr/lib/features/command_center/presentation/widgets/collections_accordion.dart), cleanly separating collection selection handling from menu dismissal.
-
-### Fixed
-- **Scanner Viewfinder Layout Overflows & Clipping**:
-  - Eliminated `RenderFlex` overflow exceptions and visual clipping across compact and standard mobile viewports (360×800, 375×667, and 390×844) on the full-screen Edge Scanner modal (`lib/features/scanner/presentation/screens/scanner_modal.dart`).
-  - Wrapped continuous streaming live status indicator pill (`'CONTINUOUS STREAM ACTIVE • AUTO-DETECTING'` / `'SCANNER PAUSED (BATTERY SAVER)'`) and bottom framing caption in horizontal padding and responsive `FittedBox(fit: BoxFit.scaleDown)`.
-  - Wrapped top floating controls bar (Foil/Variant toggle, Auto-Adjust glare reduction toggle, Torch, Exposure Lock, and Battery-saver Pause button) in `SingleChildScrollView(scrollDirection: Axis.horizontal, physics: BouncingScrollPhysics())` with `VisualDensity.compact` to eliminate edge cutoff on narrow screens.
-  - Wrapped the top bar header badge in `Flexible(child: FittedBox(fit: BoxFit.scaleDown))` to prevent displacement of modal Close and Inbox buttons.
-  - Added `clipBehavior: Clip.antiAlias` to the reticle `AnimatedContainer` to eliminate scanning line bleed outside rounded reticle corners.
-  - Wrapped card condition pill labels in `lib/features/scanner/presentation/screens/inbox_screen.dart` with `Flexible` and `TextOverflow.ellipsis` to prevent overflow in staged lists.
-  - Added automated multi-viewport regression tests in `test/phase3_ui_test.dart`.
-- **Database Data-Wipe Prevention (True UPSERT with DoUpdate)**: Replaced dangerous `InsertMode.insertOrReplace` in `VaultDao.insertDictionaryBatch` and `insertDictionaryChunked` with Drift's native `DoUpdate.withExcluded`. On primary key (`id`) conflict, the engine overwrites only catalog metadata (`name`, `setOrSeries`, `imageUrl`, `currentMarketPrice`, `lastPriceUpdate`, `dynamicData`, `collectionType`) while strictly preserving user-level portfolio fields (`quantity`, `acquiredPrice`, `acquiredDate`, `condition`, `isGraded`, `personalNotes`).
-- **Vault Tab Crash & UI Freeze (OOM / Layout Lockup)**: Resolved application freezing and memory pressure watchdog crashes when navigating to the Vault tab after Scryfall bulk hydration. Eliminated single-frame measurement of 75,000 card widgets and decoupled owned inventory from catalog dictionary data.
-
 ### Planned / Upcoming
-- Phase 3: Hardware Camera & Real-Time Card Scanner integration.
 - Phase 4: Local Deck Builder & Interactive Deck Construction engine.
 - Phase 5: Local Match / Life Counter and Game Tracker (`Play / Track`).
+
+---
+
+## [0.4.0] - 2026-09-15
+
+### Phase 3: Dynamic Full-Frame Scanner, Hybrid Matching Engine & Inbox Data Isolation
+
+#### Added
+- **Full-Frame Dynamic Reactive Scanner UX (ManaBox Style)**:
+  - Eliminated hardcoded, centered static reticle overlay from [ScannerModal](file:///Users/jomelaledia/freeSpc/Countr/lib/features/scanner/presentation/screens/scanner_modal.dart).
+  - Created [CardPerimeterCalculator](file:///Users/jomelaledia/freeSpc/Countr/lib/features/scanner/domain/card_perimeter_calculator.dart) to analyze full camera frame text bounding boxes (`RecognizedText.blocks`) from Google ML Kit OCR and derive tight card perimeter bounds with rotation compensation and viewport scaling.
+  - Implemented [DynamicScannerOverlay](file:///Users/jomelaledia/freeSpc/Countr/lib/features/scanner/presentation/widgets/dynamic_scanner_overlay.dart) featuring animated reactive corner brackets that track and snap to physical card boundaries in real time, accompanied by a dynamic laser scan line.
+- **Resilient Hybrid Dart + SQLite Matching Engine**:
+  - Implemented `sanitize(String input)` alphanumeric normalization in [OcrHeuristicMatcher](file:///Users/jomelaledia/freeSpc/Countr/lib/features/scanner/domain/ocr_heuristic_matcher.dart), stripping whitespace, punctuation, and non-alphanumeric characters.
+  - Step 1 (Collector Number Regex Override): Detects collector numbers (`xxx/yyy`, `xxx`) and matches directly against SQLite `dynamic_data LIKE '%"collector_number":"$number"%'` with `LIMIT 1`.
+  - Step 2 (Wide Net Prefix Query): Extracts 5-character prefix from candidate OCR lines (>= 4 chars) to fetch candidate pool (`LIMIT 25`) from SQLite.
+  - Step 3 (Dart `contains` Verification): Confirms matches in memory by testing if the sanitized OCR line contains the sanitized database card name, reliably handling OCR noise, missing punctuation, and split card suffixes.
+- **Inbox Item Deletion (Single & Bulk)**:
+  - Added single-item swipe-to-delete via Flutter's `Dismissible` in [InboxScreen](file:///Users/jomelaledia/freeSpc/Countr/lib/features/scanner/presentation/screens/inbox_screen.dart) with immediate database row deletion and undo SnackBar feedback.
+  - Added bulk `[ Trash ]` action button in selection mode alongside `[ Move to Binder ]` with batch deletion (`VaultDao.deleteItems`).
+- **Comprehensive End-to-End Test Suite**:
+  - Added 137 tier 1–4 tests across `test/e2e/` verifying perimeter geometry, frame skipping, hybrid matching, inbox isolation, single/bulk deletion, and real-world multi-game collection workflows.
+
+#### Changed
+- **Camera Stream Deterministic Frame Skipping & Async Lock**:
+  - Implemented 1-in-10 frame skipping (`frameCount % 10 == 0`, ~3–6 FPS) in `ScannerModal` to prevent camera stream CPU choking.
+  - Enforced strict `_isProcessingFrame` asynchronous lock with guaranteed `try / catch / finally` unlocking to eliminate permanent camera freezes.
+- **Inbox Data Isolation & Portfolio Valuation Firewall**:
+  - Newly scanned cards staged into the Inbox are tagged with `primary_binder_id = 'INBOX'`.
+  - Refactored `VaultDao` queries (`watchItemsByCollection`, `watchBinderItemCounts`) and `vaultPortfolioSummaryProvider` to strictly exclude items where `primary_binder_id == 'INBOX'`.
+  - Staged, unanchored cards do not inflate Total Market Value, Total Cost Basis, or binder item counts.
+
+#### Fixed
+- **Scanner Viewfinder Layout Overflows & Clipping**:
+  - Eliminated `RenderFlex` overflow exceptions and visual clipping across compact and standard mobile viewports (360×800, 375×667, and 390×844) on the full-screen Edge Scanner modal ([scanner_modal.dart](file:///Users/jomelaledia/freeSpc/Countr/lib/features/scanner/presentation/screens/scanner_modal.dart)).
+  - Wrapped continuous streaming live status indicator pill and bottom framing caption in horizontal padding and responsive `FittedBox(fit: BoxFit.scaleDown)`.
+  - Wrapped top floating controls bar in `SingleChildScrollView(scrollDirection: Axis.horizontal, physics: BouncingScrollPhysics())` with `VisualDensity.compact` to eliminate edge cutoff on narrow screens.
+  - Wrapped top bar header badge in `Flexible(child: FittedBox(fit: BoxFit.scaleDown))` to prevent displacement of modal Close and Inbox buttons.
+  - Added `clipBehavior: Clip.antiAlias` to the reticle `AnimatedContainer` to eliminate scanning line bleed outside rounded reticle corners.
+  - Wrapped card condition pill labels in [inbox_screen.dart](file:///Users/jomelaledia/freeSpc/Countr/lib/features/scanner/presentation/screens/inbox_screen.dart) with `Flexible` and `TextOverflow.ellipsis` to prevent overflow in staged lists.
+  - Added automated multi-viewport regression tests in `test/phase3_ui_test.dart`.
+- **Database Data-Wipe Prevention (True UPSERT with DoUpdate)**: Replaced dangerous `InsertMode.insertOrReplace` in `VaultDao.insertDictionaryBatch` and `insertDictionaryChunked` with Drift's native `DoUpdate.withExcluded`.
+- **Vault Tab Crash & UI Freeze (OOM / Layout Lockup)**: Resolved application freezing and memory pressure watchdog crashes when navigating to the Vault tab after Scryfall bulk hydration.
 
 ---
 

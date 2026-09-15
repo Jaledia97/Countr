@@ -86,6 +86,8 @@ final vaultPortfolioSummaryProvider = Provider<VaultPortfolioSummary>((ref) {
       for (final item in items) {
         // Filter strictly for owned inventory (quantity > 0); catalog dictionary items have quantity 0
         if (item.quantity <= 0) continue;
+        // Defensive check: staged Inbox cards must never inflate portfolio valuation or cost basis
+        if (item.primaryBinderId == 'INBOX') continue;
         marketVal += (item.currentMarketPrice * item.quantity);
         costBasis += (item.acquiredPrice * item.quantity);
         count += item.quantity;

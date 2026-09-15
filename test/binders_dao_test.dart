@@ -76,7 +76,7 @@ void main() {
       expect(inbox.first.name, equals('Black Lotus'));
       expect(inbox.first.quantity, equals(1));
       expect(inbox.first.condition, equals('NM'));
-      expect(inbox.first.primaryBinderId, isNull);
+      expect(inbox.first.primaryBinderId, equals('INBOX'));
 
       // Scan second copy as Foil
       await dao.upsertScannedCardToInbox(card, isFoil: true);
