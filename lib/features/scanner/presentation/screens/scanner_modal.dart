@@ -448,6 +448,7 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
                   aspectRatio: 0.70, // Standard card ratio ~2.5 x 3.5
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 250),
+                    clipBehavior: Clip.antiAlias,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
@@ -625,6 +626,7 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
                                       : (_isCameraAvailable
                                           ? 'Point at card in ${activeGame.toUpperCase()} collection'
                                           : 'Simulation Mode (Ready)'),
+                                  textAlign: TextAlign.center,
                                   style: TextStyle(
                                     color: AppColors.textSecondary
                                         .withValues(alpha: 0.9),
@@ -696,50 +698,55 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
                   ),
 
                   // Header Badge: AI Engine Ready / Paused
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.6),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: _isScanningPaused
-                            ? AppColors.accentAmber
-                            : AppColors.surfaceBorder,
+                  Flexible(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Container(
+                        padding:
+                            const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.6),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: _isScanningPaused
+                                ? AppColors.accentAmber
+                                : AppColors.surfaceBorder,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 8,
+                              height: 8,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: _isScanningPaused
+                                    ? AppColors.accentAmber
+                                    : (_isCameraAvailable
+                                        ? AppColors.accentEmerald
+                                        : AppColors.accentAmber),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              _isScanningPaused
+                                  ? 'PAUSED (BATTERY SAVER)'
+                                  : (_isCameraAvailable
+                                      ? 'AI ENGINE LIVE'
+                                      : 'SIMULATOR ACTIVE'),
+                              style: TextStyle(
+                                color: _isScanningPaused
+                                    ? AppColors.accentAmber
+                                    : AppColors.textPrimary,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.8,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: _isScanningPaused
-                                ? AppColors.accentAmber
-                                : (_isCameraAvailable
-                                    ? AppColors.accentEmerald
-                                    : AppColors.accentAmber),
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          _isScanningPaused
-                              ? 'PAUSED (BATTERY SAVER)'
-                              : (_isCameraAvailable
-                                  ? 'AI ENGINE LIVE'
-                                  : 'SIMULATOR ACTIVE'),
-                          style: TextStyle(
-                            color: _isScanningPaused
-                                ? AppColors.accentAmber
-                                : AppColors.textPrimary,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.8,
-                          ),
-                        ),
-                      ],
                     ),
                   ),
 
@@ -795,161 +802,181 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
               top: 70,
               left: 16,
               right: 16,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // Foil / Variant Toggle
-                  FilterChip(
-                    avatar: Icon(
-                      Icons.auto_awesome_rounded,
-                      size: 14,
-                      color: _isFoilMode ? AppColors.textDark : AppColors.accentAmber,
-                    ),
-                    label: const Text('Foil/Variant'),
-                    selected: _isFoilMode,
-                    onSelected: (val) => setState(() => _isFoilMode = val),
-                    selectedColor: AppColors.accentAmber,
-                    backgroundColor: Colors.black.withValues(alpha: 0.6),
-                    labelStyle: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: _isFoilMode ? AppColors.textDark : Colors.white,
-                    ),
-                    side: BorderSide(
-                      color: _isFoilMode
-                          ? AppColors.accentAmber
-                          : AppColors.surfaceBorder,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
+              child: Center(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  physics: const BouncingScrollPhysics(),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // Foil / Variant Toggle
+                      FilterChip(
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        visualDensity: VisualDensity.compact,
+                        avatar: Icon(
+                          Icons.auto_awesome_rounded,
+                          size: 14,
+                          color: _isFoilMode ? AppColors.textDark : AppColors.accentAmber,
+                        ),
+                        label: const Text('Foil/Variant'),
+                        selected: _isFoilMode,
+                        onSelected: (val) => setState(() => _isFoilMode = val),
+                        selectedColor: AppColors.accentAmber,
+                        backgroundColor: Colors.black.withValues(alpha: 0.6),
+                        labelStyle: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: _isFoilMode ? AppColors.textDark : Colors.white,
+                        ),
+                        side: BorderSide(
+                          color: _isFoilMode
+                              ? AppColors.accentAmber
+                              : AppColors.surfaceBorder,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
 
-                  // Auto-Adjust Glare Reduction Toggle
-                  if (_autoAdjustController != null)
-                    ValueListenableBuilder<bool>(
-                      valueListenable: _autoAdjustController!.isEnabledNotifier,
-                      builder: (context, autoAdjustEnabled, _) {
-                        return ValueListenableBuilder<double>(
-                          valueListenable:
-                              _autoAdjustController!.exposureOffsetNotifier,
-                          builder: (context, exposureOffset, _) {
-                            final label = autoAdjustEnabled
-                                ? (exposureOffset < 0
-                                    ? 'Auto: ${exposureOffset.toStringAsFixed(1)}'
-                                    : 'Auto: ON')
-                                : 'Auto: OFF';
+                      // Auto-Adjust Glare Reduction Toggle
+                      if (_autoAdjustController != null)
+                        ValueListenableBuilder<bool>(
+                          valueListenable: _autoAdjustController!.isEnabledNotifier,
+                          builder: (context, autoAdjustEnabled, _) {
+                            return ValueListenableBuilder<double>(
+                              valueListenable:
+                                  _autoAdjustController!.exposureOffsetNotifier,
+                              builder: (context, exposureOffset, _) {
+                                final label = autoAdjustEnabled
+                                    ? (exposureOffset < 0
+                                        ? 'Auto: ${exposureOffset.toStringAsFixed(1)}'
+                                        : 'Auto: ON')
+                                    : 'Auto: OFF';
 
-                            return FilterChip(
-                              avatar: Icon(
-                                Icons.wb_incandescent_outlined,
-                                size: 14,
-                                color: autoAdjustEnabled
-                                    ? AppColors.textDark
-                                    : AppColors.textSecondary,
-                              ),
-                              label: Text(label),
-                              selected: autoAdjustEnabled,
-                              onSelected: (_) {
-                                _autoAdjustController?.toggle();
-                                setState(() {});
+                                return FilterChip(
+                                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                  visualDensity: VisualDensity.compact,
+                                  avatar: Icon(
+                                    Icons.wb_incandescent_outlined,
+                                    size: 14,
+                                    color: autoAdjustEnabled
+                                        ? AppColors.textDark
+                                        : AppColors.textSecondary,
+                                  ),
+                                  label: Text(label),
+                                  selected: autoAdjustEnabled,
+                                  onSelected: (_) {
+                                    _autoAdjustController?.toggle();
+                                    setState(() {});
+                                  },
+                                  selectedColor: AppColors.accentCyan,
+                                  backgroundColor:
+                                      Colors.black.withValues(alpha: 0.6),
+                                  labelStyle: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: autoAdjustEnabled
+                                        ? AppColors.textDark
+                                        : Colors.white,
+                                  ),
+                                  side: BorderSide(
+                                    color: autoAdjustEnabled
+                                        ? AppColors.accentCyan
+                                        : AppColors.surfaceBorder,
+                                  ),
+                                );
                               },
-                              selectedColor: AppColors.accentCyan,
-                              backgroundColor:
-                                  Colors.black.withValues(alpha: 0.6),
-                              labelStyle: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                color: autoAdjustEnabled
-                                    ? AppColors.textDark
-                                    : Colors.white,
-                              ),
-                              side: BorderSide(
-                                color: autoAdjustEnabled
-                                    ? AppColors.accentCyan
-                                    : AppColors.surfaceBorder,
-                              ),
                             );
                           },
-                        );
-                      },
-                    ),
-                  const SizedBox(width: 8),
+                        ),
+                      if (_autoAdjustController != null) const SizedBox(width: 8),
 
-                  // Torch Toggle
-                  IconButton.filledTonal(
-                    style: IconButton.styleFrom(
-                      backgroundColor: _flashOn
-                          ? AppColors.accentAmber.withValues(alpha: 0.3)
-                          : Colors.black.withValues(alpha: 0.6),
-                      side: BorderSide(
-                        color: _flashOn
-                            ? AppColors.accentAmber
-                            : AppColors.surfaceBorder,
+                      // Torch Toggle
+                      IconButton.filledTonal(
+                        visualDensity: VisualDensity.compact,
+                        constraints: const BoxConstraints(minWidth: 38, minHeight: 38),
+                        style: IconButton.styleFrom(
+                          padding: EdgeInsets.zero,
+                          backgroundColor: _flashOn
+                              ? AppColors.accentAmber.withValues(alpha: 0.3)
+                              : Colors.black.withValues(alpha: 0.6),
+                          side: BorderSide(
+                            color: _flashOn
+                                ? AppColors.accentAmber
+                                : AppColors.surfaceBorder,
+                          ),
+                        ),
+                        icon: Icon(
+                          _flashOn
+                              ? Icons.flash_on_rounded
+                              : Icons.flash_off_rounded,
+                          size: 18,
+                          color: _flashOn ? AppColors.accentAmber : Colors.white,
+                        ),
+                        onPressed: _toggleTorch,
                       ),
-                    ),
-                    icon: Icon(
-                      _flashOn
-                          ? Icons.flash_on_rounded
-                          : Icons.flash_off_rounded,
-                      size: 18,
-                      color: _flashOn ? AppColors.accentAmber : Colors.white,
-                    ),
-                    onPressed: _toggleTorch,
-                  ),
-                  const SizedBox(width: 6),
+                      const SizedBox(width: 6),
 
-                  // Exposure Lock Toggle
-                  IconButton.filledTonal(
-                    style: IconButton.styleFrom(
-                      backgroundColor: _isExposureLocked
-                          ? AppColors.accentRose.withValues(alpha: 0.3)
-                          : Colors.black.withValues(alpha: 0.6),
-                      side: BorderSide(
-                        color: _isExposureLocked
-                            ? AppColors.accentRose
-                            : AppColors.surfaceBorder,
+                      // Exposure Lock Toggle
+                      IconButton.filledTonal(
+                        visualDensity: VisualDensity.compact,
+                        constraints: const BoxConstraints(minWidth: 38, minHeight: 38),
+                        style: IconButton.styleFrom(
+                          padding: EdgeInsets.zero,
+                          backgroundColor: _isExposureLocked
+                              ? AppColors.accentRose.withValues(alpha: 0.3)
+                              : Colors.black.withValues(alpha: 0.6),
+                          side: BorderSide(
+                            color: _isExposureLocked
+                                ? AppColors.accentRose
+                                : AppColors.surfaceBorder,
+                          ),
+                        ),
+                        icon: Icon(
+                          _isExposureLocked
+                              ? Icons.lock_rounded
+                              : Icons.lock_open_rounded,
+                          size: 18,
+                          color: _isExposureLocked
+                              ? AppColors.accentRose
+                              : Colors.white,
+                        ),
+                        onPressed: _toggleExposureLock,
                       ),
-                    ),
-                    icon: Icon(
-                      _isExposureLocked
-                          ? Icons.lock_rounded
-                          : Icons.lock_open_rounded,
-                      size: 18,
-                      color: _isExposureLocked
-                          ? AppColors.accentRose
-                          : Colors.white,
-                    ),
-                    onPressed: _toggleExposureLock,
-                  ),
-                  const SizedBox(width: 6),
+                      const SizedBox(width: 6),
 
-                  // Battery-Saver Pause / Resume Toggle
-                  IconButton.filledTonal(
-                    key: const Key('scanner_pause_toggle'),
-                    style: IconButton.styleFrom(
-                      backgroundColor: _isScanningPaused
-                          ? AppColors.accentAmber.withValues(alpha: 0.3)
-                          : Colors.black.withValues(alpha: 0.6),
-                      side: BorderSide(
-                        color: _isScanningPaused
-                            ? AppColors.accentAmber
-                            : AppColors.surfaceBorder,
+                      // Battery-Saver Pause / Resume Toggle
+                      IconButton.filledTonal(
+                        key: const Key('scanner_pause_toggle'),
+                        visualDensity: VisualDensity.compact,
+                        constraints: const BoxConstraints(minWidth: 38, minHeight: 38),
+                        style: IconButton.styleFrom(
+                          padding: EdgeInsets.zero,
+                          backgroundColor: _isScanningPaused
+                              ? AppColors.accentAmber.withValues(alpha: 0.3)
+                              : Colors.black.withValues(alpha: 0.6),
+                          side: BorderSide(
+                            color: _isScanningPaused
+                                ? AppColors.accentAmber
+                                : AppColors.surfaceBorder,
+                          ),
+                        ),
+                        icon: Icon(
+                          _isScanningPaused
+                              ? Icons.play_arrow_rounded
+                              : Icons.pause_rounded,
+                          size: 18,
+                          color: _isScanningPaused
+                              ? AppColors.accentAmber
+                              : Colors.white,
+                        ),
+                        tooltip: _isScanningPaused
+                            ? 'Resume Scanner'
+                            : 'Pause Scanner (Save Battery)',
+                        onPressed: _togglePause,
                       ),
-                    ),
-                    icon: Icon(
-                      _isScanningPaused
-                          ? Icons.play_arrow_rounded
-                          : Icons.pause_rounded,
-                      size: 18,
-                      color: _isScanningPaused
-                          ? AppColors.accentAmber
-                          : Colors.white,
-                    ),
-                    tooltip: _isScanningPaused
-                        ? 'Resume Scanner'
-                        : 'Pause Scanner (Save Battery)',
-                    onPressed: _togglePause,
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
 
@@ -1005,67 +1032,80 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
                   const SizedBox(height: 16),
 
                   // Continuous Streaming Live Indicator (Zero Keystrokes)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 18, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.75),
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(
-                        color: _isScanningPaused
-                            ? AppColors.accentAmber
-                            : (_isGreenFlash
-                                ? AppColors.accentEmerald
-                                : AppColors.accentCyan.withValues(alpha: 0.6)),
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: (_isGreenFlash
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.75),
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(
+                          color: _isScanningPaused
+                              ? AppColors.accentAmber
+                              : (_isGreenFlash
                                   ? AppColors.accentEmerald
-                                  : AppColors.accentCyan)
-                              .withValues(alpha: 0.15),
-                          blurRadius: 10,
+                                  : AppColors.accentCyan.withValues(alpha: 0.6)),
                         ),
-                      ],
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: _isScanningPaused
-                                ? AppColors.accentAmber
-                                : AppColors.accentEmerald,
+                        boxShadow: [
+                          BoxShadow(
+                            color: (_isGreenFlash
+                                    ? AppColors.accentEmerald
+                                    : AppColors.accentCyan)
+                                .withValues(alpha: 0.15),
+                            blurRadius: 10,
                           ),
+                        ],
+                      ),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 8,
+                              height: 8,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: _isScanningPaused
+                                    ? AppColors.accentAmber
+                                    : AppColors.accentEmerald,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              _isScanningPaused
+                                  ? 'SCANNER PAUSED (BATTERY SAVER)'
+                                  : 'CONTINUOUS STREAM ACTIVE • AUTO-DETECTING',
+                              style: TextStyle(
+                                color: _isScanningPaused
+                                    ? AppColors.accentAmber
+                                    : Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.6,
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 8),
-                        Text(
-                          _isScanningPaused
-                              ? 'SCANNER PAUSED (BATTERY SAVER)'
-                              : 'CONTINUOUS STREAM ACTIVE • AUTO-DETECTING',
-                          style: TextStyle(
-                            color: _isScanningPaused
-                                ? AppColors.accentAmber
-                                : Colors.white,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0.6,
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
                   ),
 
                   const SizedBox(height: 8),
-                  Text(
-                    'ALIGN CARD WITHIN FRAME TO AUTO-CAPTURE & STAGE',
-                    style: AppTypography.caption.copyWith(
-                      color: AppColors.textSecondary,
-                      letterSpacing: 1.0,
-                      fontSize: 10,
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        'ALIGN CARD WITHIN FRAME TO AUTO-CAPTURE & STAGE',
+                        textAlign: TextAlign.center,
+                        style: AppTypography.caption.copyWith(
+                          color: AppColors.textSecondary,
+                          letterSpacing: 1.0,
+                          fontSize: 10,
+                        ),
+                      ),
                     ),
                   ),
                 ],

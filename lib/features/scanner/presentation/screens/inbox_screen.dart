@@ -541,16 +541,21 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
                                           ),
                                         ),
                                       ),
-                                      const SizedBox(width: 8),
-                                      if (item.condition.isNotEmpty)
-                                        Text(
-                                          item.condition,
-                                          style: const TextStyle(
-                                            color: AppColors.accentAmber,
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
+                                       if (item.condition.isNotEmpty) ...[
+                                         const SizedBox(width: 8),
+                                         Flexible(
+                                           child: Text(
+                                             item.condition,
+                                             maxLines: 1,
+                                             overflow: TextOverflow.ellipsis,
+                                             style: const TextStyle(
+                                               color: AppColors.accentAmber,
+                                               fontSize: 10,
+                                               fontWeight: FontWeight.w600,
+                                             ),
+                                           ),
+                                         ),
+                                       ],
                                     ],
                                   ),
                                   const SizedBox(height: 4),

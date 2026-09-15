@@ -20,6 +20,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Collections Accordion Decoupling**: Added `onCollectionSelected` callback to [CollectionsAccordion](file:///Users/jomelaledia/freeSpc/Countr/lib/features/command_center/presentation/widgets/collections_accordion.dart), cleanly separating collection selection handling from menu dismissal.
 
 ### Fixed
+- **Scanner Viewfinder Layout Overflows & Clipping**:
+  - Eliminated `RenderFlex` overflow exceptions and visual clipping across compact and standard mobile viewports (360×800, 375×667, and 390×844) on the full-screen Edge Scanner modal (`lib/features/scanner/presentation/screens/scanner_modal.dart`).
+  - Wrapped continuous streaming live status indicator pill (`'CONTINUOUS STREAM ACTIVE • AUTO-DETECTING'` / `'SCANNER PAUSED (BATTERY SAVER)'`) and bottom framing caption in horizontal padding and responsive `FittedBox(fit: BoxFit.scaleDown)`.
+  - Wrapped top floating controls bar (Foil/Variant toggle, Auto-Adjust glare reduction toggle, Torch, Exposure Lock, and Battery-saver Pause button) in `SingleChildScrollView(scrollDirection: Axis.horizontal, physics: BouncingScrollPhysics())` with `VisualDensity.compact` to eliminate edge cutoff on narrow screens.
+  - Wrapped the top bar header badge in `Flexible(child: FittedBox(fit: BoxFit.scaleDown))` to prevent displacement of modal Close and Inbox buttons.
+  - Added `clipBehavior: Clip.antiAlias` to the reticle `AnimatedContainer` to eliminate scanning line bleed outside rounded reticle corners.
+  - Wrapped card condition pill labels in `lib/features/scanner/presentation/screens/inbox_screen.dart` with `Flexible` and `TextOverflow.ellipsis` to prevent overflow in staged lists.
+  - Added automated multi-viewport regression tests in `test/phase3_ui_test.dart`.
 - **Database Data-Wipe Prevention (True UPSERT with DoUpdate)**: Replaced dangerous `InsertMode.insertOrReplace` in `VaultDao.insertDictionaryBatch` and `insertDictionaryChunked` with Drift's native `DoUpdate.withExcluded`. On primary key (`id`) conflict, the engine overwrites only catalog metadata (`name`, `setOrSeries`, `imageUrl`, `currentMarketPrice`, `lastPriceUpdate`, `dynamicData`, `collectionType`) while strictly preserving user-level portfolio fields (`quantity`, `acquiredPrice`, `acquiredDate`, `condition`, `isGraded`, `personalNotes`).
 - **Vault Tab Crash & UI Freeze (OOM / Layout Lockup)**: Resolved application freezing and memory pressure watchdog crashes when navigating to the Vault tab after Scryfall bulk hydration. Eliminated single-frame measurement of 75,000 card widgets and decoupled owned inventory from catalog dictionary data.
 

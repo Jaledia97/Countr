@@ -435,5 +435,46 @@ void main() {
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(seconds: 4));
     });
+
+    testWidgets('renders cleanly without clipping or overflows across compact phone screens', (tester) async {
+      final screenSizes = [
+        const Size(360, 800), // Narrow Android
+        const Size(375, 667), // iPhone SE
+        const Size(390, 844), // Standard iPhone
+      ];
+
+      for (final size in screenSizes) {
+        tester.view.physicalSize = size;
+        tester.view.devicePixelRatio = 1.0;
+
+        await tester.pumpWidget(createTestWidget(const ScannerModal()));
+        await tester.pump(const Duration(milliseconds: 300));
+
+        // Verify key controls exist and are visible
+        expect(find.text('Scanner Camera Active'), findsOneWidget);
+        expect(find.text('Foil/Variant'), findsOneWidget);
+        expect(find.byIcon(Icons.inbox_rounded), findsOneWidget);
+        expect(find.text('CONTINUOUS STREAM ACTIVE • AUTO-DETECTING'), findsOneWidget);
+
+        // Tap battery-saver pause button
+        await tester.tap(find.byKey(const Key('scanner_pause_toggle')));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+
+        expect(find.text('PAUSED (BATTERY SAVER)'), findsOneWidget);
+        expect(find.text('SCANNER PAUSED (BATTERY SAVER)'), findsOneWidget);
+
+        // Resume scanner
+        await tester.tap(find.byKey(const Key('scanner_pause_toggle')));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+
+        await tester.pumpWidget(const SizedBox());
+        await tester.pump(const Duration(seconds: 4));
+      }
+
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
   });
 }
