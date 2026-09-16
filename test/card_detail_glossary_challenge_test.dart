@@ -22,18 +22,19 @@ void main() {
   });
 
   VaultItem createTestCard({
-    String id = 'adv-card-1',
+    String id = 'mtg-serra-angel',
     String collectionType = 'mtg',
-    String name = 'Test Card',
-    String setOrSeries = 'Alpha',
-    String dynamicData = '{}',
+    String name = 'Serra Angel',
+    String setOrSeries = 'Dominaria',
+    String imageUrl = 'https://cards.scryfall.io/large/front/b/a/babb844b-4494-482a-a925-546ad981a8c6.jpg',
+    String dynamicData = '{"keywords":["Flying","Vigilance"],"oracle_text":"Flying, vigilance","mana_cost":"{3}{W}{W}","type_line":"Creature — Angel"}',
   }) {
     return VaultItem(
       id: id,
       collectionType: collectionType,
       name: name,
       setOrSeries: setOrSeries,
-      imageUrl: '',
+      imageUrl: imageUrl,
       acquiredPrice: 10.0,
       acquiredDate: DateTime(2023, 1, 1),
       quantity: 1,

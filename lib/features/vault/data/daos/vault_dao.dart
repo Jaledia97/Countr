@@ -183,18 +183,42 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
           name: 'The One Ring (Serialized #007/100)',
           setOrSeries: 'The Lord of the Rings: Tales of Middle-earth',
           imageUrl:
-              'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=400&q=80',
+              'https://cards.scryfall.io/large/front/7/8/78038b95-30f2-4e4b-972f-04cfa65c275a.jpg',
           acquiredPrice: 15.00,
           acquiredDate: now.subtract(const Duration(days: 45)),
           quantity: const Value(1),
           condition: 'NM',
           isGraded: const Value(false),
           personalNotes: const Value(
-              'Pulled from collector booster at TBS Comics. Flawless surface.'),
+              'Pulled from collector booster at TBS Comics. Serialized #007/100.'),
           currentMarketPrice: 45.50,
           lastPriceUpdate: now,
-          dynamicData:
-              '{"mana": "2UB", "type": "Creature", "power": 3, "toughness": 2}',
+          dynamicData: jsonEncode({
+            'mana': '{4}',
+            'mana_cost': '{4}',
+            'type': 'Legendary Artifact',
+            'type_line': 'Legendary Artifact',
+            'oracle_text':
+                'Indestructible\nAs The One Ring enters the battlefield, if you cast it, you gain protection from everything until your next turn.\nAt the beginning of your upkeep, you lose 1 life for each burden counter on The One Ring.\n{T}: Put a burden counter on The One Ring, then draw a card for each burden counter on The One Ring.',
+            'keywords': ['Indestructible'],
+            'rarity': 'mythic',
+            'collector_number': '007',
+            'set_code': 'ltr',
+            'set': 'ltr',
+            'artist': 'Tania Sanchez-Fortun',
+            'flavor_text':
+                'One Ring to rule them all, One Ring to find them, One Ring to bring them all and in the darkness bind them.',
+            'rulings':
+                "Protection from everything means that you can't be targeted by anything, damaged by anything, enchanted/equipped by anything, or blocked by anything.",
+            'legalities': {
+              'standard': 'not_legal',
+              'modern': 'legal',
+              'commander': 'legal',
+              'legacy': 'legal',
+              'vintage': 'restricted',
+            },
+            'scryfall_uri': 'https://scryfall.com/card/ltr/246/the-one-ring',
+          }),
         ),
 
         // 2. Pokémon: Charizard ex

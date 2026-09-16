@@ -21,16 +21,18 @@ void main() {
   });
 
   VaultItem createTestCard({
-    String id = 'test-card-1',
-    String name = 'Test MTG Card',
+    String id = 'mtg-serra-angel',
+    String name = 'Serra Angel',
+    String setOrSeries = 'Dominaria',
+    String imageUrl = 'https://cards.scryfall.io/large/front/b/a/babb844b-4494-482a-a925-546ad981a8c6.jpg',
     String dynamicData = '{}',
   }) {
     return VaultItem(
       id: id,
       collectionType: 'mtg',
       name: name,
-      setOrSeries: 'Alpha',
-      imageUrl: '',
+      setOrSeries: setOrSeries,
+      imageUrl: imageUrl,
       acquiredPrice: 10.0,
       acquiredDate: DateTime(2023, 1, 1),
       quantity: 1,

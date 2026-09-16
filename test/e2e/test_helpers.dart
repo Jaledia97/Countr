@@ -12,7 +12,7 @@ import 'package:countr/features/vault/presentation/providers/vault_providers.dar
 /// Creates a mock [TextBlock] with the given bounding box and optional text.
 TextBlock createMockTextBlock(
   Rect boundingBox, {
-  String text = 'Sample Card Title',
+  String text = 'Black Lotus',
 }) {
   return TextBlock(
     text: text,
@@ -52,6 +52,7 @@ VaultItem createTestCard({
   required String name,
   String collectionType = 'mtg',
   String setOrSeries = 'Core Set',
+  String? imageUrl,
   double acquiredPrice = 10.0,
   double currentMarketPrice = 15.0,
   int quantity = 0,
@@ -64,12 +65,17 @@ VaultItem createTestCard({
       ? '{"collector_number":"$collectorNumber"}'
       : dynamicData;
 
+  String defaultImage = imageUrl ?? 'https://cards.scryfall.io/large/front/7/8/78038b95-30f2-4e4b-972f-04cfa65c275a.jpg';
+  if (imageUrl == null && collectionType != 'mtg') {
+    defaultImage = 'https://example.com/cards/$id.jpg';
+  }
+
   return VaultItem(
     id: id,
     collectionType: collectionType,
     name: name,
     setOrSeries: setOrSeries,
-    imageUrl: 'https://example.com/cards/$id.jpg',
+    imageUrl: defaultImage,
     acquiredPrice: acquiredPrice,
     acquiredDate: DateTime.now(),
     quantity: quantity,
@@ -93,50 +99,70 @@ Future<void> seedComprehensiveTestCatalog(VaultDao dao) async {
       name: 'Black Lotus',
       collectionType: 'mtg',
       setOrSeries: 'Vintage Masters',
+      imageUrl:
+          'https://cards.scryfall.io/large/front/b/d/bd8fa327-dd41-4737-8f19-2cf5eb1f7cdd.jpg',
       acquiredPrice: 5000.0,
       currentMarketPrice: 5500.0,
       quantity: 0,
       collectorNumber: '232',
+      dynamicData:
+          '{"collector_number":"232","mana_cost":"{0}","mana":"{0}","type_line":"Artifact","type":"Artifact","oracle_text":"{T}, Sacrifice Black Lotus: Add three mana of any one color.","rarity":"rare","artist":"Christopher Rush","set_code":"vma"}',
     ),
     createTestCard(
       id: 'mtg-sol-ring',
       name: 'Sol Ring',
       collectionType: 'mtg',
       setOrSeries: 'Commander',
+      imageUrl:
+          'https://cards.scryfall.io/large/front/4/c/4cbc362e-6a52-4753-9619-75f850d97960.jpg',
       acquiredPrice: 1.5,
       currentMarketPrice: 2.0,
       quantity: 0,
       collectorNumber: '101',
+      dynamicData:
+          '{"collector_number":"101","mana_cost":"{1}","mana":"{1}","type_line":"Artifact","type":"Artifact","oracle_text":"{T}: Add {C}{C}.","rarity":"uncommon","artist":"Mark Tedin","set_code":"cmd"}',
     ),
     createTestCard(
       id: 'mtg-urza-saga',
       name: "Urza's Saga",
       collectionType: 'mtg',
       setOrSeries: 'Modern Horizons 2',
+      imageUrl:
+          'https://cards.scryfall.io/large/front/c/1/c1e0f201-42cb-46a1-901a-65bb4fc18f6c.jpg',
       acquiredPrice: 35.0,
       currentMarketPrice: 40.0,
       quantity: 0,
       collectorNumber: '259',
+      dynamicData:
+          '{"collector_number":"259","type_line":"Enchantment Land — Urza\'s Saga","type":"Enchantment Land","oracle_text":"(As this Saga enters and after your draw step, add a lore counter.)\\nI — Urza\'s Saga gains \\"{T}: Add {C}.\\"\\nII — Urza\'s Saga gains \\"{2}, {T}: Create a 0/0 colorless Construct artifact creature token with \'This creature gets +1/+1 for each artifact you control.\'\\"\\nIII — Search your library for an artifact card with mana cost {0} or {1}, put it onto the battlefield, then shuffle.","rarity":"rare","artist":"Titus Lunter","set_code":"mh2"}',
     ),
     createTestCard(
       id: 'mtg-force-will',
       name: 'Force of Will',
       collectionType: 'mtg',
       setOrSeries: 'Alliances',
+      imageUrl:
+          'https://cards.scryfall.io/large/front/8/9/89f612d6-7c59-4a7b-a87d-45f789e88ba5.jpg',
       acquiredPrice: 90.0,
       currentMarketPrice: 100.0,
       quantity: 0,
       collectorNumber: '042',
+      dynamicData:
+          '{"collector_number":"042","mana_cost":"{3}{U}{U}","mana":"{3}{U}{U}","type_line":"Instant","type":"Instant","oracle_text":"You may pay 1 life and exile a blue card from your hand rather than pay this spell\'s mana cost.\\nCounter target spell.","rarity":"uncommon","artist":"Terese Nielsen","set_code":"all"}',
     ),
     createTestCard(
       id: 'mtg-split-fire-ice',
       name: 'Fire // Ice',
       collectionType: 'mtg',
       setOrSeries: 'Apocalypse',
+      imageUrl:
+          'https://cards.scryfall.io/large/front/0/e/0e8dac9c-df96-4937-8330-f47270bc34ae.jpg',
       acquiredPrice: 2.0,
       currentMarketPrice: 3.5,
       quantity: 0,
       collectorNumber: '128',
+      dynamicData:
+          '{"collector_number":"128","mana_cost":"{1}{R} // {1}{U}","mana":"{1}{R} // {1}{U}","type_line":"Instant // Instant","type":"Instant","oracle_text":"Fire deals 2 damage divided as you choose among one or two targets.\\n//\\nTap target permanent. Draw a card.","rarity":"uncommon","artist":"Franz Vohwinkel","set_code":"apc"}',
     ),
 
     // Pokémon Catalog Cards (quantity == 0)

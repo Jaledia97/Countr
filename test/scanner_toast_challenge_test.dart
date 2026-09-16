@@ -37,13 +37,14 @@ void main() {
   }
 
   VaultItem createMockCard({
-    String id = 'adv-card-1',
-    String name = 'Test Card',
-    String setOrSeries = 'Alpha',
-    String setCode = 'LEA',
+    String id = 'mtg-black-lotus',
+    String name = 'Black Lotus',
+    String setOrSeries = 'Vintage Masters',
+    String setCode = 'VMA',
     double currentMarketPrice = 5500.0,
     bool isFoil = false,
-    String imageUrl = '',
+    String imageUrl =
+        'https://cards.scryfall.io/large/front/b/d/bd8fa327-dd41-4737-8f19-2cf5eb1f7cdd.jpg',
     String? dynamicData,
   }) {
     return VaultItem(
@@ -64,6 +65,8 @@ void main() {
           jsonEncode({
             'set_code': setCode,
             'collector_number': '232',
+            'mana_cost': '{0}',
+            'type_line': 'Artifact',
           }),
       primaryBinderId: 'INBOX',
     );
@@ -86,11 +89,11 @@ void main() {
       final state = tester.state(find.byType(ScannerModal)) as dynamic;
 
       final cards = [
-        createMockCard(id: 'c-1', name: 'Card 1', currentMarketPrice: 1.0),
-        createMockCard(id: 'c-2', name: 'Card 2', currentMarketPrice: 2.0),
-        createMockCard(id: 'c-3', name: 'Card 3', currentMarketPrice: 3.0),
-        createMockCard(id: 'c-4', name: 'Card 4', currentMarketPrice: 4.0),
-        createMockCard(id: 'c-5', name: 'Card 5', currentMarketPrice: 5.0),
+        createMockCard(id: 'c-1', name: 'Black Lotus', currentMarketPrice: 5500.0),
+        createMockCard(id: 'c-2', name: 'Mox Sapphire', currentMarketPrice: 3000.0),
+        createMockCard(id: 'c-3', name: 'Mox Jet', currentMarketPrice: 2800.0),
+        createMockCard(id: 'c-4', name: 'Mox Ruby', currentMarketPrice: 2700.0),
+        createMockCard(id: 'c-5', name: 'Mox Emerald', currentMarketPrice: 2600.0),
       ];
 
       // Send 5 rapid card detections at 250ms intervals
@@ -111,8 +114,8 @@ void main() {
       // Now wait 1200ms: Card 5 has only been active for 1200ms (< 1500ms),
       // even though 2450ms have elapsed since card 1. Card 5 must still be visible.
       await tester.pump(const Duration(milliseconds: 1200));
-      expect(find.text('Card 5'), findsOneWidget);
-      expect(find.text('\$5.00'), findsOneWidget);
+      expect(find.text('Mox Emerald'), findsOneWidget);
+      expect(find.text('\$2600.00'), findsOneWidget);
 
       // Advance past the 1500ms auto-dismiss duration for card 5 (timer fires at 1500ms, reverse takes 200ms)
       await tester.pump(const Duration(milliseconds: 400));

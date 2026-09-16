@@ -27,7 +27,8 @@ void main() {
             collectionType: 'mtg',
             name: 'The One Ring',
             setOrSeries: 'Tales of Middle-earth',
-            imageUrl: 'https://example.com/the-one-ring.jpg',
+            imageUrl:
+                'https://cards.scryfall.io/large/front/7/8/78038b95-30f2-4e4b-972f-04cfa65c275a.jpg',
             acquiredPrice: 45.0,
             acquiredDate: DateTime(2023, 6, 23),
             quantity: const drift.Value(1),
@@ -48,7 +49,8 @@ void main() {
             collectionType: 'mtg',
             name: 'Sol Ring',
             setOrSeries: 'Commander Masters',
-            imageUrl: 'https://example.com/sol-ring.jpg',
+            imageUrl:
+                'https://cards.scryfall.io/large/front/4/c/4cbc362e-6a52-4753-9619-75f850d97960.jpg',
             acquiredPrice: 0.0,
             acquiredDate: DateTime(2023, 8, 4),
             quantity: const drift.Value(0),

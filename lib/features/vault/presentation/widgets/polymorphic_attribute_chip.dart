@@ -26,8 +26,8 @@ class PolymorphicAttributeChip extends StatelessWidget {
     // Switch statement based on collection_type to render polymorphic engine attributes
     switch (collectionType.toLowerCase()) {
       case 'mtg':
-        final mana = data['mana'] ?? 'N/A';
-        final type = data['type'] ?? 'Card';
+        final mana = data['mana'] ?? data['mana_cost'] ?? 'N/A';
+        final type = data['type'] ?? data['type_line'] ?? 'Card';
         final power = data['power'];
         final toughness = data['toughness'];
         final ptString = (power != null && toughness != null) ? ' • $power/$toughness' : '';

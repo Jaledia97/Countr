@@ -283,8 +283,8 @@ void main() {
       for (final keyword in mtgKeywords) {
         expect(
           OcrHeuristicMatcher.passesMultiFactorGate(
-            cardName: 'Test Card',
-            ocrLines: ['Test Card', keyword],
+            cardName: 'Serra Angel',
+            ocrLines: ['Serra Angel', keyword],
             typeLine: keyword,
           ),
           isTrue,
@@ -294,8 +294,8 @@ void main() {
         // Also accepts without explicit typeLine parameter
         expect(
           OcrHeuristicMatcher.passesMultiFactorGate(
-            cardName: 'Test Card',
-            ocrLines: ['Test Card', keyword],
+            cardName: 'Serra Angel',
+            ocrLines: ['Serra Angel', keyword],
           ),
           isTrue,
           reason: 'Expected Condition 2 to accept MTG keyword $keyword in OCR lines',
@@ -304,8 +304,8 @@ void main() {
         // Case-insensitive within complex type phrase
         expect(
           OcrHeuristicMatcher.passesMultiFactorGate(
-            cardName: 'Test Card',
-            ocrLines: ['Test Card', 'Legendary $keyword — Dragon'],
+            cardName: 'Shivan Dragon',
+            ocrLines: ['Shivan Dragon', 'Legendary $keyword — Dragon'],
           ),
           isTrue,
           reason: 'Expected Condition 2 to accept composite type containing $keyword',
@@ -447,7 +447,7 @@ void main() {
               collectionType: 'mtg',
               name: 'Sol Ring',
               setOrSeries: 'CMM',
-              imageUrl: 'https://example.com/solring.jpg',
+              imageUrl: 'https://cards.scryfall.io/large/front/4/c/4cbc362e-6a52-4753-9619-75f850d97960.jpg',
               acquiredPrice: 1.5,
               acquiredDate: DateTime.now(),
               quantity: const Value(0),
@@ -466,7 +466,7 @@ void main() {
               collectionType: 'mtg',
               name: 'Fog',
               setOrSeries: 'EMA',
-              imageUrl: 'https://example.com/fog.jpg',
+              imageUrl: 'https://cards.scryfall.io/large/front/b/b/bbc3152e-7b3b-4ac6-8b33-abfebde216aa.jpg',
               acquiredPrice: 0.25,
               acquiredDate: DateTime.now(),
               quantity: const Value(0),
@@ -485,7 +485,7 @@ void main() {
               collectionType: 'mtg',
               name: 'Ring',
               setOrSeries: 'LEA',
-              imageUrl: 'https://example.com/ring.jpg',
+              imageUrl: 'https://cards.scryfall.io/large/front/7/8/78038b95-30f2-4e4b-972f-04cfa65c275a.jpg',
               acquiredPrice: 0.5,
               acquiredDate: DateTime.now(),
               quantity: const Value(0),

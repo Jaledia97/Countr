@@ -687,7 +687,7 @@ void main() {
     });
 
     test('F9.B3: staging cross-collection cards maintains individual collection types', () async {
-      final mtg = createTestCard(id: 'iso-mtg', name: 'MTG Card', collectionType: 'mtg');
+      final mtg = createTestCard(id: 'iso-mtg', name: 'Counterspell', collectionType: 'mtg');
       final pkm = createTestCard(id: 'iso-pkm', name: 'PKM Card', collectionType: 'pokemon');
 
       await dao.upsertScannedCardToInbox(mtg);
@@ -1032,7 +1032,7 @@ void main() {
     });
 
     test('F12.B1: bulk deleting with empty ID list returns 0 and does not modify database', () async {
-      final card = createTestCard(id: 'b-empty-card', name: 'Test Card');
+      final card = createTestCard(id: 'b-empty-card', name: 'Lightning Bolt');
       await dao.upsertScannedCardToInbox(card);
 
       final deleted = await deleteVaultItems(dao, []);

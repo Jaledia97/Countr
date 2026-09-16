@@ -140,8 +140,8 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet> {
   @override
   Widget build(BuildContext context) {
     final isOwned = _currentItem.quantity > 0;
-    final manaCost = _dynamicData['mana_cost']?.toString() ?? '';
-    final typeLine = _dynamicData['type_line']?.toString() ?? _currentItem.collectionType.toUpperCase();
+    final manaCost = _dynamicData['mana_cost']?.toString() ?? _dynamicData['mana']?.toString() ?? '';
+    final typeLine = _dynamicData['type_line']?.toString() ?? _dynamicData['type']?.toString() ?? _currentItem.collectionType.toUpperCase();
     final oracleText = _dynamicData['oracle_text']?.toString() ?? '';
     final rarity = _dynamicData['rarity']?.toString() ?? '';
     final power = _dynamicData['power']?.toString();

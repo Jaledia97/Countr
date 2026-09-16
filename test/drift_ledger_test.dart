@@ -33,7 +33,7 @@ void main() {
       expect(mtg.currentMarketPrice, 45.50);
       expect(mtg.condition, 'NM');
       expect(mtg.isGraded, false);
-      expect(mtg.dynamicData, contains('"mana": "2UB"'));
+      expect(mtg.dynamicData, contains('"mana":"{4}"'));
 
       // Verify Pokémon record
       final pokemon = items.firstWhere((i) => i.collectionType == 'pokemon');
