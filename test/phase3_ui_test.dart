@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:countr/core/database/app_database.dart';
 import 'package:countr/features/scanner/presentation/screens/inbox_screen.dart';
 import 'package:countr/features/scanner/presentation/screens/scanner_modal.dart';
+import 'package:countr/features/scanner/presentation/widgets/scanner_success_toast.dart';
 import 'package:countr/features/vault/presentation/providers/vault_providers.dart';
 import 'package:countr/features/vault/presentation/screens/binder_detail_screen.dart';
 import 'package:countr/features/vault/presentation/screens/vault_screen.dart';
@@ -295,7 +296,8 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
 
       // Verification of scanning reticle and UI elements
-      expect(find.text('Scanner Camera Active'), findsOneWidget);
+      expect(find.byType(ScannerModal), findsOneWidget);
+      expect(find.text('Scanner Camera Active'), findsNothing);
       expect(find.text('Foil/Variant'), findsOneWidget);
       expect(find.byIcon(Icons.inbox_rounded), findsOneWidget);
       expect(find.text('CONTINUOUS STREAM ACTIVE • AUTO-DETECTING'), findsOneWidget);
@@ -325,12 +327,26 @@ void main() {
         primaryBinderId: null,
       );
 
-      // Trigger detection without blocking before pumping the modal route
-      final detectionFuture = state.simulateCardDetection(mockCard);
+      // Trigger detection
+      await state.simulateCardDetection(mockCard);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
 
-      // Verifies auto-routing directly into InboxScreen
+      // Verifies top toast prompt appears while continuous scanner remains active
+      expect(find.byType(ScannerSuccessToast), findsOneWidget);
+      expect(find.text('Sol Ring'), findsOneWidget);
+      expect(find.byType(ScannerModal), findsOneWidget);
+      expect(find.text('1'), findsOneWidget);
+
+      // Toast auto-dismisses after 1.5s
+      await tester.pump(const Duration(milliseconds: 1600));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.byType(ScannerSuccessToast), findsNothing);
+
+      // Tapping inbox button opens InboxScreen
+      await tester.tap(find.byIcon(Icons.inbox_rounded));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
       expect(find.byType(InboxScreen), findsOneWidget);
       expect(find.text('Sol Ring'), findsOneWidget);
 
@@ -338,7 +354,6 @@ void main() {
       await tester.tap(find.byIcon(Icons.arrow_back_ios_new_rounded));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
-      await detectionFuture;
 
       // Restores ScannerModal and displays session counter badge '1'
       expect(find.byType(ScannerModal), findsOneWidget);
@@ -359,7 +374,7 @@ void main() {
       await tester.pumpWidget(createTestWidget(const ScannerModal()));
       await tester.pump(const Duration(milliseconds: 300));
 
-      expect(find.text('Scanner Camera Active'), findsOneWidget);
+      expect(find.text('Scanner Camera Active'), findsNothing);
       expect(find.text('SIMULATOR ACTIVE'), findsOneWidget);
 
       // Tap battery-saver pause button
@@ -379,7 +394,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
 
       // Verify resumed UI state
-      expect(find.text('Scanner Camera Active'), findsOneWidget);
+      expect(find.text('Scanner Camera Active'), findsNothing);
       expect(find.text('SIMULATOR ACTIVE'), findsOneWidget);
 
       // Tap pause toggle again
@@ -394,7 +409,7 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
 
-      expect(find.text('Scanner Camera Active'), findsOneWidget);
+      expect(find.text('Scanner Camera Active'), findsNothing);
 
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(seconds: 4));
@@ -412,7 +427,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
 
       expect(find.byType(ScannerModal), findsOneWidget);
-      expect(find.text('Scanner Camera Active'), findsOneWidget);
+      expect(find.text('Scanner Camera Active'), findsNothing);
 
       // Tap the Inbox button on the scanner screen
       await tester.tap(find.byIcon(Icons.inbox_rounded));
@@ -430,7 +445,7 @@ void main() {
 
       // Verify ScannerModal is restored and active
       expect(find.byType(ScannerModal), findsOneWidget);
-      expect(find.text('Scanner Camera Active'), findsOneWidget);
+      expect(find.text('Scanner Camera Active'), findsNothing);
 
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(seconds: 4));
@@ -451,7 +466,7 @@ void main() {
         await tester.pump(const Duration(milliseconds: 300));
 
         // Verify key controls exist and are visible
-        expect(find.text('Scanner Camera Active'), findsOneWidget);
+        expect(find.text('Scanner Camera Active'), findsNothing);
         expect(find.text('Foil/Variant'), findsOneWidget);
         expect(find.byIcon(Icons.inbox_rounded), findsOneWidget);
         expect(find.text('CONTINUOUS STREAM ACTIVE • AUTO-DETECTING'), findsOneWidget);

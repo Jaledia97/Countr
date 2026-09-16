@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:countr/core/constants/app_colors.dart';
 import 'package:countr/core/constants/app_typography.dart';
 import 'package:countr/core/database/app_database.dart';
+import 'package:countr/features/vault/domain/mtg_keyword_glossary.dart';
 import 'package:countr/features/vault/presentation/providers/vault_providers.dart';
 
 /// Draggable modal bottom sheet displaying full card breakdown, oracle rules text,
@@ -148,6 +149,12 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet> {
     final loyalty = _dynamicData['loyalty']?.toString();
     final rulings = _dynamicData['rulings']?.toString() ?? _dynamicData['use_cases']?.toString() ?? '';
     final flavorText = _dynamicData['flavor_text']?.toString() ?? '';
+    final rawKeywords = _dynamicData['keywords'];
+    final keywordsList = rawKeywords is List ? rawKeywords : null;
+    final mechanics = MtgKeywordGlossary.extractKeywords(
+      keywords: keywordsList,
+      oracleText: oracleText,
+    );
 
     // Profit / Loss calculations
     final delta = (_currentItem.currentMarketPrice - _currentItem.acquiredPrice) * _currentItem.quantity;
@@ -407,6 +414,9 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet> {
                         ],
                       ),
                     ),
+
+                    // Card Mechanics (MTG Keyword Glossary)
+                    _buildCardMechanics(mechanics),
 
                     // Section 2: Format Legalities
                     _buildFormatLegalities(),
@@ -741,5 +751,60 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet> {
       default:
         return AppColors.textSecondary;
     }
+  }
+
+  Widget _buildCardMechanics(List<String> keywords) {
+    if (keywords.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionHeader(Icons.auto_awesome_rounded, 'Card Mechanics'),
+        Container(
+          margin: const EdgeInsets.only(top: 8, bottom: 18),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: AppColors.surfaceRaised,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.surfaceBorder),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (int i = 0; i < keywords.length; i++) ...[
+                if (i > 0) const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.accentCyan.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: AppColors.accentCyan.withValues(alpha: 0.4)),
+                  ),
+                  child: Text(
+                    keywords[i],
+                    style: const TextStyle(
+                      color: AppColors.accentCyan,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  MtgKeywordGlossary.dictionary[keywords[i]] ?? '',
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12.5,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
   }
 }

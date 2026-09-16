@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
+import 'package:google_mlkit_object_detection/google_mlkit_object_detection.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_typography.dart';
@@ -16,6 +17,7 @@ import '../../domain/card_perimeter_calculator.dart';
 import '../../domain/ocr_heuristic_matcher.dart';
 import '../../utils/camera_image_converter.dart';
 import '../widgets/dynamic_scanner_overlay.dart';
+import '../widgets/scanner_success_toast.dart';
 import 'inbox_screen.dart';
 
 /// Full-screen Edge Scanner modal featuring live camera streaming,
@@ -55,6 +57,8 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
   CameraController? _cameraController;
   AdaptiveAutoAdjustController? _autoAdjustController;
   late TextRecognizer _textRecognizer;
+  late ObjectDetector _objectDetector;
+  bool _useObjectDetectionFallback = false;
 
   int _selectedModeIndex = 0;
   bool _flashOn = false;
@@ -71,6 +75,7 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
   DateTime? _lastIdleLogTime;
   String? _lastMatchedCardId;
   DateTime? _lastMatchTimestamp;
+  VaultItem? _scannedToastCard;
 
   final List<String> _scanModes = [
     'RAW CARD',
@@ -88,6 +93,13 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
     )..repeat(reverse: true);
 
     _textRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
+    _objectDetector = ObjectDetector(
+      options: ObjectDetectorOptions(
+        mode: DetectionMode.stream,
+        classifyObjects: false,
+        multipleObjects: false,
+      ),
+    );
     _initializeCamera();
   }
 
@@ -254,10 +266,46 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
 
       if (inputImage == null) return;
 
+      // R2: Object-first detection gate before OCR
+      Rect? detectedObjectBox;
+      if (!_useObjectDetectionFallback) {
+        try {
+          final objects = await _objectDetector.processImage(inputImage);
+          if (objects.isEmpty) {
+            // Abort frame processing early if no card/object detected
+            if (_lastCardDetectedTime == null ||
+                DateTime.now().difference(_lastCardDetectedTime!) >
+                    const Duration(milliseconds: 1200)) {
+              _detectedCardBounds = null;
+            }
+            return;
+          }
+          detectedObjectBox = objects.first.boundingBox;
+        } catch (e) {
+          debugPrint(
+              '[Countr Scanner] Object detection unavailable, falling back to CardPerimeterCalculator: $e');
+          _useObjectDetectionFallback = true;
+        }
+      }
+
       final recognized = await _textRecognizer.processImage(inputImage);
 
-      // R1: Dynamic card bounding perimeter calculation
-      if (recognized.blocks.isNotEmpty && mounted) {
+      // Card bounding perimeter calculation
+      if (detectedObjectBox != null && mounted) {
+        final rawSize = inputImage.metadata?.size ??
+            Size(image.width.toDouble(), image.height.toDouble());
+        final uprightSize = CardPerimeterCalculator.getUprightImageSize(
+          rawSize: rawSize,
+          rotation: inputImage.metadata?.rotation,
+        );
+        final screenSize = MediaQuery.of(context).size;
+        _detectedCardBounds = CardPerimeterCalculator.mapImageRectToScreen(
+          imageRect: detectedObjectBox,
+          imageSize: uprightSize,
+          screenSize: screenSize,
+        );
+        _lastCardDetectedTime = DateTime.now();
+      } else if (recognized.blocks.isNotEmpty && mounted) {
         final rawSize = inputImage.metadata?.size ??
             Size(image.width.toDouble(), image.height.toDouble());
         final uprightSize = CardPerimeterCalculator.getUprightImageSize(
@@ -317,6 +365,7 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
         activeGame,
         collectorNumber: ocrResult.collectorNumber,
         setCode: ocrResult.setCode,
+        enforceMultiFactor: true,
       );
 
       if (card != null) {
@@ -332,16 +381,6 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
 
         debugPrint(
             '>>> [Countr Scanner MATCH SUCCESS] Card "${card.name}" matched! Set: "${card.setOrSeries}", ID: "${card.id}" (Context: $activeGame)');
-        // Auto-Routing: Instantly pause preview and stop image stream to save battery
-        if (_cameraController != null &&
-            _cameraController!.value.isInitialized) {
-          try {
-            if (_cameraController!.value.isStreamingImages) {
-              await _cameraController!.stopImageStream();
-            }
-            await _cameraController!.pausePreview();
-          } catch (_) {}
-        }
 
         HapticFeedback.mediumImpact();
         await _autoAdjustController?.onFrameResult(matched: true);
@@ -361,54 +400,23 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
     }
   }
 
-  /// Staged card handling: adds card to inbox, displays feedback,
-  /// and automatically routes into the Inbox screen.
+  /// Staged card handling: adds card to inbox in background,
+  /// triggers animated top success toast, and keeps continuous camera scanning active.
   Future<void> _onCardMatched(VaultItem card) async {
     final dao = ref.read(vaultDaoProvider);
 
-    debugPrint('>>> [Countr Scanner AUTO-ROUTE] Adding "${card.name}" to Inbox and opening InboxScreen modal...');
+    debugPrint(
+        '>>> [Countr Scanner CONTINUOUS SCAN] Adding "${card.name}" to Inbox and displaying success toast...');
 
-    // Instant UPSERT to Inbox
+    // Instant background UPSERT to Inbox
     await dao.upsertScannedCardToInbox(card, isFoil: _isFoilMode);
 
     if (mounted) {
       setState(() {
         _sessionScanCount++;
         _isGreenFlash = true;
+        _scannedToastCard = card;
       });
-
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.check_circle_rounded,
-                  color: AppColors.accentEmerald, size: 20),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'Auto-Detected: ${card.name} ${_isFoilMode ? "(Foil)" : ""}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontWeight: FontWeight.w700),
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: AppColors.surfaceRaised,
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(milliseconds: 1800),
-        ),
-      );
-
-      // Auto-Routing: Open the Inbox screen
-      await InboxScreen.show(context);
-
-      // Cleanly resume camera streaming upon returning from Inbox
-      if (mounted) {
-        debugPrint('[Countr Scanner] Returned from InboxScreen, restarting camera stream...');
-        await _resumeScanning(force: true);
-      }
 
       Future.delayed(const Duration(milliseconds: 600), () {
         if (mounted) {
@@ -478,19 +486,28 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
   Future<void> processCameraFrameForTesting(CameraImage image) =>
       _processCameraFrame(image);
 
+  @visibleForTesting
+  bool get useObjectDetectionFallback => _useObjectDetectionFallback;
+
+  @visibleForTesting
+  set useObjectDetectionFallback(bool value) =>
+      _useObjectDetectionFallback = value;
+
+  @visibleForTesting
+  VaultItem? get scannedToastCard => _scannedToastCard;
+
   @override
   void dispose() {
     _scanLineController.dispose();
     _cameraController?.dispose();
     _autoAdjustController?.dispose();
+    _objectDetector.close();
     _textRecognizer.close();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final activeGame = ref.watch(activeGameContextProvider);
-
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
@@ -518,86 +535,57 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
               scanLineAnimation: _scanLineController,
             ),
 
-            // Center Status Banner (Floating unconstrained status & controls)
-            Center(
-              child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 32),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.85),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: _isScanningPaused
-                        ? AppColors.accentAmber
-                        : (_isGreenFlash
-                            ? AppColors.accentEmerald
-                            : AppColors.accentCyan),
-                    width: 1.4,
+            // Center Pause Overlay (Only rendered when scanning is paused for battery saving)
+            if (_isScanningPaused)
+              Center(
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 32),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: (_isScanningPaused
-                              ? AppColors.accentAmber
-                              : (_isGreenFlash
-                                  ? AppColors.accentEmerald
-                                  : AppColors.accentCyan))
-                          .withValues(alpha: 0.2),
-                      blurRadius: 12,
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.85),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: AppColors.accentAmber,
+                      width: 1.4,
                     ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      _isScanningPaused
-                          ? Icons.pause_circle_filled_rounded
-                          : (_isGreenFlash
-                              ? Icons.check_circle_outline_rounded
-                              : Icons.camera_alt_rounded),
-                      color: _isScanningPaused
-                          ? AppColors.accentAmber
-                          : (_isGreenFlash
-                              ? AppColors.accentEmerald
-                              : AppColors.accentCyan),
-                      size: 28,
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      _isScanningPaused
-                          ? 'SCANNING PAUSED'
-                          : (_isGreenFlash
-                              ? 'CARD IDENTIFIED!'
-                              : 'Scanner Camera Active'),
-                      style: TextStyle(
-                        color: _isScanningPaused
-                            ? AppColors.accentAmber
-                            : (_isGreenFlash
-                                ? AppColors.accentEmerald
-                                : Colors.white),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.5,
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.accentAmber.withValues(alpha: 0.2),
+                        blurRadius: 12,
                       ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      _isScanningPaused
-                          ? 'Battery Saver Active • Camera Idle'
-                          : (_isCameraAvailable
-                              ? 'Point at card in ${activeGame.toUpperCase()} collection'
-                              : 'Simulation Mode (Ready)'),
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: AppColors.textSecondary.withValues(alpha: 0.9),
-                        fontSize: 10,
-                        fontWeight: FontWeight.w500,
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.pause_circle_filled_rounded,
+                        color: AppColors.accentAmber,
+                        size: 28,
                       ),
-                    ),
-                    if (_isScanningPaused) ...[
+                      const SizedBox(height: 6),
+                      const Text(
+                        'SCANNING PAUSED',
+                        style: TextStyle(
+                          color: AppColors.accentAmber,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        'Battery Saver Active • Camera Idle',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: AppColors.textSecondary.withValues(alpha: 0.9),
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
                       const SizedBox(height: 10),
                       GestureDetector(
                         onTap: _resumeScanning,
@@ -632,10 +620,9 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
                         ),
                       ),
                     ],
-                  ],
+                  ),
                 ),
               ),
-            ),
 
             // Top Control Bar with Inbox Floating Button & Session Badge
             Positioned(
@@ -1068,6 +1055,27 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
                 ],
               ),
             ),
+
+            // ManaBox-Style Animated Floating Top Success Toast (rendered last in Stack so it paints on top of all controls and receives taps)
+            if (_scannedToastCard != null)
+              Positioned(
+                top: 64,
+                left: 0,
+                right: 0,
+                child: ScannerSuccessToast(
+                  key: ValueKey('toast_${_scannedToastCard!.id}_$_sessionScanCount'),
+                  card: _scannedToastCard!,
+                  isFoil: _isFoilMode,
+                  onTap: _openInbox,
+                  onDismissed: () {
+                    if (mounted) {
+                      setState(() {
+                        _scannedToastCard = null;
+                      });
+                    }
+                  },
+                ),
+              ),
           ],
         ),
       ),

@@ -40,8 +40,15 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
     if (!_scrollController.hasClients) return;
     final maxScroll = _scrollController.position.maxScrollExtent;
     final currentScroll = _scrollController.position.pixels;
-    if (currentScroll >= maxScroll - 300) {
-      ref.read(vaultPaginationLimitProvider.notifier).update((l) => l + 50);
+    final isFetchingMore = ref.read(vaultIsFetchingMoreProvider);
+
+    if (maxScroll > 0 && currentScroll >= maxScroll - 300 && !isFetchingMore) {
+      final currentLimit = ref.read(vaultPaginationLimitProvider);
+      final currentItems = ref.read(vaultItemsStreamProvider).valueOrNull ?? [];
+      if (currentItems.length >= currentLimit) {
+        ref.read(vaultIsFetchingMoreProvider.notifier).state = true;
+        ref.read(vaultPaginationLimitProvider.notifier).update((l) => l + 50);
+      }
     }
   }
 
@@ -193,8 +200,18 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<AsyncValue<List<VaultItem>>>(
+      vaultItemsStreamProvider,
+      (previous, next) {
+        if (!next.isLoading) {
+          ref.read(vaultIsFetchingMoreProvider.notifier).state = false;
+        }
+      },
+    );
+
     final activeGame = ref.watch(activeGameContextProvider);
     final asyncItems = ref.watch(vaultItemsStreamProvider);
+    final isFetchingMore = ref.watch(vaultIsFetchingMoreProvider);
     final summary = ref.watch(vaultPortfolioSummaryProvider);
     final hydrationState = ref.watch(hydrationControllerProvider);
     final viewMode = ref.watch(vaultViewModeProvider);
@@ -322,6 +339,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
         ],
       ),
       body: CustomScrollView(
+        key: const PageStorageKey<String>('vault_custom_scroll_view'),
         controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
@@ -660,6 +678,25 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
           else
             _buildVaultCardsSliver(asyncItems, activeGame),
 
+          // Bottom subtle loading spinner when fetching more items
+          if (isFetchingMore || (asyncItems.isLoading && asyncItems.hasValue))
+            const SliverToBoxAdapter(
+              key: Key('vault_fetching_more_indicator'),
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 20),
+                child: Center(
+                  child: SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      color: AppColors.accentCyan,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
           // State Freeze Status Callout at the bottom
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
@@ -881,141 +918,145 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
 
   Widget _buildVaultCardsSliver(
       AsyncValue<List<VaultItem>> asyncItems, String activeGame) {
-    return asyncItems.when(
-      data: (items) {
-        // Apply local search query
-        final query = _searchController.text.toLowerCase().trim();
-        var filtered = items.where((item) {
-          if (query.isEmpty) return true;
-          return item.name.toLowerCase().contains(query) ||
-              item.setOrSeries.toLowerCase().contains(query) ||
-              item.condition.toLowerCase().contains(query);
-        }).toList();
+    if (asyncItems.hasValue) {
+      final items = asyncItems.value!;
+      // Apply local search query
+      final query = _searchController.text.toLowerCase().trim();
+      var filtered = items.where((item) {
+        if (query.isEmpty) return true;
+        return item.name.toLowerCase().contains(query) ||
+            item.setOrSeries.toLowerCase().contains(query) ||
+            item.condition.toLowerCase().contains(query);
+      }).toList();
 
-        // Apply quick filter chips
-        if (_selectedFilterIndex == 2) {
-          filtered = filtered.where((i) => i.isGraded).toList();
-        } else if (_selectedFilterIndex == 3) {
-          filtered = filtered.where((i) => !i.isGraded).toList();
-        } else if (_selectedFilterIndex == 4) {
-          filtered = filtered
-              .where((i) => i.collectionType == 'comic')
-              .toList();
-        } else if (_selectedFilterIndex == 5) {
-          filtered = filtered
-              .where((i) => i.currentMarketPrice > i.acquiredPrice)
-              .toList();
-        }
+      // Apply quick filter chips
+      if (_selectedFilterIndex == 2) {
+        filtered = filtered.where((i) => i.isGraded).toList();
+      } else if (_selectedFilterIndex == 3) {
+        filtered = filtered.where((i) => !i.isGraded).toList();
+      } else if (_selectedFilterIndex == 4) {
+        filtered = filtered
+            .where((i) => i.collectionType == 'comic')
+            .toList();
+      } else if (_selectedFilterIndex == 5) {
+        filtered = filtered
+            .where((i) => i.currentMarketPrice > i.acquiredPrice)
+            .toList();
+      }
 
-        if (filtered.isEmpty) {
-          return SliverPadding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            sliver: SliverToBoxAdapter(
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(32),
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.surfaceBorder),
-                ),
-                child: Column(
-                  children: [
-                    const Icon(
-                      Icons.inventory_2_outlined,
-                      size: 44,
-                      color: AppColors.textMuted,
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      _selectedFilterIndex == 1
-                          ? 'No catalog cards found'
-                          : 'No owned items in $activeGame',
-                      style: AppTypography.heading2,
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      _selectedFilterIndex == 1
-                          ? 'Hydrate the MTG dictionary or modify your search filter.'
-                          : 'Tap below to seed initial mock ledger records or hydrate catalog.',
-                      style: AppTypography.caption,
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 16),
-                    Wrap(
-                      alignment: WrapAlignment.center,
-                      spacing: 12,
-                      runSpacing: 10,
-                      children: [
-                        ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.accentCyan,
-                            foregroundColor: AppColors.textDark,
-                          ),
-                          icon: const Icon(Icons.add_circle_outline_rounded),
-                          label: const Text('Seed Database'),
-                          onPressed: () async {
-                            await ref.read(vaultDaoProvider).seedDatabase();
-                          },
+      if (filtered.isEmpty) {
+        return SliverPadding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          sliver: SliverToBoxAdapter(
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(32),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.surfaceBorder),
+              ),
+              child: Column(
+                children: [
+                  const Icon(
+                    Icons.inventory_2_outlined,
+                    size: 44,
+                    color: AppColors.textMuted,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    _selectedFilterIndex == 1
+                        ? 'No catalog cards found'
+                        : 'No owned items in $activeGame',
+                    style: AppTypography.heading2,
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    _selectedFilterIndex == 1
+                        ? 'Hydrate the MTG dictionary or modify your search filter.'
+                        : 'Tap below to seed initial mock ledger records or hydrate catalog.',
+                    style: AppTypography.caption,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    spacing: 12,
+                    runSpacing: 10,
+                    children: [
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.accentCyan,
+                          foregroundColor: AppColors.textDark,
                         ),
-                        OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppColors.accentViolet,
-                            side: const BorderSide(color: AppColors.accentViolet),
-                          ),
-                          icon: const Icon(Icons.bolt_rounded),
-                          label: const Text('Hydrate MTG Catalog'),
-                          onPressed: () {
-                            ref
-                                .read(hydrationControllerProvider.notifier)
-                                .startHydration();
-                          },
+                        icon: const Icon(Icons.add_circle_outline_rounded),
+                        label: const Text('Seed Database'),
+                        onPressed: () async {
+                          await ref.read(vaultDaoProvider).seedDatabase();
+                        },
+                      ),
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.accentViolet,
+                          side: const BorderSide(color: AppColors.accentViolet),
                         ),
-                      ],
-                    ),
-                  ],
-                ),
+                        icon: const Icon(Icons.bolt_rounded),
+                        label: const Text('Hydrate MTG Catalog'),
+                        onPressed: () {
+                          ref
+                              .read(hydrationControllerProvider.notifier)
+                              .startHydration();
+                        },
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
-          );
-        }
+          ),
+        );
+      }
 
-        final cardLayout = ref.watch(cardDisplayLayoutProvider);
+      final cardLayout = ref.watch(cardDisplayLayoutProvider);
 
-        if (cardLayout == CardDisplayLayout.grid) {
-          final screenWidth = MediaQuery.of(context).size.width;
-          final columns = _calculateGridColumns(screenWidth);
-
-          return SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            sliver: SliverGrid(
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: columns,
-                crossAxisSpacing: 10,
-                mainAxisSpacing: 10,
-                childAspectRatio: 0.64,
-              ),
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  return VaultItemTile(item: filtered[index]);
-                },
-                childCount: filtered.length,
-              ),
-            ),
-          );
-        }
+      if (cardLayout == CardDisplayLayout.grid) {
+        final screenWidth = MediaQuery.of(context).size.width;
+        final columns = _calculateGridColumns(screenWidth);
 
         return SliverPadding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-          sliver: SliverList.builder(
-            itemCount: filtered.length,
-            itemBuilder: (context, index) {
-              return VaultItemCard(item: filtered[index]);
-            },
+          sliver: SliverGrid(
+            key: const PageStorageKey<String>('vault_cards_sliver_grid'),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: columns,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
+              childAspectRatio: 0.64,
+            ),
+            delegate: SliverChildBuilderDelegate(
+              (context, index) {
+                return VaultItemTile(item: filtered[index]);
+              },
+              childCount: filtered.length,
+            ),
           ),
         );
-      },
-      loading: () => const SliverFillRemaining(
+      }
+
+      return SliverPadding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        sliver: SliverList.builder(
+          key: const PageStorageKey<String>('vault_cards_sliver_list'),
+          itemCount: filtered.length,
+          itemBuilder: (context, index) {
+            return VaultItemCard(item: filtered[index]);
+          },
+        ),
+      );
+    }
+
+    if (asyncItems.isLoading) {
+      return const SliverFillRemaining(
         hasScrollBody: false,
         child: Padding(
           padding: EdgeInsets.all(40),
@@ -1023,8 +1064,11 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
             child: CircularProgressIndicator(color: AppColors.accentCyan),
           ),
         ),
-      ),
-      error: (err, stack) => SliverPadding(
+      );
+    }
+
+    if (asyncItems.hasError) {
+      return SliverPadding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         sliver: SliverToBoxAdapter(
           child: Container(
@@ -1035,13 +1079,15 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
               border: Border.all(color: AppColors.accentRose),
             ),
             child: Text(
-              'Database Ledger Error: $err',
+              'Database Ledger Error: ${asyncItems.error}',
               style: const TextStyle(color: AppColors.accentRose),
             ),
           ),
         ),
-      ),
-    );
+      );
+    }
+
+    return const SliverToBoxAdapter(child: SizedBox.shrink());
   }
 
   int _calculateGridColumns(double screenWidth) {

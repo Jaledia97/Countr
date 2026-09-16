@@ -5,6 +5,7 @@ import 'package:countr/core/database/app_database.dart';
 import 'package:countr/features/scanner/presentation/screens/inbox_screen.dart';
 import 'package:countr/features/scanner/presentation/screens/scanner_modal.dart';
 import 'package:countr/features/scanner/presentation/widgets/dynamic_scanner_overlay.dart';
+import 'package:countr/features/scanner/presentation/widgets/scanner_success_toast.dart';
 import 'package:countr/features/vault/data/daos/vault_dao.dart';
 
 import 'test_helpers.dart';
@@ -44,7 +45,7 @@ void main() {
 
       expect(find.byType(ScannerModal), findsOneWidget);
       expect(find.byType(DynamicScannerOverlay), findsOneWidget);
-      expect(find.text('Scanner Camera Active'), findsOneWidget);
+      expect(find.text('Scanner Camera Active'), findsNothing);
       expect(find.text('Foil/Variant'), findsOneWidget);
 
       // 2. Toggle Foil/Variant mode
@@ -60,28 +61,41 @@ void main() {
       expect(state.detectedCardBounds, equals(detectedRect));
       expect(find.byKey(const Key('corner_bracket_tl')), findsOneWidget);
 
-      // 4. Simulate card match and auto-routing to Inbox
+      // 4. Simulate card match and top toast feedback without pausing camera
       final matchCard = createTestCard(
         id: 'auto-card-1',
         name: 'Sol Ring',
         setOrSeries: 'Commander',
         currentMarketPrice: 2.5,
       );
-      final detectionFuture = state.simulateCardDetection(matchCard);
+      await state.simulateCardDetection(matchCard);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
 
-      // 5. Verify auto-routing directly into InboxScreen
+      // 5. Verify top toast prompt appears while continuous scanner remains active
+      expect(find.byType(ScannerSuccessToast), findsOneWidget);
+      expect(find.text('Sol Ring'), findsOneWidget);
+      expect(find.byType(ScannerModal), findsOneWidget);
+      expect(find.text('1'), findsOneWidget);
+
+      // 6. Toast auto-dismisses after 1.5s
+      await tester.pump(const Duration(milliseconds: 1600));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.byType(ScannerSuccessToast), findsNothing);
+
+      // 7. Manually open InboxScreen via inbox button to verify staged card
+      await tester.tap(find.byIcon(Icons.inbox_rounded));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
       expect(find.byType(InboxScreen), findsOneWidget);
       expect(find.text('Sol Ring'), findsOneWidget);
 
-      // 6. Return to Scanner via back navigation
+      // 8. Return to Scanner via back navigation
       await tester.tap(find.byIcon(Icons.arrow_back_ios_new_rounded));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
-      await detectionFuture;
 
-      // 7. Verify session counter badge increments to 1 and scanner restores
+      // 9. Verify session counter badge retains 1 and scanner restores
       expect(find.byType(ScannerModal), findsOneWidget);
       expect(find.text('1'), findsOneWidget);
 
@@ -288,7 +302,8 @@ void main() {
       await tester.tap(find.byKey(const Key('scanner_pause_toggle')));
       await tester.pump(const Duration(milliseconds: 200));
 
-      expect(find.text('Scanner Camera Active'), findsOneWidget);
+      expect(find.text('Scanner Camera Active'), findsNothing);
+      expect(find.byType(ScannerModal), findsOneWidget);
 
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(seconds: 4));

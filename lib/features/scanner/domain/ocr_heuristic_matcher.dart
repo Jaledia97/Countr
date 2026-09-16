@@ -74,6 +74,231 @@ class OcrHeuristicMatcher {
     'illustrator',
   };
 
+  /// Canonical MTG card types and keywords for multi-factor matching gate.
+  static const Set<String> mtgCardTypes = {
+    'instant',
+    'sorcery',
+    'creature',
+    'artifact',
+    'enchantment',
+    'land',
+    'planeswalker',
+  };
+
+  /// Extracts the base card name by stripping split / adventure card delimiter (' //')
+  /// and variant / serialized subtitle (' (').
+  static String extractBaseCardName(String name) {
+    var base = name;
+    final slashIndex = base.indexOf(' //');
+    if (slashIndex != -1) base = base.substring(0, slashIndex);
+    final parenIndex = base.indexOf(' (');
+    if (parenIndex != -1) base = base.substring(0, parenIndex);
+    return base.trim();
+  }
+
+  /// Enforces a multi-factor matching gate to eliminate scanner false positives.
+  /// Must NOT match on a single 4-character word alone.
+  /// Requires at least two verifying data points:
+  /// (1) Name Match + Collector Number, OR
+  /// (2) Name Match + Card Type / MTG Keyword ("Instant", "Sorcery", "Creature", "Artifact", "Enchantment", "Land", "Planeswalker"), OR
+  /// (3) Name Match + Exact Set Code.
+  /// Reject candidate frame if conditions are not met.
+  static bool passesMultiFactorGate({
+    required String cardName,
+    required List<String> ocrLines,
+    String? collectorNumber,
+    String? setCode,
+    String? typeLine,
+  }) {
+    if (ocrLines.isEmpty || cardName.trim().isEmpty) return false;
+
+    // Filter out blank or whitespace-only lines
+    final validLines =
+        ocrLines.map((l) => l.trim()).where((l) => l.isNotEmpty).toList();
+    if (validLines.isEmpty) return false;
+
+    // Must NOT match on a single 4-character word alone.
+    // If only one line exists and has <= 4 alphanumeric characters, reject immediately.
+    if (validLines.length == 1 &&
+        countrSanitize(validLines.first).length <= 4) {
+      return false;
+    }
+
+    // -------------------------------------------------------------------------
+    // FACTOR 1: Name Match (Required)
+    // -------------------------------------------------------------------------
+    final sanitizedCardName = countrSanitize(cardName);
+    final baseName = extractBaseCardName(cardName);
+    final sanitizedBaseName = countrSanitize(baseName);
+
+    bool hasNameMatch = false;
+    for (final line in validLines) {
+      final sanitizedLine = countrSanitize(line);
+      if (sanitizedLine.isEmpty) continue;
+
+      if (sanitizedLine == sanitizedCardName ||
+          sanitizedLine == sanitizedBaseName) {
+        hasNameMatch = true;
+        break;
+      }
+
+      final escapedCard = RegExp.escape(cardName.trim());
+      if (RegExp(r'\b' + escapedCard + r'\b', caseSensitive: false)
+          .hasMatch(line)) {
+        hasNameMatch = true;
+        break;
+      }
+
+      if (baseName != cardName) {
+        final escapedBase = RegExp.escape(baseName);
+        if (RegExp(r'\b' + escapedBase + r'\b', caseSensitive: false)
+            .hasMatch(line)) {
+          hasNameMatch = true;
+          break;
+        }
+      }
+
+      if (sanitizedBaseName.length >= 5 &&
+          sanitizedLine.contains(sanitizedBaseName)) {
+        hasNameMatch = true;
+        break;
+      }
+    }
+
+    if (!hasNameMatch) {
+      return false;
+    }
+
+    // -------------------------------------------------------------------------
+    // FACTOR 2: Secondary Verifying Data Point
+    // -------------------------------------------------------------------------
+
+    // Condition (1): Name Match + Collector Number
+    bool hasCollectorMatch = false;
+    final parsedScan = parseLines(validLines);
+    final ocrCollector = parsedScan.collectorNumber;
+
+    String stripLeadingZeros(String s) {
+      final stripped = s.replaceFirst(RegExp(r'^0+'), '');
+      return stripped.isEmpty ? '0' : stripped;
+    }
+
+    if (collectorNumber != null && collectorNumber.trim().isNotEmpty) {
+      final cleanExpected = collectorNumber.trim();
+      final strippedExpected = stripLeadingZeros(cleanExpected);
+      final expectedCandidates = <String>{
+        cleanExpected,
+        strippedExpected,
+        strippedExpected.padLeft(2, '0'),
+        strippedExpected.padLeft(3, '0'),
+        strippedExpected.padLeft(4, '0'),
+      };
+
+      if (ocrCollector != null) {
+        final strippedOcr = stripLeadingZeros(ocrCollector);
+        if (expectedCandidates.contains(ocrCollector) ||
+            expectedCandidates.contains(strippedOcr)) {
+          hasCollectorMatch = true;
+        }
+      } else {
+        // Fallback line search only when no structured collector was parsed
+        for (final line in validLines) {
+          // Remove fraction denominators so set totals (e.g. 400 in 123/400) cannot match
+          final lineWithoutDenominators =
+              line.replaceAll(RegExp(r'/\s*\d+'), '');
+          final cleanLine = line.trim();
+          final strippedCleanLine = stripLeadingZeros(cleanLine);
+
+          if (expectedCandidates.contains(cleanLine) ||
+              expectedCandidates.contains(strippedCleanLine)) {
+            hasCollectorMatch = true;
+            break;
+          }
+
+          for (final cand in expectedCandidates) {
+            if (RegExp(r'\b' + RegExp.escape(cand) + r'\b')
+                .hasMatch(lineWithoutDenominators)) {
+              hasCollectorMatch = true;
+              break;
+            }
+          }
+          if (hasCollectorMatch) break;
+        }
+      }
+    } else {
+      // If collectorNumber parameter is null, check if OCR itself detected a collector number
+      // or if any line (distinct from card name) is a 1-4 digit collector number
+      if (ocrCollector != null && ocrCollector.isNotEmpty) {
+        hasCollectorMatch = true;
+      } else {
+        for (final line in validLines) {
+          final clean = line.trim();
+          if (RegExp(r'^\d{1,4}$').hasMatch(clean) &&
+              clean != countrSanitize(cardName)) {
+            hasCollectorMatch = true;
+            break;
+          }
+        }
+      }
+    }
+
+    if (hasCollectorMatch) {
+      return true;
+    }
+
+    // Condition (2): Name Match + Card Type / MTG Keyword
+    bool hasTypeOrKeywordMatch = false;
+    for (final line in validLines) {
+      final lower = line.toLowerCase();
+      for (final kw in mtgCardTypes) {
+        if (RegExp(r'\b' + kw + r'\b', caseSensitive: false).hasMatch(lower)) {
+          if (typeLine == null ||
+              typeLine.trim().isEmpty ||
+              typeLine.toLowerCase().contains(kw)) {
+            hasTypeOrKeywordMatch = true;
+            break;
+          }
+        }
+      }
+      if (hasTypeOrKeywordMatch) break;
+    }
+
+    if (hasTypeOrKeywordMatch) {
+      return true;
+    }
+
+    // Condition (3): Name Match + Exact Set Code
+    bool hasSetMatch = false;
+    final ocrSet = parsedScan.setCode?.toUpperCase();
+
+    if (setCode != null && setCode.trim().isNotEmpty) {
+      final cleanSet = setCode.trim().toUpperCase();
+      if (ocrSet != null && ocrSet == cleanSet) {
+        hasSetMatch = true;
+      } else {
+        for (final line in validLines) {
+          final cleanLine = line.trim().toUpperCase();
+          if (cleanLine == cleanSet) {
+            hasSetMatch = true;
+            break;
+          }
+          if (RegExp(r'\b' + RegExp.escape(cleanSet) + r'\b',
+                  caseSensitive: false)
+              .hasMatch(line)) {
+            hasSetMatch = true;
+            break;
+          }
+        }
+      }
+    }
+
+    if (hasSetMatch) {
+      return true;
+    }
+
+    return false;
+  }
+
   /// Strips all non-alphanumeric characters (spaces, punctuation, quotes, symbols)
   /// and converts the string to lowercase.
   static String sanitize(String input) => countrSanitize(input);
@@ -165,8 +390,13 @@ class OcrHeuristicMatcher {
       // Check for Fraction pattern: "123/250"
       final fractionMatch = _fractionPattern.firstMatch(line);
       if (fractionMatch != null && collectorNumber == null) {
-        collectorNumber = fractionMatch.group(1);
-        totalInSet = fractionMatch.group(2);
+        final num = fractionMatch.group(1);
+        final denom = fractionMatch.group(2);
+        // Guard against creature P/T stat boxes like 2/2 or 10/10
+        if (num != denom || (int.tryParse(num ?? '') ?? 0) > 20) {
+          collectorNumber = num;
+          totalInSet = denom;
+        }
       }
 
       // Check for Set Dash Number pattern: "SV01-151"

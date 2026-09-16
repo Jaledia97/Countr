@@ -407,7 +407,8 @@ void main() {
       }
 
       // UI is responsive
-      expect(find.text('Scanner Camera Active'), findsOneWidget);
+      expect(find.byType(ScannerModal), findsOneWidget);
+      expect(find.text('Scanner Camera Active'), findsNothing);
 
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(seconds: 4));

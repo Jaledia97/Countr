@@ -15,6 +15,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.7.0] - 2026-09-16
+
+### Phase 3.7: Vault Infinite-Scroll Stabilization, Scanner CV Hardening, ManaBox-Style Success Toast & MTG Keyword Glossary
+
+#### Added & Improved
+- **Vault Infinite-Scroll Stabilization & Pagination (R1)**:
+  - Smooth infinite scrolling without scroll jumping, jitter, or scroll position resets.
+  - Eliminated flashing `SliverFillRemaining` loading spinner during page fetches by retaining rendered sliver list/grid when `asyncItems.hasValue` is true.
+  - Added `vaultIsFetchingMoreProvider` in-flight pagination lock and guarded `_onScroll` against redundant / premature page requests.
+  - Applied `limit: paginationLimit` to `onlyOwned: true` mode.
+  - Configured `PageStorageKey` on `CustomScrollView`, `SliverList.builder`, and `SliverGrid` for scroll offset persistence across rebuilds and layout toggles.
+- **Scanner CV Hardening: Object-First OCR & Multi-Factor Matching Gate (R2)**:
+  - Integrated `google_mlkit_object_detection` into the camera stream pipeline to require physical card bounding box detection before executing OCR.
+  - Implemented graceful fallback to `CardPerimeterCalculator` for emulators, simulators, and headless test runners without native binary models.
+  - Implemented `OcrHeuristicMatcher.passesMultiFactorGate` rejecting single 4-character false positives (e.g. "Ring", "Fire", "Fog") and requiring Name Match + at least one secondary factor (Collector Number, MTG Card Type / Keyword, or Exact Set Code).
+  - Hardened multi-edition card matching in `VaultDao.matchScannedCard` to prevent candidate masking across printings.
+- **Scanner UI Polish & Animated Top Success Prompt (R3)**:
+  - Completely removed the debugging `"Scanner Camera Active"` textbox from camera viewfinder.
+  - Implemented ManaBox-style floating top success toast (`ScannerSuccessToast`) with thumbnail, bold name, set code, emerald market price, smooth slide animation, and 1.5s auto-dismiss timer.
+  - Preserved continuous camera scanning on card detection without pausing camera stream or auto-routing to `InboxScreen`.
+- **Beginner Keyword Glossary on Card Detail Screen (R4)**:
+  - Introduced `MtgKeywordGlossary` with beginner-friendly, plain-English explanations for 12 core MTG mechanics (Vigilance, Flying, Trample, Haste, Lifelink, Deathtouch, First Strike, Double Strike, Reach, Menace, Ward, Hexproof).
+  - Dual-source extraction supporting both `keywords` metadata list and word-boundary `\b` regex parsing on `oracle_text`.
+  - Added "Card Mechanics" section to `CardDetailSheet` with cyan badge tags and definitions beneath.
+- **Test Suite Metrics**:
+  - 419 total automated tests passing project-wide (261 existing baseline + 158 new unit, widget, and challenge tests) with 0 failures and 0 regressions.
+  - Static analysis passing with 0 errors, 0 warnings, 0 infos.
+
+---
+
 ## [0.4.1] - 2026-09-15
 
 ### Phase 3.1: Full SQLite Catalog Search, ManaBox-Style Tile Grid & Interactive Card Details

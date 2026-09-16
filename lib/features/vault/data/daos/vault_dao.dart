@@ -461,6 +461,7 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     String activeContext, {
     String? collectorNumber,
     String? setCode,
+    bool enforceMultiFactor = false,
   }) async {
     // -------------------------------------------------------------------------
     // Guard: Empty Input Check
@@ -471,6 +472,31 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     }
 
     final normalized = _normalizeCollectionType(activeContext);
+
+    // Helper to evaluate multi-factor gate when enforceMultiFactor is enabled
+    bool validateMultiFactor(VaultItem item, {String? detectedCollector}) {
+      if (!enforceMultiFactor) return true;
+      String? cardCollector = collectorNumber;
+      String? cardSet = setCode;
+      String? cardTypeLine;
+      if (item.dynamicData.isNotEmpty) {
+        try {
+          final data = jsonDecode(item.dynamicData) as Map<String, dynamic>;
+          cardCollector ??= data['collector_number']?.toString();
+          cardSet ??= data['set']?.toString();
+          cardTypeLine = data['type_line']?.toString();
+        } catch (_) {}
+      }
+      cardCollector ??= detectedCollector;
+      cardSet ??= item.setOrSeries;
+      return OcrHeuristicMatcher.passesMultiFactorGate(
+        cardName: item.name,
+        ocrLines: cleanedOcrLines,
+        collectorNumber: cardCollector,
+        setCode: cardSet,
+        typeLine: cardTypeLine,
+      );
+    }
 
     // -------------------------------------------------------------------------
     // STEP 1: Collector Number Regex Override
@@ -509,14 +535,15 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
 
     if (effectiveCollector != null && effectiveCollector.isNotEmpty) {
       final cleanNum = effectiveCollector.trim();
-      final numCandidates = {cleanNum};
-      if (cleanNum.length <= 3) {
-        numCandidates.add(cleanNum.padLeft(3, '0'));
-      }
       final stripped = cleanNum.replaceFirst(RegExp(r'^0+'), '');
-      if (stripped.isNotEmpty) {
-        numCandidates.add(stripped);
-      }
+      final numCandidates = <String>{
+        cleanNum,
+        if (stripped.isNotEmpty) stripped,
+        cleanNum.padLeft(3, '0'),
+        cleanNum.padLeft(4, '0'),
+        if (stripped.isNotEmpty) stripped.padLeft(3, '0'),
+        if (stripped.isNotEmpty) stripped.padLeft(4, '0'),
+      };
 
       Expression<bool> buildCollectorPred(VaultItems t) {
         Expression<bool>? p;
@@ -528,7 +555,7 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
         return p!;
       }
 
-      var collectorMatch = await (select(vaultItems)
+      final collectorCandidates = await (select(vaultItems)
             ..where((t) {
               final pred = buildCollectorPred(t);
               if (normalized != 'all') {
@@ -536,38 +563,47 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
               }
               return pred;
             })
-            ..limit(1))
-          .getSingleOrNull();
+            ..limit(25))
+          .get();
 
-      if (collectorMatch == null && normalized != 'all') {
-        collectorMatch = await (select(vaultItems)
-              ..where(buildCollectorPred)
-              ..limit(1))
-            .getSingleOrNull();
+      for (final candidate in collectorCandidates) {
+        if (validateMultiFactor(candidate, detectedCollector: cleanNum)) {
+          debugPrint(
+              '[VaultDao.matchScannedCard] Matched via collector number ($cleanNum): "${candidate.name}"');
+          return candidate;
+        } else {
+          debugPrint(
+              '[VaultDao.matchScannedCard] Multi-factor gate rejected collector match: "${candidate.name}"');
+        }
       }
 
-      if (collectorMatch != null) {
-        debugPrint(
-            '[VaultDao.matchScannedCard] Matched via collector number ($cleanNum): "${collectorMatch.name}"');
-        return collectorMatch;
+      if (normalized != 'all') {
+        final crossCandidates = await (select(vaultItems)
+              ..where(buildCollectorPred)
+              ..limit(25))
+            .get();
+
+        for (final candidate in crossCandidates) {
+          if (validateMultiFactor(candidate, detectedCollector: cleanNum)) {
+            debugPrint(
+                '[VaultDao.matchScannedCard] Matched via cross-collection collector number ($cleanNum): "${candidate.name}"');
+            return candidate;
+          } else {
+            debugPrint(
+                '[VaultDao.matchScannedCard] Multi-factor gate rejected cross-collection collector match: "${candidate.name}"');
+          }
+        }
       }
     }
 
     // -------------------------------------------------------------------------
     // STEP 2: Filter OCR Lines & SQL Wide Net
     // -------------------------------------------------------------------------
-    // Filter lines length >= 4 (or fallback to >= 3 if no lines >= 4)
+    // Filter lines length >= 3 (longest lines tested first via sort below)
     var eligibleLines = cleanedOcrLines
         .map((l) => l.trim())
-        .where((l) => l.length >= 4)
+        .where((l) => l.length >= 3)
         .toList();
-
-    if (eligibleLines.isEmpty) {
-      eligibleLines = cleanedOcrLines
-          .map((l) => l.trim())
-          .where((l) => l.length >= 3)
-          .toList();
-    }
 
     if (eligibleLines.isEmpty) return null;
 
@@ -587,6 +623,7 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
       String line, {
       required bool catalogOnly,
       required String collection,
+      bool Function(VaultItem candidate)? filter,
     }) async {
       final cleanLine = line.replaceFirst(RegExp(r'^[^a-zA-Z0-9]+'), '').trim();
       if (cleanLine.length < 3) return null;
@@ -627,12 +664,52 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
 
       // STEP 3: Dart contains verification
       // Pass A: Exact match pass (prioritizes identical titles)
+      final exactMatches = <VaultItem>[];
       for (final card in candidates) {
         final sanitizedDb = sanitize(card.name);
         final sanitizedBase = sanitize(_extractBaseCardName(card.name));
         if (sanitizedOcrLine == sanitizedDb || sanitizedOcrLine == sanitizedBase) {
-          return card;
+          if (filter == null || filter(card)) {
+            exactMatches.add(card);
+          } else {
+            debugPrint(
+                '[VaultDao.matchScannedCard] Multi-factor gate rejected candidate: "${card.name}" (${card.setOrSeries})');
+          }
         }
+      }
+
+      if (exactMatches.isNotEmpty) {
+        if (exactMatches.length == 1) return exactMatches.first;
+        // Prioritize candidate matching set code or collector number in OCR lines
+        for (final card in exactMatches) {
+          String? cardSet;
+          String? cardCollector;
+          if (card.dynamicData.isNotEmpty) {
+            try {
+              final data = jsonDecode(card.dynamicData) as Map<String, dynamic>;
+              cardSet = data['set']?.toString();
+              cardCollector = data['collector_number']?.toString();
+            } catch (_) {}
+          }
+          cardSet ??= card.setOrSeries;
+          if (cardSet.isNotEmpty) {
+            final upperSet = cardSet.toUpperCase();
+            if (cleanedOcrLines.any((l) =>
+                l.trim().toUpperCase() == upperSet ||
+                RegExp(r'\b' + RegExp.escape(upperSet) + r'\b', caseSensitive: false).hasMatch(l))) {
+              return card;
+            }
+          }
+          if (cardCollector != null && cardCollector.isNotEmpty) {
+            final stripped = cardCollector.replaceFirst(RegExp(r'^0+'), '');
+            if (cleanedOcrLines.any((l) =>
+                l.trim() == cardCollector ||
+                (stripped.isNotEmpty && l.trim() == stripped))) {
+              return card;
+            }
+          }
+        }
+        return exactMatches.first;
       }
 
       // Pass B: Substring containment pass (prioritizes longer candidate names)
@@ -643,14 +720,53 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
           return lenB.compareTo(lenA);
         });
 
+      final substringMatches = <VaultItem>[];
       for (final card in sortedCandidates) {
         final sanitizedDb = sanitize(card.name);
         final sanitizedBase = sanitize(_extractBaseCardName(card.name));
         if (sanitizedBase.length >= 3 &&
             (sanitizedOcrLine.contains(sanitizedDb) ||
              sanitizedOcrLine.contains(sanitizedBase))) {
-          return card;
+          if (filter == null || filter(card)) {
+            substringMatches.add(card);
+          } else {
+            debugPrint(
+                '[VaultDao.matchScannedCard] Multi-factor gate rejected candidate: "${card.name}" (${card.setOrSeries})');
+          }
         }
+      }
+
+      if (substringMatches.isNotEmpty) {
+        if (substringMatches.length == 1) return substringMatches.first;
+        for (final card in substringMatches) {
+          String? cardSet;
+          String? cardCollector;
+          if (card.dynamicData.isNotEmpty) {
+            try {
+              final data = jsonDecode(card.dynamicData) as Map<String, dynamic>;
+              cardSet = data['set']?.toString();
+              cardCollector = data['collector_number']?.toString();
+            } catch (_) {}
+          }
+          cardSet ??= card.setOrSeries;
+          if (cardSet.isNotEmpty) {
+            final upperSet = cardSet.toUpperCase();
+            if (cleanedOcrLines.any((l) =>
+                l.trim().toUpperCase() == upperSet ||
+                RegExp(r'\b' + RegExp.escape(upperSet) + r'\b', caseSensitive: false).hasMatch(l))) {
+              return card;
+            }
+          }
+          if (cardCollector != null && cardCollector.isNotEmpty) {
+            final stripped = cardCollector.replaceFirst(RegExp(r'^0+'), '');
+            if (cleanedOcrLines.any((l) =>
+                l.trim() == cardCollector ||
+                (stripped.isNotEmpty && l.trim() == stripped))) {
+              return card;
+            }
+          }
+        }
+        return substringMatches.first;
       }
 
       return null;
@@ -662,7 +778,12 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
 
     // Pass 1: Catalog reference items (quantity == 0) in active collection context
     for (final line in eligibleLines) {
-      final match = await verifyCandidatesForLine(line, catalogOnly: true, collection: normalized);
+      final match = await verifyCandidatesForLine(
+        line,
+        catalogOnly: true,
+        collection: normalized,
+        filter: validateMultiFactor,
+      );
       if (match != null) {
         debugPrint('[VaultDao.matchScannedCard] Matched catalog item: "${match.name}" from line: "$line" (context: $normalized)');
         return match;
@@ -671,7 +792,12 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
 
     // Pass 2: Owned inventory items (quantity >= 0) in active collection context
     for (final line in eligibleLines) {
-      final match = await verifyCandidatesForLine(line, catalogOnly: false, collection: normalized);
+      final match = await verifyCandidatesForLine(
+        line,
+        catalogOnly: false,
+        collection: normalized,
+        filter: validateMultiFactor,
+      );
       if (match != null) {
         debugPrint('[VaultDao.matchScannedCard] Matched inventory item: "${match.name}" from line: "$line" (context: $normalized)');
         return match;
@@ -681,14 +807,24 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     // Pass 3: Cross-collection search fallback
     if (normalized != 'all') {
       for (final line in eligibleLines) {
-        final match = await verifyCandidatesForLine(line, catalogOnly: true, collection: 'all');
+        final match = await verifyCandidatesForLine(
+          line,
+          catalogOnly: true,
+          collection: 'all',
+          filter: validateMultiFactor,
+        );
         if (match != null) {
           debugPrint('[VaultDao.matchScannedCard] Matched cross-collection catalog item: "${match.name}" from line: "$line" (collection: "${match.collectionType}")');
           return match;
         }
       }
       for (final line in eligibleLines) {
-        final match = await verifyCandidatesForLine(line, catalogOnly: false, collection: 'all');
+        final match = await verifyCandidatesForLine(
+          line,
+          catalogOnly: false,
+          collection: 'all',
+          filter: validateMultiFactor,
+        );
         if (match != null) {
           debugPrint('[VaultDao.matchScannedCard] Matched cross-collection inventory item: "${match.name}" from line: "$line" (collection: "${match.collectionType}")');
           return match;

@@ -6,6 +6,7 @@ import 'package:countr/features/command_center/presentation/widgets/collections_
 import 'package:countr/features/command_center/presentation/widgets/play_track_accordion.dart';
 import 'package:countr/features/feed/presentation/widgets/post_action_bar.dart';
 import 'package:countr/features/feed/presentation/widgets/post_header.dart';
+import 'package:countr/features/scanner/presentation/screens/scanner_modal.dart';
 import 'package:countr/main.dart';
 
 void main() {
@@ -69,7 +70,7 @@ void main() {
       expect(find.text('TRADE'), findsOneWidget);
     });
 
-    testWidgets('Tapping Center Scanner opens full-screen modal labeled "Scanner Camera Active"',
+    testWidgets('Tapping Center Scanner opens full-screen modal',
         (WidgetTester tester) async {
       await tester.pumpWidget(
         const ProviderScope(
@@ -83,8 +84,9 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
 
-      // Verify full-screen placeholder modal label
-      expect(find.text('Scanner Camera Active'), findsOneWidget);
+      // Verify full-screen modal opens and debug text is absent
+      expect(find.byType(ScannerModal), findsOneWidget);
+      expect(find.text('Scanner Camera Active'), findsNothing);
       expect(find.text('RAW CARD'), findsOneWidget);
       expect(find.text('SLAB / GRADED'), findsOneWidget);
 
@@ -92,7 +94,7 @@ void main() {
       await tester.tap(find.byIcon(Icons.close_rounded));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
-      expect(find.text('Scanner Camera Active'), findsNothing);
+      expect(find.byType(ScannerModal), findsNothing);
     });
 
     testWidgets('Tapping Menu opens Morphing Global Command Center',

@@ -28,6 +28,9 @@ final vaultSearchQueryProvider = StateProvider<String>((ref) => '');
 /// Pagination item limit for infinite scrolling in the Vault screen
 final vaultPaginationLimitProvider = StateProvider<int>((ref) => 50);
 
+/// Tracks whether infinite scrolling is currently fetching more items in the background
+final vaultIsFetchingMoreProvider = StateProvider<bool>((ref) => false);
+
 /// Controls whether the Vault tab displays:
 /// - false (default): 'My Vault' (owned cards only, quantity > 0)
 /// - true: 'Catalog Reference' (unowned reference cards from bulk hydration, capped at 100)
@@ -55,6 +58,7 @@ final vaultItemsStreamProvider = StreamProvider<List<VaultItem>>((ref) {
   return dao.watchItemsByCollection(
     activeGame,
     onlyOwned: true,
+    limit: paginationLimit,
   );
 });
 
