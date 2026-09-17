@@ -7,6 +7,7 @@ import 'package:countr/core/constants/app_colors.dart';
 import 'package:countr/core/constants/app_typography.dart';
 import 'package:countr/core/database/app_database.dart';
 import 'package:countr/core/state/app_state.dart';
+import 'package:countr/features/hydration/domain/isolate/scryfall_parser.dart';
 import 'package:countr/features/hydration/domain/models/scryfall_ruling.dart';
 import 'package:countr/features/hydration/presentation/providers/hydration_providers.dart';
 import 'package:countr/features/vault/domain/mtg_keyword_glossary.dart';
@@ -70,6 +71,7 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _fetchAndCacheRulings();
+      _healMissingMultiFaceData();
     });
   }
 
@@ -92,6 +94,7 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
       _isFlipped = false;
       _flipController.reset();
       _fetchAndCacheRulings();
+      _healMissingMultiFaceData();
     }
   }
 
@@ -128,11 +131,17 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
           .map((m) => Map<String, dynamic>.from(m))
           .toList();
     }
-    if (_currentItem.name.contains(' // ')) {
-      final names = _currentItem.name.split(' // ');
+    final hasSlash =
+        _currentItem.name.contains(' // ') || _currentItem.name.contains('//');
+    if (hasSlash) {
+      final sep = _currentItem.name.contains(' // ') ? ' // ' : '//';
+      final names = _currentItem.name.split(sep);
       final oracle = _dynamicData['oracle_text']?.toString() ?? '';
+      final oracleSep = oracle.contains(' // ')
+          ? ' // '
+          : (oracle.contains('//') ? '//' : null);
       final oracles =
-          oracle.contains(' // ') ? oracle.split(' // ') : [oracle, ''];
+          oracleSep != null ? oracle.split(oracleSep) : [oracle, ''];
       return [
         {'name': names[0].trim(), 'oracle_text': oracles[0].trim()},
         {
@@ -177,6 +186,19 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
         if (direct != null && direct.isNotEmpty) return direct;
       }
     }
+    final hasSlash =
+        _currentItem.name.contains(' // ') || _currentItem.name.contains('//');
+    if (hasSlash && _currentItem.imageUrl.isNotEmpty) {
+      if (_currentItem.imageUrl.contains('/front/')) {
+        return _currentItem.imageUrl.replaceAll('/front/', '/back/');
+      }
+      if (_currentItem.imageUrl.contains('/front.')) {
+        return _currentItem.imageUrl.replaceAll('/front.', '/back.');
+      }
+      if (_currentItem.imageUrl.contains('_front.')) {
+        return _currentItem.imageUrl.replaceAll('_front.', '_back.');
+      }
+    }
     return null;
   }
 
@@ -208,21 +230,94 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
 
   void _toggleFlip() {
     if (!_hasMultipleFaces) return;
+    final nextFlipped = !_isFlipped;
     if (_hasFlipArt) {
-      if (_isFlipped) {
-        _flipController.reverse();
-      } else {
+      if (nextFlipped) {
         _flipController.forward();
+      } else {
+        _flipController.reverse();
       }
     }
     setState(() {
-      _isFlipped = !_isFlipped;
+      _isFlipped = nextFlipped;
     });
   }
 
   bool _isMtgCard() {
     final col = _currentItem.collectionType.toLowerCase();
     return col == 'mtg' || col.contains('magic');
+  }
+
+  Future<void> _healMissingMultiFaceData() async {
+    if (!mounted || !_isMtgCard()) return;
+    final hasCardFaces = _dynamicData['card_faces'] is List &&
+        (_dynamicData['card_faces'] as List).isNotEmpty;
+    final oracle = _dynamicData['oracle_text']?.toString() ?? '';
+    final isDfcName =
+        _currentItem.name.contains(' // ') || _currentItem.name.contains('//');
+    final isMissingFaceData =
+        isDfcName && (!hasCardFaces || oracle.trim().isEmpty);
+
+    if (!isMissingFaceData) return;
+
+    try {
+      final scryfallId = _dynamicData['scryfall_id']?.toString() ??
+          _dynamicData['id']?.toString() ??
+          _currentItem.id;
+      final service = ref.read(scryfallServiceProvider);
+      final cardJson = await service.fetchCardDetails(
+        scryfallId: scryfallId,
+        name: _currentItem.name,
+      );
+
+      if (cardJson != null && mounted) {
+        final companion = mapScryfallCardToCompanion(cardJson);
+        final newDynamic =
+            jsonDecode(companion.dynamicData.value) as Map<String, dynamic>;
+
+        if (_dynamicData['cached_rulings'] != null) {
+          newDynamic['cached_rulings'] = _dynamicData['cached_rulings'];
+        }
+        if (_dynamicData['deck_history'] != null) {
+          newDynamic['deck_history'] = _dynamicData['deck_history'];
+        }
+        final newDynamicStr = jsonEncode(newDynamic);
+
+        final newFlavor =
+            companion.flavorName.present ? companion.flavorName.value : null;
+        final newImage = companion.imageUrl.value;
+        final newPrice = companion.currentMarketPrice.value;
+
+        final dao = ref.read(vaultDaoProvider);
+        await dao.updateItemMetadata(
+          _currentItem.id,
+          flavorName: newFlavor,
+          imageUrl: newImage.isNotEmpty ? newImage : null,
+          currentMarketPrice: newPrice > 0 ? newPrice : null,
+          dynamicData: newDynamicStr,
+        );
+
+        if (mounted) {
+          setState(() {
+            _dynamicData = newDynamic;
+            _currentItem = _currentItem.copyWith(
+              flavorName: Value(newFlavor ?? _currentItem.flavorName),
+              imageUrl:
+                  newImage.isNotEmpty ? newImage : _currentItem.imageUrl,
+              currentMarketPrice: newPrice > 0
+                  ? newPrice
+                  : _currentItem.currentMarketPrice,
+              dynamicData: newDynamicStr,
+            );
+            if (_isFlipped && _hasFlipArt) {
+              _flipController.value = 1.0;
+            }
+          });
+        }
+      }
+    } catch (_) {
+      // Graceful offline fallback
+    }
   }
 
   Future<void> _fetchAndCacheRulings() async {
@@ -372,14 +467,29 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
         _dynamicData['type']?.toString() ??
         _currentItem.collectionType.toUpperCase();
     String oracleText = activeFace?['oracle_text']?.toString() ?? '';
-    if (oracleText.trim().isEmpty) {
-      oracleText = _dynamicData['oracle_text']?.toString() ?? '';
+    if (oracleText.trim().isEmpty && _dynamicData['oracle_text'] != null) {
+      final rawOracle = _dynamicData['oracle_text'].toString();
+      if (rawOracle.contains(' // ') || rawOracle.contains('//')) {
+        final sep = rawOracle.contains(' // ') ? ' // ' : '//';
+        final parts = rawOracle.split(sep);
+        oracleText = (_isFlipped && parts.length > 1) ? parts[1].trim() : parts[0].trim();
+      } else {
+        oracleText = rawOracle;
+      }
     }
     if (oracleText.trim().isEmpty && _getCardFaces().isNotEmpty) {
-      oracleText = _getCardFaces()
-          .map((f) => (f['oracle_text'] as String?)?.trim() ?? '')
-          .where((t) => t.isNotEmpty)
-          .join('\n\n//\n\n');
+      final faces = _getCardFaces();
+      if (_isFlipped && faces.length > 1) {
+        oracleText = (faces[1]['oracle_text'] as String?)?.trim() ?? '';
+      } else if (faces.isNotEmpty) {
+        oracleText = (faces[0]['oracle_text'] as String?)?.trim() ?? '';
+      }
+      if (oracleText.trim().isEmpty) {
+        oracleText = faces
+            .map((f) => (f['oracle_text'] as String?)?.trim() ?? '')
+            .where((t) => t.isNotEmpty)
+            .join('\n\n//\n\n');
+      }
     }
     final rarity = _dynamicData['rarity']?.toString() ?? '';
     final power =
@@ -391,9 +501,17 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
     final rulings = _dynamicData['rulings']?.toString() ??
         _dynamicData['use_cases']?.toString() ??
         '';
-    final flavorText = activeFace?['flavor_text']?.toString() ??
-        _dynamicData['flavor_text']?.toString() ??
-        '';
+    String flavorText = activeFace?['flavor_text']?.toString() ?? '';
+    if (flavorText.trim().isEmpty && _dynamicData['flavor_text'] != null) {
+      final rawFlavor = _dynamicData['flavor_text'].toString();
+      if (rawFlavor.contains(' // ') || rawFlavor.contains('//')) {
+        final sep = rawFlavor.contains(' // ') ? ' // ' : '//';
+        final parts = rawFlavor.split(sep);
+        flavorText = (_isFlipped && parts.length > 1) ? parts[1].trim() : parts[0].trim();
+      } else {
+        flavorText = rawFlavor;
+      }
+    }
     final rawKeywords = _dynamicData['keywords'];
     final keywordsList = rawKeywords is List ? rawKeywords : null;
     final mechanics = _isMtgCard()

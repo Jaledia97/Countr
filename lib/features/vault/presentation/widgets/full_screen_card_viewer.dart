@@ -108,6 +108,19 @@ class _FullScreenCardViewerState extends State<FullScreenCardViewer>
         if (direct != null && direct.isNotEmpty) return direct;
       }
     }
+    final hasSlash =
+        widget.item.name.contains(' // ') || widget.item.name.contains('//');
+    if (hasSlash && widget.item.imageUrl.isNotEmpty) {
+      if (widget.item.imageUrl.contains('/front/')) {
+        return widget.item.imageUrl.replaceAll('/front/', '/back/');
+      }
+      if (widget.item.imageUrl.contains('/front.')) {
+        return widget.item.imageUrl.replaceAll('/front.', '/back.');
+      }
+      if (widget.item.imageUrl.contains('_front.')) {
+        return widget.item.imageUrl.replaceAll('_front.', '_back.');
+      }
+    }
     return null;
   }
 
@@ -134,17 +147,50 @@ class _FullScreenCardViewerState extends State<FullScreenCardViewer>
     return '';
   }
 
-  bool get _hasMultipleFaces => _getBackImageUrl() != null;
+  bool get _hasFlipArt => _getBackImageUrl() != null;
+
+  bool get _hasMultipleFaces =>
+      _hasFlipArt ||
+      (_dynamicData['card_faces'] is List &&
+          (_dynamicData['card_faces'] as List).length > 1) ||
+      widget.item.name.contains(' // ') ||
+      widget.item.name.contains('//');
+
+  String get _activeFaceName {
+    final faces = _dynamicData['card_faces'];
+    if (faces is List && faces.isNotEmpty) {
+      final index = _isFlipped && faces.length > 1 ? 1 : 0;
+      final face = faces[index];
+      if (face is Map && face['name'] != null && face['name'].toString().isNotEmpty) {
+        return face['name'].toString();
+      }
+    }
+    final name = widget.item.name;
+    if (name.contains(' // ') || name.contains('//')) {
+      final sep = name.contains(' // ') ? ' // ' : '//';
+      final parts = name.split(sep);
+      if (_isFlipped && parts.length > 1) {
+        return parts[1].trim();
+      }
+      return parts[0].trim();
+    }
+    return widget.item.flavorName != null && widget.item.flavorName!.isNotEmpty
+        ? widget.item.flavorName!
+        : name;
+  }
 
   void _toggleFlip() {
     if (!_hasMultipleFaces) return;
-    if (_isFlipped) {
-      _flipController.reverse();
-    } else {
-      _flipController.forward();
+    final nextFlipped = !_isFlipped;
+    if (_hasFlipArt) {
+      if (nextFlipped) {
+        _flipController.forward();
+      } else {
+        _flipController.reverse();
+      }
     }
     setState(() {
-      _isFlipped = !_isFlipped;
+      _isFlipped = nextFlipped;
     });
   }
 
@@ -177,19 +223,17 @@ class _FullScreenCardViewerState extends State<FullScreenCardViewer>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              widget.item.flavorName != null &&
-                      widget.item.flavorName!.isNotEmpty
-                  ? widget.item.flavorName!
-                  : widget.item.name,
+              _activeFaceName,
               style: AppTypography.heading2.copyWith(color: Colors.white, fontSize: 16),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
             Text(
-              widget.item.flavorName != null &&
-                      widget.item.flavorName!.isNotEmpty
-                  ? '[${widget.item.name}] • ${widget.item.setOrSeries}'
-                  : widget.item.setOrSeries,
+              _hasMultipleFaces
+                  ? 'Face ${_isFlipped ? 2 : 1} of 2 • ${widget.item.setOrSeries}'
+                  : (widget.item.flavorName != null && widget.item.flavorName!.isNotEmpty
+                      ? '[${widget.item.name}] • ${widget.item.setOrSeries}'
+                      : widget.item.setOrSeries),
               style: AppTypography.caption.copyWith(color: AppColors.textSecondary),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -197,6 +241,31 @@ class _FullScreenCardViewerState extends State<FullScreenCardViewer>
           ],
         ),
         actions: [
+          if (_hasFlipArt)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: ActionChip(
+                key: const Key('fullscreen_appbar_flip_button'),
+                avatar: const Icon(
+                  Icons.flip_camera_android_rounded,
+                  size: 16,
+                  color: AppColors.accentCyan,
+                ),
+                label: Text(
+                  _isFlipped ? 'Front Face' : 'Back Face',
+                  style: const TextStyle(
+                    color: AppColors.accentCyan,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                ),
+                backgroundColor: AppColors.accentCyan.withValues(alpha: 0.15),
+                side: BorderSide(
+                  color: AppColors.accentCyan.withValues(alpha: 0.4),
+                ),
+                onPressed: _toggleFlip,
+              ),
+            ),
           Padding(
             padding: const EdgeInsets.only(right: 12),
             child: ActionChip(
@@ -259,7 +328,7 @@ class _FullScreenCardViewerState extends State<FullScreenCardViewer>
   }
 
   Widget _buildArtworkWithFlipAndFoil() {
-    final hasFlip = _hasMultipleFaces;
+    final hasFlip = _hasFlipArt;
 
     final flippable = GestureDetector(
       onTap: hasFlip ? _toggleFlip : null,
