@@ -10,6 +10,7 @@ import 'package:countr/features/hydration/presentation/widgets/hydration_progres
 import 'dart:async';
 import 'package:countr/features/vault/presentation/providers/vault_providers.dart';
 import 'package:countr/features/vault/presentation/screens/binder_detail_screen.dart';
+import 'package:countr/features/vault/presentation/widgets/manual_add_bottom_sheet.dart';
 import 'package:countr/features/vault/presentation/widgets/vault_item_card.dart';
 import 'package:countr/features/vault/presentation/widgets/vault_item_tile.dart';
 
@@ -28,7 +29,6 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
   final ScrollController _scrollController = ScrollController();
   Timer? _debounceTimer;
   int _selectedFilterIndex = 0;
-  int _manualItemCount = 0;
 
   @override
   void initState() {
@@ -717,7 +717,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        'State Frozen: Item count (${summary.totalItemCount + _manualItemCount}) and search query ("${_searchController.text}") persist when switching between Feed, Vault, and Decks.',
+                        'State Frozen: Item count (${summary.totalItemCount}) and search query ("${_searchController.text}") persist when switching between Feed, Vault, and Decks.',
                         style: const TextStyle(
                           fontSize: 11.5,
                           color: AppColors.textPrimary,
@@ -1103,7 +1103,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
     final pLColor = isProfit ? AppColors.accentEmerald : AppColors.accentRose;
     final pctSign = isProfit ? '+' : '';
     final deltaSign = isProfit ? '+' : '-';
-    final totalCount = summary.totalItemCount + _manualItemCount;
+    final totalCount = summary.totalItemCount;
 
     return Container(
       padding: const EdgeInsets.all(18),
@@ -1187,6 +1187,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
               ),
               const Spacer(),
               ElevatedButton.icon(
+                key: const Key('vault_add_item_button'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.accentCyan,
                   foregroundColor: AppColors.textDark,
@@ -1197,9 +1198,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
                 label: const Text('Add Item',
                     style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
                 onPressed: () {
-                  setState(() {
-                    _manualItemCount++;
-                  });
+                  ManualAddBottomSheet.show(context);
                 },
               ),
             ],

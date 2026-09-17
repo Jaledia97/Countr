@@ -15,6 +15,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.8.0] - 2026-09-16
+
+### Phase 3.8: Reactive Vault Totals, Global Persona Viewing Modes, Manual Add Engine, Quick Action Bar & Holographic Foil Viewer
+
+#### Added & Improved
+- **Reactive Vault Totals & Database Sync (R1)**:
+  - Completely removed local dummy counter state variables (including `_manualItemCount`) from `VaultScreen`.
+  - Implemented `VaultDao.watchVaultTotals({String? collectionType, String? binderId})` returning an immutable `VaultTotals` domain model (`totalCount`, `totalMarketValue`, `totalCostBasis`, `totalProfitLoss`, `profitLossPercentage`) using Drift `customSelect` with `readsFrom: {vaultItems}`.
+  - Dynamically scoped macro totals by `collection_type` and active `primary_binder_id`.
+  - Bound `VaultScreen` header metrics strictly to reactive Riverpod providers (`vaultTotalsProvider`, `selectedVaultBinderIdProvider`).
+- **Global Persona State & Dynamic Vault Item Card (R2)**:
+  - Defined `enum UserPersona { investor, player }` and `userPersonaProvider` in `lib/core/state/app_state.dart`.
+  - Mounted an interactive segmented toggle switch `[ 💼 Investor ] | [ ⚔️ Player ]` in `MorphingCommandCenter` (drawer).
+  - Configured `VaultItemCard` to dynamically adapt layout based on active persona:
+    - **Investor Mode**: Live TMV, acquired price, and acquisition delta pills (`+$4.50 (+37.5%)` or `-$1.20 (-10.0%)`).
+    - **Player Mode**: In-game mechanics (Mana Cost, Power/Toughness, and Keyword chips) while completely suppressing financial deltas.
+- **Manual Add Search Engine & Bulk Staging (R3)**:
+  - Wired `[ + Add Item ]` in `VaultScreen` to `ManualAddBottomSheet`.
+  - Built 300ms debounced catalog search querying local SQLite card records via `VaultDao.searchCatalogCards`.
+  - Added thumbnail, name, set/rarity, live market price, and `[-] qty [+]` quantity steppers to card search tiles.
+  - Built sticky bottom action bar `[ Add X Items to Vault ]` with destination binder selector and atomic transactional bulk persistence (`VaultDao.bulkAddCatalogItems`).
+- **Card Detail Quick Action Bar & Foil Full-Screen Viewer (R4)**:
+  - Mounted a bottom Quick Action Bar on `CardDetailSheet` with:
+    - `[ Delete ]`: Confirmation dialog before deleting from SQLite via `dao.deleteItem`.
+    - `[ Full Screen ]`: Hero-animated launch into `FullScreenCardViewer`.
+    - `[ Add to Deck ]`: Opens deck picker and persists deck tag to `dynamicData['deck_history']`.
+    - `[ Share ]`: Checks `isUserLoggedInProvider`; displays login prompt dialog if unauthenticated, triggers system share if authenticated.
+    - `[ Edit ]`: Launches `EditCardModal`.
+  - Built `FullScreenCardViewer` with `InteractiveViewer` pinch-to-zoom/pan and animated holographic rainbow shimmer overlay via custom `ShaderMask` for `[ ✨ Foil Finish ]`.
+- **Card Detail "Edit" Modal (R5)**:
+  - Built `EditCardModal` allowing users to switch variants, edit custom tags, overwrite acquired prices, and toggle condition flags (`isGraded`, `isAltered`, `isMisprint`, `isSigned`) persisting to SQLite schema v4.
+- **Test Suite Metrics**:
+  - 574 total automated tests passing project-wide (419 existing baseline + 155 new tests) with 0 failures and 0 regressions.
+  - Static analysis passing with 0 errors, 0 warnings, 0 infos.
+
+---
+
 ## [3.7.0] - 2026-09-16
 
 ### Phase 3.7: Vault Infinite-Scroll Stabilization, Scanner CV Hardening, ManaBox-Style Success Toast & MTG Keyword Glossary

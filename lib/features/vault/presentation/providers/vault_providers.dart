@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:countr/core/database/app_database.dart';
 import 'package:countr/core/state/app_state.dart';
 import 'package:countr/features/vault/data/daos/vault_dao.dart';
+import 'package:countr/features/vault/domain/models/vault_totals.dart';
 
 /// Database singleton provider
 final appDatabaseProvider = Provider<AppDatabase>((ref) {
@@ -81,10 +82,38 @@ class VaultPortfolioSummary {
   bool get isProfitable => totalProfitLoss >= 0;
 }
 
-/// Reactive provider calculating overall portfolio performance from live Vault items
-final vaultPortfolioSummaryProvider = Provider<VaultPortfolioSummary>((ref) {
-  final asyncItems = ref.watch(vaultItemsStreamProvider);
+/// Holds currently selected binder ID for scoped Vault totals (null = macro view)
+final selectedVaultBinderIdProvider = StateProvider<String?>((ref) => null);
 
+/// Reactive StreamProvider delivering full database macro statistics
+final vaultTotalsProvider = StreamProvider<VaultTotals>((ref) {
+  final activeGame = ref.watch(activeGameContextProvider);
+  final binderId = ref.watch(selectedVaultBinderIdProvider);
+  final dao = ref.watch(vaultDaoProvider);
+
+  return dao.watchVaultTotals(
+    collectionType: activeGame,
+    binderId: binderId,
+  );
+});
+
+/// Reactive provider calculating overall portfolio performance directly from vaultTotalsProvider
+final vaultPortfolioSummaryProvider = Provider<VaultPortfolioSummary>((ref) {
+  final asyncTotals = ref.watch(vaultTotalsProvider);
+
+  if (asyncTotals.hasValue) {
+    final totals = asyncTotals.value!;
+    return VaultPortfolioSummary(
+      totalMarketValue: totals.totalMarketValue,
+      totalCostBasis: totals.totalCostBasis,
+      totalProfitLoss: totals.totalProfitLoss,
+      profitLossPercentage: totals.profitLossPercentage,
+      totalItemCount: totals.totalCount,
+    );
+  }
+
+  // Graceful fallback while vaultTotalsProvider stream initializes if vaultItemsStreamProvider has loaded
+  final asyncItems = ref.watch(vaultItemsStreamProvider);
   return asyncItems.maybeWhen(
     data: (items) {
       if (items.isEmpty) {
@@ -102,9 +131,7 @@ final vaultPortfolioSummaryProvider = Provider<VaultPortfolioSummary>((ref) {
       int count = 0;
 
       for (final item in items) {
-        // Filter strictly for owned inventory (quantity > 0); catalog dictionary items have quantity 0
         if (item.quantity <= 0) continue;
-        // Defensive check: staged Inbox cards must never inflate portfolio valuation or cost basis
         if (item.primaryBinderId == 'INBOX') continue;
         marketVal += (item.currentMarketPrice * item.quantity);
         costBasis += (item.acquiredPrice * item.quantity);

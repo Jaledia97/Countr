@@ -433,6 +433,51 @@ class $VaultItemsTable extends VaultItems
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _isAlteredMeta = const VerificationMeta(
+    'isAltered',
+  );
+  @override
+  late final GeneratedColumn<bool> isAltered = GeneratedColumn<bool>(
+    'is_altered',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_altered" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _isMisprintMeta = const VerificationMeta(
+    'isMisprint',
+  );
+  @override
+  late final GeneratedColumn<bool> isMisprint = GeneratedColumn<bool>(
+    'is_misprint',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_misprint" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _isSignedMeta = const VerificationMeta(
+    'isSigned',
+  );
+  @override
+  late final GeneratedColumn<bool> isSigned = GeneratedColumn<bool>(
+    'is_signed',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_signed" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   static const VerificationMeta _personalNotesMeta = const VerificationMeta(
     'personalNotes',
   );
@@ -504,6 +549,9 @@ class $VaultItemsTable extends VaultItems
     quantity,
     condition,
     isGraded,
+    isAltered,
+    isMisprint,
+    isSigned,
     personalNotes,
     primaryBinderId,
     currentMarketPrice,
@@ -607,6 +655,24 @@ class $VaultItemsTable extends VaultItems
         isGraded.isAcceptableOrUnknown(data['is_graded']!, _isGradedMeta),
       );
     }
+    if (data.containsKey('is_altered')) {
+      context.handle(
+        _isAlteredMeta,
+        isAltered.isAcceptableOrUnknown(data['is_altered']!, _isAlteredMeta),
+      );
+    }
+    if (data.containsKey('is_misprint')) {
+      context.handle(
+        _isMisprintMeta,
+        isMisprint.isAcceptableOrUnknown(data['is_misprint']!, _isMisprintMeta),
+      );
+    }
+    if (data.containsKey('is_signed')) {
+      context.handle(
+        _isSignedMeta,
+        isSigned.isAcceptableOrUnknown(data['is_signed']!, _isSignedMeta),
+      );
+    }
     if (data.containsKey('personal_notes')) {
       context.handle(
         _personalNotesMeta,
@@ -707,6 +773,18 @@ class $VaultItemsTable extends VaultItems
         DriftSqlType.bool,
         data['${effectivePrefix}is_graded'],
       )!,
+      isAltered: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_altered'],
+      ) ?? false,
+      isMisprint: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_misprint'],
+      ) ?? false,
+      isSigned: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_signed'],
+      ) ?? false,
       personalNotes: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}personal_notes'],
@@ -747,6 +825,9 @@ class VaultItem extends DataClass implements Insertable<VaultItem> {
   final int quantity;
   final String condition;
   final bool isGraded;
+  final bool isAltered;
+  final bool isMisprint;
+  final bool isSigned;
   final String? personalNotes;
   final String? primaryBinderId;
   final double currentMarketPrice;
@@ -763,6 +844,9 @@ class VaultItem extends DataClass implements Insertable<VaultItem> {
     required this.quantity,
     required this.condition,
     required this.isGraded,
+    this.isAltered = false,
+    this.isMisprint = false,
+    this.isSigned = false,
     this.personalNotes,
     this.primaryBinderId,
     required this.currentMarketPrice,
@@ -782,6 +866,9 @@ class VaultItem extends DataClass implements Insertable<VaultItem> {
     map['quantity'] = Variable<int>(quantity);
     map['condition'] = Variable<String>(condition);
     map['is_graded'] = Variable<bool>(isGraded);
+    map['is_altered'] = Variable<bool>(isAltered);
+    map['is_misprint'] = Variable<bool>(isMisprint);
+    map['is_signed'] = Variable<bool>(isSigned);
     if (!nullToAbsent || personalNotes != null) {
       map['personal_notes'] = Variable<String>(personalNotes);
     }
@@ -806,6 +893,9 @@ class VaultItem extends DataClass implements Insertable<VaultItem> {
       quantity: Value(quantity),
       condition: Value(condition),
       isGraded: Value(isGraded),
+      isAltered: Value(isAltered),
+      isMisprint: Value(isMisprint),
+      isSigned: Value(isSigned),
       personalNotes: personalNotes == null && nullToAbsent
           ? const Value.absent()
           : Value(personalNotes),
@@ -834,6 +924,15 @@ class VaultItem extends DataClass implements Insertable<VaultItem> {
       quantity: serializer.fromJson<int>(json['quantity']),
       condition: serializer.fromJson<String>(json['condition']),
       isGraded: serializer.fromJson<bool>(json['isGraded']),
+      isAltered: json['isAltered'] == null
+          ? false
+          : serializer.fromJson<bool>(json['isAltered']),
+      isMisprint: json['isMisprint'] == null
+          ? false
+          : serializer.fromJson<bool>(json['isMisprint']),
+      isSigned: json['isSigned'] == null
+          ? false
+          : serializer.fromJson<bool>(json['isSigned']),
       personalNotes: serializer.fromJson<String?>(json['personalNotes']),
       primaryBinderId: serializer.fromJson<String?>(json['primaryBinderId']),
       currentMarketPrice: serializer.fromJson<double>(
@@ -857,6 +956,9 @@ class VaultItem extends DataClass implements Insertable<VaultItem> {
       'quantity': serializer.toJson<int>(quantity),
       'condition': serializer.toJson<String>(condition),
       'isGraded': serializer.toJson<bool>(isGraded),
+      'isAltered': serializer.toJson<bool>(isAltered),
+      'isMisprint': serializer.toJson<bool>(isMisprint),
+      'isSigned': serializer.toJson<bool>(isSigned),
       'personalNotes': serializer.toJson<String?>(personalNotes),
       'primaryBinderId': serializer.toJson<String?>(primaryBinderId),
       'currentMarketPrice': serializer.toJson<double>(currentMarketPrice),
@@ -876,6 +978,9 @@ class VaultItem extends DataClass implements Insertable<VaultItem> {
     int? quantity,
     String? condition,
     bool? isGraded,
+    bool? isAltered,
+    bool? isMisprint,
+    bool? isSigned,
     Value<String?> personalNotes = const Value.absent(),
     Value<String?> primaryBinderId = const Value.absent(),
     double? currentMarketPrice,
@@ -892,6 +997,9 @@ class VaultItem extends DataClass implements Insertable<VaultItem> {
     quantity: quantity ?? this.quantity,
     condition: condition ?? this.condition,
     isGraded: isGraded ?? this.isGraded,
+    isAltered: isAltered ?? this.isAltered,
+    isMisprint: isMisprint ?? this.isMisprint,
+    isSigned: isSigned ?? this.isSigned,
     personalNotes: personalNotes.present
         ? personalNotes.value
         : this.personalNotes,
@@ -922,6 +1030,11 @@ class VaultItem extends DataClass implements Insertable<VaultItem> {
       quantity: data.quantity.present ? data.quantity.value : this.quantity,
       condition: data.condition.present ? data.condition.value : this.condition,
       isGraded: data.isGraded.present ? data.isGraded.value : this.isGraded,
+      isAltered: data.isAltered.present ? data.isAltered.value : this.isAltered,
+      isMisprint: data.isMisprint.present
+          ? data.isMisprint.value
+          : this.isMisprint,
+      isSigned: data.isSigned.present ? data.isSigned.value : this.isSigned,
       personalNotes: data.personalNotes.present
           ? data.personalNotes.value
           : this.personalNotes,
@@ -953,6 +1066,9 @@ class VaultItem extends DataClass implements Insertable<VaultItem> {
           ..write('quantity: $quantity, ')
           ..write('condition: $condition, ')
           ..write('isGraded: $isGraded, ')
+          ..write('isAltered: $isAltered, ')
+          ..write('isMisprint: $isMisprint, ')
+          ..write('isSigned: $isSigned, ')
           ..write('personalNotes: $personalNotes, ')
           ..write('primaryBinderId: $primaryBinderId, ')
           ..write('currentMarketPrice: $currentMarketPrice, ')
@@ -974,6 +1090,9 @@ class VaultItem extends DataClass implements Insertable<VaultItem> {
     quantity,
     condition,
     isGraded,
+    isAltered,
+    isMisprint,
+    isSigned,
     personalNotes,
     primaryBinderId,
     currentMarketPrice,
@@ -994,6 +1113,9 @@ class VaultItem extends DataClass implements Insertable<VaultItem> {
           other.quantity == this.quantity &&
           other.condition == this.condition &&
           other.isGraded == this.isGraded &&
+          other.isAltered == this.isAltered &&
+          other.isMisprint == this.isMisprint &&
+          other.isSigned == this.isSigned &&
           other.personalNotes == this.personalNotes &&
           other.primaryBinderId == this.primaryBinderId &&
           other.currentMarketPrice == this.currentMarketPrice &&
@@ -1012,6 +1134,9 @@ class VaultItemsCompanion extends UpdateCompanion<VaultItem> {
   final Value<int> quantity;
   final Value<String> condition;
   final Value<bool> isGraded;
+  final Value<bool> isAltered;
+  final Value<bool> isMisprint;
+  final Value<bool> isSigned;
   final Value<String?> personalNotes;
   final Value<String?> primaryBinderId;
   final Value<double> currentMarketPrice;
@@ -1029,6 +1154,9 @@ class VaultItemsCompanion extends UpdateCompanion<VaultItem> {
     this.quantity = const Value.absent(),
     this.condition = const Value.absent(),
     this.isGraded = const Value.absent(),
+    this.isAltered = const Value.absent(),
+    this.isMisprint = const Value.absent(),
+    this.isSigned = const Value.absent(),
     this.personalNotes = const Value.absent(),
     this.primaryBinderId = const Value.absent(),
     this.currentMarketPrice = const Value.absent(),
@@ -1047,6 +1175,9 @@ class VaultItemsCompanion extends UpdateCompanion<VaultItem> {
     this.quantity = const Value.absent(),
     required String condition,
     this.isGraded = const Value.absent(),
+    this.isAltered = const Value.absent(),
+    this.isMisprint = const Value.absent(),
+    this.isSigned = const Value.absent(),
     this.personalNotes = const Value.absent(),
     this.primaryBinderId = const Value.absent(),
     required double currentMarketPrice,
@@ -1075,6 +1206,9 @@ class VaultItemsCompanion extends UpdateCompanion<VaultItem> {
     Expression<int>? quantity,
     Expression<String>? condition,
     Expression<bool>? isGraded,
+    Expression<bool>? isAltered,
+    Expression<bool>? isMisprint,
+    Expression<bool>? isSigned,
     Expression<String>? personalNotes,
     Expression<String>? primaryBinderId,
     Expression<double>? currentMarketPrice,
@@ -1093,6 +1227,9 @@ class VaultItemsCompanion extends UpdateCompanion<VaultItem> {
       if (quantity != null) 'quantity': quantity,
       if (condition != null) 'condition': condition,
       if (isGraded != null) 'is_graded': isGraded,
+      if (isAltered != null) 'is_altered': isAltered,
+      if (isMisprint != null) 'is_misprint': isMisprint,
+      if (isSigned != null) 'is_signed': isSigned,
       if (personalNotes != null) 'personal_notes': personalNotes,
       if (primaryBinderId != null) 'primary_binder_id': primaryBinderId,
       if (currentMarketPrice != null)
@@ -1114,6 +1251,9 @@ class VaultItemsCompanion extends UpdateCompanion<VaultItem> {
     Value<int>? quantity,
     Value<String>? condition,
     Value<bool>? isGraded,
+    Value<bool>? isAltered,
+    Value<bool>? isMisprint,
+    Value<bool>? isSigned,
     Value<String?>? personalNotes,
     Value<String?>? primaryBinderId,
     Value<double>? currentMarketPrice,
@@ -1132,6 +1272,9 @@ class VaultItemsCompanion extends UpdateCompanion<VaultItem> {
       quantity: quantity ?? this.quantity,
       condition: condition ?? this.condition,
       isGraded: isGraded ?? this.isGraded,
+      isAltered: isAltered ?? this.isAltered,
+      isMisprint: isMisprint ?? this.isMisprint,
+      isSigned: isSigned ?? this.isSigned,
       personalNotes: personalNotes ?? this.personalNotes,
       primaryBinderId: primaryBinderId ?? this.primaryBinderId,
       currentMarketPrice: currentMarketPrice ?? this.currentMarketPrice,
@@ -1174,6 +1317,15 @@ class VaultItemsCompanion extends UpdateCompanion<VaultItem> {
     if (isGraded.present) {
       map['is_graded'] = Variable<bool>(isGraded.value);
     }
+    if (isAltered.present) {
+      map['is_altered'] = Variable<bool>(isAltered.value);
+    }
+    if (isMisprint.present) {
+      map['is_misprint'] = Variable<bool>(isMisprint.value);
+    }
+    if (isSigned.present) {
+      map['is_signed'] = Variable<bool>(isSigned.value);
+    }
     if (personalNotes.present) {
       map['personal_notes'] = Variable<String>(personalNotes.value);
     }
@@ -1208,6 +1360,9 @@ class VaultItemsCompanion extends UpdateCompanion<VaultItem> {
           ..write('quantity: $quantity, ')
           ..write('condition: $condition, ')
           ..write('isGraded: $isGraded, ')
+          ..write('isAltered: $isAltered, ')
+          ..write('isMisprint: $isMisprint, ')
+          ..write('isSigned: $isSigned, ')
           ..write('personalNotes: $personalNotes, ')
           ..write('primaryBinderId: $primaryBinderId, ')
           ..write('currentMarketPrice: $currentMarketPrice, ')
@@ -1532,6 +1687,9 @@ typedef $$VaultItemsTableCreateCompanionBuilder =
       Value<int> quantity,
       required String condition,
       Value<bool> isGraded,
+      Value<bool> isAltered,
+      Value<bool> isMisprint,
+      Value<bool> isSigned,
       Value<String?> personalNotes,
       Value<String?> primaryBinderId,
       required double currentMarketPrice,
@@ -1551,6 +1709,9 @@ typedef $$VaultItemsTableUpdateCompanionBuilder =
       Value<int> quantity,
       Value<String> condition,
       Value<bool> isGraded,
+      Value<bool> isAltered,
+      Value<bool> isMisprint,
+      Value<bool> isSigned,
       Value<String?> personalNotes,
       Value<String?> primaryBinderId,
       Value<double> currentMarketPrice,
@@ -1638,6 +1799,21 @@ class $$VaultItemsTableFilterComposer
 
   ColumnFilters<bool> get isGraded => $composableBuilder(
     column: $table.isGraded,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isAltered => $composableBuilder(
+    column: $table.isAltered,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isMisprint => $composableBuilder(
+    column: $table.isMisprint,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isSigned => $composableBuilder(
+    column: $table.isSigned,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -1744,6 +1920,21 @@ class $$VaultItemsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get isAltered => $composableBuilder(
+    column: $table.isAltered,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isMisprint => $composableBuilder(
+    column: $table.isMisprint,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isSigned => $composableBuilder(
+    column: $table.isSigned,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get personalNotes => $composableBuilder(
     column: $table.personalNotes,
     builder: (column) => ColumnOrderings(column),
@@ -1835,6 +2026,15 @@ class $$VaultItemsTableAnnotationComposer
   GeneratedColumn<bool> get isGraded =>
       $composableBuilder(column: $table.isGraded, builder: (column) => column);
 
+  GeneratedColumn<bool> get isAltered =>
+      $composableBuilder(column: $table.isAltered, builder: (column) => column);
+
+  GeneratedColumn<bool> get isMisprint =>
+      $composableBuilder(column: $table.isMisprint, builder: (column) => column);
+
+  GeneratedColumn<bool> get isSigned =>
+      $composableBuilder(column: $table.isSigned, builder: (column) => column);
+
   GeneratedColumn<String> get personalNotes => $composableBuilder(
     column: $table.personalNotes,
     builder: (column) => column,
@@ -1917,6 +2117,9 @@ class $$VaultItemsTableTableManager
                 Value<int> quantity = const Value.absent(),
                 Value<String> condition = const Value.absent(),
                 Value<bool> isGraded = const Value.absent(),
+                Value<bool> isAltered = const Value.absent(),
+                Value<bool> isMisprint = const Value.absent(),
+                Value<bool> isSigned = const Value.absent(),
                 Value<String?> personalNotes = const Value.absent(),
                 Value<String?> primaryBinderId = const Value.absent(),
                 Value<double> currentMarketPrice = const Value.absent(),
@@ -1934,6 +2137,9 @@ class $$VaultItemsTableTableManager
                 quantity: quantity,
                 condition: condition,
                 isGraded: isGraded,
+                isAltered: isAltered,
+                isMisprint: isMisprint,
+                isSigned: isSigned,
                 personalNotes: personalNotes,
                 primaryBinderId: primaryBinderId,
                 currentMarketPrice: currentMarketPrice,
@@ -1953,6 +2159,9 @@ class $$VaultItemsTableTableManager
                 Value<int> quantity = const Value.absent(),
                 required String condition,
                 Value<bool> isGraded = const Value.absent(),
+                Value<bool> isAltered = const Value.absent(),
+                Value<bool> isMisprint = const Value.absent(),
+                Value<bool> isSigned = const Value.absent(),
                 Value<String?> personalNotes = const Value.absent(),
                 Value<String?> primaryBinderId = const Value.absent(),
                 required double currentMarketPrice,
@@ -1970,6 +2179,9 @@ class $$VaultItemsTableTableManager
                 quantity: quantity,
                 condition: condition,
                 isGraded: isGraded,
+                isAltered: isAltered,
+                isMisprint: isMisprint,
+                isSigned: isSigned,
                 personalNotes: personalNotes,
                 primaryBinderId: primaryBinderId,
                 currentMarketPrice: currentMarketPrice,

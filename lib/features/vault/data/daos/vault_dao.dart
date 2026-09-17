@@ -6,6 +6,7 @@ import 'package:countr/core/database/app_database.dart';
 import 'package:countr/core/database/tables/vault_binders_table.dart';
 import 'package:countr/core/database/tables/vault_items_table.dart';
 import 'package:countr/features/scanner/domain/ocr_heuristic_matcher.dart';
+import 'package:countr/features/vault/domain/models/vault_totals.dart';
 
 part 'vault_dao.g.dart';
 
@@ -108,6 +109,192 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     return query.get();
   }
 
+  /// Streams reactive aggregate totals for vault items scoped to collection and binder.
+  Stream<VaultTotals> watchVaultTotals({
+    String? collectionType,
+    String? binderId,
+  }) {
+    final whereClauses = <String>['"quantity" > 0'];
+    final variables = <Variable>[];
+
+    if (collectionType != null) {
+      final normalized = _normalizeCollectionType(collectionType);
+      if (normalized != 'all') {
+        whereClauses.add('"collection_type" = ?');
+        variables.add(Variable.withString(normalized));
+      }
+    }
+
+    if (binderId != null) {
+      whereClauses.add('"primary_binder_id" = ?');
+      variables.add(Variable.withString(binderId));
+    } else {
+      whereClauses.add('("primary_binder_id" IS NULL OR "primary_binder_id" != \'INBOX\')');
+    }
+
+    final whereSql = whereClauses.join(' AND ');
+    final querySql = '''
+      SELECT
+        CAST(COALESCE(SUM("quantity"), 0) AS INTEGER) AS total_count,
+        CAST(COALESCE(SUM("current_market_price" * "quantity"), 0.0) AS REAL) AS total_market_value,
+        CAST(COALESCE(SUM("acquired_price" * "quantity"), 0.0) AS REAL) AS total_cost_basis
+      FROM "vault_items"
+      WHERE $whereSql;
+    ''';
+
+    return customSelect(
+      querySql,
+      variables: variables,
+      readsFrom: {vaultItems},
+    ).watchSingle().map((row) {
+      final count = (row.data['total_count'] as num?)?.toInt() ?? 0;
+      final marketVal =
+          (row.data['total_market_value'] as num?)?.toDouble() ?? 0.0;
+      final costBasis =
+          (row.data['total_cost_basis'] as num?)?.toDouble() ?? 0.0;
+      final delta = marketVal - costBasis;
+      final pct = costBasis > 0 ? (delta / costBasis) * 100 : 0.0;
+
+      return VaultTotals(
+        totalCount: count,
+        totalMarketValue: marketVal,
+        totalCostBasis: costBasis,
+        totalProfitLoss: delta,
+        profitLossPercentage: pct,
+      );
+    });
+  }
+
+  /// One-shot query for aggregate totals for vault items scoped to collection and binder.
+  Future<VaultTotals> getVaultTotals({
+    String? collectionType,
+    String? binderId,
+  }) async {
+    final whereClauses = <String>['"quantity" > 0'];
+    final variables = <Variable>[];
+
+    if (collectionType != null) {
+      final normalized = _normalizeCollectionType(collectionType);
+      if (normalized != 'all') {
+        whereClauses.add('"collection_type" = ?');
+        variables.add(Variable.withString(normalized));
+      }
+    }
+
+    if (binderId != null) {
+      whereClauses.add('"primary_binder_id" = ?');
+      variables.add(Variable.withString(binderId));
+    } else {
+      whereClauses.add('("primary_binder_id" IS NULL OR "primary_binder_id" != \'INBOX\')');
+    }
+
+    final whereSql = whereClauses.join(' AND ');
+    final querySql = '''
+      SELECT
+        CAST(COALESCE(SUM("quantity"), 0) AS INTEGER) AS total_count,
+        CAST(COALESCE(SUM("current_market_price" * "quantity"), 0.0) AS REAL) AS total_market_value,
+        CAST(COALESCE(SUM("acquired_price" * "quantity"), 0.0) AS REAL) AS total_cost_basis
+      FROM "vault_items"
+      WHERE $whereSql;
+    ''';
+
+    final row = await customSelect(
+      querySql,
+      variables: variables,
+      readsFrom: {vaultItems},
+    ).getSingle();
+
+    final count = (row.data['total_count'] as num?)?.toInt() ?? 0;
+    final marketVal =
+        (row.data['total_market_value'] as num?)?.toDouble() ?? 0.0;
+    final costBasis =
+        (row.data['total_cost_basis'] as num?)?.toDouble() ?? 0.0;
+    final delta = marketVal - costBasis;
+    final pct = costBasis > 0 ? (delta / costBasis) * 100 : 0.0;
+
+    return VaultTotals(
+      totalCount: count,
+      totalMarketValue: marketVal,
+      totalCostBasis: costBasis,
+      totalProfitLoss: delta,
+      profitLossPercentage: pct,
+    );
+  }
+
+  /// Queries vaultItems table with case-insensitive name or setOrSeries matching.
+  /// Filters by normalized collection type if specified (unless 'all').
+  /// Orders by name ASC and applies limit.
+  Future<List<VaultItem>> searchCatalogCards(
+    String query, {
+    String? collectionType,
+    int limit = 50,
+  }) {
+    final normalized =
+        collectionType != null ? _normalizeCollectionType(collectionType) : 'all';
+    final trimmed = query.trim();
+    final q = select(vaultItems);
+
+    if (normalized != 'all') {
+      q.where((t) => t.collectionType.equals(normalized));
+    }
+
+    if (trimmed.isNotEmpty) {
+      final term = '%$trimmed%';
+      q.where((t) => t.name.like(term) | t.setOrSeries.like(term));
+    }
+
+    q.orderBy([(t) => OrderingTerm(expression: t.name, mode: OrderingMode.asc)]);
+    q.limit(limit);
+
+    return q.get();
+  }
+
+  /// Bulk inserts or upserts catalog items into user inventory scoped to a destination binder.
+  Future<void> bulkAddCatalogItems({
+    required Map<String, int> stagedItems,
+    String? targetBinderId,
+  }) async {
+    if (stagedItems.isEmpty) return;
+
+    await transaction(() async {
+      final now = DateTime.now();
+      for (final entry in stagedItems.entries) {
+        final cardId = entry.key;
+        final quantityToAdd = entry.value;
+        if (quantityToAdd <= 0) continue;
+
+        final existing = await (select(vaultItems)
+              ..where((t) => t.id.equals(cardId)))
+            .getSingleOrNull();
+
+        if (existing == null) continue;
+
+        if (existing.quantity == 0) {
+          final acquired = existing.acquiredPrice > 0
+              ? existing.acquiredPrice
+              : existing.currentMarketPrice;
+          await (update(vaultItems)..where((t) => t.id.equals(cardId))).write(
+            VaultItemsCompanion(
+              quantity: Value(quantityToAdd),
+              primaryBinderId: Value(targetBinderId),
+              acquiredPrice: Value(acquired),
+              acquiredDate: Value(now),
+              lastPriceUpdate: Value(now),
+            ),
+          );
+        } else {
+          await (update(vaultItems)..where((t) => t.id.equals(cardId))).write(
+            VaultItemsCompanion(
+              quantity: Value(existing.quantity + quantityToAdd),
+              primaryBinderId: Value(targetBinderId ?? existing.primaryBinderId),
+              lastPriceUpdate: Value(now),
+            ),
+          );
+        }
+      }
+    });
+  }
+
   /// Updates personal notes and deck history tags for a vault item without wiping existing dynamicData.
   Future<int> updateItemNotesAndDecks(
     String id, {
@@ -143,6 +330,72 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     );
   }
 
+  /// Updates existing card condition flags, acquired price, variant art/series,
+  /// tags, and notes with immediate Drift reactive invalidation.
+  Future<int> updateItemCardDetails({
+    required String id,
+    double? acquiredPrice,
+    String? condition,
+    bool? isGraded,
+    bool? isAltered,
+    bool? isMisprint,
+    bool? isSigned,
+    String? name,
+    String? setOrSeries,
+    String? imageUrl,
+    double? currentMarketPrice,
+    List<String>? tags,
+    String? personalNotes,
+  }) async {
+    final existing =
+        await (select(vaultItems)..where((t) => t.id.equals(id))).getSingleOrNull();
+    if (existing == null) return 0;
+
+    Map<String, dynamic> data = {};
+    if (existing.dynamicData.isNotEmpty) {
+      try {
+        data = jsonDecode(existing.dynamicData) as Map<String, dynamic>;
+      } catch (_) {}
+    }
+
+    if (tags != null) {
+      data['tags'] = tags;
+      data['deck_history'] = tags;
+    }
+
+    return (update(vaultItems)..where((t) => t.id.equals(id))).write(
+      VaultItemsCompanion(
+        acquiredPrice: acquiredPrice != null
+            ? Value(acquiredPrice)
+            : const Value.absent(),
+        condition: condition != null ? Value(condition) : const Value.absent(),
+        isGraded: isGraded != null ? Value(isGraded) : const Value.absent(),
+        isAltered: isAltered != null ? Value(isAltered) : const Value.absent(),
+        isMisprint:
+            isMisprint != null ? Value(isMisprint) : const Value.absent(),
+        isSigned: isSigned != null ? Value(isSigned) : const Value.absent(),
+        name: name != null ? Value(name) : const Value.absent(),
+        setOrSeries: setOrSeries != null
+            ? Value(setOrSeries)
+            : const Value.absent(),
+        imageUrl: imageUrl != null ? Value(imageUrl) : const Value.absent(),
+        currentMarketPrice: currentMarketPrice != null
+            ? Value(currentMarketPrice)
+            : const Value.absent(),
+        personalNotes: personalNotes != null
+            ? Value(personalNotes)
+            : const Value.absent(),
+        dynamicData: Value(jsonEncode(data)),
+        lastPriceUpdate: Value(DateTime.now()),
+      ),
+    );
+  }
+
+  /// Retrieves a single vault item by ID.
+  Future<VaultItem?> getItemById(String id) {
+    return (select(vaultItems)..where((t) => t.id.equals(id))).getSingleOrNull();
+  }
+
   /// Normalizes display collection titles to internal collection types.
   String _normalizeCollectionType(String type) {
     final lower = type.toLowerCase().trim();
@@ -169,7 +422,7 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
 
   /// Seeds the 4 hyper-detailed mock records if the ledger is empty.
   Future<void> seedDatabase() async {
-    final existing = await select(vaultItems).get();
+    final existing = await (select(vaultItems)..limit(1)).get();
     if (existing.isNotEmpty) return;
 
     final now = DateTime.now();

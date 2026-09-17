@@ -13,7 +13,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? e]) : super(e ?? openConnection());
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration {
@@ -32,8 +32,23 @@ class AppDatabase extends _$AppDatabase {
             // Already exists or re-created
           }
         }
+        if (from < 4) {
+          try {
+            await m.addColumn(vaultItems, vaultItems.isAltered);
+            await m.addColumn(vaultItems, vaultItems.isMisprint);
+            await m.addColumn(vaultItems, vaultItems.isSigned);
+          } catch (_) {}
+        }
       },
       beforeOpen: (details) async {
+        // High-performance SQLite configuration
+        try {
+          await customStatement('PRAGMA journal_mode = WAL;');
+          await customStatement('PRAGMA synchronous = NORMAL;');
+          await customStatement('PRAGMA cache_size = -64000;'); // 64MB page cache
+          await customStatement('PRAGMA temp_store = MEMORY;');
+        } catch (_) {}
+
         // Defensive runtime schema verification:
         // Automatically patch legacy local SQLite databases where schema version may have
         // drifted without primary_binder_id or vault_binders table.
@@ -58,6 +73,45 @@ class AppDatabase extends _$AppDatabase {
               'ALTER TABLE "vault_items" ADD COLUMN "primary_binder_id" TEXT REFERENCES "vault_binders" ("id");',
             );
           }
+          if (!columnNames.contains('is_altered')) {
+            await customStatement(
+              'ALTER TABLE "vault_items" ADD COLUMN "is_altered" INTEGER NOT NULL DEFAULT 0;',
+            );
+          }
+          if (!columnNames.contains('is_misprint')) {
+            await customStatement(
+              'ALTER TABLE "vault_items" ADD COLUMN "is_misprint" INTEGER NOT NULL DEFAULT 0;',
+            );
+          }
+          if (!columnNames.contains('is_signed')) {
+            await customStatement(
+              'ALTER TABLE "vault_items" ADD COLUMN "is_signed" INTEGER NOT NULL DEFAULT 0;',
+            );
+          }
+        } catch (_) {}
+
+        // Performance compound indexes for instantaneous query and sorting
+        try {
+          await customStatement('''
+            CREATE INDEX IF NOT EXISTS "idx_vault_items_collection_qty"
+            ON "vault_items" ("collection_type", "quantity", "acquired_date" DESC);
+          ''');
+          await customStatement('''
+            CREATE INDEX IF NOT EXISTS "idx_vault_items_qty_date"
+            ON "vault_items" ("quantity", "acquired_date" DESC);
+          ''');
+          await customStatement('''
+            CREATE INDEX IF NOT EXISTS "idx_vault_items_col_cat"
+            ON "vault_items" ("collection_type", "acquired_date" DESC, "name" ASC);
+          ''');
+          await customStatement('''
+            CREATE INDEX IF NOT EXISTS "idx_vault_items_name"
+            ON "vault_items" ("name" COLLATE NOCASE);
+          ''');
+          await customStatement('''
+            CREATE INDEX IF NOT EXISTS "idx_vault_items_binder"
+            ON "vault_items" ("primary_binder_id");
+          ''');
         } catch (_) {}
 
         try {

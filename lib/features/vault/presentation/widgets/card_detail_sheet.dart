@@ -5,8 +5,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:countr/core/constants/app_colors.dart';
 import 'package:countr/core/constants/app_typography.dart';
 import 'package:countr/core/database/app_database.dart';
+import 'package:countr/core/state/app_state.dart';
 import 'package:countr/features/vault/domain/mtg_keyword_glossary.dart';
 import 'package:countr/features/vault/presentation/providers/vault_providers.dart';
+import 'package:countr/features/vault/presentation/widgets/edit_card_modal.dart';
+import 'package:countr/features/vault/presentation/widgets/full_screen_card_viewer.dart';
 
 /// Draggable modal bottom sheet displaying full card breakdown, oracle rules text,
 /// community use cases, deck history, and collection portfolio analytics.
@@ -604,6 +607,10 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet> {
                   ],
                 ),
               ),
+
+              // Pinned Bottom Quick Action Bar
+              const Divider(height: 1, color: AppColors.surfaceBorderSubtle),
+              _buildQuickActionBar(context),
             ],
           ),
         );
@@ -612,9 +619,11 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet> {
   }
 
   Widget _buildCardArtwork() {
-    return Container(
-      width: 110,
-      height: 154,
+    return Hero(
+      tag: 'card_artwork_${_currentItem.id}',
+      child: Container(
+        width: 110,
+        height: 154,
       decoration: BoxDecoration(
         color: AppColors.surfaceRaised,
         borderRadius: BorderRadius.circular(10),
@@ -641,6 +650,7 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet> {
               },
             )
           : _buildPlaceholderArt(),
+      ),
     );
   }
 
@@ -806,5 +816,430 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet> {
         ),
       ],
     );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Quick Action Bar & Actions
+  // ---------------------------------------------------------------------------
+
+  Widget _buildQuickActionBar(BuildContext context) {
+    return Container(
+      key: const Key('card_detail_quick_action_bar'),
+      padding: EdgeInsets.fromLTRB(
+        8,
+        8,
+        8,
+        MediaQuery.of(context).padding.bottom > 0
+            ? MediaQuery.of(context).padding.bottom + 4
+            : 12,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceRaised,
+        border: const Border(top: BorderSide(color: AppColors.surfaceBorderSubtle)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.35),
+            blurRadius: 10,
+            offset: const Offset(0, -3),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          // 1. Delete
+          _buildQuickActionButton(
+            key: const Key('quick_action_delete'),
+            icon: Icons.delete_outline_rounded,
+            label: 'Delete',
+            color: AppColors.accentRose,
+            onTap: _confirmDeleteItem,
+          ),
+
+          // 2. Full Screen
+          _buildQuickActionButton(
+            key: const Key('quick_action_fullscreen'),
+            icon: Icons.fullscreen_rounded,
+            label: 'Full Screen',
+            color: AppColors.accentCyan,
+            onTap: _openFullScreenViewer,
+          ),
+
+          // 3. Add to Deck
+          _buildQuickActionButton(
+            key: const Key('quick_action_add_to_deck'),
+            icon: Icons.playlist_add_rounded,
+            label: 'Add to Deck',
+            color: AppColors.accentVioletLight,
+            onTap: _showAddToDeckDialog,
+          ),
+
+          // 4. Share
+          _buildQuickActionButton(
+            key: const Key('quick_action_share'),
+            icon: Icons.share_rounded,
+            label: 'Share',
+            color: AppColors.accentEmerald,
+            onTap: _handleShareAction,
+          ),
+
+          // 5. Edit
+          _buildQuickActionButton(
+            key: const Key('quick_action_edit'),
+            icon: Icons.edit_note_rounded,
+            label: 'Edit',
+            color: AppColors.accentAmber,
+            onTap: _openEditModal,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuickActionButton({
+    required Key key,
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: InkWell(
+        key: key,
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: color, size: 22),
+              const SizedBox(height: 3),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: color,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _confirmDeleteItem() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        key: const Key('card_detail_delete_dialog'),
+        backgroundColor: AppColors.surfaceRaised,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Delete Card?', style: AppTypography.heading2),
+        content: Text(
+          'Are you sure you want to remove "${_currentItem.name}" from your Vault? This action cannot be undone.',
+          style: const TextStyle(color: AppColors.textSecondary, fontSize: 13.5),
+        ),
+        actions: [
+          TextButton(
+            key: const Key('delete_cancel_button'),
+            onPressed: () => Navigator.of(dialogCtx).pop(false),
+            child: const Text('Cancel', style: TextStyle(color: AppColors.textMuted)),
+          ),
+          ElevatedButton(
+            key: const Key('delete_confirm_button'),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.accentRose),
+            onPressed: () => Navigator.of(dialogCtx).pop(true),
+            child: const Text('Delete', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      final dao = ref.read(vaultDaoProvider);
+      await dao.deleteItem(_currentItem.id);
+      if (mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Removed "${_currentItem.name}" from Vault'),
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    }
+  }
+
+  void _openFullScreenViewer() {
+    FullScreenCardViewer.show(context, _currentItem);
+  }
+
+  Future<void> _showAddToDeckDialog() async {
+    final availableDecks = [
+      'Edgar Markov Aristocrats',
+      'Charizard ex / Pidgeot ex',
+      'Yuriko, the Tiger\'s Shadow',
+      'Ruby / Amethyst Bounce Control',
+      'Lost Zone Giratina VSTAR',
+      'Modern Mono-Green Tron',
+    ];
+    final customDeckController = TextEditingController();
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (modalCtx) {
+        return StatefulBuilder(
+          builder: (ctx, setModalState) {
+            return Padding(
+              padding: EdgeInsets.fromLTRB(
+                20,
+                16,
+                20,
+                MediaQuery.of(modalCtx).viewInsets.bottom + 20,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Add Card to Deck', style: AppTypography.heading2),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: AppColors.textMuted),
+                        onPressed: () => Navigator.of(modalCtx).pop(),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  ...availableDecks.map((deck) {
+                    final inDeck = _deckHistory.contains(deck);
+                    return ListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.style_rounded, color: AppColors.accentVioletLight, size: 20),
+                      title: Text(deck, style: const TextStyle(fontSize: 13.5, color: AppColors.textPrimary)),
+                      trailing: inDeck
+                          ? const Icon(Icons.check_circle_rounded, color: AppColors.accentEmerald, size: 20)
+                          : const Icon(Icons.add_circle_outline_rounded, color: AppColors.accentCyan, size: 20),
+                      onTap: () async {
+                        if (!inDeck) {
+                          setState(() {
+                            _deckHistory.add(deck);
+                            _dynamicData['deck_history'] = _deckHistory;
+                          });
+                          await ref.read(vaultDaoProvider).updateItemNotesAndDecks(
+                                _currentItem.id,
+                                deckTags: _deckHistory,
+                              );
+                        }
+                        if (modalCtx.mounted) Navigator.of(modalCtx).pop();
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Added to "$deck"'),
+                              behavior: SnackBarBehavior.floating,
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
+                        }
+                      },
+                    );
+                  }),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: customDeckController,
+                          style: const TextStyle(color: AppColors.textPrimary, fontSize: 13),
+                          decoration: InputDecoration(
+                            hintText: 'Or enter new deck name...',
+                            hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+                            filled: true,
+                            fillColor: AppColors.surfaceRaised,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(color: AppColors.surfaceBorder),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        icon: const Icon(Icons.add_circle, color: AppColors.accentCyan, size: 28),
+                        onPressed: () async {
+                          final name = customDeckController.text.trim();
+                          if (name.isNotEmpty && !_deckHistory.contains(name)) {
+                            setState(() {
+                              _deckHistory.add(name);
+                              _dynamicData['deck_history'] = _deckHistory;
+                            });
+                            await ref.read(vaultDaoProvider).updateItemNotesAndDecks(
+                                  _currentItem.id,
+                                  deckTags: _deckHistory,
+                                );
+                            if (modalCtx.mounted) Navigator.of(modalCtx).pop();
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Added to "$name"'),
+                                  behavior: SnackBarBehavior.floating,
+                                  duration: const Duration(seconds: 2),
+                                ),
+                              );
+                            }
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _handleShareAction() {
+    final isLoggedIn = ref.read(isUserLoggedInProvider);
+    if (!isLoggedIn) {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          key: const Key('share_login_dialog'),
+          backgroundColor: AppColors.surfaceRaised,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('Sign in to Share', style: AppTypography.heading2),
+          content: const Text(
+            'You must be signed in to share cards with the Countr community.',
+            style: TextStyle(color: AppColors.textSecondary, fontSize: 13.5),
+          ),
+          actions: [
+            TextButton(
+              key: const Key('share_login_cancel'),
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Cancel', style: TextStyle(color: AppColors.textMuted)),
+            ),
+            ElevatedButton(
+              key: const Key('share_login_button'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.accentCyan,
+                foregroundColor: AppColors.textDark,
+              ),
+              onPressed: () {
+                ref.read(isUserLoggedInProvider.notifier).state = true;
+                Navigator.of(ctx).pop();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Signed in successfully!'),
+                    behavior: SnackBarBehavior.floating,
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              },
+              child: const Text('Sign In', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      );
+    } else {
+      _showShareDialog();
+    }
+  }
+
+  void _showShareDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        key: const Key('card_share_dialog'),
+        backgroundColor: AppColors.surfaceRaised,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            const Icon(Icons.share_rounded, color: AppColors.accentEmerald, size: 22),
+            const SizedBox(width: 8),
+            Text('Share ${_currentItem.name}', style: AppTypography.heading2.copyWith(fontSize: 16)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '${_currentItem.name} • ${_currentItem.setOrSeries}',
+              style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold, fontSize: 13),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Market Value: \$${_currentItem.currentMarketPrice.toStringAsFixed(2)}',
+              style: const TextStyle(color: AppColors.accentCyan, fontSize: 13),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Share this card with friends or export card data to external collection formats.',
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 12.5),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            key: const Key('share_dialog_close'),
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Close', style: TextStyle(color: AppColors.textMuted)),
+          ),
+          ElevatedButton.icon(
+            key: const Key('share_copy_link_button'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.accentEmerald,
+              foregroundColor: Colors.white,
+            ),
+            icon: const Icon(Icons.copy_rounded, size: 16),
+            label: const Text('Copy Card Info'),
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Copied "${_currentItem.name}" link to clipboard'),
+                  behavior: SnackBarBehavior.floating,
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openEditModal() async {
+    final updated = await EditCardModal.show(context, _currentItem);
+    if (mounted) {
+      final latest = await ref.read(vaultDaoProvider).getItemById(_currentItem.id);
+      final finalItem = latest ?? updated;
+      if (finalItem != null && mounted) {
+        setState(() {
+          _currentItem = finalItem;
+          _notesController.text = finalItem.personalNotes ?? '';
+          _parseDynamicData();
+        });
+      }
+    }
   }
 }

@@ -66,6 +66,7 @@ class _MorphingCommandCenterState extends ConsumerState<MorphingCommandCenter> {
   @override
   Widget build(BuildContext context) {
     final activeGame = ref.watch(activeGameContextProvider);
+    final userPersona = ref.watch(userPersonaProvider);
     final size = MediaQuery.of(context).size;
 
     return SafeArea(
@@ -119,27 +120,32 @@ class _MorphingCommandCenterState extends ConsumerState<MorphingCommandCenter> {
                       ),
                     ),
                     const SizedBox(width: 10),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'COMMAND CENTER',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 1.2,
-                            color: Colors.white,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text(
+                            'COMMAND CENTER',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 1.2,
+                              color: Colors.white,
+                            ),
                           ),
-                        ),
-                        Text(
-                          'Active Context: $activeGame',
-                          style: const TextStyle(
-                            fontSize: 10,
-                            color: AppColors.accentCyan,
-                            fontWeight: FontWeight.w600,
+                          Text(
+                            'Active Context: $activeGame',
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                            style: const TextStyle(
+                              fontSize: 10,
+                              color: AppColors.accentCyan,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -216,6 +222,187 @@ class _MorphingCommandCenterState extends ConsumerState<MorphingCommandCenter> {
                               color: AppColors.accentVioletLight,
                               letterSpacing: 1,
                             ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Global Persona Switcher Toggle
+                  Container(
+                    margin:
+                        const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: AppColors.surfaceBorder),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: const [
+                                Icon(
+                                  Icons.switch_account_rounded,
+                                  size: 16,
+                                  color: AppColors.accentCyan,
+                                ),
+                                SizedBox(width: 8),
+                                Text(
+                                  'VIEWING PERSONA',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 0.8,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                userPersona == UserPersona.investor
+                                    ? 'INVESTOR MODE'
+                                    : 'PLAYER MODE',
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                                style: TextStyle(
+                                  fontSize: 9.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: userPersona == UserPersona.investor
+                                      ? AppColors.accentEmerald
+                                      : AppColors.accentVioletLight,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Container(
+                          height: 42,
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceRaised,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: AppColors.surfaceBorderSubtle),
+                          ),
+                          child: Row(
+                            children: [
+                              // Investor Segment
+                              Expanded(
+                                child: GestureDetector(
+                                  key: const Key('persona_toggle_investor'),
+                                  onTap: () {
+                                    ref.read(userPersonaProvider.notifier).state =
+                                        UserPersona.investor;
+                                  },
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 200),
+                                    curve: Curves.easeInOut,
+                                    decoration: BoxDecoration(
+                                      color: userPersona == UserPersona.investor
+                                          ? AppColors.accentEmerald
+                                              .withValues(alpha: 0.2)
+                                          : Colors.transparent,
+                                      borderRadius: BorderRadius.circular(9),
+                                      border: userPersona == UserPersona.investor
+                                          ? Border.all(
+                                              color: AppColors.accentEmerald
+                                                  .withValues(alpha: 0.6),
+                                              width: 1.2,
+                                            )
+                                          : null,
+                                    ),
+                                    child: Center(
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Text('💼',
+                                              style: TextStyle(fontSize: 13)),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            'Investor',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: userPersona ==
+                                                      UserPersona.investor
+                                                  ? FontWeight.w800
+                                                  : FontWeight.w600,
+                                              color: userPersona ==
+                                                      UserPersona.investor
+                                                  ? Colors.white
+                                                  : AppColors.textSecondary,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              // Player Segment
+                              Expanded(
+                                child: GestureDetector(
+                                  key: const Key('persona_toggle_player'),
+                                  onTap: () {
+                                    ref.read(userPersonaProvider.notifier).state =
+                                        UserPersona.player;
+                                  },
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 200),
+                                    curve: Curves.easeInOut,
+                                    decoration: BoxDecoration(
+                                      color: userPersona == UserPersona.player
+                                          ? AppColors.accentViolet
+                                              .withValues(alpha: 0.25)
+                                          : Colors.transparent,
+                                      borderRadius: BorderRadius.circular(9),
+                                      border: userPersona == UserPersona.player
+                                          ? Border.all(
+                                              color: AppColors.accentViolet
+                                                  .withValues(alpha: 0.7),
+                                              width: 1.2,
+                                            )
+                                          : null,
+                                    ),
+                                    child: Center(
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Text('⚔️',
+                                              style: TextStyle(fontSize: 13)),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            'Player',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: userPersona ==
+                                                      UserPersona.player
+                                                  ? FontWeight.w800
+                                                  : FontWeight.w600,
+                                              color: userPersona ==
+                                                      UserPersona.player
+                                                  ? Colors.white
+                                                  : AppColors.textSecondary,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],

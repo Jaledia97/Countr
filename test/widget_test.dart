@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:drift/drift.dart' show Value;
+import 'package:countr/core/database/app_database.dart';
 import 'package:countr/core/state/app_state.dart';
 import 'package:countr/features/command_center/presentation/widgets/collections_accordion.dart';
 import 'package:countr/features/command_center/presentation/widgets/play_track_accordion.dart';
 import 'package:countr/features/feed/presentation/widgets/post_action_bar.dart';
 import 'package:countr/features/feed/presentation/widgets/post_header.dart';
 import 'package:countr/features/scanner/presentation/screens/scanner_modal.dart';
+import 'package:countr/features/vault/presentation/providers/vault_providers.dart';
+import 'package:countr/features/vault/presentation/screens/vault_screen.dart';
 import 'package:countr/main.dart';
 
 void main() {
@@ -206,8 +210,32 @@ void main() {
       expect(find.text('MTG Vault'), findsOneWidget);
       expect(find.text('Total Tracked Items: 1'), findsOneWidget);
 
-      // Increment count on Vault
+      // Verify Add Item button is present and clickable without dummy state
       await tester.tap(find.text('Add Item'));
+      await tester.pumpAndSettle();
+      expect(find.text('Total Tracked Items: 1'), findsOneWidget);
+
+      // Authentically add an item to SQLite to verify live reactive totals
+      final container =
+          ProviderScope.containerOf(tester.element(find.byType(VaultScreen)));
+      final db = container.read(appDatabaseProvider);
+      await db.into(db.vaultItems).insert(
+            VaultItemsCompanion.insert(
+              id: 'item-mtg-mox-diamond',
+              collectionType: 'mtg',
+              name: 'Mox Diamond',
+              setOrSeries: 'Stronghold',
+              imageUrl:
+                  'https://cards.scryfall.io/large/front/b/d/bd8fa327-dd41-4737-8f19-2cf5eb1f7cdd.jpg',
+              acquiredPrice: 5000.0,
+              acquiredDate: DateTime.now(),
+              quantity: const Value(1),
+              condition: 'NM',
+              currentMarketPrice: 25000.0,
+              lastPriceUpdate: DateTime.now(),
+              dynamicData: '{}',
+            ),
+          );
       await tester.pumpAndSettle();
       expect(find.text('Total Tracked Items: 2'), findsOneWidget);
 
