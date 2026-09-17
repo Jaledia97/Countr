@@ -140,10 +140,86 @@ class ScryfallService {
       } else if (response.statusCode == 404) {
         return const [];
       }
-
       return null;
     } catch (_) {
-      // Gracefully handle network failures, timeouts, socket exceptions, etc.
+      return null;
+    }
+  }
+
+  /// Searches cards by query using the Scryfall search API:
+  /// https://api.scryfall.com/cards/search?q={query}
+  /// Returns a list of Scryfall card JSON maps or empty list.
+  Future<List<Map<String, dynamic>>?> searchCards(
+    String query, {
+    int limit = 20,
+  }) async {
+    final trimmed = query.trim();
+    if (trimmed.isEmpty) return const [];
+    try {
+      final uri = Uri.parse(
+        'https://api.scryfall.com/cards/search?q=${Uri.encodeQueryComponent(trimmed)}&order=name',
+      );
+      final response = await _client.get(
+        uri,
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'Countr/1.0 (Flutter; Educational Portfolio App)',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        if (decoded is Map<String, dynamic> && decoded['data'] is List) {
+          final list = (decoded['data'] as List)
+              .whereType<Map<String, dynamic>>()
+              .take(limit)
+              .toList();
+          return list;
+        }
+      }
+      return const [];
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Fetches full card details from Scryfall by [scryfallId] or [name].
+  /// Tries /cards/{id} if id is a valid UUID, otherwise /cards/named?exact={name}.
+  Future<Map<String, dynamic>?> fetchCardDetails({
+    String? scryfallId,
+    String? name,
+  }) async {
+    try {
+      Uri? uri;
+      final uuidRegex = RegExp(
+          r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$');
+      if (scryfallId != null && uuidRegex.hasMatch(scryfallId)) {
+        uri = Uri.parse('https://api.scryfall.com/cards/$scryfallId');
+      } else if (name != null && name.trim().isNotEmpty) {
+        final cleanName =
+            name.contains(' // ') ? name.split(' // ').first.trim() : name.trim();
+        uri = Uri.parse(
+            'https://api.scryfall.com/cards/named?exact=${Uri.encodeQueryComponent(cleanName)}');
+      }
+
+      if (uri == null) return null;
+
+      final response = await _client.get(
+        uri,
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'Countr/1.0 (Flutter; Educational Portfolio App)',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        if (decoded is Map<String, dynamic>) {
+          return decoded;
+        }
+      }
+      return null;
+    } catch (_) {
       return null;
     }
   }

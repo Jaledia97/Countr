@@ -6,6 +6,8 @@ import 'package:countr/core/constants/app_colors.dart';
 import 'package:countr/core/constants/app_typography.dart';
 import 'package:countr/core/database/app_database.dart';
 import 'package:countr/core/state/app_state.dart';
+import 'package:countr/features/hydration/domain/isolate/scryfall_parser.dart';
+import 'package:countr/features/hydration/presentation/providers/hydration_providers.dart';
 import 'package:countr/features/vault/presentation/providers/vault_providers.dart';
 
 /// Custom styled search text input component for ManualAddBottomSheet.
@@ -195,13 +197,45 @@ class _ManualAddBottomSheetState extends ConsumerState<ManualAddBottomSheet> {
 
     final activeGame = ref.read(activeGameContextProvider);
     final dao = ref.read(vaultDaoProvider);
-    final items = await dao.searchCatalogCards(query, collectionType: activeGame);
+    var items = await dao.searchCatalogCards(query, collectionType: activeGame);
 
     if (mounted) {
       setState(() {
         _searchResults = items;
         _isLoading = false;
       });
+    }
+
+    // Secondary live online search for MTG when query is specific
+    final trimmed = query.trim();
+    if (mounted &&
+        (activeGame.toLowerCase() == 'mtg' ||
+            activeGame.toLowerCase().contains('magic')) &&
+        trimmed.length >= 2 &&
+        items.length < 20) {
+      try {
+        final scryfall = ref.read(scryfallServiceProvider);
+        final onlineCards = await scryfall.searchCards(trimmed);
+        if (onlineCards != null && onlineCards.isNotEmpty && mounted) {
+          final companions = <VaultItemsCompanion>[];
+          for (final c in onlineCards) {
+            final companion = mapScryfallCardToCompanion(c);
+            companions.add(companion);
+          }
+          if (companions.isNotEmpty) {
+            await dao.insertDictionaryChunked(companions);
+            final updatedItems =
+                await dao.searchCatalogCards(query, collectionType: activeGame);
+            if (mounted) {
+              setState(() {
+                _searchResults = updatedItems;
+              });
+            }
+          }
+        }
+      } catch (_) {
+        // Offline / mock fallback
+      }
     }
   }
 
@@ -668,7 +702,10 @@ class _ManualAddBottomSheetState extends ConsumerState<ManualAddBottomSheet> {
                                             CrossAxisAlignment.start,
                                         children: [
                                           Text(
-                                            card.name,
+                                            card.flavorName != null &&
+                                                    card.flavorName!.isNotEmpty
+                                                ? card.flavorName!
+                                                : card.name,
                                             style: const TextStyle(
                                               color: Colors.white,
                                               fontWeight: FontWeight.w700,
@@ -682,7 +719,10 @@ class _ManualAddBottomSheetState extends ConsumerState<ManualAddBottomSheet> {
                                             children: [
                                               Flexible(
                                                 child: Text(
-                                                  card.setOrSeries,
+                                                  card.flavorName != null &&
+                                                          card.flavorName!.isNotEmpty
+                                                      ? '[${card.name}] • ${card.setOrSeries}'
+                                                      : card.setOrSeries,
                                                   style: const TextStyle(
                                                     color: AppColors.textSecondary,
                                                     fontSize: 12,

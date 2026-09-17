@@ -120,6 +120,40 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
     }
   }
 
+  List<Map<String, dynamic>> _getCardFaces() {
+    final faces = _dynamicData['card_faces'];
+    if (faces is List && faces.isNotEmpty) {
+      return faces
+          .whereType<Map>()
+          .map((m) => Map<String, dynamic>.from(m))
+          .toList();
+    }
+    if (_currentItem.name.contains(' // ')) {
+      final names = _currentItem.name.split(' // ');
+      final oracle = _dynamicData['oracle_text']?.toString() ?? '';
+      final oracles =
+          oracle.contains(' // ') ? oracle.split(' // ') : [oracle, ''];
+      return [
+        {'name': names[0].trim(), 'oracle_text': oracles[0].trim()},
+        {
+          'name': names.length > 1 ? names[1].trim() : '',
+          'oracle_text': oracles.length > 1 ? oracles[1].trim() : '',
+        },
+      ];
+    }
+    return const [];
+  }
+
+  Map<String, dynamic>? get _activeFace {
+    final faces = _getCardFaces();
+    if (faces.length > 1) {
+      return _isFlipped ? faces[1] : faces[0];
+    } else if (faces.length == 1) {
+      return faces[0];
+    }
+    return null;
+  }
+
   String? _getBackImageUrl() {
     if (_dynamicData['back_image_url'] is String &&
         (_dynamicData['back_image_url'] as String).isNotEmpty) {
@@ -131,7 +165,12 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
       if (back is Map) {
         if (back['image_uris'] is Map) {
           final uris = back['image_uris'] as Map<String, dynamic>;
-          final url = uris['normal'] ?? uris['large'] ?? uris['small'] ?? uris['png'];
+          final url = uris['normal'] ??
+              uris['large'] ??
+              uris['small'] ??
+              uris['png'] ??
+              uris['border_crop'] ??
+              uris['art_crop'];
           if (url != null && url.toString().isNotEmpty) return url.toString();
         }
         final direct = back['image_url']?.toString() ?? back['imageUrl']?.toString();
@@ -149,7 +188,12 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
       if (front is Map) {
         if (front['image_uris'] is Map) {
           final uris = front['image_uris'] as Map<String, dynamic>;
-          final url = uris['normal'] ?? uris['large'] ?? uris['small'] ?? uris['png'];
+          final url = uris['normal'] ??
+              uris['large'] ??
+              uris['small'] ??
+              uris['png'] ??
+              uris['border_crop'] ??
+              uris['art_crop'];
           if (url != null && url.toString().isNotEmpty) return url.toString();
         }
         final direct = front['image_url']?.toString() ?? front['imageUrl']?.toString();
@@ -159,14 +203,17 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
     return '';
   }
 
-  bool get _hasMultipleFaces => _getBackImageUrl() != null;
+  bool get _hasFlipArt => _getBackImageUrl() != null;
+  bool get _hasMultipleFaces => _hasFlipArt || _getCardFaces().length > 1;
 
   void _toggleFlip() {
     if (!_hasMultipleFaces) return;
-    if (_isFlipped) {
-      _flipController.reverse();
-    } else {
-      _flipController.forward();
+    if (_hasFlipArt) {
+      if (_isFlipped) {
+        _flipController.reverse();
+      } else {
+        _flipController.forward();
+      }
     }
     setState(() {
       _isFlipped = !_isFlipped;
@@ -315,15 +362,38 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
   @override
   Widget build(BuildContext context) {
     final isOwned = _currentItem.quantity > 0;
-    final manaCost = _dynamicData['mana_cost']?.toString() ?? _dynamicData['mana']?.toString() ?? '';
-    final typeLine = _dynamicData['type_line']?.toString() ?? _dynamicData['type']?.toString() ?? _currentItem.collectionType.toUpperCase();
-    final oracleText = _dynamicData['oracle_text']?.toString() ?? '';
+    final activeFace = _activeFace;
+    final manaCost = activeFace?['mana_cost']?.toString() ??
+        _dynamicData['mana_cost']?.toString() ??
+        _dynamicData['mana']?.toString() ??
+        '';
+    final typeLine = activeFace?['type_line']?.toString() ??
+        _dynamicData['type_line']?.toString() ??
+        _dynamicData['type']?.toString() ??
+        _currentItem.collectionType.toUpperCase();
+    String oracleText = activeFace?['oracle_text']?.toString() ?? '';
+    if (oracleText.trim().isEmpty) {
+      oracleText = _dynamicData['oracle_text']?.toString() ?? '';
+    }
+    if (oracleText.trim().isEmpty && _getCardFaces().isNotEmpty) {
+      oracleText = _getCardFaces()
+          .map((f) => (f['oracle_text'] as String?)?.trim() ?? '')
+          .where((t) => t.isNotEmpty)
+          .join('\n\n//\n\n');
+    }
     final rarity = _dynamicData['rarity']?.toString() ?? '';
-    final power = _dynamicData['power']?.toString();
-    final toughness = _dynamicData['toughness']?.toString();
-    final loyalty = _dynamicData['loyalty']?.toString();
-    final rulings = _dynamicData['rulings']?.toString() ?? _dynamicData['use_cases']?.toString() ?? '';
-    final flavorText = _dynamicData['flavor_text']?.toString() ?? '';
+    final power =
+        activeFace?['power']?.toString() ?? _dynamicData['power']?.toString();
+    final toughness = activeFace?['toughness']?.toString() ??
+        _dynamicData['toughness']?.toString();
+    final loyalty = activeFace?['loyalty']?.toString() ??
+        _dynamicData['loyalty']?.toString();
+    final rulings = _dynamicData['rulings']?.toString() ??
+        _dynamicData['use_cases']?.toString() ??
+        '';
+    final flavorText = activeFace?['flavor_text']?.toString() ??
+        _dynamicData['flavor_text']?.toString() ??
+        '';
     final rawKeywords = _dynamicData['keywords'];
     final keywordsList = rawKeywords is List ? rawKeywords : null;
     final mechanics = _isMtgCard()
@@ -383,7 +453,11 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            _currentItem.name,
+                            _currentItem.flavorName != null &&
+                                    _currentItem.flavorName!.isNotEmpty
+                                ? _currentItem.flavorName!
+                                : (activeFace?['name']?.toString() ??
+                                    _currentItem.name),
                             style: AppTypography.heading1.copyWith(fontSize: 18),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -391,14 +465,40 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
                           const SizedBox(height: 2),
                           Row(
                             children: [
-                              Text(
-                                _currentItem.setOrSeries,
-                                style: AppTypography.caption.copyWith(
-                                  color: AppColors.textSecondary,
+                              if (_currentItem.flavorName != null &&
+                                  _currentItem.flavorName!.isNotEmpty) ...[
+                                Text(
+                                  '[${_currentItem.name}]',
+                                  style: AppTypography.caption.copyWith(
+                                    color: AppColors.accentCyan,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const Text(' • ',
+                                    style: TextStyle(color: AppColors.textMuted)),
+                              ] else if (_hasMultipleFaces && activeFace != null) ...[
+                                Text(
+                                  'Face ${_isFlipped ? 2 : 1}/${_getCardFaces().length}',
+                                  style: AppTypography.caption.copyWith(
+                                    color: AppColors.accentCyan,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const Text(' • ',
+                                    style: TextStyle(color: AppColors.textMuted)),
+                              ],
+                              Flexible(
+                                child: Text(
+                                  _currentItem.setOrSeries,
+                                  style: AppTypography.caption.copyWith(
+                                    color: AppColors.textSecondary,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                               if (rarity.isNotEmpty) ...[
-                                const Text(' • ', style: TextStyle(color: AppColors.textMuted)),
+                                const Text(' • ',
+                                    style: TextStyle(color: AppColors.textMuted)),
                                 Text(
                                   rarity.toUpperCase(),
                                   style: AppTypography.caption.copyWith(
@@ -558,7 +658,41 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
                     ],
 
                     // Section 1: Oracle & Rules Text
-                    _buildSectionHeader(Icons.auto_stories_rounded, 'Oracle Rules Text'),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        _buildSectionHeader(Icons.auto_stories_rounded, 'Oracle Rules Text'),
+                        if (_hasMultipleFaces && _getCardFaces().length > 1)
+                          InkWell(
+                            key: const Key('card_detail_switch_face_button'),
+                            onTap: _toggleFlip,
+                            borderRadius: BorderRadius.circular(8),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: AppColors.accentCyan.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: AppColors.accentCyan.withValues(alpha: 0.4)),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.swap_horiz_rounded, size: 14, color: AppColors.accentCyan),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    _isFlipped ? 'View Face 1' : 'View Face 2',
+                                    style: const TextStyle(
+                                      color: AppColors.accentCyan,
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
                     Container(
                       margin: const EdgeInsets.only(top: 8, bottom: 18),
                       padding: const EdgeInsets.all(14),
@@ -570,6 +704,39 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          if (_hasMultipleFaces && activeFace != null && _getCardFaces().length > 1) ...[
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              margin: const EdgeInsets.only(bottom: 10),
+                              decoration: BoxDecoration(
+                                color: AppColors.surface,
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: AppColors.surfaceBorderSubtle),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    _isFlipped ? Icons.flip_to_back : Icons.flip_to_front,
+                                    size: 13,
+                                    color: AppColors.accentCyan,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      '${activeFace['name'] ?? (_isFlipped ? 'Back Face' : 'Front Face')} — ${activeFace['type_line'] ?? ''}',
+                                      style: const TextStyle(
+                                        color: AppColors.textSecondary,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                           Text(
                             oracleText.isNotEmpty ? oracleText : 'No rules text available for this card.',
                             style: const TextStyle(
@@ -795,7 +962,7 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
   }
 
   Widget _buildCardArtwork() {
-    final hasFlip = _hasMultipleFaces;
+    final hasFlip = _hasFlipArt;
 
     final artwork = GestureDetector(
       onTap: hasFlip ? _toggleFlip : null,
@@ -804,7 +971,9 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
         builder: (context, child) {
           final angle = _flipAnimation.value * math.pi;
           final isUnder = angle > (math.pi / 2);
-          final currentUrl = isUnder ? (_getBackImageUrl() ?? '') : _getFrontImageUrl();
+          final backUrl = _getBackImageUrl();
+          final frontUrl = _getFrontImageUrl();
+          final currentUrl = isUnder ? (backUrl ?? frontUrl) : frontUrl;
           return Transform(
             transform: Matrix4.identity()
               ..setEntry(3, 2, 0.001)

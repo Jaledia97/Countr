@@ -96,7 +96,12 @@ class _FullScreenCardViewerState extends State<FullScreenCardViewer>
       if (back is Map) {
         if (back['image_uris'] is Map) {
           final uris = back['image_uris'] as Map<String, dynamic>;
-          final url = uris['normal'] ?? uris['large'] ?? uris['small'] ?? uris['png'];
+          final url = uris['normal'] ??
+              uris['large'] ??
+              uris['small'] ??
+              uris['png'] ??
+              uris['border_crop'] ??
+              uris['art_crop'];
           if (url != null && url.toString().isNotEmpty) return url.toString();
         }
         final direct = back['image_url']?.toString() ?? back['imageUrl']?.toString();
@@ -114,7 +119,12 @@ class _FullScreenCardViewerState extends State<FullScreenCardViewer>
       if (front is Map) {
         if (front['image_uris'] is Map) {
           final uris = front['image_uris'] as Map<String, dynamic>;
-          final url = uris['normal'] ?? uris['large'] ?? uris['small'] ?? uris['png'];
+          final url = uris['normal'] ??
+              uris['large'] ??
+              uris['small'] ??
+              uris['png'] ??
+              uris['border_crop'] ??
+              uris['art_crop'];
           if (url != null && url.toString().isNotEmpty) return url.toString();
         }
         final direct = front['image_url']?.toString() ?? front['imageUrl']?.toString();
@@ -167,13 +177,19 @@ class _FullScreenCardViewerState extends State<FullScreenCardViewer>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              widget.item.name,
+              widget.item.flavorName != null &&
+                      widget.item.flavorName!.isNotEmpty
+                  ? widget.item.flavorName!
+                  : widget.item.name,
               style: AppTypography.heading2.copyWith(color: Colors.white, fontSize: 16),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
             Text(
-              widget.item.setOrSeries,
+              widget.item.flavorName != null &&
+                      widget.item.flavorName!.isNotEmpty
+                  ? '[${widget.item.name}] • ${widget.item.setOrSeries}'
+                  : widget.item.setOrSeries,
               style: AppTypography.caption.copyWith(color: AppColors.textSecondary),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -252,7 +268,9 @@ class _FullScreenCardViewerState extends State<FullScreenCardViewer>
         builder: (context, child) {
           final angle = _flipAnimation.value * math.pi;
           final isUnder = angle > (math.pi / 2);
-          final currentUrl = isUnder ? (_getBackImageUrl() ?? '') : _getFrontImageUrl();
+          final backUrl = _getBackImageUrl();
+          final frontUrl = _getFrontImageUrl();
+          final currentUrl = isUnder ? (backUrl ?? frontUrl) : frontUrl;
           return Transform(
             transform: Matrix4.identity()
               ..setEntry(3, 2, 0.001)

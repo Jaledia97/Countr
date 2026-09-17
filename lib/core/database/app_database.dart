@@ -98,6 +98,16 @@ class AppDatabase extends _$AppDatabase {
               'ALTER TABLE "vault_items" ADD COLUMN "flavor_name" TEXT;',
             );
           }
+
+          // Backfill flavor_name for legacy records where flavor_name is null or empty
+          await customStatement('''
+            UPDATE "vault_items"
+            SET "flavor_name" = json_extract("dynamic_data", '\$.flavor_name')
+            WHERE ("flavor_name" IS NULL OR "flavor_name" = '')
+              AND "dynamic_data" LIKE '%"flavor_name"%'
+              AND json_extract("dynamic_data", '\$.flavor_name') IS NOT NULL
+              AND json_extract("dynamic_data", '\$.flavor_name') != '';
+          ''');
         } catch (_) {}
 
         // Performance compound indexes for instantaneous query and sorting

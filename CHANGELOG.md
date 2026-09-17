@@ -15,6 +15,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.9.1] - 2026-09-17
+
+### Scryfall Multi-Face & Flavor Name Polish, Price Fallbacks, and Catalog Healing
+
+#### Fixed & Improved
+- **Bidirectional Flavor / Alternate Name Search & Display**:
+  - Implemented dual-name display (`item.flavorName ?? item.name` with `[item.name]` secondary subtitle badge) across `VaultItemCard`, `VaultItemTile`, and `ManualAddBottomSheet`.
+  - Added full search indexing in `VaultDao` (`searchCatalogCards`, `watchItemsByCollection`, `getItemsByCollection`) matching on canonical `name`, `flavor_name`, and `dynamic_data`.
+  - Added SQLite startup backfill query in `AppDatabase.beforeOpen` to copy `flavor_name` from legacy `dynamic_data` into the `flavor_name` column.
+- **Multi-Faced (DFC) & Adventure Card Support**:
+  - Captured individual face attributes (`name`, `mana_cost`, `type_line`, `oracle_text`, `power`, `toughness`, `loyalty`, `image_url`, `image_uris`) in `mapScryfallCardToCompanion`.
+  - Enhanced `CardDetailSheet` with multi-face switcher (`[ View Face 1 ] | [ View Face 2 ]`) to toggle rules text, stats, and metadata between faces.
+  - Implemented image flip condition strictly checking for valid back artwork (`_hasFlipArt`), gracefully hiding flip buttons for cards without physical back art (such as Adventure cards).
+- **Pricing & Image Extraction Resilience**:
+  - Enhanced Scryfall parser to extract market prices across `usd`, `usd_foil`, `usd_etched`, `eur`, and `eur_foil`.
+  - Added image fallbacks for `border_crop` and `art_crop` when `normal`, `large`, or `png` are missing.
+- **On-Demand Catalog Healing**:
+  - Added live Scryfall search fallback in `ManualAddBottomSheet` that automatically queries Scryfall API and upserts fresh card metadata into local SQLite dictionary.
+- **Verification**:
+  - 100% test pass rate (713/713 automated tests) with 0 static analysis issues (`dart analyze --fatal-infos`).
+
+---
+
 ## [3.9.0] - 2026-09-17
 
 ### Phase 3.8 Multi-Face Scryfall Parsing, Sleek VaultScreen UI Overhaul, and Interactive 3D Card Flips & Cached Rulings

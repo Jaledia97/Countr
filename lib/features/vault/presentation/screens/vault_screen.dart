@@ -989,7 +989,8 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
         return item.name.toLowerCase().contains(query) ||
             (item.flavorName?.toLowerCase().contains(query) ?? false) ||
             item.setOrSeries.toLowerCase().contains(query) ||
-            item.condition.toLowerCase().contains(query);
+            item.condition.toLowerCase().contains(query) ||
+            item.dynamicData.toLowerCase().contains(query);
       }).toList();
 
       // Apply quick filter chips

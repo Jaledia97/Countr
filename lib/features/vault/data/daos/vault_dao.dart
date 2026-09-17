@@ -45,7 +45,8 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
       query.where((t) =>
           t.name.like(term) |
           t.flavorName.like(term) |
-          t.setOrSeries.like(term));
+          t.setOrSeries.like(term) |
+          t.dynamicData.like(term));
     }
 
     query.orderBy([
@@ -94,7 +95,8 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
       query.where((t) =>
           t.name.like(term) |
           t.flavorName.like(term) |
-          t.setOrSeries.like(term));
+          t.setOrSeries.like(term) |
+          t.dynamicData.like(term));
     }
 
     query.orderBy([
@@ -255,7 +257,8 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
       q.where((t) =>
           t.name.like(term) |
           t.flavorName.like(term) |
-          t.setOrSeries.like(term));
+          t.setOrSeries.like(term) |
+          t.dynamicData.like(term));
     }
 
     q.orderBy([(t) => OrderingTerm(expression: t.name, mode: OrderingMode.asc)]);
@@ -1208,5 +1211,32 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
         ),
       );
     }
+  }
+
+  /// Updates catalog/metadata fields of a card on-demand (e.g. self-healing).
+  Future<void> updateItemMetadata(
+    String id, {
+    String? flavorName,
+    String? imageUrl,
+    double? currentMarketPrice,
+    String? dynamicData,
+  }) async {
+    await (update(vaultItems)..where((t) => t.id.equals(id))).write(
+      VaultItemsCompanion(
+        flavorName:
+            flavorName != null ? Value(flavorName) : const Value.absent(),
+        imageUrl: imageUrl != null && imageUrl.isNotEmpty
+            ? Value(imageUrl)
+            : const Value.absent(),
+        currentMarketPrice: currentMarketPrice != null
+            ? Value(currentMarketPrice)
+            : const Value.absent(),
+        dynamicData:
+            dynamicData != null ? Value(dynamicData) : const Value.absent(),
+        lastPriceUpdate: currentMarketPrice != null
+            ? Value(DateTime.now())
+            : const Value.absent(),
+      ),
+    );
   }
 }

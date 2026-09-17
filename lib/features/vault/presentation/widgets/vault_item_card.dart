@@ -131,14 +131,18 @@ class VaultItemCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                item.name,
+                item.flavorName != null && item.flavorName!.isNotEmpty
+                    ? item.flavorName!
+                    : item.name,
                 style: AppTypography.heading2.copyWith(fontSize: 14.5),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: 2),
               Text(
-                item.setOrSeries,
+                item.flavorName != null && item.flavorName!.isNotEmpty
+                    ? '[${item.name}] • ${item.setOrSeries}'
+                    : item.setOrSeries,
                 style: AppTypography.caption.copyWith(
                   color: AppColors.textSecondary,
                 ),

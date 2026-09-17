@@ -23,6 +23,8 @@ VaultItemsCompanion mapScryfallCardToCompanion(Map<String, dynamic> card) {
             uris['large'] ??
             uris['small'] ??
             uris['png'] ??
+            uris['border_crop'] ??
+            uris['art_crop'] ??
             '') as String;
   } else if (card['card_faces'] is List &&
       (card['card_faces'] as List).isNotEmpty) {
@@ -33,6 +35,8 @@ VaultItemsCompanion mapScryfallCardToCompanion(Map<String, dynamic> card) {
               uris['large'] ??
               uris['small'] ??
               uris['png'] ??
+              uris['border_crop'] ??
+              uris['art_crop'] ??
               '') as String;
     }
   }
@@ -45,7 +49,15 @@ VaultItemsCompanion mapScryfallCardToCompanion(Map<String, dynamic> card) {
         String faceImg = '';
         if (face['image_uris'] is Map) {
           final u = face['image_uris'] as Map;
-          faceImg = (u['normal'] ?? u['large'] ?? u['small'] ?? u['png'] ?? '')?.toString() ?? '';
+          faceImg = (u['normal'] ??
+                  u['large'] ??
+                  u['small'] ??
+                  u['png'] ??
+                  u['border_crop'] ??
+                  u['art_crop'] ??
+                  '')
+              ?.toString() ??
+              '';
         }
         cardFaces.add({
           'name': face['name']?.toString() ?? '',
@@ -53,6 +65,9 @@ VaultItemsCompanion mapScryfallCardToCompanion(Map<String, dynamic> card) {
           'type_line': face['type_line']?.toString() ?? '',
           'oracle_text': face['oracle_text']?.toString() ?? '',
           if (face['flavor_name'] != null) 'flavor_name': face['flavor_name']?.toString(),
+          if (face['power'] != null) 'power': face['power']?.toString(),
+          if (face['toughness'] != null) 'toughness': face['toughness']?.toString(),
+          if (face['loyalty'] != null) 'loyalty': face['loyalty']?.toString(),
           'image_url': faceImg,
           if (face['image_uris'] is Map) 'image_uris': face['image_uris'],
         });
@@ -100,14 +115,21 @@ VaultItemsCompanion mapScryfallCardToCompanion(Map<String, dynamic> card) {
     imageUris = cardFaces[0]['image_uris'];
   }
 
-  // Market price extraction (USD normal, then foil)
+  // Market price extraction (USD normal, foil, etched, EUR, EUR foil)
   double marketPrice = 0.0;
   if (card['prices'] is Map) {
     final prices = card['prices'] as Map<String, dynamic>;
     final usd = prices['usd']?.toString();
     final usdFoil = prices['usd_foil']?.toString();
-    marketPrice =
-        double.tryParse(usd ?? '') ?? double.tryParse(usdFoil ?? '') ?? 0.0;
+    final usdEtched = prices['usd_etched']?.toString();
+    final eur = prices['eur']?.toString();
+    final eurFoil = prices['eur_foil']?.toString();
+    marketPrice = double.tryParse(usd ?? '') ??
+        double.tryParse(usdFoil ?? '') ??
+        double.tryParse(usdEtched ?? '') ??
+        double.tryParse(eur ?? '') ??
+        double.tryParse(eurFoil ?? '') ??
+        0.0;
   }
 
   // Dynamic metadata JSON payload
@@ -120,6 +142,9 @@ VaultItemsCompanion mapScryfallCardToCompanion(Map<String, dynamic> card) {
     'artist': card['artist'] ?? '',
     'flavor_text': card['flavor_text'] ?? '',
     'flavor_name': flavorName ?? '',
+    if (card['power'] != null) 'power': card['power']?.toString(),
+    if (card['toughness'] != null) 'toughness': card['toughness']?.toString(),
+    if (card['loyalty'] != null) 'loyalty': card['loyalty']?.toString(),
     'scryfall_uri': card['scryfall_uri'] ?? '',
     if (cardFaces.isNotEmpty) 'card_faces': cardFaces,
     if (imageUris is Map) 'image_uris': imageUris,
