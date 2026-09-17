@@ -153,7 +153,59 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
     return const [];
   }
 
+  bool _isAdventureCard() {
+    final layout = _dynamicData['layout']?.toString().toLowerCase() ?? '';
+    if (layout == 'adventure') return true;
+
+    final typeLine = _dynamicData['type_line']?.toString().toLowerCase() ?? '';
+    if (typeLine.contains('adventure')) return true;
+
+    final faces = _getCardFaces();
+    for (final face in faces) {
+      final faceType = face['type_line']?.toString().toLowerCase() ?? '';
+      if (faceType.contains('adventure')) return true;
+    }
+
+    final rawJson = _currentItem.dynamicData.toLowerCase();
+    if (rawJson.contains('"layout":"adventure"') ||
+        rawJson.contains('"layout": "adventure"') ||
+        rawJson.contains('instant — adventure') ||
+        rawJson.contains('sorcery — adventure') ||
+        rawJson.contains('instant - adventure') ||
+        rawJson.contains('sorcery - adventure')) {
+      return true;
+    }
+
+    return false;
+  }
+
+  double get _effectiveMarketPrice {
+    if (_currentItem.currentMarketPrice > 0) return _currentItem.currentMarketPrice;
+    try {
+      if (_dynamicData['prices'] is Map) {
+        final prices = _dynamicData['prices'] as Map;
+        final usd = prices['usd']?.toString();
+        final usdFoil = prices['usd_foil']?.toString();
+        final usdEtched = prices['usd_etched']?.toString();
+        final eur = prices['eur']?.toString();
+        final eurFoil = prices['eur_foil']?.toString();
+        final p = double.tryParse(usd ?? '') ??
+            double.tryParse(usdFoil ?? '') ??
+            double.tryParse(usdEtched ?? '') ??
+            double.tryParse(eur ?? '') ??
+            double.tryParse(eurFoil ?? '') ??
+            0.0;
+        if (p > 0) return p;
+      }
+    } catch (_) {}
+    return 0.0;
+  }
+
   Map<String, dynamic>? get _activeFace {
+    if (_isAdventureCard()) {
+      final faces = _getCardFaces();
+      return faces.isNotEmpty ? faces[0] : null;
+    }
     final faces = _getCardFaces();
     if (faces.length > 1) {
       return _isFlipped ? faces[1] : faces[0];
@@ -164,6 +216,7 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
   }
 
   String? _getBackImageUrl() {
+    if (_isAdventureCard()) return null;
     if (_dynamicData['back_image_url'] is String &&
         (_dynamicData['back_image_url'] as String).isNotEmpty) {
       return _dynamicData['back_image_url'] as String;
@@ -225,8 +278,9 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
     return '';
   }
 
-  bool get _hasFlipArt => _getBackImageUrl() != null;
-  bool get _hasMultipleFaces => _hasFlipArt || _getCardFaces().length > 1;
+  bool get _hasFlipArt => !_isAdventureCard() && _getBackImageUrl() != null;
+  bool get _hasMultipleFaces =>
+      !_isAdventureCard() && (_hasFlipArt || _getCardFaces().length > 1);
 
   void _toggleFlip() {
     if (!_hasMultipleFaces) return;
@@ -257,8 +311,10 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
         _currentItem.name.contains(' // ') || _currentItem.name.contains('//');
     final isMissingFaceData =
         isDfcName && (!hasCardFaces || oracle.trim().isEmpty);
+    final isMissingPrice = _currentItem.currentMarketPrice <= 0.0;
+    final isMissingImage = _currentItem.imageUrl.isEmpty;
 
-    if (!isMissingFaceData) return;
+    if (!isMissingFaceData && !isMissingPrice && !isMissingImage) return;
 
     try {
       final scryfallId = _dynamicData['scryfall_id']?.toString() ??
@@ -522,9 +578,10 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
         : const <String>[];
 
     // Profit / Loss calculations
-    final delta = (_currentItem.currentMarketPrice - _currentItem.acquiredPrice) * _currentItem.quantity;
+    final effectivePrice = _effectiveMarketPrice;
+    final delta = (effectivePrice - _currentItem.acquiredPrice) * _currentItem.quantity;
     final pct = _currentItem.acquiredPrice > 0
-        ? ((_currentItem.currentMarketPrice - _currentItem.acquiredPrice) / _currentItem.acquiredPrice) * 100
+        ? ((effectivePrice - _currentItem.acquiredPrice) / _currentItem.acquiredPrice) * 100
         : 0.0;
     final isProfit = delta >= 0;
 
@@ -698,7 +755,9 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
                                   border: Border.all(color: AppColors.accentAmber.withValues(alpha: 0.4)),
                                 ),
                                 child: Text(
-                                  'Market: \$${_currentItem.currentMarketPrice.toStringAsFixed(2)}',
+                                  _effectiveMarketPrice > 0
+                                      ? 'Market: \$${_effectiveMarketPrice.toStringAsFixed(2)}'
+                                      : 'Market: Check',
                                   style: const TextStyle(
                                     color: AppColors.accentAmber,
                                     fontWeight: FontWeight.w800,
@@ -819,63 +878,65 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(color: AppColors.surfaceBorder),
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (_hasMultipleFaces && activeFace != null && _getCardFaces().length > 1) ...[
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              margin: const EdgeInsets.only(bottom: 10),
-                              decoration: BoxDecoration(
-                                color: AppColors.surface,
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(color: AppColors.surfaceBorderSubtle),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    _isFlipped ? Icons.flip_to_back : Icons.flip_to_front,
-                                    size: 13,
-                                    color: AppColors.accentCyan,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                    child: Text(
-                                      '${activeFace['name'] ?? (_isFlipped ? 'Back Face' : 'Front Face')} — ${activeFace['type_line'] ?? ''}',
-                                      style: const TextStyle(
-                                        color: AppColors.textSecondary,
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
+                      child: _isAdventureCard()
+                          ? _buildAdventureOracleContent(oracleText, flavorText)
+                          : Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                if (_hasMultipleFaces && activeFace != null && _getCardFaces().length > 1) ...[
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    margin: const EdgeInsets.only(bottom: 10),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.surface,
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(color: AppColors.surfaceBorderSubtle),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          _isFlipped ? Icons.flip_to_back : Icons.flip_to_front,
+                                          size: 13,
+                                          color: AppColors.accentCyan,
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Expanded(
+                                          child: Text(
+                                            '${activeFace['name'] ?? (_isFlipped ? 'Back Face' : 'Front Face')} — ${activeFace['type_line'] ?? ''}',
+                                            style: const TextStyle(
+                                              color: AppColors.textSecondary,
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ],
-                              ),
+                                Text(
+                                  oracleText.isNotEmpty ? oracleText : 'No rules text available for this card.',
+                                  style: const TextStyle(
+                                    color: AppColors.textPrimary,
+                                    fontSize: 13.5,
+                                    height: 1.45,
+                                  ),
+                                ),
+                                if (flavorText.isNotEmpty) ...[
+                                  const SizedBox(height: 10),
+                                  Text(
+                                    flavorText,
+                                    style: const TextStyle(
+                                      color: AppColors.textMuted,
+                                      fontStyle: FontStyle.italic,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ],
                             ),
-                          ],
-                          Text(
-                            oracleText.isNotEmpty ? oracleText : 'No rules text available for this card.',
-                            style: const TextStyle(
-                              color: AppColors.textPrimary,
-                              fontSize: 13.5,
-                              height: 1.45,
-                            ),
-                          ),
-                          if (flavorText.isNotEmpty) ...[
-                            const SizedBox(height: 10),
-                            Text(
-                              flavorText,
-                              style: const TextStyle(
-                                color: AppColors.textMuted,
-                                fontStyle: FontStyle.italic,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
                     ),
 
                     // Card Mechanics & Rulings
@@ -1309,6 +1370,260 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
       default:
         return AppColors.textSecondary;
     }
+  }
+
+  Widget _buildAdventureOracleContent(String oracleText, String flavorText) {
+    final faces = _getCardFaces();
+    Map<String, dynamic> face0 = {};
+    Map<String, dynamic> face1 = {};
+
+    if (faces.length >= 2) {
+      face0 = faces[0];
+      face1 = faces[1];
+    } else {
+      final names = _currentItem.name.contains(' // ')
+          ? _currentItem.name.split(' // ')
+          : _currentItem.name.split('//');
+      final oracles = oracleText.contains(' // ')
+          ? oracleText.split(' // ')
+          : oracleText.split('//');
+      face0 = {
+        'name': names[0].trim(),
+        'type_line': _dynamicData['type_line']?.toString() ?? 'Creature',
+        'mana_cost': _dynamicData['mana_cost']?.toString() ?? '',
+        'oracle_text': oracles[0].trim(),
+        'power': _dynamicData['power'],
+        'toughness': _dynamicData['toughness'],
+      };
+      face1 = {
+        'name': names.length > 1 ? names[1].trim() : 'Adventure Spell',
+        'type_line': 'Instant — Adventure',
+        'mana_cost': '',
+        'oracle_text': oracles.length > 1 ? oracles[1].trim() : '',
+      };
+    }
+
+    final name0 = face0['name']?.toString() ?? _currentItem.name;
+    final mana0 = face0['mana_cost']?.toString() ?? '';
+    final type0 = face0['type_line']?.toString() ?? '';
+    final text0 = face0['oracle_text']?.toString() ?? '';
+    final p0 = face0['power']?.toString();
+    final t0 = face0['toughness']?.toString();
+    final pt0 = (p0 != null && t0 != null && p0.isNotEmpty && t0.isNotEmpty)
+        ? '$p0/$t0'
+        : null;
+
+    final name1 = face1['name']?.toString() ?? 'Adventure Spell';
+    final mana1 = face1['mana_cost']?.toString() ?? '';
+    final type1 = face1['type_line']?.toString() ?? 'Instant — Adventure';
+    final text1 = face1['oracle_text']?.toString() ?? '';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Face 0: Main Permanent Spell
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: Text(
+                name0,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+            if (mana0.isNotEmpty) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: AppColors.surfaceBorder),
+                ),
+                child: Text(
+                  mana0,
+                  style: const TextStyle(
+                    color: AppColors.accentAmber,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+        if (type0.isNotEmpty || pt0 != null) ...[
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              if (type0.isNotEmpty)
+                Expanded(
+                  child: Text(
+                    type0,
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 12,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ),
+              if (pt0 != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceBorderSubtle,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    pt0,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 11.5,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ],
+        if (text0.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Text(
+            text0,
+            style: const TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 13.5,
+              height: 1.45,
+            ),
+          ),
+        ],
+
+        // Divider banner between Main Spell and Adventure Spell
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          child: Row(
+            children: [
+              Expanded(
+                child: Container(
+                  height: 1,
+                  color: AppColors.accentCyan.withValues(alpha: 0.3),
+                ),
+              ),
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.accentCyan.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: AppColors.accentCyan.withValues(alpha: 0.4),
+                  ),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.auto_stories, size: 13, color: AppColors.accentCyan),
+                    SizedBox(width: 6),
+                    Text(
+                      'ADVENTURE SPELL',
+                      style: TextStyle(
+                        color: AppColors.accentCyan,
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: Container(
+                  height: 1,
+                  color: AppColors.accentCyan.withValues(alpha: 0.3),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // Face 1: Adventure Spell
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: Text(
+                name1,
+                style: const TextStyle(
+                  color: AppColors.accentCyan,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+            if (mana1.isNotEmpty) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                decoration: BoxDecoration(
+                  color: AppColors.accentCyan.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: AppColors.accentCyan.withValues(alpha: 0.3)),
+                ),
+                child: Text(
+                  mana1,
+                  style: const TextStyle(
+                    color: AppColors.accentCyan,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+        if (type1.isNotEmpty) ...[
+          const SizedBox(height: 4),
+          Text(
+            type1,
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 12,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ],
+        if (text1.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Text(
+            text1,
+            style: const TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 13.5,
+              height: 1.45,
+            ),
+          ),
+        ],
+
+        // Flavor Text
+        if (flavorText.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Text(
+            flavorText,
+            style: const TextStyle(
+              color: AppColors.textMuted,
+              fontStyle: FontStyle.italic,
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ],
+    );
   }
 
   Widget _buildCardMechanicsAndRulings(
@@ -1804,7 +2119,9 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
             ),
             const SizedBox(height: 4),
             Text(
-              'Market Value: \$${_currentItem.currentMarketPrice.toStringAsFixed(2)}',
+              _effectiveMarketPrice > 0
+                  ? 'Market Value: \$${_effectiveMarketPrice.toStringAsFixed(2)}'
+                  : 'Market Value: Unavailable',
               style: const TextStyle(color: AppColors.accentCyan, fontSize: 13),
             ),
             const SizedBox(height: 16),

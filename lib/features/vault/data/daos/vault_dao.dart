@@ -600,9 +600,15 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
             name: excluded.name,
             flavorName: excluded.flavorName,
             setOrSeries: excluded.setOrSeries,
-            imageUrl: excluded.imageUrl,
-            currentMarketPrice: excluded.currentMarketPrice,
-            lastPriceUpdate: excluded.lastPriceUpdate,
+            imageUrl: const CustomExpression<String>(
+              'CASE WHEN excluded.image_url IS NOT NULL AND excluded.image_url != \'\' THEN excluded.image_url ELSE vault_items.image_url END',
+            ),
+            currentMarketPrice: const CustomExpression<double>(
+              'CASE WHEN excluded.current_market_price > 0.0 THEN excluded.current_market_price ELSE vault_items.current_market_price END',
+            ),
+            lastPriceUpdate: const CustomExpression<DateTime>(
+              'CASE WHEN excluded.current_market_price > 0.0 THEN excluded.last_price_update ELSE vault_items.last_price_update END',
+            ),
             dynamicData: excluded.dynamicData,
             collectionType: excluded.collectionType,
           ),

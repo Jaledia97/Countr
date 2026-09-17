@@ -118,7 +118,7 @@ VaultItemsCompanion mapScryfallCardToCompanion(Map<String, dynamic> card) {
   // Market price extraction (USD normal, foil, etched, EUR, EUR foil)
   double marketPrice = 0.0;
   if (card['prices'] is Map) {
-    final prices = card['prices'] as Map<String, dynamic>;
+    final prices = card['prices'] as Map;
     final usd = prices['usd']?.toString();
     final usdFoil = prices['usd_foil']?.toString();
     final usdEtched = prices['usd_etched']?.toString();
@@ -134,6 +134,7 @@ VaultItemsCompanion mapScryfallCardToCompanion(Map<String, dynamic> card) {
 
   // Dynamic metadata JSON payload
   final dynamicData = jsonEncode({
+    'layout': card['layout'] ?? '',
     'mana_cost': card['mana_cost'] ?? '',
     'type_line': card['type_line'] ?? '',
     'oracle_text': oracleText,
@@ -148,7 +149,8 @@ VaultItemsCompanion mapScryfallCardToCompanion(Map<String, dynamic> card) {
     'scryfall_uri': card['scryfall_uri'] ?? '',
     if (cardFaces.isNotEmpty) 'card_faces': cardFaces,
     if (imageUris is Map) 'image_uris': imageUris,
-    'back_image_url': ?backImageUrl,
+    'back_image_url': backImageUrl,
+    if (card['prices'] is Map) 'prices': card['prices'],
   });
 
   return VaultItemsCompanion.insert(

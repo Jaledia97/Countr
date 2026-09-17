@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:countr/core/constants/app_colors.dart';
 import 'package:countr/core/constants/app_typography.dart';
@@ -174,21 +175,29 @@ class VaultItemTile extends StatelessWidget {
                   Positioned(
                     bottom: 6,
                     left: 6,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.85),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: AppColors.accentAmber.withValues(alpha: 0.5)),
-                      ),
-                      child: Text(
-                        '\$${item.currentMarketPrice.toStringAsFixed(2)}',
-                        style: const TextStyle(
-                          color: AppColors.accentAmber,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 11,
-                        ),
-                      ),
+                    child: Builder(
+                      builder: (context) {
+                        final price = _getEffectiveMarketPrice();
+                        final priceText = price > 0
+                            ? '\$${price.toStringAsFixed(2)}'
+                            : (isOwned ? '\$0.00' : 'Check');
+                        return Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.85),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: AppColors.accentAmber.withValues(alpha: 0.5)),
+                          ),
+                          child: Text(
+                            priceText,
+                            style: const TextStyle(
+                              color: AppColors.accentAmber,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 11,
+                            ),
+                          ),
+                        );
+                      },
                     ),
                   ),
                 ],
@@ -228,6 +237,31 @@ class VaultItemTile extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  double _getEffectiveMarketPrice() {
+    if (item.currentMarketPrice > 0) return item.currentMarketPrice;
+    try {
+      if (item.dynamicData.isNotEmpty) {
+        final dyn = jsonDecode(item.dynamicData) as Map<String, dynamic>;
+        if (dyn['prices'] is Map) {
+          final prices = dyn['prices'] as Map;
+          final usd = prices['usd']?.toString();
+          final usdFoil = prices['usd_foil']?.toString();
+          final usdEtched = prices['usd_etched']?.toString();
+          final eur = prices['eur']?.toString();
+          final eurFoil = prices['eur_foil']?.toString();
+          final p = double.tryParse(usd ?? '') ??
+              double.tryParse(usdFoil ?? '') ??
+              double.tryParse(usdEtched ?? '') ??
+              double.tryParse(eur ?? '') ??
+              double.tryParse(eurFoil ?? '') ??
+              0.0;
+          if (p > 0) return p;
+        }
+      }
+    } catch (_) {}
+    return 0.0;
   }
 
   Widget _buildPlaceholder() {

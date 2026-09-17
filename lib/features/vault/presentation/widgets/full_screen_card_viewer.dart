@@ -85,7 +85,38 @@ class _FullScreenCardViewerState extends State<FullScreenCardViewer>
     }
   }
 
+  bool _isAdventureCard() {
+    final layout = _dynamicData['layout']?.toString().toLowerCase() ?? '';
+    if (layout == 'adventure') return true;
+
+    final typeLine = _dynamicData['type_line']?.toString().toLowerCase() ?? '';
+    if (typeLine.contains('adventure')) return true;
+
+    final faces = _dynamicData['card_faces'];
+    if (faces is List) {
+      for (final face in faces) {
+        if (face is Map) {
+          final ft = face['type_line']?.toString().toLowerCase() ?? '';
+          if (ft.contains('adventure')) return true;
+        }
+      }
+    }
+
+    final rawJson = widget.item.dynamicData.toLowerCase();
+    if (rawJson.contains('"layout":"adventure"') ||
+        rawJson.contains('"layout": "adventure"') ||
+        rawJson.contains('instant — adventure') ||
+        rawJson.contains('sorcery — adventure') ||
+        rawJson.contains('instant - adventure') ||
+        rawJson.contains('sorcery - adventure')) {
+      return true;
+    }
+
+    return false;
+  }
+
   String? _getBackImageUrl() {
+    if (_isAdventureCard()) return null;
     if (_dynamicData['back_image_url'] is String &&
         (_dynamicData['back_image_url'] as String).isNotEmpty) {
       return _dynamicData['back_image_url'] as String;
@@ -147,16 +178,22 @@ class _FullScreenCardViewerState extends State<FullScreenCardViewer>
     return '';
   }
 
-  bool get _hasFlipArt => _getBackImageUrl() != null;
+  bool get _hasFlipArt => !_isAdventureCard() && _getBackImageUrl() != null;
 
   bool get _hasMultipleFaces =>
-      _hasFlipArt ||
-      (_dynamicData['card_faces'] is List &&
-          (_dynamicData['card_faces'] as List).length > 1) ||
-      widget.item.name.contains(' // ') ||
-      widget.item.name.contains('//');
+      !_isAdventureCard() &&
+      (_hasFlipArt ||
+          (_dynamicData['card_faces'] is List &&
+              (_dynamicData['card_faces'] as List).length > 1) ||
+          widget.item.name.contains(' // ') ||
+          widget.item.name.contains('//'));
 
   String get _activeFaceName {
+    if (_isAdventureCard()) {
+      return widget.item.flavorName != null && widget.item.flavorName!.isNotEmpty
+          ? widget.item.flavorName!
+          : widget.item.name;
+    }
     final faces = _dynamicData['card_faces'];
     if (faces is List && faces.isNotEmpty) {
       final index = _isFlipped && faces.length > 1 ? 1 : 0;

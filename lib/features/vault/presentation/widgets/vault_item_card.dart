@@ -230,11 +230,37 @@ class VaultItemCard extends StatelessWidget {
     );
   }
 
+  double _getEffectiveMarketPrice() {
+    if (item.currentMarketPrice > 0) return item.currentMarketPrice;
+    try {
+      if (item.dynamicData.isNotEmpty) {
+        final dyn = jsonDecode(item.dynamicData) as Map<String, dynamic>;
+        if (dyn['prices'] is Map) {
+          final prices = dyn['prices'] as Map;
+          final usd = prices['usd']?.toString();
+          final usdFoil = prices['usd_foil']?.toString();
+          final usdEtched = prices['usd_etched']?.toString();
+          final eur = prices['eur']?.toString();
+          final eurFoil = prices['eur_foil']?.toString();
+          final p = double.tryParse(usd ?? '') ??
+              double.tryParse(usdFoil ?? '') ??
+              double.tryParse(usdEtched ?? '') ??
+              double.tryParse(eur ?? '') ??
+              double.tryParse(eurFoil ?? '') ??
+              0.0;
+          if (p > 0) return p;
+        }
+      }
+    } catch (_) {}
+    return 0.0;
+  }
+
   Widget _buildInvestorFinancialRow() {
+    final effectivePrice = _getEffectiveMarketPrice();
     final delta =
-        (item.currentMarketPrice - item.acquiredPrice) * item.quantity;
+        (effectivePrice - item.acquiredPrice) * item.quantity;
     final pct = item.acquiredPrice > 0
-        ? ((item.currentMarketPrice - item.acquiredPrice) /
+        ? ((effectivePrice - item.acquiredPrice) /
                 item.acquiredPrice) *
             100
         : 0.0;
@@ -298,7 +324,9 @@ class VaultItemCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '\$${item.currentMarketPrice.toStringAsFixed(2)}',
+                      effectivePrice > 0
+                          ? '\$${effectivePrice.toStringAsFixed(2)}'
+                          : 'Market Check',
                       style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w800,
@@ -372,7 +400,7 @@ class VaultItemCard extends StatelessWidget {
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  '\$${item.currentMarketPrice.toStringAsFixed(2)}',
+                                  '\$${effectivePrice.toStringAsFixed(2)}',
                                   overflow: TextOverflow.ellipsis,
                                   maxLines: 1,
                                   style: const TextStyle(

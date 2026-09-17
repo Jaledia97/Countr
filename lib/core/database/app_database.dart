@@ -108,6 +108,35 @@ class AppDatabase extends _$AppDatabase {
               AND json_extract("dynamic_data", '\$.flavor_name') IS NOT NULL
               AND json_extract("dynamic_data", '\$.flavor_name') != '';
           ''');
+
+          // Backfill current_market_price for legacy cards where it was 0 or null but dynamic_data has prices
+          await customStatement('''
+            UPDATE "vault_items"
+            SET "current_market_price" = CAST(json_extract("dynamic_data", '\$.prices.usd') AS REAL)
+            WHERE ("current_market_price" IS NULL OR "current_market_price" <= 0.0)
+              AND "dynamic_data" LIKE '%"usd"%'
+              AND json_extract("dynamic_data", '\$.prices.usd') IS NOT NULL
+              AND json_extract("dynamic_data", '\$.prices.usd') != ''
+              AND CAST(json_extract("dynamic_data", '\$.prices.usd') AS REAL) > 0.0;
+          ''');
+          await customStatement('''
+            UPDATE "vault_items"
+            SET "current_market_price" = CAST(json_extract("dynamic_data", '\$.prices.usd_foil') AS REAL)
+            WHERE ("current_market_price" IS NULL OR "current_market_price" <= 0.0)
+              AND "dynamic_data" LIKE '%"usd_foil"%'
+              AND json_extract("dynamic_data", '\$.prices.usd_foil') IS NOT NULL
+              AND json_extract("dynamic_data", '\$.prices.usd_foil') != ''
+              AND CAST(json_extract("dynamic_data", '\$.prices.usd_foil') AS REAL) > 0.0;
+          ''');
+          await customStatement('''
+            UPDATE "vault_items"
+            SET "current_market_price" = CAST(json_extract("dynamic_data", '\$.prices.eur') AS REAL)
+            WHERE ("current_market_price" IS NULL OR "current_market_price" <= 0.0)
+              AND "dynamic_data" LIKE '%"eur"%'
+              AND json_extract("dynamic_data", '\$.prices.eur') IS NOT NULL
+              AND json_extract("dynamic_data", '\$.prices.eur') != ''
+              AND CAST(json_extract("dynamic_data", '\$.prices.eur') AS REAL) > 0.0;
+          ''');
         } catch (_) {}
 
         // Performance compound indexes for instantaneous query and sorting
