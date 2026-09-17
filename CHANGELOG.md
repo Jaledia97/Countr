@@ -46,9 +46,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Built `FullScreenCardViewer` with `InteractiveViewer` pinch-to-zoom/pan and animated holographic rainbow shimmer overlay via custom `ShaderMask` for `[ ✨ Foil Finish ]`.
 - **Card Detail "Edit" Modal (R5)**:
   - Built `EditCardModal` allowing users to switch variants, edit custom tags, overwrite acquired prices, and toggle condition flags (`isGraded`, `isAltered`, `isMisprint`, `isSigned`) persisting to SQLite schema v4.
+- **Duplicate Badge Visual Counter**:
+  - Attached an intuitive duplicate count badge (`${quantity}x`) with cyan styling on cards with multiple copies (`quantity > 1`) in both List (`VaultItemCard`) and Grid (`VaultItemTile`) views.
+  - Omitted badges for single-copy cards (`quantity == 1`) to eliminate visual clutter.
+  - Retained clean `Total Tracked Items: $totalCount` in the Vault header to reflect aggregate physical copy count accurately.
+  - Fixed search clear button `_debounceTimer` race condition ensuring instant restoration of cards upon clearing search.
+  - Added reactive collection counts to `CollectionsAccordion` in Command Center drawer.
 - **Test Suite Metrics**:
-  - 574 total automated tests passing project-wide (419 existing baseline + 155 new tests) with 0 failures and 0 regressions.
-  - Static analysis passing with 0 errors, 0 warnings, 0 infos.
+  - 580 total automated tests passing project-wide with 0 failures and 0 regressions.
+  - Static analysis passing with 0 errors, 0 warnings, 0 infos (`dart analyze --fatal-infos`).
 
 ---
 

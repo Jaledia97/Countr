@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_typography.dart';
 import '../../../../core/state/app_state.dart';
+import '../../../vault/presentation/providers/vault_providers.dart';
 
 /// Accordion 1: "Collections +"
 /// Displays:
@@ -27,39 +28,51 @@ class CollectionsAccordion extends ConsumerWidget {
   static const List<Map<String, dynamic>> _collections = [
     {
       'title': 'All Collections',
+      'key': 'all',
       'icon': Icons.all_inbox_rounded,
       'color': AppColors.accentCyan,
-      'count': '524 Items',
+      'unitSingle': 'Item',
+      'unitPlural': 'Items',
     },
     {
       'title': 'Magic: The Gathering',
+      'key': 'mtg',
       'icon': Icons.auto_awesome_rounded,
       'color': AppColors.accentViolet,
-      'count': '210 Cards',
+      'unitSingle': 'Card',
+      'unitPlural': 'Cards',
     },
     {
       'title': 'Pokémon TCG',
+      'key': 'pokemon',
       'icon': Icons.catching_pokemon_rounded,
       'color': AppColors.accentAmber,
-      'count': '185 Cards',
+      'unitSingle': 'Card',
+      'unitPlural': 'Cards',
     },
     {
       'title': 'Comic Books',
+      'key': 'comic',
       'icon': Icons.menu_book_rounded,
       'color': AppColors.accentEmerald,
-      'count': '129 Issues',
+      'unitSingle': 'Issue',
+      'unitPlural': 'Issues',
     },
     {
       'title': 'Sports Cards',
+      'key': 'sports_card',
       'icon': Icons.sports_football_rounded,
       'color': AppColors.accentCyan,
-      'count': '98 Cards',
+      'unitSingle': 'Card',
+      'unitPlural': 'Cards',
     },
   ];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final activeGame = ref.watch(activeGameContextProvider);
+    final countsAsync = ref.watch(collectionItemCountsProvider);
+    final counts = countsAsync.valueOrNull ?? const {};
 
     return Theme(
       data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
@@ -111,7 +124,11 @@ class CollectionsAccordion extends ConsumerWidget {
               final title = item['title'] as String;
               final icon = item['icon'] as IconData;
               final color = item['color'] as Color;
-              final count = item['count'] as String;
+              final key = item['key'] as String;
+              final unitSingle = item['unitSingle'] as String;
+              final unitPlural = item['unitPlural'] as String;
+              final countVal = counts[key] ?? 0;
+              final count = '$countVal ${countVal == 1 ? unitSingle : unitPlural}';
               final isSelected = activeGame == title;
 
               return Container(

@@ -372,6 +372,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
                           ? IconButton(
                               icon: const Icon(Icons.clear, size: 18),
                               onPressed: () {
+                                _debounceTimer?.cancel();
                                 setState(() {
                                   _searchController.clear();
                                 });

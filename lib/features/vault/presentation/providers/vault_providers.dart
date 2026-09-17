@@ -59,6 +59,7 @@ final vaultItemsStreamProvider = StreamProvider<List<VaultItem>>((ref) {
   return dao.watchItemsByCollection(
     activeGame,
     onlyOwned: true,
+    searchQuery: searchQuery.isNotEmpty ? searchQuery : null,
     limit: paginationLimit,
   );
 });
@@ -70,6 +71,7 @@ class VaultPortfolioSummary {
   final double totalProfitLoss;
   final double profitLossPercentage;
   final int totalItemCount;
+  final int uniqueCardCount;
 
   const VaultPortfolioSummary({
     required this.totalMarketValue,
@@ -77,6 +79,7 @@ class VaultPortfolioSummary {
     required this.totalProfitLoss,
     required this.profitLossPercentage,
     required this.totalItemCount,
+    this.uniqueCardCount = 0,
   });
 
   bool get isProfitable => totalProfitLoss >= 0;
@@ -109,6 +112,8 @@ final vaultPortfolioSummaryProvider = Provider<VaultPortfolioSummary>((ref) {
       totalProfitLoss: totals.totalProfitLoss,
       profitLossPercentage: totals.profitLossPercentage,
       totalItemCount: totals.totalCount,
+      uniqueCardCount:
+          totals.uniqueCount > 0 ? totals.uniqueCount : totals.totalCount,
     );
   }
 
@@ -123,12 +128,14 @@ final vaultPortfolioSummaryProvider = Provider<VaultPortfolioSummary>((ref) {
           totalProfitLoss: 0.0,
           profitLossPercentage: 0.0,
           totalItemCount: 0,
+          uniqueCardCount: 0,
         );
       }
 
       double marketVal = 0.0;
       double costBasis = 0.0;
       int count = 0;
+      int unique = 0;
 
       for (final item in items) {
         if (item.quantity <= 0) continue;
@@ -136,6 +143,7 @@ final vaultPortfolioSummaryProvider = Provider<VaultPortfolioSummary>((ref) {
         marketVal += (item.currentMarketPrice * item.quantity);
         costBasis += (item.acquiredPrice * item.quantity);
         count += item.quantity;
+        unique += 1;
       }
 
       final delta = marketVal - costBasis;
@@ -147,6 +155,7 @@ final vaultPortfolioSummaryProvider = Provider<VaultPortfolioSummary>((ref) {
         totalProfitLoss: delta,
         profitLossPercentage: pct,
         totalItemCount: count,
+        uniqueCardCount: unique,
       );
     },
     orElse: () => const VaultPortfolioSummary(
@@ -155,6 +164,7 @@ final vaultPortfolioSummaryProvider = Provider<VaultPortfolioSummary>((ref) {
       totalProfitLoss: 0.0,
       profitLossPercentage: 0.0,
       totalItemCount: 0,
+      uniqueCardCount: 0,
     ),
   );
 });
@@ -195,3 +205,10 @@ final binderItemCountsProvider = StreamProvider<Map<String, int>>((ref) {
   final dao = ref.watch(vaultDaoProvider);
   return dao.watchBinderItemCounts();
 });
+
+/// Reactive StreamProvider for aggregate items grouped by collection type
+final collectionItemCountsProvider = StreamProvider<Map<String, int>>((ref) {
+  final dao = ref.watch(vaultDaoProvider);
+  return dao.watchCollectionItemCounts();
+});
+

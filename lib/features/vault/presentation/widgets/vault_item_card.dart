@@ -151,33 +151,62 @@ class VaultItemCard extends StatelessWidget {
 
         const SizedBox(width: 8),
 
-        // Condition / Grade Pill
+        // Condition / Grade Pill & Duplicate Counter Badge
         Column(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-              decoration: BoxDecoration(
-                color: item.isGraded
-                    ? AppColors.accentCyan.withValues(alpha: 0.18)
-                    : AppColors.surfaceRaised,
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(
-                  color: item.isGraded
-                      ? AppColors.accentCyan.withValues(alpha: 0.6)
-                      : AppColors.surfaceBorder,
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (item.quantity > 1) ...[
+                  Container(
+                    key: Key('vault_item_duplicate_badge_${item.id}'),
+                    margin: const EdgeInsets.only(right: 6),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 6, vertical: 2.5),
+                    decoration: BoxDecoration(
+                      color: AppColors.accentCyan.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: AppColors.accentCyan.withValues(alpha: 0.6),
+                        width: 1,
+                      ),
+                    ),
+                    child: Text(
+                      '${item.quantity}x',
+                      style: const TextStyle(
+                        color: AppColors.accentCyan,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ],
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: item.isGraded
+                        ? AppColors.accentCyan.withValues(alpha: 0.18)
+                        : AppColors.surfaceRaised,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: item.isGraded
+                          ? AppColors.accentCyan.withValues(alpha: 0.6)
+                          : AppColors.surfaceBorder,
+                    ),
+                  ),
+                  child: Text(
+                    item.condition,
+                    style: TextStyle(
+                      color: item.isGraded
+                          ? AppColors.accentCyan
+                          : AppColors.textPrimary,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
                 ),
-              ),
-              child: Text(
-                item.condition,
-                style: TextStyle(
-                  color: item.isGraded
-                      ? AppColors.accentCyan
-                      : AppColors.textPrimary,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
+              ],
             ),
             if (item.isGraded) ...[
               const SizedBox(height: 3),

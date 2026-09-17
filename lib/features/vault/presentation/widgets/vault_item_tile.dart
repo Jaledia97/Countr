@@ -91,22 +91,29 @@ class VaultItemTile extends StatelessWidget {
                     top: 6,
                     left: 6,
                     child: isOwned
-                        ? Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: 0.75),
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: AppColors.surfaceBorder),
-                            ),
-                            child: Text(
-                              '${item.quantity}x',
-                              style: const TextStyle(
-                                color: AppColors.textPrimary,
-                                fontWeight: FontWeight.w700,
-                                fontSize: 10.5,
-                              ),
-                            ),
-                          )
+                        ? (item.quantity > 1
+                            ? Container(
+                                key: Key('vault_tile_duplicate_badge_${item.id}'),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: AppColors.accentCyan.withValues(alpha: 0.25),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                    color: AppColors.accentCyan.withValues(alpha: 0.8),
+                                    width: 1,
+                                  ),
+                                ),
+                                child: Text(
+                                  '${item.quantity}x',
+                                  style: const TextStyle(
+                                    color: AppColors.accentCyan,
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 10.5,
+                                  ),
+                                ),
+                              )
+                            : const SizedBox.shrink())
                         : Container(
                             padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                             decoration: BoxDecoration(

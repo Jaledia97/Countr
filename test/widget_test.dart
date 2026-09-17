@@ -129,6 +129,10 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
       expect(find.text('COMMAND CENTER'), findsNothing);
+
+      // Unmount widget tree and flush Drift stream disposal timer
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(milliseconds: 100));
     });
 
     testWidgets('Command Center Collections accordion updates Riverpod activeGameContextProvider',

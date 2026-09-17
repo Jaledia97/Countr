@@ -136,6 +136,7 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     final querySql = '''
       SELECT
         CAST(COALESCE(SUM("quantity"), 0) AS INTEGER) AS total_count,
+        CAST(COUNT(*) AS INTEGER) AS unique_count,
         CAST(COALESCE(SUM("current_market_price" * "quantity"), 0.0) AS REAL) AS total_market_value,
         CAST(COALESCE(SUM("acquired_price" * "quantity"), 0.0) AS REAL) AS total_cost_basis
       FROM "vault_items"
@@ -148,6 +149,7 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
       readsFrom: {vaultItems},
     ).watchSingle().map((row) {
       final count = (row.data['total_count'] as num?)?.toInt() ?? 0;
+      final unique = (row.data['unique_count'] as num?)?.toInt() ?? count;
       final marketVal =
           (row.data['total_market_value'] as num?)?.toDouble() ?? 0.0;
       final costBasis =
@@ -157,6 +159,7 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
 
       return VaultTotals(
         totalCount: count,
+        uniqueCount: unique,
         totalMarketValue: marketVal,
         totalCostBasis: costBasis,
         totalProfitLoss: delta,
@@ -192,6 +195,7 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     final querySql = '''
       SELECT
         CAST(COALESCE(SUM("quantity"), 0) AS INTEGER) AS total_count,
+        CAST(COUNT(*) AS INTEGER) AS unique_count,
         CAST(COALESCE(SUM("current_market_price" * "quantity"), 0.0) AS REAL) AS total_market_value,
         CAST(COALESCE(SUM("acquired_price" * "quantity"), 0.0) AS REAL) AS total_cost_basis
       FROM "vault_items"
@@ -205,6 +209,7 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     ).getSingle();
 
     final count = (row.data['total_count'] as num?)?.toInt() ?? 0;
+    final unique = (row.data['unique_count'] as num?)?.toInt() ?? count;
     final marketVal =
         (row.data['total_market_value'] as num?)?.toDouble() ?? 0.0;
     final costBasis =
@@ -214,6 +219,7 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
 
     return VaultTotals(
       totalCount: count,
+      uniqueCount: unique,
       totalMarketValue: marketVal,
       totalCostBasis: costBasis,
       totalProfitLoss: delta,
@@ -640,6 +646,33 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
         if (loc != null && loc != 'INBOX') {
           counts[loc] = (counts[loc] ?? 0) + item.quantity;
         }
+      }
+      return counts;
+    });
+  }
+
+  /// Streams aggregate total card copies grouped by collection type.
+  /// Keys include 'all', 'mtg', 'pokemon', 'comic', 'sports_card'.
+  Stream<Map<String, int>> watchCollectionItemCounts() {
+    final query = select(vaultItems)
+      ..where((t) =>
+          t.quantity.isBiggerThanValue(0) &
+          (t.primaryBinderId.isNull() |
+              t.primaryBinderId.equals('INBOX').not()));
+
+    return query.watch().map((items) {
+      final counts = <String, int>{
+        'all': 0,
+        'mtg': 0,
+        'pokemon': 0,
+        'comic': 0,
+        'sports_card': 0,
+      };
+
+      for (final item in items) {
+        final col = item.collectionType.toLowerCase().trim();
+        counts['all'] = (counts['all'] ?? 0) + item.quantity;
+        counts[col] = (counts[col] ?? 0) + item.quantity;
       }
       return counts;
     });

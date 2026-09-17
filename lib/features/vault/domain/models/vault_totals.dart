@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 @immutable
 class VaultTotals {
   final int totalCount;
+  final int uniqueCount;
   final double totalMarketValue;
   final double totalCostBasis;
   final double totalProfitLoss;
@@ -12,6 +13,7 @@ class VaultTotals {
 
   const VaultTotals({
     required this.totalCount,
+    this.uniqueCount = 0,
     required this.totalMarketValue,
     this.totalCostBasis = 0.0,
     this.totalProfitLoss = 0.0,
@@ -24,6 +26,7 @@ class VaultTotals {
   /// Default zero totals instance.
   static const zero = VaultTotals(
     totalCount: 0,
+    uniqueCount: 0,
     totalMarketValue: 0.0,
     totalCostBasis: 0.0,
     totalProfitLoss: 0.0,
@@ -36,6 +39,7 @@ class VaultTotals {
       other is VaultTotals &&
           runtimeType == other.runtimeType &&
           totalCount == other.totalCount &&
+          uniqueCount == other.uniqueCount &&
           totalMarketValue == other.totalMarketValue &&
           totalCostBasis == other.totalCostBasis &&
           totalProfitLoss == other.totalProfitLoss &&
@@ -44,6 +48,7 @@ class VaultTotals {
   @override
   int get hashCode => Object.hash(
         totalCount,
+        uniqueCount,
         totalMarketValue,
         totalCostBasis,
         totalProfitLoss,
@@ -52,5 +57,5 @@ class VaultTotals {
 
   @override
   String toString() =>
-      'VaultTotals(totalCount: $totalCount, totalMarketValue: $totalMarketValue, totalCostBasis: $totalCostBasis, totalProfitLoss: $totalProfitLoss, profitLossPercentage: $profitLossPercentage)';
+      'VaultTotals(totalCount: $totalCount, uniqueCount: $uniqueCount, totalMarketValue: $totalMarketValue, totalCostBasis: $totalCostBasis, totalProfitLoss: $totalProfitLoss, profitLossPercentage: $profitLossPercentage)';
 }
