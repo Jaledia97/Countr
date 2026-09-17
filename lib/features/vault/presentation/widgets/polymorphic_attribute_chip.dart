@@ -101,32 +101,33 @@ class PolymorphicAttributeChip extends StatelessWidget {
           width: 0.8,
         ),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 13, color: accentColor),
-          const SizedBox(width: 5),
-          Text(
-            '$label: ',
-            style: TextStyle(
-              color: accentColor,
-              fontSize: 10,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0.5,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.centerLeft,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 13, color: accentColor),
+            const SizedBox(width: 5),
+            Text(
+              '$label: ',
+              style: TextStyle(
+                color: accentColor,
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.5,
+              ),
             ),
-          ),
-          Flexible(
-            child: Text(
+            Text(
               detail,
               style: const TextStyle(
                 color: AppColors.textPrimary,
                 fontSize: 10.5,
                 fontWeight: FontWeight.w600,
               ),
-              overflow: TextOverflow.ellipsis,
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

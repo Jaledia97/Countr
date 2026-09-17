@@ -179,6 +179,109 @@ void main() {
       expect(companion.setOrSeries.value, 'ISD');
     });
 
+    test('mapScryfallCardToCompanion joins oracle_text of card_faces with // and preserves front and back images', () {
+      final dfcCard = {
+        'id': 'mtg-dfc-oracle',
+        'name': 'Nicol Bolas, the Ravager // Nicol Bolas, the Arisen',
+        'set_name': 'Core Set 2019',
+        'card_faces': [
+          {
+            'name': 'Nicol Bolas, the Ravager',
+            'mana_cost': '{1}{U}{B}{R}',
+            'type_line': 'Legendary Creature — Elder Dragon',
+            'oracle_text': 'Flying\nWhen Nicol Bolas, the Ravager enters the battlefield, each opponent discards a card.',
+            'image_uris': {
+              'normal': 'https://cards.scryfall.io/normal/front/nicol_front.jpg',
+            },
+          },
+          {
+            'name': 'Nicol Bolas, the Arisen',
+            'mana_cost': '',
+            'type_line': 'Legendary Planeswalker — Bolas',
+            'oracle_text': '+2: Draw two cards.\n-3: Nicol Bolas deals 10 damage to target creature or planeswalker.',
+            'image_uris': {
+              'normal': 'https://cards.scryfall.io/normal/front/nicol_back.jpg',
+            },
+          },
+        ],
+        'prices': {'usd': '35.00'},
+      };
+
+      final companion = mapScryfallCardToCompanion(dfcCard);
+      expect(companion.imageUrl.value, 'https://cards.scryfall.io/normal/front/nicol_front.jpg');
+      expect(companion.setOrSeries.value, 'Core Set 2019');
+
+      final dynamicData = jsonDecode(companion.dynamicData.value) as Map<String, dynamic>;
+      expect(
+        dynamicData['oracle_text'],
+        'Flying\nWhen Nicol Bolas, the Ravager enters the battlefield, each opponent discards a card. // +2: Draw two cards.\n-3: Nicol Bolas deals 10 damage to target creature or planeswalker.',
+      );
+      expect(dynamicData['back_image_url'], 'https://cards.scryfall.io/normal/front/nicol_back.jpg');
+      expect(dynamicData['image_uris'], isNotNull);
+      expect(dynamicData['image_uris']['normal'], 'https://cards.scryfall.io/normal/front/nicol_front.jpg');
+      expect(dynamicData['card_faces'], isA<List>());
+      final faces = dynamicData['card_faces'] as List;
+      expect(faces.length, 2);
+      expect(faces[0]['name'], 'Nicol Bolas, the Ravager');
+      expect(faces[0]['image_url'], 'https://cards.scryfall.io/normal/front/nicol_front.jpg');
+      expect(faces[1]['name'], 'Nicol Bolas, the Arisen');
+      expect(faces[1]['image_url'], 'https://cards.scryfall.io/normal/front/nicol_back.jpg');
+    });
+
+    test('mapScryfallCardToCompanion captures flavor_name and persists in companion and dynamicData', () {
+      final cardWithFlavorName = {
+        'id': 'mtg-ozolith-adamantium',
+        'name': 'The Ozolith',
+        'flavor_name': 'Adamantium Bonding Tank',
+        'set_name': 'Secret Lair Drop',
+        'oracle_text': 'Whenever a creature you control leaves the battlefield, if it had counters on it, put those counters on The Ozolith.',
+        'image_uris': {
+          'normal': 'https://cards.scryfall.io/normal/front/ozolith.jpg',
+        },
+        'prices': {'usd': '42.00'},
+      };
+
+      final companion = mapScryfallCardToCompanion(cardWithFlavorName);
+      expect(companion.name.value, 'The Ozolith');
+      expect(companion.flavorName.value, 'Adamantium Bonding Tank');
+      expect(companion.currentMarketPrice.value, 42.00);
+
+      final dynamicData = jsonDecode(companion.dynamicData.value) as Map<String, dynamic>;
+      expect(dynamicData['flavor_name'], 'Adamantium Bonding Tank');
+      expect(dynamicData['oracle_text'], contains('Whenever a creature you control'));
+    });
+
+    test('mapScryfallCardToCompanion captures flavor_name from card_faces if top-level is absent', () {
+      final cardWithFaceFlavor = {
+        'id': 'mtg-dfc-flavor',
+        'name': 'Front Name // Back Name',
+        'set': 'SLD',
+        'card_faces': [
+          {
+            'name': 'Front Name',
+            'flavor_name': 'Alternate Front',
+            'oracle_text': 'Front oracle text.',
+            'image_uris': {'normal': 'https://example.com/f.jpg'},
+          },
+          {
+            'name': 'Back Name',
+            'flavor_name': 'Alternate Back',
+            'oracle_text': 'Back oracle text.',
+            'image_uris': {'normal': 'https://example.com/b.jpg'},
+          },
+        ],
+        'prices': {'usd': '12.00'},
+      };
+
+      final companion = mapScryfallCardToCompanion(cardWithFaceFlavor);
+      expect(companion.flavorName.value, 'Alternate Front // Alternate Back');
+
+      final dynamicData = jsonDecode(companion.dynamicData.value) as Map<String, dynamic>;
+      expect(dynamicData['flavor_name'], 'Alternate Front // Alternate Back');
+      expect(dynamicData['oracle_text'], 'Front oracle text. // Back oracle text.');
+      expect(dynamicData['back_image_url'], 'https://example.com/b.jpg');
+    });
+
     test('parseStream handles strings with braces, escapes, and emits chunks',
         () async {
       final cards = [

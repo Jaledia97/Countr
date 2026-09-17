@@ -230,19 +230,25 @@ class VaultItemTile extends StatelessWidget {
     return Container(
       color: AppColors.surfaceRaised,
       padding: const EdgeInsets.all(8),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.image_outlined, size: 28, color: AppColors.textMuted),
-          const SizedBox(height: 4),
-          Text(
-            item.name,
-            style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
+      child: Center(
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.image_outlined, size: 28, color: AppColors.textMuted),
+              const SizedBox(height: 4),
+              Text(
+                item.name,
+                style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

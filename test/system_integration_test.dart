@@ -40,6 +40,8 @@ void main() {
           appDatabaseProvider.overrideWithValue(db),
           vaultDaoProvider.overrideWithValue(db.vaultDao),
           activeGameContextProvider.overrideWith((ref) => 'All Collections'),
+          vaultViewModeProvider.overrideWith((ref) => VaultViewMode.allVault),
+          cardDisplayLayoutProvider.overrideWith((ref) => CardDisplayLayout.list),
         ],
       );
 
@@ -58,6 +60,10 @@ void main() {
       expect(find.textContaining('Charizard ex'), findsOneWidget);
       expect(find.textContaining('Ultimate Fallout #4'), findsOneWidget);
       expect(find.textContaining('T.J. Watt'), findsOneWidget);
+
+      // Expand search bar
+      await tester.tap(find.byKey(const Key('vault_search_expand_button')));
+      await tester.pumpAndSettle();
 
       // Search for "Charizard"
       await tester.enterText(find.byType(TextField), 'Charizard');
@@ -103,6 +109,8 @@ void main() {
           appDatabaseProvider.overrideWithValue(db),
           vaultDaoProvider.overrideWithValue(db.vaultDao),
           activeGameContextProvider.overrideWith((ref) => 'All Collections'),
+          vaultViewModeProvider.overrideWith((ref) => VaultViewMode.allVault),
+          cardDisplayLayoutProvider.overrideWith((ref) => CardDisplayLayout.list),
         ],
       );
 

@@ -37,6 +37,69 @@ VaultItemsCompanion mapScryfallCardToCompanion(Map<String, dynamic> card) {
     }
   }
 
+  // Multi-faced card handling: card_faces, oracle_text, back_image_url
+  final cardFaces = <Map<String, dynamic>>[];
+  if (card['card_faces'] is List) {
+    for (final face in (card['card_faces'] as List)) {
+      if (face is Map) {
+        String faceImg = '';
+        if (face['image_uris'] is Map) {
+          final u = face['image_uris'] as Map;
+          faceImg = (u['normal'] ?? u['large'] ?? u['small'] ?? u['png'] ?? '')?.toString() ?? '';
+        }
+        cardFaces.add({
+          'name': face['name']?.toString() ?? '',
+          'mana_cost': face['mana_cost']?.toString() ?? '',
+          'type_line': face['type_line']?.toString() ?? '',
+          'oracle_text': face['oracle_text']?.toString() ?? '',
+          if (face['flavor_name'] != null) 'flavor_name': face['flavor_name']?.toString(),
+          'image_url': faceImg,
+          if (face['image_uris'] is Map) 'image_uris': face['image_uris'],
+        });
+      }
+    }
+  }
+
+  String oracleText = (card['oracle_text'] as String?) ?? '';
+  if (cardFaces.isNotEmpty) {
+    final faceTexts = cardFaces
+        .map((f) => (f['oracle_text'] as String?)?.trim() ?? '')
+        .where((t) => t.isNotEmpty)
+        .toList();
+    if (faceTexts.isNotEmpty) {
+      oracleText = faceTexts.join(' // ');
+    }
+  }
+
+  String? backImageUrl;
+  if (cardFaces.length > 1 &&
+      cardFaces[1]['image_url'] != null &&
+      (cardFaces[1]['image_url'] as String).isNotEmpty) {
+    backImageUrl = cardFaces[1]['image_url'] as String;
+  }
+
+  // Extract flavor_name (top-level or combined from card_faces)
+  String? flavorName = card['flavor_name'] as String?;
+  if ((flavorName == null || flavorName.trim().isEmpty) && cardFaces.isNotEmpty) {
+    final faceFlavors = cardFaces
+        .map((f) => f['flavor_name'] as String?)
+        .where((f) => f != null && f.trim().isNotEmpty)
+        .map((f) => f!.trim())
+        .toList();
+    if (faceFlavors.isNotEmpty) {
+      flavorName = faceFlavors.join(' // ');
+    }
+  }
+  if (flavorName != null && flavorName.trim().isEmpty) {
+    flavorName = null;
+  }
+
+  // Resolve top-level image_uris (if top-level is null but face 0 has it)
+  dynamic imageUris = card['image_uris'];
+  if (imageUris == null && cardFaces.isNotEmpty && cardFaces[0]['image_uris'] != null) {
+    imageUris = cardFaces[0]['image_uris'];
+  }
+
   // Market price extraction (USD normal, then foil)
   double marketPrice = 0.0;
   if (card['prices'] is Map) {
@@ -51,18 +114,23 @@ VaultItemsCompanion mapScryfallCardToCompanion(Map<String, dynamic> card) {
   final dynamicData = jsonEncode({
     'mana_cost': card['mana_cost'] ?? '',
     'type_line': card['type_line'] ?? '',
-    'oracle_text': card['oracle_text'] ?? '',
+    'oracle_text': oracleText,
     'rarity': card['rarity'] ?? '',
     'collector_number': card['collector_number'] ?? '',
     'artist': card['artist'] ?? '',
     'flavor_text': card['flavor_text'] ?? '',
+    'flavor_name': flavorName ?? '',
     'scryfall_uri': card['scryfall_uri'] ?? '',
+    if (cardFaces.isNotEmpty) 'card_faces': cardFaces,
+    if (imageUris is Map) 'image_uris': imageUris,
+    'back_image_url': ?backImageUrl,
   });
 
   return VaultItemsCompanion.insert(
     id: id,
     collectionType: 'mtg',
     name: name,
+    flavorName: flavorName != null ? Value(flavorName) : const Value.absent(),
     setOrSeries: setName,
     imageUrl: imageUrl,
     acquiredPrice: 0.0,

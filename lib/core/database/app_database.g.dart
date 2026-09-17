@@ -373,6 +373,17 @@ class $VaultItemsTable extends VaultItems
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _flavorNameMeta = const VerificationMeta(
+    'flavorName',
+  );
+  @override
+  late final GeneratedColumn<String> flavorName = GeneratedColumn<String>(
+    'flavor_name',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _acquiredPriceMeta = const VerificationMeta(
     'acquiredPrice',
   );
@@ -544,6 +555,7 @@ class $VaultItemsTable extends VaultItems
     name,
     setOrSeries,
     imageUrl,
+    flavorName,
     acquiredPrice,
     acquiredDate,
     quantity,
@@ -612,6 +624,12 @@ class $VaultItemsTable extends VaultItems
       );
     } else if (isInserting) {
       context.missing(_imageUrlMeta);
+    }
+    if (data.containsKey('flavor_name')) {
+      context.handle(
+        _flavorNameMeta,
+        flavorName.isAcceptableOrUnknown(data['flavor_name']!, _flavorNameMeta),
+      );
     }
     if (data.containsKey('acquired_price')) {
       context.handle(
@@ -753,6 +771,10 @@ class $VaultItemsTable extends VaultItems
         DriftSqlType.string,
         data['${effectivePrefix}image_url'],
       )!,
+      flavorName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}flavor_name'],
+      ),
       acquiredPrice: attachedDatabase.typeMapping.read(
         DriftSqlType.double,
         data['${effectivePrefix}acquired_price'],
@@ -776,15 +798,15 @@ class $VaultItemsTable extends VaultItems
       isAltered: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}is_altered'],
-      ) ?? false,
+      )!,
       isMisprint: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}is_misprint'],
-      ) ?? false,
+      )!,
       isSigned: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}is_signed'],
-      ) ?? false,
+      )!,
       personalNotes: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}personal_notes'],
@@ -820,6 +842,7 @@ class VaultItem extends DataClass implements Insertable<VaultItem> {
   final String name;
   final String setOrSeries;
   final String imageUrl;
+  final String? flavorName;
   final double acquiredPrice;
   final DateTime acquiredDate;
   final int quantity;
@@ -839,6 +862,7 @@ class VaultItem extends DataClass implements Insertable<VaultItem> {
     required this.name,
     required this.setOrSeries,
     required this.imageUrl,
+    this.flavorName,
     required this.acquiredPrice,
     required this.acquiredDate,
     required this.quantity,
@@ -861,6 +885,9 @@ class VaultItem extends DataClass implements Insertable<VaultItem> {
     map['name'] = Variable<String>(name);
     map['set_or_series'] = Variable<String>(setOrSeries);
     map['image_url'] = Variable<String>(imageUrl);
+    if (!nullToAbsent || flavorName != null) {
+      map['flavor_name'] = Variable<String>(flavorName);
+    }
     map['acquired_price'] = Variable<double>(acquiredPrice);
     map['acquired_date'] = Variable<DateTime>(acquiredDate);
     map['quantity'] = Variable<int>(quantity);
@@ -888,6 +915,9 @@ class VaultItem extends DataClass implements Insertable<VaultItem> {
       name: Value(name),
       setOrSeries: Value(setOrSeries),
       imageUrl: Value(imageUrl),
+      flavorName: flavorName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(flavorName),
       acquiredPrice: Value(acquiredPrice),
       acquiredDate: Value(acquiredDate),
       quantity: Value(quantity),
@@ -919,20 +949,15 @@ class VaultItem extends DataClass implements Insertable<VaultItem> {
       name: serializer.fromJson<String>(json['name']),
       setOrSeries: serializer.fromJson<String>(json['setOrSeries']),
       imageUrl: serializer.fromJson<String>(json['imageUrl']),
+      flavorName: serializer.fromJson<String?>(json['flavorName']),
       acquiredPrice: serializer.fromJson<double>(json['acquiredPrice']),
       acquiredDate: serializer.fromJson<DateTime>(json['acquiredDate']),
       quantity: serializer.fromJson<int>(json['quantity']),
       condition: serializer.fromJson<String>(json['condition']),
       isGraded: serializer.fromJson<bool>(json['isGraded']),
-      isAltered: json['isAltered'] == null
-          ? false
-          : serializer.fromJson<bool>(json['isAltered']),
-      isMisprint: json['isMisprint'] == null
-          ? false
-          : serializer.fromJson<bool>(json['isMisprint']),
-      isSigned: json['isSigned'] == null
-          ? false
-          : serializer.fromJson<bool>(json['isSigned']),
+      isAltered: serializer.fromJson<bool>(json['isAltered']),
+      isMisprint: serializer.fromJson<bool>(json['isMisprint']),
+      isSigned: serializer.fromJson<bool>(json['isSigned']),
       personalNotes: serializer.fromJson<String?>(json['personalNotes']),
       primaryBinderId: serializer.fromJson<String?>(json['primaryBinderId']),
       currentMarketPrice: serializer.fromJson<double>(
@@ -951,6 +976,7 @@ class VaultItem extends DataClass implements Insertable<VaultItem> {
       'name': serializer.toJson<String>(name),
       'setOrSeries': serializer.toJson<String>(setOrSeries),
       'imageUrl': serializer.toJson<String>(imageUrl),
+      'flavorName': serializer.toJson<String?>(flavorName),
       'acquiredPrice': serializer.toJson<double>(acquiredPrice),
       'acquiredDate': serializer.toJson<DateTime>(acquiredDate),
       'quantity': serializer.toJson<int>(quantity),
@@ -973,6 +999,7 @@ class VaultItem extends DataClass implements Insertable<VaultItem> {
     String? name,
     String? setOrSeries,
     String? imageUrl,
+    Value<String?> flavorName = const Value.absent(),
     double? acquiredPrice,
     DateTime? acquiredDate,
     int? quantity,
@@ -992,6 +1019,7 @@ class VaultItem extends DataClass implements Insertable<VaultItem> {
     name: name ?? this.name,
     setOrSeries: setOrSeries ?? this.setOrSeries,
     imageUrl: imageUrl ?? this.imageUrl,
+    flavorName: flavorName.present ? flavorName.value : this.flavorName,
     acquiredPrice: acquiredPrice ?? this.acquiredPrice,
     acquiredDate: acquiredDate ?? this.acquiredDate,
     quantity: quantity ?? this.quantity,
@@ -1021,6 +1049,9 @@ class VaultItem extends DataClass implements Insertable<VaultItem> {
           ? data.setOrSeries.value
           : this.setOrSeries,
       imageUrl: data.imageUrl.present ? data.imageUrl.value : this.imageUrl,
+      flavorName: data.flavorName.present
+          ? data.flavorName.value
+          : this.flavorName,
       acquiredPrice: data.acquiredPrice.present
           ? data.acquiredPrice.value
           : this.acquiredPrice,
@@ -1061,6 +1092,7 @@ class VaultItem extends DataClass implements Insertable<VaultItem> {
           ..write('name: $name, ')
           ..write('setOrSeries: $setOrSeries, ')
           ..write('imageUrl: $imageUrl, ')
+          ..write('flavorName: $flavorName, ')
           ..write('acquiredPrice: $acquiredPrice, ')
           ..write('acquiredDate: $acquiredDate, ')
           ..write('quantity: $quantity, ')
@@ -1085,6 +1117,7 @@ class VaultItem extends DataClass implements Insertable<VaultItem> {
     name,
     setOrSeries,
     imageUrl,
+    flavorName,
     acquiredPrice,
     acquiredDate,
     quantity,
@@ -1108,6 +1141,7 @@ class VaultItem extends DataClass implements Insertable<VaultItem> {
           other.name == this.name &&
           other.setOrSeries == this.setOrSeries &&
           other.imageUrl == this.imageUrl &&
+          other.flavorName == this.flavorName &&
           other.acquiredPrice == this.acquiredPrice &&
           other.acquiredDate == this.acquiredDate &&
           other.quantity == this.quantity &&
@@ -1129,6 +1163,7 @@ class VaultItemsCompanion extends UpdateCompanion<VaultItem> {
   final Value<String> name;
   final Value<String> setOrSeries;
   final Value<String> imageUrl;
+  final Value<String?> flavorName;
   final Value<double> acquiredPrice;
   final Value<DateTime> acquiredDate;
   final Value<int> quantity;
@@ -1149,6 +1184,7 @@ class VaultItemsCompanion extends UpdateCompanion<VaultItem> {
     this.name = const Value.absent(),
     this.setOrSeries = const Value.absent(),
     this.imageUrl = const Value.absent(),
+    this.flavorName = const Value.absent(),
     this.acquiredPrice = const Value.absent(),
     this.acquiredDate = const Value.absent(),
     this.quantity = const Value.absent(),
@@ -1170,6 +1206,7 @@ class VaultItemsCompanion extends UpdateCompanion<VaultItem> {
     required String name,
     required String setOrSeries,
     required String imageUrl,
+    this.flavorName = const Value.absent(),
     required double acquiredPrice,
     required DateTime acquiredDate,
     this.quantity = const Value.absent(),
@@ -1201,6 +1238,7 @@ class VaultItemsCompanion extends UpdateCompanion<VaultItem> {
     Expression<String>? name,
     Expression<String>? setOrSeries,
     Expression<String>? imageUrl,
+    Expression<String>? flavorName,
     Expression<double>? acquiredPrice,
     Expression<DateTime>? acquiredDate,
     Expression<int>? quantity,
@@ -1222,6 +1260,7 @@ class VaultItemsCompanion extends UpdateCompanion<VaultItem> {
       if (name != null) 'name': name,
       if (setOrSeries != null) 'set_or_series': setOrSeries,
       if (imageUrl != null) 'image_url': imageUrl,
+      if (flavorName != null) 'flavor_name': flavorName,
       if (acquiredPrice != null) 'acquired_price': acquiredPrice,
       if (acquiredDate != null) 'acquired_date': acquiredDate,
       if (quantity != null) 'quantity': quantity,
@@ -1246,6 +1285,7 @@ class VaultItemsCompanion extends UpdateCompanion<VaultItem> {
     Value<String>? name,
     Value<String>? setOrSeries,
     Value<String>? imageUrl,
+    Value<String?>? flavorName,
     Value<double>? acquiredPrice,
     Value<DateTime>? acquiredDate,
     Value<int>? quantity,
@@ -1267,6 +1307,7 @@ class VaultItemsCompanion extends UpdateCompanion<VaultItem> {
       name: name ?? this.name,
       setOrSeries: setOrSeries ?? this.setOrSeries,
       imageUrl: imageUrl ?? this.imageUrl,
+      flavorName: flavorName ?? this.flavorName,
       acquiredPrice: acquiredPrice ?? this.acquiredPrice,
       acquiredDate: acquiredDate ?? this.acquiredDate,
       quantity: quantity ?? this.quantity,
@@ -1301,6 +1342,9 @@ class VaultItemsCompanion extends UpdateCompanion<VaultItem> {
     }
     if (imageUrl.present) {
       map['image_url'] = Variable<String>(imageUrl.value);
+    }
+    if (flavorName.present) {
+      map['flavor_name'] = Variable<String>(flavorName.value);
     }
     if (acquiredPrice.present) {
       map['acquired_price'] = Variable<double>(acquiredPrice.value);
@@ -1355,6 +1399,7 @@ class VaultItemsCompanion extends UpdateCompanion<VaultItem> {
           ..write('name: $name, ')
           ..write('setOrSeries: $setOrSeries, ')
           ..write('imageUrl: $imageUrl, ')
+          ..write('flavorName: $flavorName, ')
           ..write('acquiredPrice: $acquiredPrice, ')
           ..write('acquiredDate: $acquiredDate, ')
           ..write('quantity: $quantity, ')
@@ -1682,6 +1727,7 @@ typedef $$VaultItemsTableCreateCompanionBuilder =
       required String name,
       required String setOrSeries,
       required String imageUrl,
+      Value<String?> flavorName,
       required double acquiredPrice,
       required DateTime acquiredDate,
       Value<int> quantity,
@@ -1704,6 +1750,7 @@ typedef $$VaultItemsTableUpdateCompanionBuilder =
       Value<String> name,
       Value<String> setOrSeries,
       Value<String> imageUrl,
+      Value<String?> flavorName,
       Value<double> acquiredPrice,
       Value<DateTime> acquiredDate,
       Value<int> quantity,
@@ -1774,6 +1821,11 @@ class $$VaultItemsTableFilterComposer
 
   ColumnFilters<String> get imageUrl => $composableBuilder(
     column: $table.imageUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get flavorName => $composableBuilder(
+    column: $table.flavorName,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -1895,6 +1947,11 @@ class $$VaultItemsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get flavorName => $composableBuilder(
+    column: $table.flavorName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<double> get acquiredPrice => $composableBuilder(
     column: $table.acquiredPrice,
     builder: (column) => ColumnOrderings(column),
@@ -2007,6 +2064,11 @@ class $$VaultItemsTableAnnotationComposer
   GeneratedColumn<String> get imageUrl =>
       $composableBuilder(column: $table.imageUrl, builder: (column) => column);
 
+  GeneratedColumn<String> get flavorName => $composableBuilder(
+    column: $table.flavorName,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<double> get acquiredPrice => $composableBuilder(
     column: $table.acquiredPrice,
     builder: (column) => column,
@@ -2029,8 +2091,10 @@ class $$VaultItemsTableAnnotationComposer
   GeneratedColumn<bool> get isAltered =>
       $composableBuilder(column: $table.isAltered, builder: (column) => column);
 
-  GeneratedColumn<bool> get isMisprint =>
-      $composableBuilder(column: $table.isMisprint, builder: (column) => column);
+  GeneratedColumn<bool> get isMisprint => $composableBuilder(
+    column: $table.isMisprint,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<bool> get isSigned =>
       $composableBuilder(column: $table.isSigned, builder: (column) => column);
@@ -2112,6 +2176,7 @@ class $$VaultItemsTableTableManager
                 Value<String> name = const Value.absent(),
                 Value<String> setOrSeries = const Value.absent(),
                 Value<String> imageUrl = const Value.absent(),
+                Value<String?> flavorName = const Value.absent(),
                 Value<double> acquiredPrice = const Value.absent(),
                 Value<DateTime> acquiredDate = const Value.absent(),
                 Value<int> quantity = const Value.absent(),
@@ -2132,6 +2197,7 @@ class $$VaultItemsTableTableManager
                 name: name,
                 setOrSeries: setOrSeries,
                 imageUrl: imageUrl,
+                flavorName: flavorName,
                 acquiredPrice: acquiredPrice,
                 acquiredDate: acquiredDate,
                 quantity: quantity,
@@ -2154,6 +2220,7 @@ class $$VaultItemsTableTableManager
                 required String name,
                 required String setOrSeries,
                 required String imageUrl,
+                Value<String?> flavorName = const Value.absent(),
                 required double acquiredPrice,
                 required DateTime acquiredDate,
                 Value<int> quantity = const Value.absent(),
@@ -2174,6 +2241,7 @@ class $$VaultItemsTableTableManager
                 name: name,
                 setOrSeries: setOrSeries,
                 imageUrl: imageUrl,
+                flavorName: flavorName,
                 acquiredPrice: acquiredPrice,
                 acquiredDate: acquiredDate,
                 quantity: quantity,

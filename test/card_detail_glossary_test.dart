@@ -76,7 +76,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Verify "Card Mechanics" section header exists
-      expect(find.text('Card Mechanics'), findsOneWidget);
+      expect(find.text('Card Mechanics & Rulings'), findsOneWidget);
 
       // Verify keyword badges exist
       expect(find.text('Flying'), findsWidgets); // header or badge
@@ -104,7 +104,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Card Mechanics header is present
-      expect(find.text('Card Mechanics'), findsOneWidget);
+      expect(find.text('Card Mechanics & Rulings'), findsOneWidget);
 
       // Trample badge is rendered
       expect(find.text('Trample'), findsWidgets);
@@ -130,7 +130,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // "Card Mechanics" section must be cleanly omitted
-      expect(find.text('Card Mechanics'), findsNothing);
+      expect(find.text('Card Mechanics & Rulings'), findsNothing);
       expect(find.byIcon(Icons.auto_awesome_rounded), findsNothing);
     });
 
@@ -150,7 +150,7 @@ void main() {
       await tester.pumpWidget(createTestWidget(card));
       await tester.pumpAndSettle();
 
-      expect(find.text('Card Mechanics'), findsNothing);
+      expect(find.text('Card Mechanics & Rulings'), findsNothing);
     });
 
     testWidgets('renders multiple keywords with respective definitions beneath each tag', (tester) async {
@@ -170,7 +170,7 @@ void main() {
       await tester.pumpWidget(createTestWidget(card));
       await tester.pumpAndSettle();
 
-      expect(find.text('Card Mechanics'), findsOneWidget);
+      expect(find.text('Card Mechanics & Rulings'), findsOneWidget);
 
       // All four keyword definitions should be present
       expect(find.text(MtgKeywordGlossary.dictionary['Flying']!), findsOneWidget);
@@ -195,7 +195,7 @@ void main() {
       await tester.pumpWidget(createTestWidget(card));
       await tester.pumpAndSettle();
 
-      expect(find.text('Card Mechanics'), findsOneWidget);
+      expect(find.text('Card Mechanics & Rulings'), findsOneWidget);
       expect(find.text(MtgKeywordGlossary.dictionary['Double Strike']!), findsOneWidget);
       expect(find.text(MtgKeywordGlossary.dictionary['First Strike']!), findsNothing);
     });
@@ -216,7 +216,7 @@ void main() {
       await tester.pumpWidget(createTestWidget(card));
       await tester.pumpAndSettle();
 
-      expect(find.text('Card Mechanics'), findsOneWidget);
+      expect(find.text('Card Mechanics & Rulings'), findsOneWidget);
       expect(find.text(MtgKeywordGlossary.dictionary['Flying']!), findsOneWidget);
       expect(find.text(MtgKeywordGlossary.dictionary['Ward']!), findsOneWidget);
     });

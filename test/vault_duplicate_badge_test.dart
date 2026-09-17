@@ -210,6 +210,8 @@ void main() {
           appDatabaseProvider.overrideWithValue(db),
           vaultDaoProvider.overrideWithValue(dao),
           activeGameContextProvider.overrideWith((ref) => 'Magic: The Gathering'),
+          vaultViewModeProvider.overrideWith((ref) => VaultViewMode.allVault),
+          cardDisplayLayoutProvider.overrideWith((ref) => CardDisplayLayout.list),
         ],
       );
       addTearDown(container.dispose);

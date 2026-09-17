@@ -15,6 +15,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.9.0] - 2026-09-17
+
+### Phase 3.8 Multi-Face Scryfall Parsing, Sleek VaultScreen UI Overhaul, and Interactive 3D Card Flips & Cached Rulings
+
+#### Added & Improved
+- **Scryfall Data Parsing Fixes & Database Search (R1)**:
+  - Multi-faced card parsing (`card_faces`): joins oracle text from both faces using ` // ` and extracts dual front and back image URIs (`dynamicData['card_faces']`, `dynamicData['image_uris']`, and `dynamicData['back_image_url']`).
+  - Flavor name persistence: added `flavor_name` column to `vault_items` table with automated schema v5 migration and indexed lookup (`idx_vault_items_flavor_name`).
+  - `VaultDao` search matching: updated `watchItemsByCollection`, `getItemsByCollection`, and catalog search to match `WHERE name LIKE '%$query%' OR flavor_name LIKE '%$query%'` case-insensitively.
+- **VaultScreen Sleek UI Overhaul & Animated Search (R2)**:
+  - Default view set to **"Binders"** (`VaultViewMode.binders`) and default layout set to **Grid View** (`CardDisplayLayout.grid`).
+  - Singles grid renders with **3 columns** on phone viewports; Binders grid maintains 2 columns.
+  - Renamed "All Vault" filter chip to **"Owned"**.
+  - Updated top view toggle to text: `[ Singles ] | [ Binders ]`.
+  - Updated layout switcher to **Icons Only** (`Icons.grid_view` and `Icons.view_list`) with accessibility semantics and tooltips.
+  - Built animated full-width expanding search bar that transitions from collapsed icon to full horizontal width, pushing view toggles out of the way.
+  - Conditional `[ + New Binder ]` FAB visible only in Binders mode and hidden in Singles mode.
+- **Card Detail Interactive Flip UI & Cached Scryfall Rulings (R3)**:
+  - Interactive 3D perspective flip mechanism for multi-faced cards in both `CardDetailSheet` and `FullScreenCardViewer` with visible styled "Flip" action button.
+  - Holographic rainbow foil shader preserved continuously across 3D flips.
+  - Renamed mechanics section to **"Card Mechanics & Rulings"**.
+  - On-demand Scryfall rulings service (`ScryfallService.fetchCardRulings`) with offline fallback and local SQLite caching to avoid repeated HTTP calls.
+- **Test Suite Metrics**:
+  - 713 total automated tests passing project-wide with 0 regressions.
+  - 0 static analysis errors, warnings, or infos (`dart analyze --fatal-infos`).
+
+---
+
 ## [3.8.0] - 2026-09-16
 
 ### Phase 3.8: Reactive Vault Totals, Global Persona Viewing Modes, Manual Add Engine, Quick Action Bar & Holographic Foil Viewer

@@ -11,6 +11,7 @@ class VaultItems extends Table {
   TextColumn get name => text()();
   TextColumn get setOrSeries => text().named('set_or_series')();
   TextColumn get imageUrl => text().named('image_url')();
+  TextColumn get flavorName => text().named('flavor_name').nullable()();
 
   // Personal Inventory & Financials
   RealColumn get acquiredPrice => real().named('acquired_price')();

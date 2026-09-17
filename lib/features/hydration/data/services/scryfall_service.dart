@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:countr/features/hydration/domain/models/scryfall_ruling.dart';
 
 /// Service for interacting with Scryfall's bulk data API and safely streaming
 /// multi-hundred megabyte JSON archives directly to disk to prevent OOM.
@@ -102,5 +103,48 @@ class ScryfallService {
     }
 
     return file;
+  }
+
+  /// Queries official card rulings for the given [scryfallId] from Scryfall:
+  /// https://api.scryfall.com/cards/{id}/rulings
+  ///
+  /// Returns a list of [ScryfallRuling] objects on success (or an empty list if
+  /// the card has zero rulings or returned 404).
+  /// Returns `null` if a transient network failure, timeout, socket exception,
+  /// or non-200/non-404 HTTP status occurred.
+  Future<List<ScryfallRuling>?> fetchCardRulings(String scryfallId) async {
+    try {
+      final uri = Uri.parse('https://api.scryfall.com/cards/$scryfallId/rulings');
+      final response = await _client.get(
+        uri,
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'Countr/1.0 (Flutter; Educational Portfolio App)',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        try {
+          final decoded = jsonDecode(response.body);
+          if (decoded is Map<String, dynamic> && decoded['data'] is List) {
+            final list = decoded['data'] as List;
+            return list
+                .whereType<Map<String, dynamic>>()
+                .map((item) => ScryfallRuling.fromJson(item))
+                .toList();
+          }
+          return const [];
+        } catch (_) {
+          return const [];
+        }
+      } else if (response.statusCode == 404) {
+        return const [];
+      }
+
+      return null;
+    } catch (_) {
+      // Gracefully handle network failures, timeouts, socket exceptions, etc.
+      return null;
+    }
   }
 }

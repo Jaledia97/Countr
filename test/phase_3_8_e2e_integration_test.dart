@@ -46,6 +46,8 @@ void main() {
     String activeGame = 'Magic: The Gathering',
     UserPersona initialPersona = UserPersona.investor,
     bool initialLoggedIn = false,
+    VaultViewMode initialViewMode = VaultViewMode.allVault,
+    CardDisplayLayout initialDisplayLayout = CardDisplayLayout.list,
   }) {
     return ProviderScope(
       overrides: [
@@ -54,6 +56,8 @@ void main() {
         activeGameContextProvider.overrideWith((ref) => activeGame),
         userPersonaProvider.overrideWith((ref) => initialPersona),
         isUserLoggedInProvider.overrideWith((ref) => initialLoggedIn),
+        vaultViewModeProvider.overrideWith((ref) => initialViewMode),
+        cardDisplayLayoutProvider.overrideWith((ref) => initialDisplayLayout),
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,

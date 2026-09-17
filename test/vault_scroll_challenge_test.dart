@@ -65,6 +65,8 @@ void main() {
           vaultItemsStreamProvider.overrideWith((ref) => streamController.stream),
           activeGameContextProvider.overrideWith((ref) => 'Magic: The Gathering'),
           vaultPaginationLimitProvider.overrideWith((ref) => 50),
+          vaultViewModeProvider.overrideWith((ref) => VaultViewMode.allVault),
+          cardDisplayLayoutProvider.overrideWith((ref) => CardDisplayLayout.list),
         ],
       );
       addTearDown(() => container.dispose());
@@ -162,6 +164,8 @@ void main() {
           vaultItemsStreamProvider.overrideWith((ref) => streamController.stream),
           activeGameContextProvider.overrideWith((ref) => 'Magic: The Gathering'),
           vaultPaginationLimitProvider.overrideWith((ref) => 50),
+          vaultViewModeProvider.overrideWith((ref) => VaultViewMode.allVault),
+          cardDisplayLayoutProvider.overrideWith((ref) => CardDisplayLayout.list),
         ],
       );
       addTearDown(() => container.dispose());
@@ -217,6 +221,8 @@ void main() {
           vaultItemsStreamProvider.overrideWith((ref) => streamController.stream),
           activeGameContextProvider.overrideWith((ref) => 'Magic: The Gathering'),
           vaultPaginationLimitProvider.overrideWith((ref) => 50),
+          vaultViewModeProvider.overrideWith((ref) => VaultViewMode.allVault),
+          cardDisplayLayoutProvider.overrideWith((ref) => CardDisplayLayout.list),
         ],
       );
       addTearDown(() => container.dispose());
@@ -268,6 +274,8 @@ void main() {
           vaultDaoProvider.overrideWithValue(db.vaultDao),
           vaultItemsStreamProvider.overrideWith((ref) => streamController.stream),
           activeGameContextProvider.overrideWith((ref) => 'Magic: The Gathering'),
+          vaultViewModeProvider.overrideWith((ref) => VaultViewMode.allVault),
+          cardDisplayLayoutProvider.overrideWith((ref) => CardDisplayLayout.list),
         ],
       );
       addTearDown(() => container.dispose());
@@ -338,6 +346,8 @@ void main() {
           vaultDaoProvider.overrideWithValue(db.vaultDao),
           vaultItemsStreamProvider.overrideWith((ref) => streamController.stream),
           activeGameContextProvider.overrideWith((ref) => 'Magic: The Gathering'),
+          vaultViewModeProvider.overrideWith((ref) => VaultViewMode.allVault),
+          cardDisplayLayoutProvider.overrideWith((ref) => CardDisplayLayout.list),
         ],
       );
       addTearDown(() => container.dispose());

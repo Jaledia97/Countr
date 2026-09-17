@@ -219,6 +219,10 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Total Tracked Items: 1'), findsOneWidget);
 
+      // Dismiss the bottom sheet
+      await tester.tap(find.byKey(const Key('manual_add_close_button')));
+      await tester.pumpAndSettle();
+
       // Authentically add an item to SQLite to verify live reactive totals
       final container =
           ProviderScope.containerOf(tester.element(find.byType(VaultScreen)));
@@ -243,7 +247,9 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Total Tracked Items: 2'), findsOneWidget);
 
-      // Enter search query
+      // Expand search and enter query
+      await tester.tap(find.byKey(const Key('vault_search_expand_button')));
+      await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), 'Black Lotus');
       await tester.pumpAndSettle();
 

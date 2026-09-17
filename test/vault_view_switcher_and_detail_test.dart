@@ -91,6 +91,8 @@ void main() {
           appDatabaseProvider.overrideWithValue(db),
           vaultDaoProvider.overrideWithValue(db.vaultDao),
           activeGameContextProvider.overrideWith((ref) => 'Magic: The Gathering'),
+          vaultViewModeProvider.overrideWith((ref) => VaultViewMode.allVault),
+          cardDisplayLayoutProvider.overrideWith((ref) => CardDisplayLayout.list),
         ],
       );
 
@@ -140,6 +142,7 @@ void main() {
           appDatabaseProvider.overrideWithValue(db),
           vaultDaoProvider.overrideWithValue(db.vaultDao),
           activeGameContextProvider.overrideWith((ref) => 'Magic: The Gathering'),
+          vaultViewModeProvider.overrideWith((ref) => VaultViewMode.allVault),
           cardDisplayLayoutProvider.overrideWith((ref) => CardDisplayLayout.grid),
         ],
       );

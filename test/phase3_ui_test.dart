@@ -209,25 +209,34 @@ void main() {
   });
 
   group('VaultScreen Binders Grid Tests', () {
-    testWidgets('toggles between All Vault and Binders Grid', (tester) async {
+    testWidgets('toggles between Singles and Binders view', (tester) async {
       await tester.pumpWidget(createTestWidget(const VaultScreen()));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 
-      expect(find.text('All Vault'), findsNWidgets(2));
-      expect(find.text('Binders Grid'), findsOneWidget);
+      expect(find.text('Singles'), findsOneWidget);
+      expect(find.text('Binders'), findsOneWidget);
       expect(find.text('New Binder'), findsOneWidget);
 
       // Verify Scanner Inbox button is NOT displayed on VaultScreen (decluttered)
       expect(find.byTooltip('Scanner Inbox'), findsNothing);
       expect(find.byIcon(Icons.inbox_rounded), findsNothing);
 
-      // Switch to Binders Grid
-      await tester.tap(find.text('Binders Grid'));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
-
+      // Default view is Binders
       expect(find.text('No Binders in Magic: The Gathering'), findsOneWidget);
+
+      // Switch to Singles view
+      await tester.tap(find.text('Singles'));
+      await tester.pumpAndSettle();
+
+      // In Singles view, 'Owned' filter chip is displayed and 'New Binder' FAB is hidden
+      expect(find.text('Owned'), findsOneWidget);
+      expect(find.text('New Binder'), findsNothing);
+
+      // Switch back to Binders view
+      await tester.tap(find.text('Binders'));
+      await tester.pumpAndSettle();
+      expect(find.text('New Binder'), findsOneWidget);
 
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(seconds: 4));
@@ -247,8 +256,7 @@ void main() {
 
       // Tap New Binder button
       await tester.tap(find.text('New Binder'));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pumpAndSettle();
 
       expect(find.text('New Binder for Magic: The Gathering'), findsOneWidget);
 
@@ -259,14 +267,9 @@ void main() {
 
       // Tap Create Binder
       await tester.tap(find.text('Create Binder'));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pumpAndSettle();
 
-      // Switch to Binders Grid
-      await tester.tap(find.text('Binders Grid'));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
-
+      // Verify binder in Binders view
       expect(find.text('Modern Decks Binder'), findsOneWidget);
       expect(find.text('0 Cards'), findsOneWidget);
 

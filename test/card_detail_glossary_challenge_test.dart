@@ -74,7 +74,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Ensure no Card Mechanics header or auto_awesome icon
-      expect(find.text('Card Mechanics'), findsNothing);
+      expect(find.text('Card Mechanics & Rulings'), findsNothing);
       expect(find.byIcon(Icons.auto_awesome_rounded), findsNothing);
 
       // Let Flutter print the error natively
@@ -92,7 +92,7 @@ void main() {
       await tester.pumpWidget(createTestWidget(cardEmpty));
       await tester.pumpAndSettle();
 
-      expect(find.text('Card Mechanics'), findsNothing);
+      expect(find.text('Card Mechanics & Rulings'), findsNothing);
       expect(find.byIcon(Icons.auto_awesome_rounded), findsNothing);
       expect(tester.takeException(), isNull);
 
@@ -100,7 +100,7 @@ void main() {
       await tester.pumpWidget(createTestWidget(cardWhitespace));
       await tester.pumpAndSettle();
 
-      expect(find.text('Card Mechanics'), findsNothing);
+      expect(find.text('Card Mechanics & Rulings'), findsNothing);
       expect(find.byIcon(Icons.auto_awesome_rounded), findsNothing);
       expect(tester.takeException(), isNull);
     });
@@ -120,7 +120,7 @@ void main() {
       await tester.pumpWidget(createTestWidget(card));
       await tester.pumpAndSettle();
 
-      expect(find.text('Card Mechanics'), findsNothing);
+      expect(find.text('Card Mechanics & Rulings'), findsNothing);
       expect(find.byIcon(Icons.auto_awesome_rounded), findsNothing);
       expect(tester.takeException(), isNull);
     });
@@ -142,7 +142,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // None of the substrings should match Ward or Reach
-      expect(find.text('Card Mechanics'), findsNothing);
+      expect(find.text('Card Mechanics & Rulings'), findsNothing);
       expect(find.text('Ward'), findsNothing);
       expect(find.text('Reach'), findsNothing);
       expect(tester.takeException(), isNull);
@@ -194,7 +194,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Verify section header
-      expect(find.text('Card Mechanics'), findsOneWidget);
+      expect(find.text('Card Mechanics & Rulings'), findsOneWidget);
 
       // Verify all 5 keyword badges and definitions are present
       final expectedKeywords = ['Flying', 'First Strike', 'Vigilance', 'Trample', 'Haste'];
@@ -242,7 +242,7 @@ void main() {
 
       // Confirm no initial RenderFlex overflow
       expect(tester.takeException(), isNull);
-      expect(find.text('Card Mechanics'), findsOneWidget);
+      expect(find.text('Card Mechanics & Rulings'), findsOneWidget);
 
       // Verify each definition exists in the dictionary and matches
       for (final kw in all12Keywords) {
@@ -350,7 +350,7 @@ void main() {
       await tester.pumpWidget(createTestWidget(pokemonCard));
       await tester.pumpAndSettle();
 
-      expect(find.text('Card Mechanics'), findsNothing);
+      expect(find.text('Card Mechanics & Rulings'), findsNothing);
       expect(find.byIcon(Icons.auto_awesome_rounded), findsNothing);
       expect(tester.takeException(), isNull);
     });
@@ -374,7 +374,7 @@ void main() {
       await tester.pumpWidget(createTestWidget(lorcanaCard));
       await tester.pumpAndSettle();
 
-      expect(find.text('Card Mechanics'), findsNothing);
+      expect(find.text('Card Mechanics & Rulings'), findsNothing);
       expect(find.byIcon(Icons.auto_awesome_rounded), findsNothing);
       expect(tester.takeException(), isNull);
     });
@@ -396,7 +396,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Must not crash; Card Mechanics section should be omitted
-      expect(find.text('Card Mechanics'), findsNothing);
+      expect(find.text('Card Mechanics & Rulings'), findsNothing);
       expect(find.byIcon(Icons.auto_awesome_rounded), findsNothing);
       expect(tester.takeException(), isNull);
     });
@@ -417,7 +417,7 @@ void main() {
       await tester.pumpWidget(createTestWidget(weirdCard));
       await tester.pumpAndSettle();
 
-      expect(find.text('Card Mechanics'), findsNothing);
+      expect(find.text('Card Mechanics & Rulings'), findsNothing);
       expect(find.byIcon(Icons.auto_awesome_rounded), findsNothing);
       expect(tester.takeException(), isNull);
     });

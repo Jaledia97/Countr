@@ -65,6 +65,8 @@ void main() {
           vaultDaoProvider.overrideWithValue(db.vaultDao),
           activeGameContextProvider.overrideWith((ref) => 'Magic: The Gathering'),
           vaultPaginationLimitProvider.overrideWith((ref) => 50),
+          vaultViewModeProvider.overrideWith((ref) => VaultViewMode.allVault),
+          cardDisplayLayoutProvider.overrideWith((ref) => CardDisplayLayout.list),
         ],
       );
 
@@ -122,6 +124,8 @@ void main() {
           vaultDaoProvider.overrideWithValue(db.vaultDao),
           activeGameContextProvider.overrideWith((ref) => 'Magic: The Gathering'),
           vaultPaginationLimitProvider.overrideWith((ref) => 50),
+          vaultViewModeProvider.overrideWith((ref) => VaultViewMode.allVault),
+          cardDisplayLayoutProvider.overrideWith((ref) => CardDisplayLayout.list),
         ],
       );
 
@@ -186,6 +190,8 @@ void main() {
           vaultDaoProvider.overrideWithValue(db.vaultDao),
           activeGameContextProvider.overrideWith((ref) => 'Magic: The Gathering'),
           vaultPaginationLimitProvider.overrideWith((ref) => 50),
+          vaultViewModeProvider.overrideWith((ref) => VaultViewMode.allVault),
+          cardDisplayLayoutProvider.overrideWith((ref) => CardDisplayLayout.list),
         ],
       );
 
@@ -268,6 +274,8 @@ void main() {
           vaultDaoProvider.overrideWithValue(db.vaultDao),
           activeGameContextProvider.overrideWith((ref) => 'Magic: The Gathering'),
           vaultPaginationLimitProvider.overrideWith((ref) => 50),
+          vaultViewModeProvider.overrideWith((ref) => VaultViewMode.allVault),
+          cardDisplayLayoutProvider.overrideWith((ref) => CardDisplayLayout.list),
         ],
       );
 
@@ -329,6 +337,8 @@ void main() {
           vaultDaoProvider.overrideWithValue(db.vaultDao),
           activeGameContextProvider.overrideWith((ref) => 'Magic: The Gathering'),
           vaultPaginationLimitProvider.overrideWith((ref) => 50),
+          vaultViewModeProvider.overrideWith((ref) => VaultViewMode.allVault),
+          cardDisplayLayoutProvider.overrideWith((ref) => CardDisplayLayout.list),
         ],
       );
 
@@ -371,6 +381,8 @@ void main() {
           vaultDaoProvider.overrideWithValue(db.vaultDao),
           activeGameContextProvider.overrideWith((ref) => 'Magic: The Gathering'),
           vaultPaginationLimitProvider.overrideWith((ref) => 50),
+          vaultViewModeProvider.overrideWith((ref) => VaultViewMode.allVault),
+          cardDisplayLayoutProvider.overrideWith((ref) => CardDisplayLayout.list),
         ],
       );
 

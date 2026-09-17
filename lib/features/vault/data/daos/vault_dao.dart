@@ -42,7 +42,10 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
 
     if (searchQuery != null && searchQuery.trim().isNotEmpty) {
       final term = '%${searchQuery.trim()}%';
-      query.where((t) => t.name.like(term) | t.setOrSeries.like(term));
+      query.where((t) =>
+          t.name.like(term) |
+          t.flavorName.like(term) |
+          t.setOrSeries.like(term));
     }
 
     query.orderBy([
@@ -88,7 +91,10 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
 
     if (searchQuery != null && searchQuery.trim().isNotEmpty) {
       final term = '%${searchQuery.trim()}%';
-      query.where((t) => t.name.like(term) | t.setOrSeries.like(term));
+      query.where((t) =>
+          t.name.like(term) |
+          t.flavorName.like(term) |
+          t.setOrSeries.like(term));
     }
 
     query.orderBy([
@@ -246,7 +252,10 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
 
     if (trimmed.isNotEmpty) {
       final term = '%$trimmed%';
-      q.where((t) => t.name.like(term) | t.setOrSeries.like(term));
+      q.where((t) =>
+          t.name.like(term) |
+          t.flavorName.like(term) |
+          t.setOrSeries.like(term));
     }
 
     q.orderBy([(t) => OrderingTerm(expression: t.name, mode: OrderingMode.asc)]);
@@ -347,6 +356,7 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     bool? isMisprint,
     bool? isSigned,
     String? name,
+    String? flavorName,
     String? setOrSeries,
     String? imageUrl,
     double? currentMarketPrice,
@@ -381,6 +391,9 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
             isMisprint != null ? Value(isMisprint) : const Value.absent(),
         isSigned: isSigned != null ? Value(isSigned) : const Value.absent(),
         name: name != null ? Value(name) : const Value.absent(),
+        flavorName: flavorName != null
+            ? Value(flavorName)
+            : const Value.absent(),
         setOrSeries: setOrSeries != null
             ? Value(setOrSeries)
             : const Value.absent(),
@@ -582,6 +595,7 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
         onConflict: DoUpdate<$VaultItemsTable, VaultItem>.withExcluded(
           (old, excluded) => VaultItemsCompanion.custom(
             name: excluded.name,
+            flavorName: excluded.flavorName,
             setOrSeries: excluded.setOrSeries,
             imageUrl: excluded.imageUrl,
             currentMarketPrice: excluded.currentMarketPrice,

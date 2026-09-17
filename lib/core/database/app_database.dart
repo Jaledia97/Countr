@@ -13,7 +13,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? e]) : super(e ?? openConnection());
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration {
@@ -37,6 +37,11 @@ class AppDatabase extends _$AppDatabase {
             await m.addColumn(vaultItems, vaultItems.isAltered);
             await m.addColumn(vaultItems, vaultItems.isMisprint);
             await m.addColumn(vaultItems, vaultItems.isSigned);
+          } catch (_) {}
+        }
+        if (from < 5) {
+          try {
+            await m.addColumn(vaultItems, vaultItems.flavorName);
           } catch (_) {}
         }
       },
@@ -88,6 +93,11 @@ class AppDatabase extends _$AppDatabase {
               'ALTER TABLE "vault_items" ADD COLUMN "is_signed" INTEGER NOT NULL DEFAULT 0;',
             );
           }
+          if (!columnNames.contains('flavor_name')) {
+            await customStatement(
+              'ALTER TABLE "vault_items" ADD COLUMN "flavor_name" TEXT;',
+            );
+          }
         } catch (_) {}
 
         // Performance compound indexes for instantaneous query and sorting
@@ -107,6 +117,10 @@ class AppDatabase extends _$AppDatabase {
           await customStatement('''
             CREATE INDEX IF NOT EXISTS "idx_vault_items_name"
             ON "vault_items" ("name" COLLATE NOCASE);
+          ''');
+          await customStatement('''
+            CREATE INDEX IF NOT EXISTS "idx_vault_items_flavor_name"
+            ON "vault_items" ("flavor_name" COLLATE NOCASE);
           ''');
           await customStatement('''
             CREATE INDEX IF NOT EXISTS "idx_vault_items_binder"

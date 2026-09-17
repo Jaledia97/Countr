@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math' as math;
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,6 +7,8 @@ import 'package:countr/core/constants/app_colors.dart';
 import 'package:countr/core/constants/app_typography.dart';
 import 'package:countr/core/database/app_database.dart';
 import 'package:countr/core/state/app_state.dart';
+import 'package:countr/features/hydration/domain/models/scryfall_ruling.dart';
+import 'package:countr/features/hydration/presentation/providers/hydration_providers.dart';
 import 'package:countr/features/vault/domain/mtg_keyword_glossary.dart';
 import 'package:countr/features/vault/presentation/providers/vault_providers.dart';
 import 'package:countr/features/vault/presentation/widgets/edit_card_modal.dart';
@@ -33,7 +36,8 @@ class CardDetailSheet extends ConsumerStatefulWidget {
   ConsumerState<CardDetailSheet> createState() => _CardDetailSheetState();
 }
 
-class _CardDetailSheetState extends ConsumerState<CardDetailSheet> {
+class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
+    with SingleTickerProviderStateMixin {
   late TextEditingController _notesController;
   late TextEditingController _deckTagController;
   late VaultItem _currentItem;
@@ -41,20 +45,54 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet> {
   List<String> _deckHistory = [];
   bool _isSavingNotes = false;
 
+  late final AnimationController _flipController;
+  late final Animation<double> _flipAnimation;
+  bool _isFlipped = false;
+
+  List<ScryfallRuling> _cachedRulings = [];
+  bool _isLoadingRulings = false;
+
   @override
   void initState() {
     super.initState();
     _currentItem = widget.item;
     _notesController = TextEditingController(text: _currentItem.personalNotes ?? '');
     _deckTagController = TextEditingController();
+    _flipController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
+    _flipAnimation = CurvedAnimation(
+      parent: _flipController,
+      curve: Curves.easeInOutCubic,
+    );
     _parseDynamicData();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _fetchAndCacheRulings();
+    });
   }
 
   @override
   void dispose() {
     _notesController.dispose();
     _deckTagController.dispose();
+    _flipController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(CardDetailSheet oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.item.id != widget.item.id ||
+        oldWidget.item.dynamicData != widget.item.dynamicData ||
+        (_cachedRulings.isEmpty && !_dynamicData.containsKey('cached_rulings'))) {
+      _currentItem = widget.item;
+      _parseDynamicData();
+      _isFlipped = false;
+      _flipController.reset();
+      _fetchAndCacheRulings();
+    }
   }
 
   void _parseDynamicData() {
@@ -65,9 +103,143 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet> {
         if (rawDecks is List) {
           _deckHistory = rawDecks.map((e) => e.toString()).toList();
         }
+        final rawCached = _dynamicData['cached_rulings'];
+        if (rawCached is List) {
+          _cachedRulings = rawCached.map((e) {
+            if (e is Map<String, dynamic>) {
+              return ScryfallRuling.fromJson(e);
+            } else if (e is Map) {
+              return ScryfallRuling.fromJson(Map<String, dynamic>.from(e));
+            }
+            return ScryfallRuling(publishedAt: '', comment: e.toString());
+          }).toList();
+        }
       } catch (_) {
         _dynamicData = {};
       }
+    }
+  }
+
+  String? _getBackImageUrl() {
+    if (_dynamicData['back_image_url'] is String &&
+        (_dynamicData['back_image_url'] as String).isNotEmpty) {
+      return _dynamicData['back_image_url'] as String;
+    }
+    final faces = _dynamicData['card_faces'];
+    if (faces is List && faces.length > 1) {
+      final back = faces[1];
+      if (back is Map) {
+        if (back['image_uris'] is Map) {
+          final uris = back['image_uris'] as Map<String, dynamic>;
+          final url = uris['normal'] ?? uris['large'] ?? uris['small'] ?? uris['png'];
+          if (url != null && url.toString().isNotEmpty) return url.toString();
+        }
+        final direct = back['image_url']?.toString() ?? back['imageUrl']?.toString();
+        if (direct != null && direct.isNotEmpty) return direct;
+      }
+    }
+    return null;
+  }
+
+  String _getFrontImageUrl() {
+    if (_currentItem.imageUrl.isNotEmpty) return _currentItem.imageUrl;
+    final faces = _dynamicData['card_faces'];
+    if (faces is List && faces.isNotEmpty) {
+      final front = faces[0];
+      if (front is Map) {
+        if (front['image_uris'] is Map) {
+          final uris = front['image_uris'] as Map<String, dynamic>;
+          final url = uris['normal'] ?? uris['large'] ?? uris['small'] ?? uris['png'];
+          if (url != null && url.toString().isNotEmpty) return url.toString();
+        }
+        final direct = front['image_url']?.toString() ?? front['imageUrl']?.toString();
+        if (direct != null && direct.isNotEmpty) return direct;
+      }
+    }
+    return '';
+  }
+
+  bool get _hasMultipleFaces => _getBackImageUrl() != null;
+
+  void _toggleFlip() {
+    if (!_hasMultipleFaces) return;
+    if (_isFlipped) {
+      _flipController.reverse();
+    } else {
+      _flipController.forward();
+    }
+    setState(() {
+      _isFlipped = !_isFlipped;
+    });
+  }
+
+  bool _isMtgCard() {
+    final col = _currentItem.collectionType.toLowerCase();
+    return col == 'mtg' || col.contains('magic');
+  }
+
+  Future<void> _fetchAndCacheRulings() async {
+    if (!mounted || !_isMtgCard()) return;
+    if (_cachedRulings.isNotEmpty || _dynamicData.containsKey('cached_rulings')) {
+      return;
+    }
+
+    setState(() => _isLoadingRulings = true);
+
+    try {
+      final scryfallId = _dynamicData['scryfall_id']?.toString() ??
+          _dynamicData['id']?.toString() ??
+          _currentItem.id;
+
+      final service = ref.read(scryfallServiceProvider);
+      final rulings = await service.fetchCardRulings(scryfallId);
+
+      if (!mounted) return;
+
+      if (rulings != null) {
+        if (rulings.isNotEmpty) {
+          setState(() {
+            _cachedRulings = rulings;
+          });
+        }
+        await _persistCachedRulings(rulings);
+      }
+    } catch (_) {
+      // Graceful error handling
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingRulings = false);
+      }
+    }
+  }
+
+  Future<void> _persistCachedRulings(List<ScryfallRuling> rulings) async {
+    try {
+      final dao = ref.read(vaultDaoProvider);
+      final existing = await dao.getItemById(_currentItem.id);
+      if (existing == null) return;
+
+      Map<String, dynamic> data = {};
+      if (existing.dynamicData.isNotEmpty) {
+        try {
+          data = jsonDecode(existing.dynamicData) as Map<String, dynamic>;
+        } catch (_) {}
+      }
+      data['cached_rulings'] = rulings.map((r) => r.toJson()).toList();
+      final updatedJson = jsonEncode(data);
+
+      await (dao.attachedDatabase.update(dao.attachedDatabase.vaultItems)
+            ..where((t) => t.id.equals(_currentItem.id)))
+          .write(VaultItemsCompanion(dynamicData: Value(updatedJson)));
+
+      if (mounted) {
+        setState(() {
+          _dynamicData = data;
+          _currentItem = _currentItem.copyWith(dynamicData: updatedJson);
+        });
+      }
+    } catch (_) {
+      // Gracefully ignore database persistence errors in test environments
     }
   }
 
@@ -154,10 +326,12 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet> {
     final flavorText = _dynamicData['flavor_text']?.toString() ?? '';
     final rawKeywords = _dynamicData['keywords'];
     final keywordsList = rawKeywords is List ? rawKeywords : null;
-    final mechanics = MtgKeywordGlossary.extractKeywords(
-      keywords: keywordsList,
-      oracleText: oracleText,
-    );
+    final mechanics = _isMtgCard()
+        ? MtgKeywordGlossary.extractKeywords(
+            keywords: keywordsList,
+            oracleText: oracleText,
+          )
+        : const <String>[];
 
     // Profit / Loss calculations
     final delta = (_currentItem.currentMarketPrice - _currentItem.acquiredPrice) * _currentItem.quantity;
@@ -239,6 +413,7 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet> {
                       ),
                     ),
                     IconButton(
+                      tooltip: 'Close',
                       icon: const Icon(Icons.close, color: AppColors.textSecondary),
                       onPressed: () => Navigator.of(context).pop(),
                     ),
@@ -418,14 +593,14 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet> {
                       ),
                     ),
 
-                    // Card Mechanics (MTG Keyword Glossary)
-                    _buildCardMechanics(mechanics),
+                    // Card Mechanics & Rulings
+                    _buildCardMechanicsAndRulings(mechanics, _cachedRulings, _isLoadingRulings),
 
                     // Section 2: Format Legalities
                     _buildFormatLegalities(),
 
                     // Section 3: Official Rulings & Textbox Clarifications
-                    if (rulings.isNotEmpty) ...[
+                    if (_cachedRulings.isEmpty && rulings.isNotEmpty) ...[
                       const SizedBox(height: 16),
                       _buildSectionHeader(Icons.gavel_rounded, 'Rules Text Clarifications'),
                       Container(
@@ -554,6 +729,7 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet> {
                               ),
                               const SizedBox(width: 8),
                               IconButton(
+                                tooltip: 'Add tag',
                                 icon: const Icon(Icons.add_circle, color: AppColors.accentCyan),
                                 onPressed: _addDeckTag,
                               ),
@@ -619,11 +795,97 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet> {
   }
 
   Widget _buildCardArtwork() {
+    final hasFlip = _hasMultipleFaces;
+
+    final artwork = GestureDetector(
+      onTap: hasFlip ? _toggleFlip : null,
+      child: AnimatedBuilder(
+        animation: _flipAnimation,
+        builder: (context, child) {
+          final angle = _flipAnimation.value * math.pi;
+          final isUnder = angle > (math.pi / 2);
+          final currentUrl = isUnder ? (_getBackImageUrl() ?? '') : _getFrontImageUrl();
+          return Transform(
+            transform: Matrix4.identity()
+              ..setEntry(3, 2, 0.001)
+              ..rotateY(angle),
+            alignment: Alignment.center,
+            child: isUnder
+                ? Transform(
+                    alignment: Alignment.center,
+                    transform: Matrix4.identity()..rotateY(math.pi),
+                    child: _buildCardFaceContainer(currentUrl),
+                  )
+                : _buildCardFaceContainer(currentUrl),
+          );
+        },
+      ),
+    );
+
     return Hero(
+      key: Key('card_artwork_${_currentItem.id}'),
       tag: 'card_artwork_${_currentItem.id}',
-      child: Container(
-        width: 110,
-        height: 154,
+      child: Stack(
+        children: [
+          artwork,
+          if (hasFlip)
+            Positioned(
+              bottom: 4,
+              right: 4,
+              child: Semantics(
+                button: true,
+                label: 'Flip card',
+                hint: 'Toggles between front and back face',
+                child: Tooltip(
+                  message: 'Flip card',
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      key: const Key('card_detail_flip_button'),
+                      onTap: _toggleFlip,
+                      borderRadius: BorderRadius.circular(24),
+                      child: Container(
+                        width: 48,
+                        height: 48,
+                        alignment: Alignment.center,
+                        child: Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: AppColors.surface.withValues(alpha: 0.85),
+                            shape: BoxShape.circle,
+                            border: Border.all(color: AppColors.surfaceBorder),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.5),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: const Center(
+                            child: Icon(
+                              Icons.flip_camera_android_rounded,
+                              size: 16,
+                              color: AppColors.accentCyan,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCardFaceContainer(String imageUrl) {
+    return Container(
+      width: 110,
+      height: 154,
       decoration: BoxDecoration(
         color: AppColors.surfaceRaised,
         borderRadius: BorderRadius.circular(10),
@@ -637,9 +899,9 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet> {
         ],
       ),
       clipBehavior: Clip.antiAlias,
-      child: _currentItem.imageUrl.isNotEmpty
+      child: imageUrl.isNotEmpty
           ? Image.network(
-              _currentItem.imageUrl,
+              imageUrl,
               fit: BoxFit.cover,
               errorBuilder: (_, _, _) => _buildPlaceholderArt(),
               loadingBuilder: (context, child, loadingProgress) {
@@ -650,7 +912,6 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet> {
               },
             )
           : _buildPlaceholderArt(),
-      ),
     );
   }
 
@@ -763,15 +1024,19 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet> {
     }
   }
 
-  Widget _buildCardMechanics(List<String> keywords) {
-    if (keywords.isEmpty) {
+  Widget _buildCardMechanicsAndRulings(
+    List<String> keywords,
+    List<ScryfallRuling> rulings,
+    bool isLoadingRulings,
+  ) {
+    if (!_isMtgCard() || (keywords.isEmpty && rulings.isEmpty)) {
       return const SizedBox.shrink();
     }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionHeader(Icons.auto_awesome_rounded, 'Card Mechanics'),
+        _buildSectionHeader(Icons.auto_awesome_rounded, 'Card Mechanics & Rulings'),
         Container(
           margin: const EdgeInsets.only(top: 8, bottom: 18),
           padding: const EdgeInsets.all(14),
@@ -783,33 +1048,95 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              for (int i = 0; i < keywords.length; i++) ...[
-                if (i > 0) const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppColors.accentCyan.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: AppColors.accentCyan.withValues(alpha: 0.4)),
-                  ),
-                  child: Text(
-                    keywords[i],
-                    style: const TextStyle(
-                      color: AppColors.accentCyan,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 12,
+              // Keywords list
+              if (keywords.isNotEmpty) ...[
+                for (int i = 0; i < keywords.length; i++) ...[
+                  if (i > 0) const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.accentCyan.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: AppColors.accentCyan.withValues(alpha: 0.4)),
+                    ),
+                    child: Text(
+                      keywords[i],
+                      style: const TextStyle(
+                        color: AppColors.accentCyan,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  MtgKeywordGlossary.dictionary[keywords[i]] ?? '',
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 12.5,
-                    height: 1.35,
+                  const SizedBox(height: 5),
+                  Text(
+                    MtgKeywordGlossary.dictionary[keywords[i]] ?? '',
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 12.5,
+                      height: 1.35,
+                    ),
                   ),
+                ],
+              ],
+
+              // Divider between keywords and rulings
+              if (keywords.isNotEmpty && rulings.isNotEmpty) ...[
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 14),
+                  child: Divider(height: 1, color: AppColors.surfaceBorderSubtle),
                 ),
+              ],
+
+              // Scryfall rulings list
+              if (rulings.isNotEmpty) ...[
+                Row(
+                  children: [
+                    const Icon(Icons.gavel_rounded, size: 14, color: AppColors.accentAmber),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Official Rulings (${rulings.length})',
+                      style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12.5,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                for (int i = 0; i < rulings.length; i++) ...[
+                  if (i > 0)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8),
+                      child: Divider(height: 1, color: AppColors.surfaceBorderSubtle),
+                    ),
+                  if (rulings[i].publishedAt.isNotEmpty) ...[
+                    Row(
+                      children: [
+                        const Icon(Icons.calendar_today_outlined, size: 11, color: AppColors.textMuted),
+                        const SizedBox(width: 4),
+                        Text(
+                          rulings[i].publishedAt,
+                          style: const TextStyle(
+                            color: AppColors.textMuted,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 3),
+                  ],
+                  Text(
+                    rulings[i].comment,
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 12.5,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
               ],
             ],
           ),
@@ -1019,6 +1346,7 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet> {
                     children: [
                       const Text('Add Card to Deck', style: AppTypography.heading2),
                       IconButton(
+                        tooltip: 'Close',
                         icon: const Icon(Icons.close, color: AppColors.textMuted),
                         onPressed: () => Navigator.of(modalCtx).pop(),
                       ),
@@ -1081,6 +1409,7 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet> {
                       ),
                       const SizedBox(width: 8),
                       IconButton(
+                        tooltip: 'Create and add',
                         icon: const Icon(Icons.add_circle, color: AppColors.accentCyan, size: 28),
                         onPressed: () async {
                           final name = customDeckController.text.trim();

@@ -21,7 +21,7 @@ final vaultDaoProvider = Provider<VaultDao>((ref) {
 enum CardDisplayLayout { list, grid }
 
 /// Controls whether cards are displayed in list or grid/tile layout
-final cardDisplayLayoutProvider = StateProvider<CardDisplayLayout>((ref) => CardDisplayLayout.list);
+final cardDisplayLayoutProvider = StateProvider<CardDisplayLayout>((ref) => CardDisplayLayout.grid);
 
 /// Global search query entered in the Vault screen
 final vaultSearchQueryProvider = StateProvider<String>((ref) => '');
@@ -176,7 +176,7 @@ enum VaultViewMode {
 }
 
 final vaultViewModeProvider =
-    StateProvider<VaultViewMode>((ref) => VaultViewMode.allVault);
+    StateProvider<VaultViewMode>((ref) => VaultViewMode.binders);
 
 /// Reactive StreamProvider for items staged in the Inbox
 final inboxItemsStreamProvider = StreamProvider<List<VaultItem>>((ref) {

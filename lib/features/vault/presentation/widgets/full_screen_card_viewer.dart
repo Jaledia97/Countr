@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:countr/core/constants/app_colors.dart';
 import 'package:countr/core/constants/app_typography.dart';
@@ -29,9 +31,13 @@ class FullScreenCardViewer extends StatefulWidget {
 }
 
 class _FullScreenCardViewerState extends State<FullScreenCardViewer>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late final AnimationController _foilController;
+  late final AnimationController _flipController;
+  late final Animation<double> _flipAnimation;
   bool _isFoilActive = false;
+  bool _isFlipped = false;
+  Map<String, dynamic> _dynamicData = {};
 
   @override
   void initState() {
@@ -40,12 +46,96 @@ class _FullScreenCardViewerState extends State<FullScreenCardViewer>
       vsync: this,
       duration: const Duration(milliseconds: 3000),
     );
+    _flipController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
+    _flipAnimation = CurvedAnimation(
+      parent: _flipController,
+      curve: Curves.easeInOutCubic,
+    );
+    _parseDynamicData();
   }
 
   @override
   void dispose() {
     _foilController.dispose();
+    _flipController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(FullScreenCardViewer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.item.id != widget.item.id ||
+        oldWidget.item.dynamicData != widget.item.dynamicData) {
+      _parseDynamicData();
+      _isFlipped = false;
+      _flipController.reset();
+    }
+  }
+
+  void _parseDynamicData() {
+    if (widget.item.dynamicData.isNotEmpty) {
+      try {
+        _dynamicData = jsonDecode(widget.item.dynamicData) as Map<String, dynamic>;
+      } catch (_) {
+        _dynamicData = {};
+      }
+    }
+  }
+
+  String? _getBackImageUrl() {
+    if (_dynamicData['back_image_url'] is String &&
+        (_dynamicData['back_image_url'] as String).isNotEmpty) {
+      return _dynamicData['back_image_url'] as String;
+    }
+    final faces = _dynamicData['card_faces'];
+    if (faces is List && faces.length > 1) {
+      final back = faces[1];
+      if (back is Map) {
+        if (back['image_uris'] is Map) {
+          final uris = back['image_uris'] as Map<String, dynamic>;
+          final url = uris['normal'] ?? uris['large'] ?? uris['small'] ?? uris['png'];
+          if (url != null && url.toString().isNotEmpty) return url.toString();
+        }
+        final direct = back['image_url']?.toString() ?? back['imageUrl']?.toString();
+        if (direct != null && direct.isNotEmpty) return direct;
+      }
+    }
+    return null;
+  }
+
+  String _getFrontImageUrl() {
+    if (widget.item.imageUrl.isNotEmpty) return widget.item.imageUrl;
+    final faces = _dynamicData['card_faces'];
+    if (faces is List && faces.isNotEmpty) {
+      final front = faces[0];
+      if (front is Map) {
+        if (front['image_uris'] is Map) {
+          final uris = front['image_uris'] as Map<String, dynamic>;
+          final url = uris['normal'] ?? uris['large'] ?? uris['small'] ?? uris['png'];
+          if (url != null && url.toString().isNotEmpty) return url.toString();
+        }
+        final direct = front['image_url']?.toString() ?? front['imageUrl']?.toString();
+        if (direct != null && direct.isNotEmpty) return direct;
+      }
+    }
+    return '';
+  }
+
+  bool get _hasMultipleFaces => _getBackImageUrl() != null;
+
+  void _toggleFlip() {
+    if (!_hasMultipleFaces) return;
+    if (_isFlipped) {
+      _flipController.reverse();
+    } else {
+      _flipController.forward();
+    }
+    setState(() {
+      _isFlipped = !_isFlipped;
+    });
   }
 
   void _toggleFoil() {
@@ -69,6 +159,7 @@ class _FullScreenCardViewerState extends State<FullScreenCardViewer>
         elevation: 0,
         leading: IconButton(
           key: const Key('fullscreen_close_button'),
+          tooltip: 'Close',
           icon: const Icon(Icons.close, color: Colors.white),
           onPressed: () => Navigator.of(context).pop(),
         ),
@@ -143,7 +234,7 @@ class _FullScreenCardViewerState extends State<FullScreenCardViewer>
                 ],
               ),
               clipBehavior: Clip.antiAlias,
-              child: _buildArtworkWithShimmer(),
+              child: _buildArtworkWithFlipAndFoil(),
             ),
           ),
         ),
@@ -151,47 +242,131 @@ class _FullScreenCardViewerState extends State<FullScreenCardViewer>
     );
   }
 
-  Widget _buildArtworkWithShimmer() {
-    final imageWidget = widget.item.imageUrl.isNotEmpty
-        ? Image.network(
-            widget.item.imageUrl,
-            fit: BoxFit.cover,
-            errorBuilder: (_, _, _) => _buildPlaceholder(),
-          )
-        : _buildPlaceholder();
+  Widget _buildArtworkWithFlipAndFoil() {
+    final hasFlip = _hasMultipleFaces;
 
-    if (!_isFoilActive) {
-      return imageWidget;
+    final flippable = GestureDetector(
+      onTap: hasFlip ? _toggleFlip : null,
+      child: AnimatedBuilder(
+        animation: _flipAnimation,
+        builder: (context, child) {
+          final angle = _flipAnimation.value * math.pi;
+          final isUnder = angle > (math.pi / 2);
+          final currentUrl = isUnder ? (_getBackImageUrl() ?? '') : _getFrontImageUrl();
+          return Transform(
+            transform: Matrix4.identity()
+              ..setEntry(3, 2, 0.001)
+              ..rotateY(angle),
+            alignment: Alignment.center,
+            child: isUnder
+                ? Transform(
+                    alignment: Alignment.center,
+                    transform: Matrix4.identity()..rotateY(math.pi),
+                    child: _buildFaceImage(currentUrl),
+                  )
+                : _buildFaceImage(currentUrl),
+          );
+        },
+      ),
+    );
+
+    Widget renderedArtwork = flippable;
+    if (_isFoilActive) {
+      // Holographic Foil Finish: Sweeping diagonal rainbow linear gradient
+      renderedArtwork = AnimatedBuilder(
+        animation: _foilController,
+        builder: (context, child) {
+          return ShaderMask(
+            blendMode: BlendMode.colorDodge,
+            shaderCallback: (bounds) {
+              final t = _foilController.value;
+              return LinearGradient(
+                begin: Alignment(-2.0 + 4.0 * t, -1.0),
+                end: Alignment(-1.0 + 4.0 * t, 1.0),
+                colors: const [
+                  Colors.transparent,
+                  Color(0x44FF0055), // Neon magenta
+                  Color(0x6600E5FF), // Holographic cyan
+                  Color(0x66FFD600), // Holographic gold
+                  Color(0x667C4DFF), // Deep holographic violet
+                  Color(0x4400E676), // Emerald sheen
+                  Colors.transparent,
+                ],
+                stops: const [0.0, 0.2, 0.4, 0.6, 0.8, 0.9, 1.0],
+              ).createShader(bounds);
+            },
+            child: child,
+          );
+        },
+        child: flippable,
+      );
     }
 
-    // Holographic Foil Finish: Sweeping diagonal rainbow linear gradient
-    return AnimatedBuilder(
-      animation: _foilController,
-      builder: (context, child) {
-        return ShaderMask(
-          blendMode: BlendMode.colorDodge,
-          shaderCallback: (bounds) {
-            final t = _foilController.value;
-            return LinearGradient(
-              begin: Alignment(-2.0 + 4.0 * t, -1.0),
-              end: Alignment(-1.0 + 4.0 * t, 1.0),
-              colors: const [
-                Colors.transparent,
-                Color(0x44FF0055), // Neon magenta
-                Color(0x6600E5FF), // Holographic cyan
-                Color(0x66FFD600), // Holographic gold
-                Color(0x667C4DFF), // Deep holographic violet
-                Color(0x4400E676), // Emerald sheen
-                Colors.transparent,
-              ],
-              stops: const [0.0, 0.2, 0.4, 0.6, 0.8, 0.9, 1.0],
-            ).createShader(bounds);
-          },
-          child: child,
-        );
-      },
-      child: imageWidget,
+    return Stack(
+      children: [
+        Positioned.fill(child: renderedArtwork),
+        if (hasFlip)
+          Positioned(
+            bottom: 14,
+            right: 14,
+            child: Semantics(
+              button: true,
+              label: 'Flip card',
+              hint: 'Toggles between front and back face',
+              child: Tooltip(
+                message: 'Flip card',
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    key: const Key('fullscreen_flip_button'),
+                    onTap: _toggleFlip,
+                    borderRadius: BorderRadius.circular(24),
+                    child: Container(
+                      width: 48,
+                      height: 48,
+                      alignment: Alignment.center,
+                      child: Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: AppColors.surface.withValues(alpha: 0.85),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: AppColors.surfaceBorder),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.6),
+                              blurRadius: 6,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: const Center(
+                          child: Icon(
+                            Icons.flip_camera_android_rounded,
+                            size: 20,
+                            color: AppColors.accentCyan,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
     );
+  }
+
+  Widget _buildFaceImage(String url) {
+    if (url.isNotEmpty) {
+      return Image.network(
+        url,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => _buildPlaceholder(),
+      );
+    }
+    return _buildPlaceholder();
   }
 
   Widget _buildPlaceholder() {
