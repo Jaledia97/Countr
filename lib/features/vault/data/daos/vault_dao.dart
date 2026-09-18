@@ -7,6 +7,7 @@ import 'package:countr/core/database/tables/vault_binders_table.dart';
 import 'package:countr/core/database/tables/vault_items_table.dart';
 import 'package:countr/features/scanner/domain/ocr_heuristic_matcher.dart';
 import 'package:countr/features/vault/domain/models/vault_totals.dart';
+import 'package:countr/features/vault/presentation/providers/mtg_filter_state.dart';
 
 part 'vault_dao.g.dart';
 
@@ -15,13 +16,14 @@ part 'vault_dao.g.dart';
 class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
   VaultDao(super.db);
 
-  /// Streams items filtered by collection type.
+  /// Streams items filtered by collection type and optional [MtgFilterState].
   /// If [onlyOwned] is true, filters for quantity > 0 (personal vault inventory).
   /// If [limit] is provided, caps the returned rows to prevent UI thread memory spikes.
   Stream<List<VaultItem>> watchItemsByCollection(
     String collectionType, {
     bool onlyOwned = false,
     String? searchQuery,
+    MtgFilterState? mtgFilter,
     int? limit,
     int? offset,
   }) {
@@ -41,12 +43,31 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
         t.primaryBinderId.equals('INBOX').not());
 
     if (searchQuery != null && searchQuery.trim().isNotEmpty) {
-      final term = '%${searchQuery.trim()}%';
-      query.where((t) =>
-          t.name.like(term) |
-          t.flavorName.like(term) |
-          t.setOrSeries.like(term) |
-          t.dynamicData.like(term));
+      final clean = searchQuery.trim();
+      final term = '%$clean%';
+      final lower = clean.toLowerCase();
+      final isSld = lower == 'sld' || lower == 'secret lair' || lower == 'secret lair drop';
+
+      query.where((t) {
+        final base = t.name.like(term) |
+            t.flavorName.like(term) |
+            t.setOrSeries.like(term) |
+            t.dynamicData.like(term);
+        if (isSld) {
+          return base |
+              t.setOrSeries.like('%Secret Lair%') |
+              t.dynamicData.like('%"set":"sld"%') |
+              t.dynamicData.like('%"set_code":"sld"%') |
+              t.dynamicData.like('%"set": "sld"%') |
+              t.dynamicData.like('%"set_code": "sld"%');
+        }
+        return base;
+      });
+    }
+
+    // Stage 1: Push down direct SQLite column where clauses
+    if (mtgFilter != null && mtgFilter.isActive) {
+      _applyMtgFilterStage1(query, mtgFilter);
     }
 
     query.orderBy([
@@ -60,21 +81,34 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
           ),
     ]);
 
-    if (limit != null) {
+    // Defer SQL limit when mtgFilter is active to avoid row starvation prior to Stage 2
+    if (limit != null && (mtgFilter == null || !mtgFilter.isActive)) {
       query.limit(limit, offset: offset);
     }
 
-    return query.watch();
+    // Stage 2: In-memory stream mapping using mtgFilter.matches(item)
+    return query.watch().map((items) {
+      if (mtgFilter == null || !mtgFilter.isActive) return items;
+      final filtered = items.where((item) => mtgFilter.matches(item)).toList();
+      if (limit != null) {
+        if (offset != null) {
+          return filtered.skip(offset).take(limit).toList();
+        }
+        return filtered.take(limit).toList();
+      }
+      return filtered;
+    });
   }
 
-  /// One-shot query to fetch cards by collection type.
+  /// One-shot query to fetch cards by collection type and optional [MtgFilterState].
   Future<List<VaultItem>> getItemsByCollection(
     String collectionType, {
     bool onlyOwned = false,
     String? searchQuery,
+    MtgFilterState? mtgFilter,
     int? limit,
     int? offset,
-  }) {
+  }) async {
     final normalized = _normalizeCollectionType(collectionType);
     final query = select(vaultItems);
 
@@ -91,12 +125,31 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
         t.primaryBinderId.equals('INBOX').not());
 
     if (searchQuery != null && searchQuery.trim().isNotEmpty) {
-      final term = '%${searchQuery.trim()}%';
-      query.where((t) =>
-          t.name.like(term) |
-          t.flavorName.like(term) |
-          t.setOrSeries.like(term) |
-          t.dynamicData.like(term));
+      final clean = searchQuery.trim();
+      final term = '%$clean%';
+      final lower = clean.toLowerCase();
+      final isSld = lower == 'sld' || lower == 'secret lair' || lower == 'secret lair drop';
+
+      query.where((t) {
+        final base = t.name.like(term) |
+            t.flavorName.like(term) |
+            t.setOrSeries.like(term) |
+            t.dynamicData.like(term);
+        if (isSld) {
+          return base |
+              t.setOrSeries.like('%Secret Lair%') |
+              t.dynamicData.like('%"set":"sld"%') |
+              t.dynamicData.like('%"set_code":"sld"%') |
+              t.dynamicData.like('%"set": "sld"%') |
+              t.dynamicData.like('%"set_code": "sld"%');
+        }
+        return base;
+      });
+    }
+
+    // Stage 1: Push down direct SQLite column where clauses
+    if (mtgFilter != null && mtgFilter.isActive) {
+      _applyMtgFilterStage1(query, mtgFilter);
     }
 
     query.orderBy([
@@ -110,11 +163,104 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
           ),
     ]);
 
-    if (limit != null) {
+    // Defer SQL limit when mtgFilter is active to avoid row starvation prior to Stage 2
+    if (limit != null && (mtgFilter == null || !mtgFilter.isActive)) {
       query.limit(limit, offset: offset);
     }
 
-    return query.get();
+    final items = await query.get();
+
+    // Stage 2: In-memory evaluation using mtgFilter.matches(item)
+    if (mtgFilter == null || !mtgFilter.isActive) {
+      return items;
+    }
+
+    final filtered = items.where((item) => mtgFilter.matches(item)).toList();
+    if (limit != null) {
+      if (offset != null) {
+        return filtered.skip(offset).take(limit).toList();
+      }
+      return filtered.take(limit).toList();
+    }
+    return filtered;
+  }
+
+  /// Applies Stage 1 SQL pushdown filters to the Drift query.
+  void _applyMtgFilterStage1(
+    SimpleSelectStatement<$VaultItemsTable, VaultItem> query,
+    MtgFilterState filter,
+  ) {
+    // 1. Direct table columns
+    if (filter.conditions.isNotEmpty) {
+      final expandedConditions = filter.conditions
+          .expand((c) => [c, c.toUpperCase(), c.toLowerCase()])
+          .toSet()
+          .toList();
+      query.where((t) => t.condition.isIn(expandedConditions));
+    }
+    if (filter.isGraded != null) {
+      query.where((t) => t.isGraded.equals(filter.isGraded!));
+    }
+    if (filter.isAltered != null) {
+      query.where((t) => t.isAltered.equals(filter.isAltered!));
+    }
+    if (filter.isMisprint != null) {
+      query.where((t) => t.isMisprint.equals(filter.isMisprint!));
+    }
+    if (filter.isSigned != null) {
+      query.where((t) => t.isSigned.equals(filter.isSigned!));
+    }
+
+    // 2. Simple text pushdown clauses
+    if (filter.typeLine.trim().isNotEmpty) {
+      final parts = filter.typeLine.trim().split(RegExp(r'\s+'));
+      for (final part in parts) {
+        if (part.isNotEmpty) {
+          query.where((t) => t.dynamicData.like('%$part%'));
+        }
+      }
+    }
+
+    for (final clause in filter.oracleTextClauses) {
+      final trimmed = clause.trim();
+      if (trimmed.isNotEmpty) {
+        query.where((t) => t.dynamicData.like('%$trimmed%'));
+      }
+    }
+
+    if (filter.isUniversesBeyond == true) {
+      query.where((t) =>
+          const CustomExpression<bool>(
+            "json_extract(vault_items.dynamic_data, '\$.is_universes_beyond') = 1",
+          ) |
+          t.dynamicData.like('%"is_universes_beyond":true%') |
+          t.dynamicData.like('%"is_universes_beyond": true%') |
+          t.dynamicData.like('%universes_beyond%') |
+          t.dynamicData.like('%universesbeyond%') |
+          t.dynamicData.like('%"security_stamp":"triangle"%') |
+          t.dynamicData.like('%"security_stamp": "triangle"%'));
+    }
+
+    if (filter.setCode.trim().isNotEmpty && filter.setOperator == '=') {
+      final cleanSet = filter.setCode.trim().toLowerCase();
+      final isSld = cleanSet == 'sld' || cleanSet == 'secret lair' || cleanSet == 'secret lair drop';
+      if (isSld) {
+        query.where((t) =>
+            t.setOrSeries.like('%Secret Lair%') |
+            t.dynamicData.like('%"set":"sld"%') |
+            t.dynamicData.like('%"set_code":"sld"%') |
+            t.dynamicData.like('%"set": "sld"%') |
+            t.dynamicData.like('%"set_code": "sld"%'));
+      } else {
+        query.where((t) =>
+            t.setOrSeries.equals(filter.setCode.trim()) |
+            t.setOrSeries.like('%${filter.setCode.trim()}%') |
+            t.dynamicData.like('%"set":"$cleanSet"%') |
+            t.dynamicData.like('%"set_code":"$cleanSet"%') |
+            t.dynamicData.like('%"set": "$cleanSet"%') |
+            t.dynamicData.like('%"set_code": "$cleanSet"%'));
+      }
+    }
   }
 
   /// Streams reactive aggregate totals for vault items scoped to collection and binder.
@@ -254,11 +400,24 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
 
     if (trimmed.isNotEmpty) {
       final term = '%$trimmed%';
-      q.where((t) =>
-          t.name.like(term) |
-          t.flavorName.like(term) |
-          t.setOrSeries.like(term) |
-          t.dynamicData.like(term));
+      final lower = trimmed.toLowerCase();
+      final isSld = lower == 'sld' || lower == 'secret lair' || lower == 'secret lair drop';
+
+      q.where((t) {
+        final base = t.name.like(term) |
+            t.flavorName.like(term) |
+            t.setOrSeries.like(term) |
+            t.dynamicData.like(term);
+        if (isSld) {
+          return base |
+              t.setOrSeries.like('%Secret Lair%') |
+              t.dynamicData.like('%"set":"sld"%') |
+              t.dynamicData.like('%"set_code":"sld"%') |
+              t.dynamicData.like('%"set": "sld"%') |
+              t.dynamicData.like('%"set_code": "sld"%');
+        }
+        return base;
+      });
     }
 
     q.orderBy([(t) => OrderingTerm(expression: t.name, mode: OrderingMode.asc)]);
@@ -1244,5 +1403,214 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
             : const Value.absent(),
       ),
     );
+  }
+
+  /// Ensures case-insensitive indexes for Secret Lair sets, flavor names, and Universes Beyond.
+  Future<void> ensureSecretLairIndexes() async {
+    try {
+      await customStatement('''
+        CREATE INDEX IF NOT EXISTS "idx_vault_items_set_or_series"
+        ON "vault_items" ("set_or_series" COLLATE NOCASE);
+      ''');
+      await customStatement('''
+        CREATE INDEX IF NOT EXISTS "idx_vault_items_set_code"
+        ON "vault_items" (json_extract("dynamic_data", '\$.set') COLLATE NOCASE);
+      ''');
+      await customStatement('''
+        CREATE INDEX IF NOT EXISTS "idx_vault_items_flavor_name"
+        ON "vault_items" ("flavor_name" COLLATE NOCASE);
+      ''');
+      await customStatement('''
+        CREATE INDEX IF NOT EXISTS "idx_vault_items_is_ub"
+        ON "vault_items" (json_extract("dynamic_data", '\$.is_universes_beyond'));
+      ''');
+    } catch (_) {}
+  }
+
+  // ---------------------------------------------------------------------------
+  // PHASE 3.9 R1: UNIVERSES BEYOND & SECRET LAIR FILTER QUERIES
+  // ---------------------------------------------------------------------------
+
+  /// Streams Universes Beyond cards scoped by collection and ownership.
+  Stream<List<VaultItem>> watchUniversesBeyondItems({
+    String? collectionType,
+    bool onlyOwned = false,
+    int? limit,
+    int? offset,
+  }) {
+    final normalized = collectionType != null ? _normalizeCollectionType(collectionType) : 'all';
+    final query = select(vaultItems)
+      ..where((t) =>
+          const CustomExpression<bool>(
+            "json_extract(vault_items.dynamic_data, '\$.is_universes_beyond') = 1",
+          ) |
+          t.dynamicData.like('%"is_universes_beyond":true%') |
+          t.dynamicData.like('%"is_universes_beyond": true%'));
+
+    if (normalized != 'all') {
+      query.where((t) => t.collectionType.equals(normalized));
+    }
+    if (onlyOwned) {
+      query.where((t) => t.quantity.isBiggerThanValue(0));
+    }
+    query.where((t) =>
+        t.primaryBinderId.isNull() |
+        t.primaryBinderId.equals('INBOX').not());
+
+    query.orderBy([(t) => OrderingTerm(expression: t.name, mode: OrderingMode.asc)]);
+    if (limit != null) query.limit(limit, offset: offset);
+    return query.watch();
+  }
+
+  /// One-shot query for Universes Beyond cards.
+  Future<List<VaultItem>> getUniversesBeyondItems({
+    String? collectionType,
+    bool onlyOwned = false,
+    int? limit,
+    int? offset,
+  }) {
+    final normalized = collectionType != null ? _normalizeCollectionType(collectionType) : 'all';
+    final query = select(vaultItems)
+      ..where((t) =>
+          const CustomExpression<bool>(
+            "json_extract(vault_items.dynamic_data, '\$.is_universes_beyond') = 1",
+          ) |
+          t.dynamicData.like('%"is_universes_beyond":true%') |
+          t.dynamicData.like('%"is_universes_beyond": true%'));
+
+    if (normalized != 'all') {
+      query.where((t) => t.collectionType.equals(normalized));
+    }
+    if (onlyOwned) {
+      query.where((t) => t.quantity.isBiggerThanValue(0));
+    }
+    query.where((t) =>
+        t.primaryBinderId.isNull() |
+        t.primaryBinderId.equals('INBOX').not());
+
+    query.orderBy([(t) => OrderingTerm(expression: t.name, mode: OrderingMode.asc)]);
+    if (limit != null) query.limit(limit, offset: offset);
+    return query.get();
+  }
+
+  /// Streams Secret Lair Drop cards case-insensitively matching set code 'sld' or set name 'Secret Lair Drop'.
+  Stream<List<VaultItem>> watchSecretLairItems({
+    bool onlyOwned = false,
+    int? limit,
+    int? offset,
+  }) {
+    final query = select(vaultItems)
+      ..where((t) =>
+          t.setOrSeries.like('%Secret Lair%') |
+          const CustomExpression<bool>(
+            "json_extract(vault_items.dynamic_data, '\$.set') = 'sld' COLLATE NOCASE",
+          ) |
+          const CustomExpression<bool>(
+            "json_extract(vault_items.dynamic_data, '\$.set_code') = 'sld' COLLATE NOCASE",
+          ) |
+          t.dynamicData.like('%"set":"sld"%') |
+          t.dynamicData.like('%"set_code":"sld"%') |
+          t.dynamicData.like('%"set": "sld"%') |
+          t.dynamicData.like('%"set_code": "sld"%'));
+
+    if (onlyOwned) {
+      query.where((t) => t.quantity.isBiggerThanValue(0));
+    }
+    query.where((t) =>
+        t.primaryBinderId.isNull() |
+        t.primaryBinderId.equals('INBOX').not());
+
+    query.orderBy([(t) => OrderingTerm(expression: t.name, mode: OrderingMode.asc)]);
+    if (limit != null) query.limit(limit, offset: offset);
+    return query.watch();
+  }
+
+  /// One-shot query for Secret Lair Drop cards.
+  Future<List<VaultItem>> getSecretLairItems({
+    bool onlyOwned = false,
+    int? limit,
+    int? offset,
+  }) {
+    final query = select(vaultItems)
+      ..where((t) =>
+          t.setOrSeries.like('%Secret Lair%') |
+          const CustomExpression<bool>(
+            "json_extract(vault_items.dynamic_data, '\$.set') = 'sld' COLLATE NOCASE",
+          ) |
+          const CustomExpression<bool>(
+            "json_extract(vault_items.dynamic_data, '\$.set_code') = 'sld' COLLATE NOCASE",
+          ) |
+          t.dynamicData.like('%"set":"sld"%') |
+          t.dynamicData.like('%"set_code":"sld"%') |
+          t.dynamicData.like('%"set": "sld"%') |
+          t.dynamicData.like('%"set_code": "sld"%'));
+
+    if (onlyOwned) {
+      query.where((t) => t.quantity.isBiggerThanValue(0));
+    }
+    query.where((t) =>
+        t.primaryBinderId.isNull() |
+        t.primaryBinderId.equals('INBOX').not());
+
+    query.orderBy([(t) => OrderingTerm(expression: t.name, mode: OrderingMode.asc)]);
+    if (limit != null) query.limit(limit, offset: offset);
+    return query.get();
+  }
+
+  /// Generic set filter query matching set code or set name case-insensitively.
+  Future<List<VaultItem>> getItemsBySet({
+    required String setIdentifier,
+    String? collectionType,
+    bool onlyOwned = false,
+    int? limit,
+    int? offset,
+  }) {
+    final normalized = collectionType != null ? _normalizeCollectionType(collectionType) : 'all';
+    final cleanSet = setIdentifier.trim().toLowerCase();
+    final isSld = cleanSet == 'sld' || cleanSet == 'secret lair' || cleanSet == 'secret lair drop';
+
+    final query = select(vaultItems);
+    if (isSld) {
+      query.where((t) =>
+          t.setOrSeries.like('%Secret Lair%') |
+          const CustomExpression<bool>(
+            "json_extract(vault_items.dynamic_data, '\$.set') = 'sld' COLLATE NOCASE",
+          ) |
+          const CustomExpression<bool>(
+            "json_extract(vault_items.dynamic_data, '\$.set_code') = 'sld' COLLATE NOCASE",
+          ) |
+          t.dynamicData.like('%"set":"sld"%') |
+          t.dynamicData.like('%"set_code":"sld"%') |
+          t.dynamicData.like('%"set": "sld"%') |
+          t.dynamicData.like('%"set_code": "sld"%'));
+    } else {
+      query.where((t) =>
+          t.setOrSeries.equals(setIdentifier) |
+          t.setOrSeries.like('%$setIdentifier%') |
+          CustomExpression<bool>(
+            "json_extract(vault_items.dynamic_data, '\$.set') = '$cleanSet' COLLATE NOCASE",
+          ) |
+          CustomExpression<bool>(
+            "json_extract(vault_items.dynamic_data, '\$.set_code') = '$cleanSet' COLLATE NOCASE",
+          ) |
+          t.dynamicData.like('%"set":"$cleanSet"%') |
+          t.dynamicData.like('%"set_code":"$cleanSet"%') |
+          t.dynamicData.like('%"set": "$cleanSet"%') |
+          t.dynamicData.like('%"set_code": "$cleanSet"%'));
+    }
+
+    if (normalized != 'all') {
+      query.where((t) => t.collectionType.equals(normalized));
+    }
+    if (onlyOwned) {
+      query.where((t) => t.quantity.isBiggerThanValue(0));
+    }
+    query.where((t) =>
+        t.primaryBinderId.isNull() |
+        t.primaryBinderId.equals('INBOX').not());
+
+    query.orderBy([(t) => OrderingTerm(expression: t.name, mode: OrderingMode.asc)]);
+    if (limit != null) query.limit(limit, offset: offset);
+    return query.get();
   }
 }

@@ -10,9 +10,12 @@ import 'package:countr/features/hydration/presentation/widgets/hydration_progres
 import 'dart:async';
 import 'package:countr/features/vault/presentation/providers/vault_providers.dart';
 import 'package:countr/features/vault/presentation/screens/binder_detail_screen.dart';
+import 'package:countr/features/vault/presentation/widgets/card_detail_sheet.dart';
 import 'package:countr/features/vault/presentation/widgets/manual_add_bottom_sheet.dart';
 import 'package:countr/features/vault/presentation/widgets/vault_item_card.dart';
 import 'package:countr/features/vault/presentation/widgets/vault_item_tile.dart';
+import 'package:countr/features/vault/presentation/widgets/mtg_filter_sheet.dart';
+import 'package:countr/features/vault/presentation/providers/mtg_filter_state.dart';
 
 /// Vault Screen (Safe / Collection Inventory).
 /// Phase 2 & 3: Infinitely scalable, offline-first local database using Drift
@@ -337,9 +340,16 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
             },
           ),
           IconButton(
-            icon: const Icon(Icons.tune_rounded),
+            key: const Key('vault_appbar_filter_button'),
+            icon: Badge(
+              isLabelVisible: ref.watch(mtgFilterProvider).isActive,
+              label: Text('${ref.watch(mtgFilterProvider).activeCount}'),
+              backgroundColor: AppColors.accentCyan,
+              textColor: AppColors.textDark,
+              child: const Icon(Icons.tune_rounded),
+            ),
             tooltip: 'Filter Vault',
-            onPressed: () {},
+            onPressed: () => _openMtgFilterSheet(context),
           ),
         ],
       ),
@@ -457,6 +467,9 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
     VaultViewMode viewMode,
     CardDisplayLayout cardLayout,
   ) {
+    final mtgFilter = ref.watch(mtgFilterProvider);
+    final filterActive = mtgFilter.isActive;
+    final activeCount = mtgFilter.activeCount;
     final isExpanded = _isSearchExpanded || _searchController.text.isNotEmpty;
 
     return AnimatedCrossFade(
@@ -499,6 +512,26 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
                   _isSearchExpanded = true;
                 });
               },
+            ),
+            const SizedBox(width: 4),
+
+            // MTG Filter Sheet Trigger Button with Active Count Badge
+            IconButton(
+              key: const Key('vault_mtg_filter_button'),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+              icon: Badge(
+                isLabelVisible: filterActive,
+                label: Text('$activeCount'),
+                backgroundColor: AppColors.accentCyan,
+                textColor: AppColors.textDark,
+                child: Icon(
+                  Icons.tune_rounded,
+                  color: filterActive ? AppColors.accentCyan : AppColors.textSecondary,
+                ),
+              ),
+              tooltip: 'Filter Cards',
+              onPressed: () => _openMtgFilterSheet(context),
             ),
           ],
         ),
@@ -558,6 +591,24 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
                   ref.read(vaultPaginationLimitProvider.notifier).state = 50;
                 },
               ),
+            IconButton(
+              key: const Key('vault_mtg_filter_button_expanded'),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+              icon: Badge(
+                isLabelVisible: filterActive,
+                label: Text('$activeCount'),
+                backgroundColor: AppColors.accentCyan,
+                textColor: AppColors.textDark,
+                child: Icon(
+                  Icons.tune_rounded,
+                  size: 20,
+                  color: filterActive ? AppColors.accentCyan : AppColors.textSecondary,
+                ),
+              ),
+              tooltip: 'Filter Cards',
+              onPressed: () => _openMtgFilterSheet(context),
+            ),
             IconButton(
               key: const Key('vault_search_collapse_button'),
               icon: const Icon(Icons.close,
@@ -1099,7 +1150,10 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
             ),
             delegate: SliverChildBuilderDelegate(
               (context, index) {
-                return VaultItemTile(item: filtered[index]);
+                return VaultItemTile(
+                  item: filtered[index],
+                  onTap: () => _openCardDetail(filtered, index),
+                );
               },
               childCount: filtered.length,
             ),
@@ -1113,7 +1167,10 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
           key: const PageStorageKey<String>('vault_cards_sliver_list'),
           itemCount: filtered.length,
           itemBuilder: (context, index) {
-            return VaultItemCard(item: filtered[index]);
+            return VaultItemCard(
+              item: filtered[index],
+              onTap: () => _openCardDetail(filtered, index),
+            );
           },
         ),
       );
@@ -1159,6 +1216,81 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
     if (screenWidth < 900) return 4;
     if (screenWidth < 1200) return 5;
     return 6;
+  }
+
+  /// Smoothly scrolls the Vault grid or list so that [index] is centered
+  /// in the viewport when swiping cards in CardDetailSheet or FullScreenCardViewer.
+  void _scrollToCardIndex(int index, int totalCount) {
+    if (!_scrollController.hasClients) return;
+    if (index < 0 || index >= totalCount) return;
+
+    final cardLayout = ref.read(cardDisplayLayoutProvider);
+    final mediaQuery = MediaQuery.maybeOf(context);
+    final screenWidth = mediaQuery?.size.width ?? 390.0;
+    final screenHeight = mediaQuery?.size.height ?? 844.0;
+
+    // Header offset comprises top padding (16) + portfolio summary card (~140) +
+    // search & controls bar (~52) + category filter chips (~48) + vertical gaps (48)
+    const double headerOffset = 288.0;
+
+    double targetOffset;
+    if (cardLayout == CardDisplayLayout.grid) {
+      final columns = _calculateGridColumns(screenWidth);
+      final totalSpacing = (columns - 1) * 10.0;
+      final gridWidth = screenWidth - 32.0; // 16px horizontal margins
+      final itemWidth = (gridWidth - totalSpacing) / columns;
+      final itemHeight = itemWidth / 0.64; // childAspectRatio: 0.64
+      final rowHeight = itemHeight + 10.0; // mainAxisSpacing: 10.0
+      final rowIndex = index ~/ columns;
+      targetOffset = rowIndex == 0
+          ? 0.0
+          : headerOffset + (rowIndex * rowHeight) - (screenHeight / 3.5);
+    } else {
+      // List layout: item height (~124px) + margin bottom (12px) = ~136px
+      const double listItemHeight = 136.0;
+      targetOffset = index == 0
+          ? 0.0
+          : headerOffset + (index * listItemHeight) - (screenHeight / 3.5);
+    }
+
+    final maxScroll = _scrollController.position.hasContentDimensions
+        ? _scrollController.position.maxScrollExtent
+        : double.infinity;
+    final clampedOffset = targetOffset.clamp(0.0, maxScroll);
+
+    _scrollController.animateTo(
+      clampedOffset,
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  /// Opens the [CardDetailSheet] seeded with the current filtered list and active index,
+  /// binding swiping gestures directly to programmatic background scrolling.
+  void _openCardDetail(List<VaultItem> items, int index) {
+    CardDetailSheet.show(
+      context,
+      items[index],
+      items: items,
+      initialIndex: index,
+      onPageChanged: (newIndex) => _scrollToCardIndex(newIndex, items.length),
+    );
+  }
+
+  void _openMtgFilterSheet(BuildContext context) {
+    final currentFilter = ref.read(mtgFilterProvider);
+    final allItems = ref.read(vaultItemsStreamProvider).valueOrNull ?? [];
+    MtgFilterSheet.show(
+      context,
+      initialState: currentFilter,
+      items: allItems,
+      onApply: (newState) {
+        ref.read(mtgFilterProvider.notifier).setFilter(newState);
+      },
+      onReset: () {
+        ref.read(mtgFilterProvider.notifier).reset();
+      },
+    );
   }
 
   Widget _buildPortfolioSummaryCard(VaultPortfolioSummary summary) {

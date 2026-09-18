@@ -6,6 +6,7 @@ import 'package:countr/core/constants/app_typography.dart';
 import 'package:countr/core/database/app_database.dart';
 import 'package:countr/core/state/app_state.dart';
 import 'package:countr/features/vault/domain/mtg_keyword_glossary.dart';
+import 'package:countr/features/vault/domain/vault_pricing_helper.dart';
 import 'card_detail_sheet.dart';
 import 'polymorphic_attribute_chip.dart';
 
@@ -14,11 +15,13 @@ import 'polymorphic_attribute_chip.dart';
 class VaultItemCard extends StatelessWidget {
   final VaultItem item;
   final UserPersona? persona;
+  final VoidCallback? onTap;
 
   const VaultItemCard({
     super.key,
     required this.item,
     this.persona,
+    this.onTap,
   });
 
   @override
@@ -70,7 +73,7 @@ class VaultItemCard extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(14),
-          onTap: () => CardDetailSheet.show(context, item),
+          onTap: onTap ?? () => CardDetailSheet.show(context, item),
           child: Padding(
             padding: const EdgeInsets.all(14),
             child: Column(
@@ -106,23 +109,8 @@ class VaultItemCard extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Type Icon Box
-        Container(
-          width: 38,
-          height: 38,
-          decoration: BoxDecoration(
-            color: _getTypeColor(item.collectionType).withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: _getTypeColor(item.collectionType).withValues(alpha: 0.4),
-            ),
-          ),
-          child: Icon(
-            _getTypeIcon(item.collectionType),
-            color: _getTypeColor(item.collectionType),
-            size: 20,
-          ),
-        ),
+        // Leading Artwork Thumbnail with Type Icon Fallback
+        _buildLeadingThumbnail(),
         const SizedBox(width: 12),
 
         // Name & Set
@@ -230,30 +218,8 @@ class VaultItemCard extends StatelessWidget {
     );
   }
 
-  double _getEffectiveMarketPrice() {
-    if (item.currentMarketPrice > 0) return item.currentMarketPrice;
-    try {
-      if (item.dynamicData.isNotEmpty) {
-        final dyn = jsonDecode(item.dynamicData) as Map<String, dynamic>;
-        if (dyn['prices'] is Map) {
-          final prices = dyn['prices'] as Map;
-          final usd = prices['usd']?.toString();
-          final usdFoil = prices['usd_foil']?.toString();
-          final usdEtched = prices['usd_etched']?.toString();
-          final eur = prices['eur']?.toString();
-          final eurFoil = prices['eur_foil']?.toString();
-          final p = double.tryParse(usd ?? '') ??
-              double.tryParse(usdFoil ?? '') ??
-              double.tryParse(usdEtched ?? '') ??
-              double.tryParse(eur ?? '') ??
-              double.tryParse(eurFoil ?? '') ??
-              0.0;
-          if (p > 0) return p;
-        }
-      }
-    } catch (_) {}
-    return 0.0;
-  }
+  double _getEffectiveMarketPrice() =>
+      VaultPricingHelper.resolveEffectiveMarketPrice(item);
 
   Widget _buildInvestorFinancialRow() {
     final effectivePrice = _getEffectiveMarketPrice();
@@ -326,7 +292,7 @@ class VaultItemCard extends StatelessWidget {
                     Text(
                       effectivePrice > 0
                           ? '\$${effectivePrice.toStringAsFixed(2)}'
-                          : 'Market Check',
+                          : 'Unlisted',
                       style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w800,
@@ -400,7 +366,9 @@ class VaultItemCard extends StatelessWidget {
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  '\$${effectivePrice.toStringAsFixed(2)}',
+                                  effectivePrice > 0
+                                      ? '\$${effectivePrice.toStringAsFixed(2)}'
+                                      : 'Unlisted',
                                   overflow: TextOverflow.ellipsis,
                                   maxLines: 1,
                                   style: const TextStyle(
@@ -687,6 +655,133 @@ class VaultItemCard extends StatelessWidget {
             ),
           ],
         ],
+      ),
+    );
+  }
+
+  /// Resolves the optimal artwork thumbnail URL from dynamic metadata or database fields.
+  ///
+  /// Priority:
+  /// 1. `dynamicData['image_uris']['small']` (Scryfall small thumbnail, 146x204)
+  /// 2. `dynamicData['card_faces'][0]['image_uris']['small']` (for DFC/transform cards)
+  /// 3. `item.imageUrl` (canonical card art URL in SQLite)
+  /// 4. Empty string if no image URL is available
+  String _resolveThumbnailUrl() {
+    if (item.dynamicData.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(item.dynamicData);
+        if (decoded is Map) {
+          // 1. Top-level image_uris['small']
+          if (decoded['image_uris'] is Map) {
+            final uris = decoded['image_uris'] as Map;
+            final small = uris['small']?.toString();
+            if (small != null && small.trim().isNotEmpty) {
+              return small.trim();
+            }
+          }
+          // 2. Double-faced / multi-face card_faces[0]['image_uris']['small']
+          if (decoded['card_faces'] is List &&
+              (decoded['card_faces'] as List).isNotEmpty) {
+            final face0 = (decoded['card_faces'] as List).first;
+            if (face0 is Map && face0['image_uris'] is Map) {
+              final uris = face0['image_uris'] as Map;
+              final small = uris['small']?.toString();
+              if (small != null && small.trim().isNotEmpty) {
+                return small.trim();
+              }
+            }
+          }
+        }
+      } catch (_) {
+        // Fall through to item.imageUrl on malformed JSON
+      }
+    }
+
+    final direct = item.imageUrl.trim();
+    if (direct.isNotEmpty) {
+      return direct;
+    }
+    return '';
+  }
+
+  /// Builds a rounded leading artwork thumbnail for the List View item card.
+  ///
+  /// Uses [width] = 38 and [height] = 52 (card aspect ratio ~1:1.37) with
+  /// anti-aliased clipping (`borderRadius: BorderRadius.circular(6)`).
+  ///
+  /// Gracefully falls back to [_buildFallbackTypeIcon] when loading fails or no URL exists.
+  Widget _buildLeadingThumbnail({
+    double width = 38,
+    double height = 52,
+    double borderRadius = 6.0,
+  }) {
+    final thumbUrl = _resolveThumbnailUrl();
+
+    if (thumbUrl.isNotEmpty) {
+      return Container(
+        key: Key('vault_card_leading_thumbnail_${item.id}'),
+        width: width,
+        height: height,
+        decoration: BoxDecoration(
+          color: AppColors.surfaceRaised,
+          borderRadius: BorderRadius.circular(borderRadius),
+          border: Border.all(
+            color: AppColors.surfaceBorderSubtle,
+            width: 1,
+          ),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Image.network(
+          thumbUrl,
+          fit: BoxFit.cover,
+          loadingBuilder: (context, child, loadingProgress) {
+            if (loadingProgress == null) return child;
+            return Container(
+              color: AppColors.surfaceRaised,
+              child: const Center(
+                child: SizedBox(
+                  width: 12,
+                  height: 12,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 1.5,
+                    color: AppColors.accentCyan,
+                  ),
+                ),
+              ),
+            );
+          },
+          errorBuilder: (context, error, stackTrace) =>
+              _buildFallbackTypeIcon(width: width, height: height, borderRadius: borderRadius),
+        ),
+      );
+    }
+
+    return _buildFallbackTypeIcon(width: width, height: height, borderRadius: borderRadius);
+  }
+
+  /// Builds the fallback type icon container when no artwork is available or loading errors occur.
+  Widget _buildFallbackTypeIcon({
+    double width = 38,
+    double height = 52,
+    double borderRadius = 6.0,
+  }) {
+    return Container(
+      key: Key('vault_card_leading_fallback_${item.id}'),
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        color: _getTypeColor(item.collectionType).withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(borderRadius),
+        border: Border.all(
+          color: _getTypeColor(item.collectionType).withValues(alpha: 0.4),
+        ),
+      ),
+      child: Center(
+        child: Icon(
+          _getTypeIcon(item.collectionType),
+          color: _getTypeColor(item.collectionType),
+          size: 20,
+        ),
       ),
     );
   }

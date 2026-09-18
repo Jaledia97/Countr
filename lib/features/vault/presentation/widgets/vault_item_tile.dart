@@ -1,8 +1,8 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:countr/core/constants/app_colors.dart';
 import 'package:countr/core/constants/app_typography.dart';
 import 'package:countr/core/database/app_database.dart';
+import 'package:countr/features/vault/domain/vault_pricing_helper.dart';
 import 'card_detail_sheet.dart';
 
 /// ManaBox-style Card Tile displaying card artwork, name, set code, and market price.
@@ -87,61 +87,24 @@ class VaultItemTile extends StatelessWidget {
                     ),
                   ),
 
-                  // Top Left: Quantity or Unowned Badge
-                  Positioned(
-                    top: 6,
-                    left: 6,
-                    child: isOwned
-                        ? (item.quantity > 1
-                            ? Container(
-                                key: Key('vault_tile_duplicate_badge_${item.id}'),
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: AppColors.accentCyan.withValues(alpha: 0.25),
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(
-                                    color: AppColors.accentCyan.withValues(alpha: 0.8),
-                                    width: 1,
-                                  ),
-                                ),
-                                child: Text(
-                                  '${item.quantity}x',
-                                  style: const TextStyle(
-                                    color: AppColors.accentCyan,
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 10.5,
-                                  ),
-                                ),
-                              )
-                            : const SizedBox.shrink())
-                        : Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: AppColors.accentAmber.withValues(alpha: 0.85),
-                              borderRadius: BorderRadius.circular(5),
-                            ),
-                            child: const Text(
-                              'REF',
-                              style: TextStyle(
-                                color: AppColors.textDark,
-                                fontWeight: FontWeight.w800,
-                                fontSize: 9.5,
-                              ),
-                            ),
-                          ),
-                  ),
-
-                  // Top Right: Graded or Foil Indicator
+                  // Top Left: Graded or Foil Indicator (relocated to prevent badge collisions)
                   if (item.isGraded)
                     Positioned(
                       top: 6,
-                      right: 6,
+                      left: 6,
                       child: Container(
+                        key: Key('vault_tile_slab_badge_${item.id}'),
                         padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                         decoration: BoxDecoration(
                           color: AppColors.accentEmerald.withValues(alpha: 0.9),
                           borderRadius: BorderRadius.circular(5),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.4),
+                              blurRadius: 4,
+                              offset: const Offset(0, 1),
+                            ),
+                          ],
                         ),
                         child: const Text(
                           'SLAB',
@@ -156,12 +119,20 @@ class VaultItemTile extends StatelessWidget {
                   else if (item.condition.toLowerCase().contains('foil'))
                     Positioned(
                       top: 6,
-                      right: 6,
+                      left: 6,
                       child: Container(
+                        key: Key('vault_tile_foil_badge_${item.id}'),
                         padding: const EdgeInsets.all(4),
                         decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.7),
+                          color: Colors.black.withValues(alpha: 0.75),
                           shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.4),
+                              blurRadius: 4,
+                              offset: const Offset(0, 1),
+                            ),
+                          ],
                         ),
                         child: const Icon(
                           Icons.auto_awesome,
@@ -171,6 +142,73 @@ class VaultItemTile extends StatelessWidget {
                       ),
                     ),
 
+                  // Top Right: Quantity Duplicate Badge or Unowned Reference Badge
+                  Positioned(
+                    top: 6,
+                    right: 6,
+                    child: isOwned
+                        ? (item.quantity > 1
+                            ? Container(
+                                key: Key('vault_tile_duplicate_badge_${item.id}'),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withValues(alpha: 0.88),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                    color: Colors.white.withValues(alpha: 0.3),
+                                    width: 1,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: 0.45),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 1),
+                                    ),
+                                  ],
+                                ),
+                                child: Text(
+                                  '${item.quantity}x',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 10.5,
+                                  ),
+                                ),
+                              )
+                            : const SizedBox.shrink())
+                        : (item.quantity == 0
+                            ? Container(
+                                key: Key('vault_tile_unowned_badge_${item.id}'),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 5, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withValues(alpha: 0.88),
+                                  borderRadius: BorderRadius.circular(5),
+                                  border: Border.all(
+                                    color: AppColors.accentAmber.withValues(alpha: 0.85),
+                                    width: 1,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: 0.45),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 1),
+                                    ),
+                                  ],
+                                ),
+                                child: const Text(
+                                  'REF',
+                                  style: TextStyle(
+                                    color: AppColors.accentAmber,
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 9.5,
+                                  ),
+                                ),
+                              )
+                            : const SizedBox.shrink()),
+                  ),
+
                   // Bottom Left on Image: Price Badge
                   Positioned(
                     bottom: 6,
@@ -178,9 +216,7 @@ class VaultItemTile extends StatelessWidget {
                     child: Builder(
                       builder: (context) {
                         final price = _getEffectiveMarketPrice();
-                        final priceText = price > 0
-                            ? '\$${price.toStringAsFixed(2)}'
-                            : (isOwned ? '\$0.00' : 'Check');
+                        final priceText = formatMarketPriceLabel(price);
                         return Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
@@ -239,30 +275,8 @@ class VaultItemTile extends StatelessWidget {
     );
   }
 
-  double _getEffectiveMarketPrice() {
-    if (item.currentMarketPrice > 0) return item.currentMarketPrice;
-    try {
-      if (item.dynamicData.isNotEmpty) {
-        final dyn = jsonDecode(item.dynamicData) as Map<String, dynamic>;
-        if (dyn['prices'] is Map) {
-          final prices = dyn['prices'] as Map;
-          final usd = prices['usd']?.toString();
-          final usdFoil = prices['usd_foil']?.toString();
-          final usdEtched = prices['usd_etched']?.toString();
-          final eur = prices['eur']?.toString();
-          final eurFoil = prices['eur_foil']?.toString();
-          final p = double.tryParse(usd ?? '') ??
-              double.tryParse(usdFoil ?? '') ??
-              double.tryParse(usdEtched ?? '') ??
-              double.tryParse(eur ?? '') ??
-              double.tryParse(eurFoil ?? '') ??
-              0.0;
-          if (p > 0) return p;
-        }
-      }
-    } catch (_) {}
-    return 0.0;
-  }
+  double _getEffectiveMarketPrice() =>
+      VaultPricingHelper.resolveEffectiveMarketPrice(item);
 
   Widget _buildPlaceholder() {
     return Container(

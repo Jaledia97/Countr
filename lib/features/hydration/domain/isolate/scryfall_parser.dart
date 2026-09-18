@@ -14,6 +14,7 @@ VaultItemsCompanion mapScryfallCardToCompanion(Map<String, dynamic> card) {
   final name = (card['name'] as String?) ?? 'Unknown';
   final setName =
       (card['set_name'] as String?) ?? (card['set'] as String?) ?? 'Unknown Set';
+  final setCode = (card['set']?.toString() ?? '').toLowerCase();
 
   // Robust image URI extraction with double-faced card fallback
   String imageUrl = '';
@@ -132,6 +133,51 @@ VaultItemsCompanion mapScryfallCardToCompanion(Map<String, dynamic> card) {
         0.0;
   }
 
+  // Universes Beyond & Promo / Frame / Stamp detection
+  final promoTypes = card['promo_types'] is List
+      ? (card['promo_types'] as List)
+          .map((e) => e?.toString().toLowerCase() ?? '')
+          .where((e) => e.isNotEmpty)
+          .toList()
+      : <String>[];
+  final frameEffects = card['frame_effects'] is List
+      ? (card['frame_effects'] as List)
+          .map((e) => e?.toString().toLowerCase() ?? '')
+          .where((e) => e.isNotEmpty)
+          .toList()
+      : <String>[];
+  var securityStamp = card['security_stamp']?.toString().toLowerCase() ?? '';
+
+  // Defensively check card faces if promo_types, frame_effects, or security_stamp appear at face level
+  if (card['card_faces'] is List) {
+    for (final face in (card['card_faces'] as List)) {
+      if (face is Map) {
+        if (face['promo_types'] is List) {
+          for (final pt in (face['promo_types'] as List)) {
+            final s = pt?.toString().toLowerCase() ?? '';
+            if (s.isNotEmpty && !promoTypes.contains(s)) promoTypes.add(s);
+          }
+        }
+        if (face['frame_effects'] is List) {
+          for (final fe in (face['frame_effects'] as List)) {
+            final s = fe?.toString().toLowerCase() ?? '';
+            if (s.isNotEmpty && !frameEffects.contains(s)) frameEffects.add(s);
+          }
+        }
+        if (securityStamp.isEmpty && face['security_stamp'] != null) {
+          final s = face['security_stamp']?.toString().toLowerCase() ?? '';
+          if (s.isNotEmpty) securityStamp = s;
+        }
+      }
+    }
+  }
+
+  final isUniversesBeyond = promoTypes.contains('universes_beyond') ||
+      promoTypes.contains('universesbeyond') ||
+      frameEffects.contains('universesbeyond') ||
+      frameEffects.contains('universes_beyond') ||
+      securityStamp == 'triangle';
+
   // Dynamic metadata JSON payload
   final dynamicData = jsonEncode({
     'layout': card['layout'] ?? '',
@@ -151,6 +197,13 @@ VaultItemsCompanion mapScryfallCardToCompanion(Map<String, dynamic> card) {
     if (imageUris is Map) 'image_uris': imageUris,
     'back_image_url': backImageUrl,
     if (card['prices'] is Map) 'prices': card['prices'],
+    'is_universes_beyond': isUniversesBeyond,
+    'promo_types': promoTypes,
+    'frame_effects': frameEffects,
+    'security_stamp': securityStamp,
+    'set': setCode,
+    'set_code': setCode,
+    'set_name': setName,
   });
 
   return VaultItemsCompanion.insert(

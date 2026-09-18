@@ -3,6 +3,7 @@ import 'package:countr/core/database/app_database.dart';
 import 'package:countr/core/state/app_state.dart';
 import 'package:countr/features/vault/data/daos/vault_dao.dart';
 import 'package:countr/features/vault/domain/models/vault_totals.dart';
+import 'package:countr/features/vault/presentation/providers/mtg_filter_state.dart';
 
 /// Database singleton provider
 final appDatabaseProvider = Provider<AppDatabase>((ref) {
@@ -38,8 +39,8 @@ final vaultIsFetchingMoreProvider = StateProvider<bool>((ref) => false);
 final vaultShowCatalogProvider = StateProvider<bool>((ref) => false);
 
 /// Reactive StreamProvider that queries VaultItems based on activeGameContextProvider,
-/// active search query, catalog mode, and infinite-scroll pagination limit.
-/// Automatically re-emits when the user switches collection context or database mutates.
+/// active search query, catalog mode, MTG filter state, and infinite-scroll pagination limit.
+/// Automatically re-emits when the user switches collection context, updates filters, or database mutates.
 final vaultItemsStreamProvider = StreamProvider<List<VaultItem>>((ref) {
   final activeGame = ref.watch(activeGameContextProvider);
   final dao = ref.watch(vaultDaoProvider);
@@ -47,19 +48,15 @@ final vaultItemsStreamProvider = StreamProvider<List<VaultItem>>((ref) {
   final searchQuery = ref.watch(vaultSearchQueryProvider).trim();
   final paginationLimit = ref.watch(vaultPaginationLimitProvider);
 
-  if (showCatalog) {
-    return dao.watchItemsByCollection(
-      activeGame,
-      onlyOwned: false,
-      searchQuery: searchQuery.isNotEmpty ? searchQuery : null,
-      limit: paginationLimit,
-    );
-  }
+  // Only watch mtgFilterProvider when the active game context is Magic: The Gathering
+  final isMtg = activeGame.toLowerCase().contains('magic') || activeGame.toLowerCase() == 'mtg';
+  final mtgFilter = isMtg ? ref.watch(mtgFilterProvider) : null;
 
   return dao.watchItemsByCollection(
     activeGame,
-    onlyOwned: true,
+    onlyOwned: !showCatalog,
     searchQuery: searchQuery.isNotEmpty ? searchQuery : null,
+    mtgFilter: (mtgFilter != null && mtgFilter.isActive) ? mtgFilter : null,
     limit: paginationLimit,
   );
 });

@@ -11,25 +11,54 @@ import 'package:countr/features/hydration/domain/isolate/scryfall_parser.dart';
 import 'package:countr/features/hydration/domain/models/scryfall_ruling.dart';
 import 'package:countr/features/hydration/presentation/providers/hydration_providers.dart';
 import 'package:countr/features/vault/domain/mtg_keyword_glossary.dart';
+import 'package:countr/features/vault/domain/vault_pricing_helper.dart';
 import 'package:countr/features/vault/presentation/providers/vault_providers.dart';
 import 'package:countr/features/vault/presentation/widgets/edit_card_modal.dart';
 import 'package:countr/features/vault/presentation/widgets/full_screen_card_viewer.dart';
 
 /// Draggable modal bottom sheet displaying full card breakdown, oracle rules text,
 /// community use cases, deck history, and collection portfolio analytics.
+///
+/// Supports horizontal swiping across active filtered Vault items via [PageView.builder],
+/// while preserving single-item backward compatibility for existing tests.
 class CardDetailSheet extends ConsumerStatefulWidget {
-  final VaultItem item;
+  final VaultItem? item;
+  final List<VaultItem>? items;
+  final int initialIndex;
+  final ValueChanged<int>? onPageChanged;
 
-  const CardDetailSheet({super.key, required this.item});
+  const CardDetailSheet({
+    super.key,
+    this.item,
+    this.items,
+    this.initialIndex = 0,
+    this.onPageChanged,
+  }) : assert(item != null || (items != null && items.length > 0),
+            'Either item or a non-empty items list must be provided.');
 
   /// Opens the CardDetailSheet inside a draggable scrollable modal bottom sheet.
-  static Future<void> show(BuildContext context, VaultItem item) {
+  static Future<void> show(
+    BuildContext context,
+    VaultItem item, {
+    List<VaultItem>? items,
+    int? initialIndex,
+    ValueChanged<int>? onPageChanged,
+  }) {
+    final effectiveItems = items ?? [item];
+    final effectiveIndex = initialIndex ?? (items != null ? items.indexOf(item) : 0);
+    final resolvedIndex = effectiveIndex >= 0 ? effectiveIndex : 0;
+
     return showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: 0.7),
-      builder: (ctx) => CardDetailSheet(item: item),
+      builder: (ctx) => CardDetailSheet(
+        item: item,
+        items: effectiveItems,
+        initialIndex: resolvedIndex,
+        onPageChanged: onPageChanged,
+      ),
     );
   }
 
@@ -39,6 +68,11 @@ class CardDetailSheet extends ConsumerStatefulWidget {
 
 class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
     with SingleTickerProviderStateMixin {
+  late List<VaultItem> _items;
+  late int _currentIndex;
+  late PageController _pageController;
+  ScrollController? _activeSheetScrollController;
+
   late TextEditingController _notesController;
   late TextEditingController _deckTagController;
   late VaultItem _currentItem;
@@ -56,7 +90,19 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
   @override
   void initState() {
     super.initState();
-    _currentItem = widget.item;
+    if (widget.items != null && widget.items!.isNotEmpty) {
+      _items = List<VaultItem>.from(widget.items!);
+      _currentIndex = widget.initialIndex.clamp(0, _items.length - 1);
+    } else if (widget.item != null) {
+      _items = [widget.item!];
+      _currentIndex = 0;
+    } else {
+      _items = [];
+      _currentIndex = 0;
+    }
+
+    _currentItem = _items.isNotEmpty ? _items[_currentIndex] : widget.item!;
+    _pageController = PageController(initialPage: _currentIndex);
     _notesController = TextEditingController(text: _currentItem.personalNotes ?? '');
     _deckTagController = TextEditingController();
     _flipController = AnimationController(
@@ -77,25 +123,74 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
 
   @override
   void dispose() {
+    _pageController.dispose();
     _notesController.dispose();
     _deckTagController.dispose();
     _flipController.dispose();
+    _activeSheetScrollController = null;
     super.dispose();
   }
 
   @override
   void didUpdateWidget(CardDetailSheet oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.item.id != widget.item.id ||
-        oldWidget.item.dynamicData != widget.item.dynamicData ||
-        (_cachedRulings.isEmpty && !_dynamicData.containsKey('cached_rulings'))) {
-      _currentItem = widget.item;
-      _parseDynamicData();
+    if (widget.items != null && widget.items != oldWidget.items) {
+      _items = List<VaultItem>.from(widget.items!);
+      if (_currentIndex >= _items.length) {
+        _currentIndex = math.max(0, _items.length - 1);
+      }
+      _syncCurrentItem();
+    } else if (widget.item != null &&
+        (oldWidget.item?.id != widget.item?.id ||
+            oldWidget.item?.dynamicData != widget.item?.dynamicData ||
+            (_cachedRulings.isEmpty && !_dynamicData.containsKey('cached_rulings')))) {
+      _items = [widget.item!];
+      _currentIndex = 0;
+      _syncCurrentItem();
+    }
+  }
+
+  void _syncCurrentItem() {
+    if (_items.isNotEmpty && _currentIndex < _items.length) {
+      _currentItem = _items[_currentIndex];
+    } else if (widget.item != null) {
+      _currentItem = widget.item!;
+    }
+    _notesController.text = _currentItem.personalNotes ?? '';
+    _deckTagController.clear();
+    _isFlipped = false;
+    _flipController.reset();
+    _parseDynamicData();
+    _fetchAndCacheRulings();
+    _healMissingMultiFaceData();
+  }
+
+  void _onPageChanged(int index) {
+    if (index == _currentIndex || index < 0 || index >= _items.length) return;
+
+    setState(() {
+      _currentIndex = index;
+      _currentItem = _items[_currentIndex];
+      _notesController.text = _currentItem.personalNotes ?? '';
+      _deckTagController.clear();
       _isFlipped = false;
       _flipController.reset();
-      _fetchAndCacheRulings();
-      _healMissingMultiFaceData();
-    }
+      _parseDynamicData();
+    });
+
+    widget.onPageChanged?.call(index);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        if (_activeSheetScrollController != null &&
+            _activeSheetScrollController!.hasClients &&
+            _activeSheetScrollController!.offset > 0) {
+          _activeSheetScrollController!.jumpTo(0.0);
+        }
+        _fetchAndCacheRulings();
+        _healMissingMultiFaceData();
+      }
+    });
   }
 
   void _parseDynamicData() {
@@ -105,6 +200,8 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
         final rawDecks = _dynamicData['deck_history'];
         if (rawDecks is List) {
           _deckHistory = rawDecks.map((e) => e.toString()).toList();
+        } else {
+          _deckHistory = [];
         }
         final rawCached = _dynamicData['cached_rulings'];
         if (rawCached is List) {
@@ -116,11 +213,31 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
             }
             return ScryfallRuling(publishedAt: '', comment: e.toString());
           }).toList();
+        } else {
+          _cachedRulings = [];
         }
       } catch (_) {
         _dynamicData = {};
+        _deckHistory = [];
+        _cachedRulings = [];
       }
+    } else {
+      _dynamicData = {};
+      _deckHistory = [];
+      _cachedRulings = [];
     }
+  }
+
+  Map<String, dynamic> _parseItemData(VaultItem item) {
+    if (item.id == _currentItem.id && _dynamicData.isNotEmpty) {
+      return _dynamicData;
+    }
+    if (item.dynamicData.isNotEmpty) {
+      try {
+        return jsonDecode(item.dynamicData) as Map<String, dynamic>;
+      } catch (_) {}
+    }
+    return const {};
   }
 
   List<Map<String, dynamic>> _getCardFaces() {
@@ -142,6 +259,34 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
           : (oracle.contains('//') ? '//' : null);
       final oracles =
           oracleSep != null ? oracle.split(oracleSep) : [oracle, ''];
+      return [
+        {'name': names[0].trim(), 'oracle_text': oracles[0].trim()},
+        {
+          'name': names.length > 1 ? names[1].trim() : '',
+          'oracle_text': oracles.length > 1 ? oracles[1].trim() : '',
+        },
+      ];
+    }
+    return const [];
+  }
+
+  List<Map<String, dynamic>> _getCardFacesForItem(VaultItem item, Map<String, dynamic> data) {
+    if (item.id == _currentItem.id) {
+      return _getCardFaces();
+    }
+    final faces = data['card_faces'];
+    if (faces is List && faces.isNotEmpty) {
+      return faces.whereType<Map>().map((m) => Map<String, dynamic>.from(m)).toList();
+    }
+    final hasSlash = item.name.contains(' // ') || item.name.contains('//');
+    if (hasSlash) {
+      final sep = item.name.contains(' // ') ? ' // ' : '//';
+      final names = item.name.split(sep);
+      final oracle = data['oracle_text']?.toString() ?? '';
+      final oracleSep = oracle.contains(' // ')
+          ? ' // '
+          : (oracle.contains('//') ? '//' : null);
+      final oracles = oracleSep != null ? oracle.split(oracleSep) : [oracle, ''];
       return [
         {'name': names[0].trim(), 'oracle_text': oracles[0].trim()},
         {
@@ -179,26 +324,72 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
     return false;
   }
 
+  bool _isAdventureCardForItem(VaultItem item, Map<String, dynamic> data) {
+    if (item.id == _currentItem.id) {
+      return _isAdventureCard();
+    }
+    final layout = data['layout']?.toString().toLowerCase() ?? '';
+    if (layout == 'adventure') return true;
+
+    final typeLine = data['type_line']?.toString().toLowerCase() ?? '';
+    if (typeLine.contains('adventure')) return true;
+
+    final faces = _getCardFacesForItem(item, data);
+    for (final face in faces) {
+      final faceType = face['type_line']?.toString().toLowerCase() ?? '';
+      if (faceType.contains('adventure')) return true;
+    }
+
+    final rawJson = item.dynamicData.toLowerCase();
+    return rawJson.contains('"layout":"adventure"') ||
+        rawJson.contains('"layout": "adventure"') ||
+        rawJson.contains('instant — adventure') ||
+        rawJson.contains('sorcery — adventure') ||
+        rawJson.contains('instant - adventure') ||
+        rawJson.contains('sorcery - adventure');
+  }
+
+  bool _isDfc() {
+    if (_isAdventureCard()) return false;
+    final layout = _dynamicData['layout']?.toString().toLowerCase() ?? '';
+    if (layout == 'transform' ||
+        layout == 'modal_dfc' ||
+        layout == 'reversible_card' ||
+        layout == 'double_faced_token' ||
+        layout == 'art_series') {
+      return true;
+    }
+    if (layout == 'adventure' ||
+        layout == 'split' ||
+        layout == 'flip' ||
+        layout == 'normal' ||
+        layout == 'leveler' ||
+        layout == 'saga' ||
+        layout == 'class') {
+      return false;
+    }
+    final faces = _dynamicData['card_faces'];
+    if (faces is List && faces.length > 1) {
+      final backFace = faces[1];
+      if (backFace is Map) {
+        final uris = backFace['image_uris'];
+        final img = backFace['image_url'] ?? backFace['imageUrl'];
+        if ((uris is Map && uris.isNotEmpty) ||
+            (img != null && img.toString().isNotEmpty)) {
+          return true;
+        }
+      }
+    }
+    if (_dynamicData['back_image_url'] is String &&
+        (_dynamicData['back_image_url'] as String).isNotEmpty) {
+      return true;
+    }
+    return false;
+  }
+
   double get _effectiveMarketPrice {
     if (_currentItem.currentMarketPrice > 0) return _currentItem.currentMarketPrice;
-    try {
-      if (_dynamicData['prices'] is Map) {
-        final prices = _dynamicData['prices'] as Map;
-        final usd = prices['usd']?.toString();
-        final usdFoil = prices['usd_foil']?.toString();
-        final usdEtched = prices['usd_etched']?.toString();
-        final eur = prices['eur']?.toString();
-        final eurFoil = prices['eur_foil']?.toString();
-        final p = double.tryParse(usd ?? '') ??
-            double.tryParse(usdFoil ?? '') ??
-            double.tryParse(usdEtched ?? '') ??
-            double.tryParse(eur ?? '') ??
-            double.tryParse(eurFoil ?? '') ??
-            0.0;
-        if (p > 0) return p;
-      }
-    } catch (_) {}
-    return 0.0;
+    return VaultPricingHelper.extractFromDynamicData(_dynamicData);
   }
 
   Map<String, dynamic>? get _activeFace {
@@ -217,83 +408,76 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
 
   String? _getBackImageUrl() {
     if (_isAdventureCard()) return null;
+    final layout = _dynamicData['layout']?.toString().toLowerCase() ?? '';
+    if (layout == 'adventure' || layout == 'split' || layout == 'flip') return null;
+
     if (_dynamicData['back_image_url'] is String &&
         (_dynamicData['back_image_url'] as String).isNotEmpty) {
       return _dynamicData['back_image_url'] as String;
     }
     final faces = _dynamicData['card_faces'];
     if (faces is List && faces.length > 1) {
-      final back = faces[1];
-      if (back is Map) {
-        if (back['image_uris'] is Map) {
-          final uris = back['image_uris'] as Map<String, dynamic>;
-          final url = uris['normal'] ??
-              uris['large'] ??
-              uris['small'] ??
-              uris['png'] ??
-              uris['border_crop'] ??
-              uris['art_crop'];
-          if (url != null && url.toString().isNotEmpty) return url.toString();
+      final backFace = faces[1];
+      if (backFace is Map) {
+        final uris = backFace['image_uris'];
+        if (uris is Map && uris['normal'] is String) {
+          return uris['normal'] as String;
         }
-        final direct = back['image_url']?.toString() ?? back['imageUrl']?.toString();
-        if (direct != null && direct.isNotEmpty) return direct;
-      }
-    }
-    final hasSlash =
-        _currentItem.name.contains(' // ') || _currentItem.name.contains('//');
-    if (hasSlash && _currentItem.imageUrl.isNotEmpty) {
-      if (_currentItem.imageUrl.contains('/front/')) {
-        return _currentItem.imageUrl.replaceAll('/front/', '/back/');
-      }
-      if (_currentItem.imageUrl.contains('/front.')) {
-        return _currentItem.imageUrl.replaceAll('/front.', '/back.');
-      }
-      if (_currentItem.imageUrl.contains('_front.')) {
-        return _currentItem.imageUrl.replaceAll('_front.', '_back.');
+        if (uris is Map && uris['large'] is String) {
+          return uris['large'] as String;
+        }
+        if (uris is Map && uris['small'] is String) {
+          return uris['small'] as String;
+        }
+        final img = backFace['image_url'] ?? backFace['imageUrl'];
+        if (img is String && img.isNotEmpty) {
+          return img;
+        }
       }
     }
     return null;
   }
 
   String _getFrontImageUrl() {
-    if (_currentItem.imageUrl.isNotEmpty) return _currentItem.imageUrl;
     final faces = _dynamicData['card_faces'];
     if (faces is List && faces.isNotEmpty) {
-      final front = faces[0];
-      if (front is Map) {
-        if (front['image_uris'] is Map) {
-          final uris = front['image_uris'] as Map<String, dynamic>;
-          final url = uris['normal'] ??
-              uris['large'] ??
-              uris['small'] ??
-              uris['png'] ??
-              uris['border_crop'] ??
-              uris['art_crop'];
-          if (url != null && url.toString().isNotEmpty) return url.toString();
+      final frontFace = faces[0];
+      if (frontFace is Map) {
+        final uris = frontFace['image_uris'];
+        if (uris is Map && uris['normal'] is String) {
+          return uris['normal'] as String;
         }
-        final direct = front['image_url']?.toString() ?? front['imageUrl']?.toString();
-        if (direct != null && direct.isNotEmpty) return direct;
+        if (uris is Map && uris['large'] is String) {
+          return uris['large'] as String;
+        }
+        if (uris is Map && uris['small'] is String) {
+          return uris['small'] as String;
+        }
+        final img = frontFace['image_url'] ?? frontFace['imageUrl'];
+        if (img is String && img.isNotEmpty) {
+          return img;
+        }
       }
     }
-    return '';
+    return _currentItem.imageUrl;
   }
 
-  bool get _hasFlipArt => !_isAdventureCard() && _getBackImageUrl() != null;
-  bool get _hasMultipleFaces =>
-      !_isAdventureCard() && (_hasFlipArt || _getCardFaces().length > 1);
+  bool get _hasFlipArt => _isDfc() && _getBackImageUrl() != null;
+  bool get _hasMultipleFaces => _getCardFaces().length > 1;
 
   void _toggleFlip() {
-    if (!_hasMultipleFaces) return;
-    final nextFlipped = !_isFlipped;
-    if (_hasFlipArt) {
-      if (nextFlipped) {
-        _flipController.forward();
-      } else {
-        _flipController.reverse();
-      }
+    if (!_hasFlipArt && !_hasMultipleFaces) return;
+
+    if (_flipController.isAnimating) return;
+
+    if (_isFlipped) {
+      _flipController.reverse();
+    } else {
+      _flipController.forward();
     }
+
     setState(() {
-      _isFlipped = nextFlipped;
+      _isFlipped = !_isFlipped;
     });
   }
 
@@ -365,6 +549,9 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
                   : _currentItem.currentMarketPrice,
               dynamicData: newDynamicStr,
             );
+            if (_currentIndex < _items.length) {
+              _items[_currentIndex] = _currentItem;
+            }
             if (_isFlipped && _hasFlipArt) {
               _flipController.value = 1.0;
             }
@@ -434,6 +621,9 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
         setState(() {
           _dynamicData = data;
           _currentItem = _currentItem.copyWith(dynamicData: updatedJson);
+          if (_currentIndex < _items.length) {
+            _items[_currentIndex] = _currentItem;
+          }
         });
       }
     } catch (_) {
@@ -457,6 +647,9 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
         _currentItem = _currentItem.copyWith(
           personalNotes: Value(text.isNotEmpty ? text : null),
         );
+        if (_currentIndex < _items.length) {
+          _items[_currentIndex] = _currentItem;
+        }
       });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -512,85 +705,13 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
 
   @override
   Widget build(BuildContext context) {
-    final isOwned = _currentItem.quantity > 0;
-    final activeFace = _activeFace;
-    final manaCost = activeFace?['mana_cost']?.toString() ??
-        _dynamicData['mana_cost']?.toString() ??
-        _dynamicData['mana']?.toString() ??
-        '';
-    final typeLine = activeFace?['type_line']?.toString() ??
-        _dynamicData['type_line']?.toString() ??
-        _dynamicData['type']?.toString() ??
-        _currentItem.collectionType.toUpperCase();
-    String oracleText = activeFace?['oracle_text']?.toString() ?? '';
-    if (oracleText.trim().isEmpty && _dynamicData['oracle_text'] != null) {
-      final rawOracle = _dynamicData['oracle_text'].toString();
-      if (rawOracle.contains(' // ') || rawOracle.contains('//')) {
-        final sep = rawOracle.contains(' // ') ? ' // ' : '//';
-        final parts = rawOracle.split(sep);
-        oracleText = (_isFlipped && parts.length > 1) ? parts[1].trim() : parts[0].trim();
-      } else {
-        oracleText = rawOracle;
-      }
-    }
-    if (oracleText.trim().isEmpty && _getCardFaces().isNotEmpty) {
-      final faces = _getCardFaces();
-      if (_isFlipped && faces.length > 1) {
-        oracleText = (faces[1]['oracle_text'] as String?)?.trim() ?? '';
-      } else if (faces.isNotEmpty) {
-        oracleText = (faces[0]['oracle_text'] as String?)?.trim() ?? '';
-      }
-      if (oracleText.trim().isEmpty) {
-        oracleText = faces
-            .map((f) => (f['oracle_text'] as String?)?.trim() ?? '')
-            .where((t) => t.isNotEmpty)
-            .join('\n\n//\n\n');
-      }
-    }
-    final rarity = _dynamicData['rarity']?.toString() ?? '';
-    final power =
-        activeFace?['power']?.toString() ?? _dynamicData['power']?.toString();
-    final toughness = activeFace?['toughness']?.toString() ??
-        _dynamicData['toughness']?.toString();
-    final loyalty = activeFace?['loyalty']?.toString() ??
-        _dynamicData['loyalty']?.toString();
-    final rulings = _dynamicData['rulings']?.toString() ??
-        _dynamicData['use_cases']?.toString() ??
-        '';
-    String flavorText = activeFace?['flavor_text']?.toString() ?? '';
-    if (flavorText.trim().isEmpty && _dynamicData['flavor_text'] != null) {
-      final rawFlavor = _dynamicData['flavor_text'].toString();
-      if (rawFlavor.contains(' // ') || rawFlavor.contains('//')) {
-        final sep = rawFlavor.contains(' // ') ? ' // ' : '//';
-        final parts = rawFlavor.split(sep);
-        flavorText = (_isFlipped && parts.length > 1) ? parts[1].trim() : parts[0].trim();
-      } else {
-        flavorText = rawFlavor;
-      }
-    }
-    final rawKeywords = _dynamicData['keywords'];
-    final keywordsList = rawKeywords is List ? rawKeywords : null;
-    final mechanics = _isMtgCard()
-        ? MtgKeywordGlossary.extractKeywords(
-            keywords: keywordsList,
-            oracleText: oracleText,
-          )
-        : const <String>[];
-
-    // Profit / Loss calculations
-    final effectivePrice = _effectiveMarketPrice;
-    final delta = (effectivePrice - _currentItem.acquiredPrice) * _currentItem.quantity;
-    final pct = _currentItem.acquiredPrice > 0
-        ? ((effectivePrice - _currentItem.acquiredPrice) / _currentItem.acquiredPrice) * 100
-        : 0.0;
-    final isProfit = delta >= 0;
-
     return DraggableScrollableSheet(
       initialChildSize: 0.82,
       minChildSize: 0.45,
       maxChildSize: 0.96,
       expand: false,
       builder: (context, scrollController) {
+        _activeSheetScrollController = scrollController;
         return Container(
           decoration: const BoxDecoration(
             color: AppColors.surface,
@@ -618,484 +739,615 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
                 ),
               ),
 
-              // Sheet Header Bar
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 4, 12, 12),
-                child: Row(
+              // Swiping Card View Area
+              Expanded(
+                child: PageView.builder(
+                  key: const Key('card_detail_page_view'),
+                  controller: _pageController,
+                  itemCount: _items.length,
+                  onPageChanged: _onPageChanged,
+                  itemBuilder: (pageCtx, index) {
+                    final item = _items[index];
+                    final isCurrent = index == _currentIndex;
+                    final activeScrollController = isCurrent ? scrollController : null;
+                    return _buildCardPage(pageCtx, item, index, isCurrent, activeScrollController);
+                  },
+                ),
+              ),
+
+              // Pinned Bottom Quick Action Bar
+              const Divider(height: 1, color: AppColors.surfaceBorderSubtle),
+              _buildQuickActionBar(context),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildCardPage(
+    BuildContext context,
+    VaultItem item,
+    int index,
+    bool isCurrent,
+    ScrollController? activeScrollController,
+  ) {
+    final itemData = _parseItemData(item);
+    final cardFaces = _getCardFacesForItem(item, itemData);
+    final isAdventure = _isAdventureCardForItem(item, itemData);
+    final hasMultiple = cardFaces.length > 1;
+
+    final Map<String, dynamic>? activeFace = isCurrent
+        ? _activeFace
+        : (cardFaces.isNotEmpty ? cardFaces[0] : null);
+
+    final manaCost = activeFace?['mana_cost']?.toString() ??
+        itemData['mana_cost']?.toString() ??
+        itemData['mana']?.toString() ??
+        '';
+
+    final typeLine = activeFace?['type_line']?.toString() ??
+        itemData['type_line']?.toString() ??
+        itemData['type']?.toString() ??
+        item.collectionType.toUpperCase();
+
+    String oracleText = activeFace?['oracle_text']?.toString() ?? '';
+    if (oracleText.trim().isEmpty && itemData['oracle_text'] != null) {
+      final rawOracle = itemData['oracle_text'].toString();
+      if (rawOracle.contains(' // ') || rawOracle.contains('//')) {
+        final sep = rawOracle.contains(' // ') ? ' // ' : '//';
+        final parts = rawOracle.split(sep);
+        oracleText = ((isCurrent && _isFlipped) && parts.length > 1)
+            ? parts[1].trim()
+            : parts[0].trim();
+      } else {
+        oracleText = rawOracle;
+      }
+    }
+    if (oracleText.trim().isEmpty && cardFaces.isNotEmpty) {
+      if ((isCurrent && _isFlipped) && cardFaces.length > 1) {
+        oracleText = (cardFaces[1]['oracle_text'] as String?)?.trim() ?? '';
+      } else {
+        oracleText = (cardFaces[0]['oracle_text'] as String?)?.trim() ?? '';
+      }
+      if (oracleText.trim().isEmpty) {
+        oracleText = cardFaces
+            .map((f) => (f['oracle_text'] as String?)?.trim() ?? '')
+            .where((t) => t.isNotEmpty)
+            .join('\n\n//\n\n');
+      }
+    }
+
+    final rarity = itemData['rarity']?.toString() ?? '';
+    final power = activeFace?['power']?.toString() ?? itemData['power']?.toString();
+    final toughness = activeFace?['toughness']?.toString() ?? itemData['toughness']?.toString();
+    final loyalty = activeFace?['loyalty']?.toString() ?? itemData['loyalty']?.toString();
+    final rulings = itemData['rulings']?.toString() ?? itemData['use_cases']?.toString() ?? '';
+
+    String flavorText = activeFace?['flavor_text']?.toString() ?? '';
+    if (flavorText.trim().isEmpty && itemData['flavor_text'] != null) {
+      final rawFlavor = itemData['flavor_text'].toString();
+      if (rawFlavor.contains(' // ') || rawFlavor.contains('//')) {
+        final sep = rawFlavor.contains(' // ') ? ' // ' : '//';
+        final parts = rawFlavor.split(sep);
+        flavorText = ((isCurrent && _isFlipped) && parts.length > 1)
+            ? parts[1].trim()
+            : parts[0].trim();
+      } else {
+        flavorText = rawFlavor;
+      }
+    }
+
+    final rawKeywords = itemData['keywords'];
+    final keywordsList = rawKeywords is List ? rawKeywords : null;
+    final isMtg = item.collectionType.toLowerCase() == 'mtg' ||
+        item.collectionType.toLowerCase().contains('magic');
+    final mechanics = isMtg
+        ? MtgKeywordGlossary.extractKeywords(
+            keywords: keywordsList,
+            oracleText: oracleText,
+          )
+        : const <String>[];
+
+    final effectivePrice = item.currentMarketPrice > 0
+        ? item.currentMarketPrice
+        : VaultPricingHelper.extractFromDynamicData(itemData);
+    final delta = (effectivePrice - item.acquiredPrice) * item.quantity;
+    final pct = item.acquiredPrice > 0
+        ? ((effectivePrice - item.acquiredPrice) / item.acquiredPrice) * 100
+        : 0.0;
+    final isProfit = delta >= 0;
+    final isOwned = item.quantity > 0;
+
+    return Column(
+      children: [
+        // Sheet Header Bar
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 4, 12, 12),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
+                    Text(
+                      item.flavorName != null && item.flavorName!.isNotEmpty
+                          ? item.flavorName!
+                          : (activeFace?['name']?.toString() ?? item.name),
+                      style: AppTypography.heading1.copyWith(fontSize: 18),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Row(
+                      children: [
+                        if (item.flavorName != null && item.flavorName!.isNotEmpty) ...[
                           Text(
-                            _currentItem.flavorName != null &&
-                                    _currentItem.flavorName!.isNotEmpty
-                                ? _currentItem.flavorName!
-                                : (activeFace?['name']?.toString() ??
-                                    _currentItem.name),
-                            style: AppTypography.heading1.copyWith(fontSize: 18),
-                            maxLines: 1,
+                            '[${item.name}]',
+                            style: AppTypography.caption.copyWith(
+                              color: AppColors.accentCyan,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const Text(' • ', style: TextStyle(color: AppColors.textMuted)),
+                        ] else if (hasMultiple && activeFace != null) ...[
+                          Text(
+                            'Face ${(isCurrent && _isFlipped) ? 2 : 1}/${cardFaces.length}',
+                            style: AppTypography.caption.copyWith(
+                              color: AppColors.accentCyan,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const Text(' • ', style: TextStyle(color: AppColors.textMuted)),
+                        ],
+                        Flexible(
+                          child: Text(
+                            item.setOrSeries,
+                            style: AppTypography.caption.copyWith(
+                              color: AppColors.textSecondary,
+                            ),
                             overflow: TextOverflow.ellipsis,
                           ),
-                          const SizedBox(height: 2),
-                          Row(
-                            children: [
-                              if (_currentItem.flavorName != null &&
-                                  _currentItem.flavorName!.isNotEmpty) ...[
-                                Text(
-                                  '[${_currentItem.name}]',
-                                  style: AppTypography.caption.copyWith(
-                                    color: AppColors.accentCyan,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                const Text(' • ',
-                                    style: TextStyle(color: AppColors.textMuted)),
-                              ] else if (_hasMultipleFaces && activeFace != null) ...[
-                                Text(
-                                  'Face ${_isFlipped ? 2 : 1}/${_getCardFaces().length}',
-                                  style: AppTypography.caption.copyWith(
-                                    color: AppColors.accentCyan,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                const Text(' • ',
-                                    style: TextStyle(color: AppColors.textMuted)),
-                              ],
-                              Flexible(
-                                child: Text(
-                                  _currentItem.setOrSeries,
-                                  style: AppTypography.caption.copyWith(
-                                    color: AppColors.textSecondary,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              if (rarity.isNotEmpty) ...[
-                                const Text(' • ',
-                                    style: TextStyle(color: AppColors.textMuted)),
-                                Text(
-                                  rarity.toUpperCase(),
-                                  style: AppTypography.caption.copyWith(
-                                    color: _getRarityColor(rarity),
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ],
-                            ],
+                        ),
+                        if (rarity.isNotEmpty) ...[
+                          const Text(' • ', style: TextStyle(color: AppColors.textMuted)),
+                          Text(
+                            rarity.toUpperCase(),
+                            style: AppTypography.caption.copyWith(
+                              color: _getRarityColor(rarity),
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ],
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: 'Close',
-                      icon: const Icon(Icons.close, color: AppColors.textSecondary),
-                      onPressed: () => Navigator.of(context).pop(),
+                      ],
                     ),
                   ],
                 ),
               ),
+              IconButton(
+                tooltip: 'Close',
+                icon: const Icon(Icons.close, color: AppColors.textSecondary),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ],
+          ),
+        ),
 
-              const Divider(height: 1, color: AppColors.surfaceBorderSubtle),
+        const Divider(height: 1, color: AppColors.surfaceBorderSubtle),
 
-              // Scrollable Details Body
-              Expanded(
-                child: ListView(
-                  controller: scrollController,
-                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 36),
-                  children: [
-                    // Card Artwork & Core Metadata Row
-                    Row(
+        // Scrollable Details Body
+        Expanded(
+          child: ListView(
+            key: PageStorageKey('card_detail_list_${item.id}'),
+            controller: activeScrollController,
+            primary: false,
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 36),
+            children: [
+              // Card Artwork & Core Metadata Row
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildCardArtwork(item, isCurrent),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Card Image with aspect ratio and elevation
-                        _buildCardArtwork(),
-
-                        const SizedBox(width: 16),
-
-                        // High-level overview
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // Type Line
-                              Text(
-                                typeLine,
-                                style: AppTypography.heading2.copyWith(fontSize: 13.5),
-                              ),
-                              const SizedBox(height: 6),
-
-                              // Mana Cost (if available)
-                              if (manaCost.isNotEmpty) ...[
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.surfaceRaised,
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(color: AppColors.surfaceBorder),
-                                  ),
-                                  child: Text(
-                                    manaCost,
-                                    style: const TextStyle(
-                                      color: AppColors.accentCyan,
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 12.5,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                              ],
-
-                              // Market Price Pill
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                                decoration: BoxDecoration(
-                                  color: AppColors.accentAmber.withValues(alpha: 0.12),
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: AppColors.accentAmber.withValues(alpha: 0.4)),
-                                ),
-                                child: Text(
-                                  _effectiveMarketPrice > 0
-                                      ? 'Market: \$${_effectiveMarketPrice.toStringAsFixed(2)}'
-                                      : 'Market: Check',
-                                  style: const TextStyle(
-                                    color: AppColors.accentAmber,
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-
-                              // Power / Toughness / Loyalty
-                              if (power != null && toughness != null && power.isNotEmpty)
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.surfaceRaised,
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: Text(
-                                    'P/T: $power / $toughness',
-                                    style: const TextStyle(
-                                      color: AppColors.textPrimary,
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ),
-                              if (loyalty != null && loyalty.isNotEmpty)
-                                Container(
-                                  margin: const EdgeInsets.only(top: 4),
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.surfaceRaised,
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: Text(
-                                    'Loyalty: $loyalty',
-                                    style: const TextStyle(
-                                      color: AppColors.accentViolet,
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
+                        Text(
+                          typeLine,
+                          style: AppTypography.heading2.copyWith(fontSize: 13.5),
                         ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 20),
-
-                    // Unowned Catalog Card Action Bar
-                    if (!isOwned) ...[
-                      SizedBox(
-                        width: double.infinity,
-                        height: 48,
-                        child: ElevatedButton.icon(
-                          key: const Key('card_detail_add_to_vault'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.accentCyan,
-                            foregroundColor: AppColors.textDark,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                        const SizedBox(height: 6),
+                        if (manaCost.isNotEmpty) ...[
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppColors.surfaceRaised,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: AppColors.surfaceBorder),
+                            ),
+                            child: Text(
+                              manaCost,
+                              style: const TextStyle(
+                                color: AppColors.accentCyan,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 12.5,
+                              ),
                             ),
                           ),
-                          icon: const Icon(Icons.add_shopping_cart_rounded, size: 20),
-                          label: const Text(
-                            'Add to Vault / Inbox',
-                            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5),
-                          ),
-                          onPressed: _addToVault,
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                    ],
-
-                    // Section 1: Oracle & Rules Text
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        _buildSectionHeader(Icons.auto_stories_rounded, 'Oracle Rules Text'),
-                        if (_hasMultipleFaces && _getCardFaces().length > 1)
-                          InkWell(
-                            key: const Key('card_detail_switch_face_button'),
-                            onTap: _toggleFlip,
+                          const SizedBox(height: 8),
+                        ],
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: AppColors.accentAmber.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(8),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: AppColors.accentCyan.withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: AppColors.accentCyan.withValues(alpha: 0.4)),
+                            border: Border.all(color: AppColors.accentAmber.withValues(alpha: 0.4)),
+                          ),
+                          child: Text(
+                            effectivePrice > 0
+                                ? 'Market: \$${effectivePrice.toStringAsFixed(2)}'
+                                : 'Market: Unlisted',
+                            style: const TextStyle(
+                              color: AppColors.accentAmber,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        if (power != null && toughness != null && power.isNotEmpty)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppColors.surfaceRaised,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              'P/T: $power / $toughness',
+                              style: const TextStyle(
+                                color: AppColors.textPrimary,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 12,
                               ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(Icons.swap_horiz_rounded, size: 14, color: AppColors.accentCyan),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    _isFlipped ? 'View Face 1' : 'View Face 2',
-                                    style: const TextStyle(
-                                      color: AppColors.accentCyan,
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 11,
-                                    ),
-                                  ),
-                                ],
+                            ),
+                          ),
+                        if (loyalty != null && loyalty.isNotEmpty)
+                          Container(
+                            margin: const EdgeInsets.only(top: 4),
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppColors.surfaceRaised,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              'Loyalty: $loyalty',
+                              style: const TextStyle(
+                                color: AppColors.accentViolet,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 12,
                               ),
                             ),
                           ),
                       ],
                     ),
-                    Container(
-                      margin: const EdgeInsets.only(top: 8, bottom: 18),
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceRaised,
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 20),
+
+              // Unowned Catalog Card Action Bar
+              if (!isOwned) ...[
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton.icon(
+                    key: isCurrent ? const Key('card_detail_add_to_vault') : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.accentCyan,
+                      foregroundColor: AppColors.textDark,
+                      shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppColors.surfaceBorder),
                       ),
-                      child: _isAdventureCard()
-                          ? _buildAdventureOracleContent(oracleText, flavorText)
-                          : Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                if (_hasMultipleFaces && activeFace != null && _getCardFaces().length > 1) ...[
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                    margin: const EdgeInsets.only(bottom: 10),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.surface,
-                                      borderRadius: BorderRadius.circular(6),
-                                      border: Border.all(color: AppColors.surfaceBorderSubtle),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Icon(
-                                          _isFlipped ? Icons.flip_to_back : Icons.flip_to_front,
-                                          size: 13,
-                                          color: AppColors.accentCyan,
-                                        ),
-                                        const SizedBox(width: 6),
-                                        Expanded(
-                                          child: Text(
-                                            '${activeFace['name'] ?? (_isFlipped ? 'Back Face' : 'Front Face')} — ${activeFace['type_line'] ?? ''}',
-                                            style: const TextStyle(
-                                              color: AppColors.textSecondary,
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                                Text(
-                                  oracleText.isNotEmpty ? oracleText : 'No rules text available for this card.',
-                                  style: const TextStyle(
-                                    color: AppColors.textPrimary,
-                                    fontSize: 13.5,
-                                    height: 1.45,
-                                  ),
-                                ),
-                                if (flavorText.isNotEmpty) ...[
-                                  const SizedBox(height: 10),
-                                  Text(
-                                    flavorText,
-                                    style: const TextStyle(
-                                      color: AppColors.textMuted,
-                                      fontStyle: FontStyle.italic,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
                     ),
+                    icon: const Icon(Icons.add_shopping_cart_rounded, size: 20),
+                    label: const Text(
+                      'Add to Vault / Inbox',
+                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5),
+                    ),
+                    onPressed: isCurrent ? _addToVault : null,
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ],
 
-                    // Card Mechanics & Rulings
-                    _buildCardMechanicsAndRulings(mechanics, _cachedRulings, _isLoadingRulings),
-
-                    // Section 2: Format Legalities
-                    _buildFormatLegalities(),
-
-                    // Section 3: Official Rulings & Textbox Clarifications
-                    if (_cachedRulings.isEmpty && rulings.isNotEmpty) ...[
-                      const SizedBox(height: 16),
-                      _buildSectionHeader(Icons.gavel_rounded, 'Rules Text Clarifications'),
-                      Container(
-                        margin: const EdgeInsets.only(top: 8, bottom: 18),
-                        padding: const EdgeInsets.all(12),
+              // Section 1: Oracle & Rules Text
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _buildSectionHeader(Icons.auto_stories_rounded, 'Oracle Rules Text'),
+                  if (hasMultiple && cardFaces.length > 1 && isCurrent && !isAdventure)
+                    InkWell(
+                      key: const Key('card_detail_switch_face_button'),
+                      onTap: _toggleFlip,
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: AppColors.surfaceRaised,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: AppColors.surfaceBorder),
+                          color: AppColors.accentCyan.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: AppColors.accentCyan.withValues(alpha: 0.4)),
                         ),
-                        child: Text(
-                          rulings,
-                          style: const TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 13,
-                            height: 1.4,
-                          ),
-                        ),
-                      ),
-                    ],
-
-                    // Section 4: Collection Portfolio Metrics (Owned Cards)
-                    if (isOwned) ...[
-                      const SizedBox(height: 8),
-                      _buildSectionHeader(Icons.analytics_outlined, 'Collection & Portfolio Metrics'),
-                      Container(
-                        margin: const EdgeInsets.only(top: 8, bottom: 18),
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: AppColors.surfaceRaised,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: AppColors.surfaceBorder),
-                        ),
-                        child: Column(
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            Row(
-                              children: [
-                                _buildMetricBox('Owned Copies', '${_currentItem.quantity}x', AppColors.textPrimary),
-                                const SizedBox(width: 10),
-                                _buildMetricBox('Condition', _currentItem.condition, AppColors.accentCyan),
-                                const SizedBox(width: 10),
-                                _buildMetricBox('Graded', _currentItem.isGraded ? 'Yes' : 'Raw', AppColors.accentEmerald),
-                              ],
-                            ),
-                            const SizedBox(height: 10),
-                            Row(
-                              children: [
-                                _buildMetricBox('Acquired Price', '\$${_currentItem.acquiredPrice.toStringAsFixed(2)}', AppColors.textSecondary),
-                                const SizedBox(width: 10),
-                                _buildMetricBox(
-                                  'Profit / Loss',
-                                  '${isProfit ? '+' : ''}\$${delta.toStringAsFixed(2)} (${isProfit ? '+' : ''}${pct.toStringAsFixed(1)}%)',
-                                  isProfit ? AppColors.accentEmerald : AppColors.accentRose,
-                                ),
-                              ],
-                            ),
-                            if (_currentItem.primaryBinderId != null && _currentItem.primaryBinderId!.isNotEmpty) ...[
-                              const SizedBox(height: 10),
-                              Row(
-                                children: [
-                                  const Icon(Icons.folder_special_rounded, size: 16, color: AppColors.accentViolet),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    'Binder: ${_currentItem.primaryBinderId}',
-                                    style: const TextStyle(color: AppColors.accentVioletLight, fontSize: 12.5),
-                                  ),
-                                ],
+                            const Icon(Icons.swap_horiz_rounded, size: 14, color: AppColors.accentCyan),
+                            const SizedBox(width: 4),
+                            Text(
+                              _isFlipped ? 'View Face 1' : 'View Face 2',
+                              style: const TextStyle(
+                                color: AppColors.accentCyan,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 11,
                               ),
-                            ],
+                            ),
                           ],
                         ),
                       ),
-                    ],
-
-                    // Section 5: Deck History & Associations
-                    _buildSectionHeader(Icons.view_carousel_rounded, 'Deck History & Tags'),
-                    Container(
-                      margin: const EdgeInsets.only(top: 8, bottom: 18),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceRaised,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppColors.surfaceBorder),
-                      ),
-                      child: Column(
+                    ),
+                ],
+              ),
+              Container(
+                margin: const EdgeInsets.only(top: 8, bottom: 18),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceRaised,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.surfaceBorder),
+                ),
+                child: isAdventure
+                    ? _buildAdventureOracleContentForItem(item, itemData, oracleText, flavorText)
+                    : Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          if (_deckHistory.isEmpty)
-                            const Text(
-                              'No deck history recorded yet.',
-                              style: TextStyle(color: AppColors.textMuted, fontSize: 12.5),
-                            )
-                          else
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: _deckHistory.map((deck) {
-                                return Chip(
-                                  label: Text(deck, style: const TextStyle(fontSize: 12, color: AppColors.textPrimary)),
-                                  backgroundColor: AppColors.surfaceHighlight,
-                                  deleteIcon: const Icon(Icons.close, size: 14, color: AppColors.textMuted),
-                                  onDeleted: () => _removeDeckTag(deck),
-                                );
-                              }).toList(),
-                            ),
-                          const SizedBox(height: 10),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: TextField(
-                                  controller: _deckTagController,
-                                  decoration: InputDecoration(
-                                    hintText: 'Add deck tag (e.g. Commander - Urza)...',
-                                    hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 12),
-                                    isDense: true,
-                                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                    filled: true,
-                                    fillColor: AppColors.surface,
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                      borderSide: const BorderSide(color: AppColors.surfaceBorder),
+                          if (hasMultiple && activeFace != null && cardFaces.length > 1) ...[
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              margin: const EdgeInsets.only(bottom: 10),
+                              decoration: BoxDecoration(
+                                color: AppColors.surface,
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: AppColors.surfaceBorderSubtle),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    (isCurrent && _isFlipped) ? Icons.flip_to_back : Icons.flip_to_front,
+                                    size: 13,
+                                    color: AppColors.accentCyan,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      '${activeFace['name'] ?? ((isCurrent && _isFlipped) ? 'Back Face' : 'Front Face')} — ${activeFace['type_line'] ?? ''}',
+                                      style: const TextStyle(
+                                        color: AppColors.textSecondary,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
-                                  onSubmitted: (_) => _addDeckTag(),
-                                ),
+                                ],
                               ),
-                              const SizedBox(width: 8),
-                              IconButton(
-                                tooltip: 'Add tag',
-                                icon: const Icon(Icons.add_circle, color: AppColors.accentCyan),
-                                onPressed: _addDeckTag,
+                            ),
+                          ],
+                          Text(
+                            oracleText.isNotEmpty ? oracleText : 'No rules text available for this card.',
+                            style: const TextStyle(
+                              color: AppColors.textPrimary,
+                              fontSize: 13.5,
+                              height: 1.45,
+                            ),
+                          ),
+                          if (flavorText.isNotEmpty) ...[
+                            const SizedBox(height: 10),
+                            Text(
+                              flavorText,
+                              style: const TextStyle(
+                                color: AppColors.textMuted,
+                                fontStyle: FontStyle.italic,
+                                fontSize: 12,
                               ),
-                            ],
+                            ),
+                          ],
+                        ],
+                      ),
+              ),
+
+              // Card Mechanics & Rulings
+              _buildCardMechanicsAndRulings(
+                mechanics,
+                isCurrent ? _cachedRulings : const [],
+                isCurrent ? _isLoadingRulings : false,
+              ),
+
+              // Section 2: Format Legalities
+              _buildFormatLegalities(),
+
+              // Section 3: Official Rulings Clarifications
+              if ((isCurrent ? _cachedRulings.isEmpty : true) && rulings.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                _buildSectionHeader(Icons.gavel_rounded, 'Rules Text Clarifications'),
+                Container(
+                  margin: const EdgeInsets.only(top: 8, bottom: 18),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceRaised,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.surfaceBorder),
+                  ),
+                  child: Text(
+                    rulings,
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 13,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              ],
+
+              // Section 4: Collection Portfolio Metrics (Owned Cards)
+              if (isOwned) ...[
+                const SizedBox(height: 8),
+                _buildSectionHeader(Icons.analytics_outlined, 'Collection & Portfolio Metrics'),
+                Container(
+                  margin: const EdgeInsets.only(top: 8, bottom: 18),
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceRaised,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.surfaceBorder),
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          _buildMetricBox('Owned Copies', '${item.quantity}x', AppColors.textPrimary),
+                          const SizedBox(width: 10),
+                          _buildMetricBox('Condition', item.condition, AppColors.accentCyan),
+                          const SizedBox(width: 10),
+                          _buildMetricBox('Graded', item.isGraded ? 'Yes' : 'Raw', AppColors.accentEmerald),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          _buildMetricBox('Acquired Price', '\$${item.acquiredPrice.toStringAsFixed(2)}', AppColors.textSecondary),
+                          const SizedBox(width: 10),
+                          _buildMetricBox(
+                            'Profit / Loss',
+                            '${isProfit ? '+' : ''}\$${delta.toStringAsFixed(2)} (${isProfit ? '+' : ''}${pct.toStringAsFixed(1)}%)',
+                            isProfit ? AppColors.accentEmerald : AppColors.accentRose,
                           ),
                         ],
                       ),
-                    ),
+                      if (item.primaryBinderId != null && item.primaryBinderId!.isNotEmpty) ...[
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            const Icon(Icons.folder_special_rounded, size: 16, color: AppColors.accentViolet),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Binder: ${item.primaryBinderId}',
+                              style: const TextStyle(color: AppColors.accentVioletLight, fontSize: 12.5),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
 
-                    // Section 6: User-Submitted Use Cases & Notes
-                    _buildSectionHeader(Icons.edit_note_rounded, 'Personal Notes & Strategy Tips'),
-                    Container(
-                      margin: const EdgeInsets.only(top: 8, bottom: 18),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceRaised,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppColors.surfaceBorder),
+              // Section 5: Deck History & Associations
+              _buildSectionHeader(Icons.view_carousel_rounded, 'Deck History & Tags'),
+              Container(
+                margin: const EdgeInsets.only(top: 8, bottom: 18),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceRaised,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.surfaceBorder),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (isCurrent) ...[
+                      if (_deckHistory.isEmpty)
+                        const Text(
+                          'No deck history recorded yet.',
+                          style: TextStyle(color: AppColors.textMuted, fontSize: 12.5),
+                        )
+                      else
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: _deckHistory.map((deck) {
+                            return Chip(
+                              label: Text(deck, style: const TextStyle(fontSize: 12, color: AppColors.textPrimary)),
+                              backgroundColor: AppColors.surfaceHighlight,
+                              deleteIcon: const Icon(Icons.close, size: 14, color: AppColors.textMuted),
+                              onDeleted: () => _removeDeckTag(deck),
+                            );
+                          }).toList(),
+                        ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _deckTagController,
+                              decoration: InputDecoration(
+                                hintText: 'Add deck tag (e.g. Commander - Urza)...',
+                                hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+                                isDense: true,
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                filled: true,
+                                fillColor: AppColors.surface,
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  borderSide: const BorderSide(color: AppColors.surfaceBorder),
+                                ),
+                              ),
+                              onSubmitted: (_) => _addDeckTag(),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          IconButton(
+                            tooltip: 'Add tag',
+                            icon: const Icon(Icons.add_circle, color: AppColors.accentCyan),
+                            onPressed: _addDeckTag,
+                          ),
+                        ],
                       ),
-                      child: Column(
+                    ] else ...[
+                      if ((itemData['deck_history'] as List?)?.isEmpty ?? true)
+                        const Text(
+                          'No deck history recorded yet.',
+                          style: TextStyle(color: AppColors.textMuted, fontSize: 12.5),
+                        )
+                      else
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: ((itemData['deck_history'] as List?) ?? []).map((deck) {
+                            return Chip(
+                              label: Text(deck.toString(), style: const TextStyle(fontSize: 12, color: AppColors.textPrimary)),
+                              backgroundColor: AppColors.surfaceHighlight,
+                            );
+                          }).toList(),
+                        ),
+                    ],
+                  ],
+                ),
+              ),
+
+              // Section 6: Personal Notes & Strategy Tips
+              _buildSectionHeader(Icons.edit_note_rounded, 'Personal Notes & Strategy Tips'),
+              Container(
+                margin: const EdgeInsets.only(top: 8, bottom: 18),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceRaised,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.surfaceBorder),
+                ),
+                child: isCurrent
+                    ? Column(
                         children: [
                           TextField(
                             controller: _notesController,
@@ -1124,27 +1376,40 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
                             ],
                           ),
                         ],
+                      )
+                    : Text(
+                        item.personalNotes?.isNotEmpty == true
+                            ? item.personalNotes!
+                            : 'Enter combos, strategy tips, or personal notes...',
+                        style: TextStyle(
+                          color: item.personalNotes?.isNotEmpty == true
+                              ? AppColors.textPrimary
+                              : AppColors.textMuted,
+                          fontSize: 13,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
               ),
-
-              // Pinned Bottom Quick Action Bar
-              const Divider(height: 1, color: AppColors.surfaceBorderSubtle),
-              _buildQuickActionBar(context),
             ],
           ),
-        );
-      },
+        ),
+      ],
     );
   }
 
-  Widget _buildCardArtwork() {
+  Widget _buildCardArtwork(VaultItem item, bool isCurrent) {
+    if (!isCurrent) {
+      final frontUrl = item.imageUrl.isNotEmpty ? item.imageUrl : '';
+      return Hero(
+        key: Key('card_artwork_${item.id}'),
+        tag: 'card_artwork_${item.id}',
+        child: _buildCardFaceContainer(frontUrl, cardName: item.name),
+      );
+    }
+
     final hasFlip = _hasFlipArt;
 
     final artwork = GestureDetector(
-      onTap: hasFlip ? _toggleFlip : null,
+      onTap: hasFlip ? _toggleFlip : _openFullScreenViewer,
       child: AnimatedBuilder(
         animation: _flipAnimation,
         builder: (context, child) {
@@ -1162,17 +1427,17 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
                 ? Transform(
                     alignment: Alignment.center,
                     transform: Matrix4.identity()..rotateY(math.pi),
-                    child: _buildCardFaceContainer(currentUrl),
+                    child: _buildCardFaceContainer(currentUrl, cardName: item.name),
                   )
-                : _buildCardFaceContainer(currentUrl),
+                : _buildCardFaceContainer(currentUrl, cardName: item.name),
           );
         },
       ),
     );
 
     return Hero(
-      key: Key('card_artwork_${_currentItem.id}'),
-      tag: 'card_artwork_${_currentItem.id}',
+      key: Key('card_artwork_${item.id}'),
+      tag: 'card_artwork_${item.id}',
       child: Stack(
         children: [
           artwork,
@@ -1230,7 +1495,7 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
     );
   }
 
-  Widget _buildCardFaceContainer(String imageUrl) {
+  Widget _buildCardFaceContainer(String imageUrl, {String? cardName}) {
     return Container(
       width: 110,
       height: 154,
@@ -1251,7 +1516,7 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
           ? Image.network(
               imageUrl,
               fit: BoxFit.cover,
-              errorBuilder: (_, _, _) => _buildPlaceholderArt(),
+              errorBuilder: (_, _, _) => _buildPlaceholderArt(cardName: cardName),
               loadingBuilder: (context, child, loadingProgress) {
                 if (loadingProgress == null) return child;
                 return const Center(
@@ -1259,11 +1524,11 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
                 );
               },
             )
-          : _buildPlaceholderArt(),
+          : _buildPlaceholderArt(cardName: cardName),
     );
   }
 
-  Widget _buildPlaceholderArt() {
+  Widget _buildPlaceholderArt({String? cardName}) {
     return Container(
       color: AppColors.surfaceRaised,
       padding: const EdgeInsets.all(8),
@@ -1273,7 +1538,7 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
           const Icon(Icons.image_outlined, size: 32, color: AppColors.textMuted),
           const SizedBox(height: 6),
           Text(
-            _currentItem.name,
+            cardName ?? _currentItem.name,
             style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
             textAlign: TextAlign.center,
             maxLines: 2,
@@ -1372,8 +1637,13 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
     }
   }
 
-  Widget _buildAdventureOracleContent(String oracleText, String flavorText) {
-    final faces = _getCardFaces();
+  Widget _buildAdventureOracleContentForItem(
+    VaultItem item,
+    Map<String, dynamic> data,
+    String oracleText,
+    String flavorText,
+  ) {
+    final faces = _getCardFacesForItem(item, data);
     Map<String, dynamic> face0 = {};
     Map<String, dynamic> face1 = {};
 
@@ -1381,19 +1651,19 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
       face0 = faces[0];
       face1 = faces[1];
     } else {
-      final names = _currentItem.name.contains(' // ')
-          ? _currentItem.name.split(' // ')
-          : _currentItem.name.split('//');
+      final names = item.name.contains(' // ')
+          ? item.name.split(' // ')
+          : item.name.split('//');
       final oracles = oracleText.contains(' // ')
           ? oracleText.split(' // ')
           : oracleText.split('//');
       face0 = {
         'name': names[0].trim(),
-        'type_line': _dynamicData['type_line']?.toString() ?? 'Creature',
-        'mana_cost': _dynamicData['mana_cost']?.toString() ?? '',
+        'type_line': data['type_line']?.toString() ?? 'Creature',
+        'mana_cost': data['mana_cost']?.toString() ?? '',
         'oracle_text': oracles[0].trim(),
-        'power': _dynamicData['power'],
-        'toughness': _dynamicData['toughness'],
+        'power': data['power'],
+        'toughness': data['toughness'],
       };
       face1 = {
         'name': names.length > 1 ? names[1].trim() : 'Adventure Spell',
@@ -1403,7 +1673,7 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
       };
     }
 
-    final name0 = face0['name']?.toString() ?? _currentItem.name;
+    final name0 = face0['name']?.toString() ?? item.name;
     final mana0 = face0['mana_cost']?.toString() ?? '';
     final type0 = face0['type_line']?.toString() ?? '';
     final text0 = face0['oracle_text']?.toString() ?? '';
@@ -1907,8 +2177,30 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
     }
   }
 
-  void _openFullScreenViewer() {
-    FullScreenCardViewer.show(context, _currentItem);
+  Future<void> _openFullScreenViewer() async {
+    final returnedIndex = await FullScreenCardViewer.show(
+      context,
+      _currentItem,
+      items: _items,
+      initialIndex: _currentIndex,
+      onPageChanged: (newIdx) {
+        if (newIdx != _currentIndex && newIdx >= 0 && newIdx < _items.length) {
+          if (_pageController.hasClients && _pageController.page?.round() != newIdx) {
+            _pageController.jumpToPage(newIdx);
+          }
+          _onPageChanged(newIdx);
+        }
+      },
+    );
+
+    if (returnedIndex != null && mounted) {
+      if (returnedIndex != _currentIndex && returnedIndex >= 0 && returnedIndex < _items.length) {
+        if (_pageController.hasClients && _pageController.page?.round() != returnedIndex) {
+          _pageController.jumpToPage(returnedIndex);
+        }
+        _onPageChanged(returnedIndex);
+      }
+    }
   }
 
   Future<void> _showAddToDeckDialog() async {
@@ -2169,6 +2461,9 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
       if (finalItem != null && mounted) {
         setState(() {
           _currentItem = finalItem;
+          if (_currentIndex < _items.length) {
+            _items[_currentIndex] = finalItem;
+          }
           _notesController.text = finalItem.personalNotes ?? '';
           _parseDynamicData();
         });
