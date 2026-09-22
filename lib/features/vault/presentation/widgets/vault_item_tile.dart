@@ -3,6 +3,8 @@ import 'package:countr/core/constants/app_colors.dart';
 import 'package:countr/core/constants/app_typography.dart';
 import 'package:countr/core/database/app_database.dart';
 import 'package:countr/features/vault/domain/vault_pricing_helper.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:countr/features/vault/presentation/providers/vault_providers.dart';
 import 'card_detail_sheet.dart';
 
 /// ManaBox-style Card Tile displaying card artwork, name, set code, and market price.
@@ -265,6 +267,42 @@ class VaultItemTile extends StatelessWidget {
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  // Deck Badges
+                  Consumer(
+                    builder: (context, ref, _) {
+                      final decksAsync = ref.watch(vaultItemAssignedDecksProvider(item.id));
+                      return decksAsync.when(
+                        data: (decks) {
+                          if (decks.isEmpty) return const SizedBox.shrink();
+                          return Wrap(
+                            spacing: 4,
+                            runSpacing: 4,
+                            children: decks.map((deckName) {
+                              return Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: AppColors.surfaceBorderSubtle,
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(color: AppColors.accentCyan.withValues(alpha: 0.3)),
+                                ),
+                                child: Text(
+                                  '⚔️ $deckName',
+                                  style: const TextStyle(
+                                    fontSize: 8,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.accentCyan,
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                          );
+                        },
+                        loading: () => const SizedBox.shrink(),
+                        error: (_, __) => const SizedBox.shrink(),
+                      );
+                    },
                   ),
                 ],
               ),

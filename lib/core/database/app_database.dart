@@ -2,18 +2,34 @@ import 'package:drift/drift.dart';
 import 'package:countr/core/database/connection/connection.dart';
 import 'package:countr/core/database/tables/vault_binders_table.dart';
 import 'package:countr/core/database/tables/vault_items_table.dart';
+import 'package:countr/core/database/tables/decks/decks_table.dart';
+import 'package:countr/core/database/tables/decks/deck_versions_table.dart';
+import 'package:countr/core/database/tables/decks/deck_version_items_table.dart';
+import 'package:countr/core/database/tables/decks/deck_matchups_table.dart';
+import 'package:countr/core/database/tables/decks/deck_synergies_table.dart';
 import 'package:countr/features/vault/data/daos/vault_dao.dart';
 
 part 'app_database.g.dart';
 
 /// Root Drift SQLite Database for Countr.
 /// Handles offline persistence, schema migrations, and initial mock seeding.
-@DriftDatabase(tables: [VaultItems, VaultBinders], daos: [VaultDao])
+@DriftDatabase(
+  tables: [
+    VaultItems,
+    VaultBinders,
+    Decks,
+    DeckVersions,
+    DeckVersionItems,
+    DeckMatchups,
+    DeckSynergies,
+  ],
+  daos: [VaultDao],
+)
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? e]) : super(e ?? openConnection());
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration {
@@ -43,6 +59,13 @@ class AppDatabase extends _$AppDatabase {
           try {
             await m.addColumn(vaultItems, vaultItems.flavorName);
           } catch (_) {}
+        }
+        if (from < 6) {
+          await m.createTable(decks);
+          await m.createTable(deckVersions);
+          await m.createTable(deckVersionItems);
+          await m.createTable(deckMatchups);
+          await m.createTable(deckSynergies);
         }
       },
       beforeOpen: (details) async {

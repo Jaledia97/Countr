@@ -216,7 +216,7 @@ void main() {
         acquiredDate: now,
         quantity: 1,
         condition: 'NM',
-        isGraded: false,
+        isGraded: false, isAltered: false, isMisprint: false, isSigned: false,
         currentMarketPrice: 45.50,
         lastPriceUpdate: now,
         dynamicData:
@@ -233,7 +233,7 @@ void main() {
         acquiredDate: now,
         quantity: 1,
         condition: 'LP',
-        isGraded: false,
+        isGraded: false, isAltered: false, isMisprint: false, isSigned: false,
         currentMarketPrice: 3.25,
         lastPriceUpdate: now,
         dynamicData: '{"hp": 120, "stage": "Basic"}',

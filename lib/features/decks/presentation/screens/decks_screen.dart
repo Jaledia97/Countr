@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:countr/core/database/app_database.dart';
+import 'package:countr/features/decks/presentation/screens/deck_builder_screen.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_typography.dart';
 
@@ -17,6 +19,7 @@ class _DecksScreenState extends State<DecksScreen> {
 
   final List<Map<String, dynamic>> _mockDecks = [
     {
+      'id': 'deck-edgar-markov',
       'title': 'Edgar Markov Aristocrats',
       'format': 'MTG Commander',
       'cardCount': '100/100',
@@ -24,6 +27,7 @@ class _DecksScreenState extends State<DecksScreen> {
       'winRate': '68%',
     },
     {
+      'id': 'deck-charizard-ex',
       'title': 'Charizard ex / Pidgeot ex',
       'format': 'Pokémon Standard',
       'cardCount': '60/60',
@@ -31,6 +35,7 @@ class _DecksScreenState extends State<DecksScreen> {
       'winRate': '74%',
     },
     {
+      'id': 'deck-yuriko',
       'title': 'Yuriko, the Tiger\'s Shadow',
       'format': 'MTG Commander (cEDH)',
       'cardCount': '100/100',
@@ -38,6 +43,7 @@ class _DecksScreenState extends State<DecksScreen> {
       'winRate': '82%',
     },
     {
+      'id': 'deck-lorcana',
       'title': 'Ruby / Amethyst Bounce Control',
       'format': 'Disney Lorcana Core',
       'cardCount': '60/60',
@@ -45,6 +51,7 @@ class _DecksScreenState extends State<DecksScreen> {
       'winRate': '70%',
     },
     {
+      'id': 'deck-lost-zone',
       'title': 'Lost Zone Giratina VSTAR',
       'format': 'Pokémon Standard',
       'cardCount': '60/60',
@@ -52,6 +59,7 @@ class _DecksScreenState extends State<DecksScreen> {
       'winRate': '65%',
     },
     {
+      'id': 'deck-tron',
       'title': 'Modern Mono-Green Tron',
       'format': 'MTG Modern',
       'cardCount': '75/75',
@@ -101,26 +109,29 @@ class _DecksScreenState extends State<DecksScreen> {
                     color: AppColors.surfaceBorderSubtle, width: 1),
               ),
             ),
-            child: Row(
-              children: [
-                _TabPill(
-                  label: 'All Decks ($_deckCount)',
-                  isSelected: _activeTab == 0,
-                  onTap: () => setState(() => _activeTab = 0),
-                ),
-                const SizedBox(width: 8),
-                _TabPill(
-                  label: 'Competitive',
-                  isSelected: _activeTab == 1,
-                  onTap: () => setState(() => _activeTab = 1),
-                ),
-                const SizedBox(width: 8),
-                _TabPill(
-                  label: 'Draft / In-Progress',
-                  isSelected: _activeTab == 2,
-                  onTap: () => setState(() => _activeTab = 2),
-                ),
-              ],
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _TabPill(
+                    label: 'All Decks ($_deckCount)',
+                    isSelected: _activeTab == 0,
+                    onTap: () => setState(() => _activeTab = 0),
+                  ),
+                  const SizedBox(width: 8),
+                  _TabPill(
+                    label: 'Competitive',
+                    isSelected: _activeTab == 1,
+                    onTap: () => setState(() => _activeTab = 1),
+                  ),
+                  const SizedBox(width: 8),
+                  _TabPill(
+                    label: 'Draft / In-Progress',
+                    isSelected: _activeTab == 2,
+                    onTap: () => setState(() => _activeTab = 2),
+                  ),
+                ],
+              ),
             ),
           ),
 
@@ -131,17 +142,37 @@ class _DecksScreenState extends State<DecksScreen> {
               itemCount: _mockDecks.length,
               itemBuilder: (context, index) {
                 final deck = _mockDecks[index];
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: AppColors.surfaceBorder,
+                return InkWell(
+                  onTap: () {
+                    final deckId = deck['id'] as String? ??
+                        DateTime.now().toIso8601String();
+                    final dummyDeck = Deck(
+                      id: deckId,
+                      name: deck['title'] as String,
+                      format: deck['format'] as String,
+                      createdAt: DateTime.now(),
+                      wins: 0,
+                      losses: 0,
+                      draws: 0,
+                    );
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => DeckBuilderScreen(deck: dummyDeck),
+                      ),
+                    );
+                  },
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: AppColors.surfaceBorder,
+                      ),
                     ),
-                  ),
-                  child: Row(
+                    child: Row(
                     children: [
                       // Card / Archetype Icon
                       Container(
@@ -211,8 +242,9 @@ class _DecksScreenState extends State<DecksScreen> {
                       ),
                     ],
                   ),
-                );
-              },
+                ),
+              );
+            },
             ),
           ),
         ],

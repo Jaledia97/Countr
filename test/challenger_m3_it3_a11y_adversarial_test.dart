@@ -33,7 +33,7 @@ void main() {
       acquiredDate: DateTime(2023, 5, 10),
       quantity: 1,
       condition: 'NM',
-      isGraded: false,
+      isGraded: false, isAltered: false, isMisprint: false, isSigned: false,
       currentMarketPrice: 5.00,
       lastPriceUpdate: DateTime(2023, 5, 10),
       dynamicData: jsonEncode({
@@ -60,7 +60,7 @@ void main() {
       acquiredDate: DateTime(2023, 1, 1),
       quantity: 1,
       condition: 'NM',
-      isGraded: true,
+      isGraded: true, isAltered: false, isMisprint: false, isSigned: false,
       currentMarketPrice: 25000.0,
       lastPriceUpdate: DateTime(2023, 1, 1),
       dynamicData: '{}',

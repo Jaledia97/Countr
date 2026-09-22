@@ -1,3 +1,22 @@
+## [0.4.0] - 2026-09-21
+
+### Phase 4: Deck Building Ecosystem & Phase 3.8/3.9 Enhancements
+
+#### Added
+- **Deck Schema & Versioning (`Decks`, `DeckVersions`, `DeckVersionItems`)**: Added Git-style deck versioning schema to Drift allowing users to maintain multiple iterative versions of a deck without duplicating cards.
+- **Inventory Conflict Engine (`VaultDao`)**: Created logic to enforce strict Physical vs. Logical inventory tracking. Evaluates `Available Quantity = (VaultItem.quantity) - SUM(DeckVersionItems.quantity across all ACTIVE DeckVersions)` to prevent accidental double-booking of physical cards.
+- **Conflict Resolution Modal**: When tapping `[ + Add to Deck ]` on a card that has no physical copies remaining, the app now intercepts the action and provides options to either `[ Move physical card here ]` or `[ Add as Proxy ]`.
+- **Vault Deck Badges (`OptionalDeckBadges`)**: If a Vault card is actively assigned to a deck, it displays a small, unobtrusive text pill/badge showing the Deck's Name over the card tile in the grid or list.
+- **Dynamic Deck Covers & Analytics Dashboard**: Added wide banner utilizing cropped card art in the Deck Builder Header, as well as swipeable carousels featuring visual metrics for Mana Curve, Color Devotion vs. Production, and a Bling Meter.
+- **Proportional Bubble Scrollbar**: Built a custom, interactive vertical rail where the size of each "Bubble" (Commander, Creatures, Sideboard, etc.) is perfectly mathematically proportional to the quantity of cards in that section.
+- **Fast-Draw Playtester**: Added a randomized 7-card opening hand tester with mulligan support, callable directly from the deck builder.
+- **Legality & Identity Enforcer**: Added an isolate to check deck legality automatically on load and display an alert badge if format constraints are violated.
+- **Deck Quick Actions & I/O Engine**: Implemented full `DeckIOParser` capabilities and Quick Actions menus for importing text lists, exporting to clipboard, and mass exporting missing/proxy cards for purchase.
+- **Mock Data Ecosystem**: Authored comprehensive mock data sets to completely mock the visual features of the Deck Details UI ecosystem while awaiting real backend hydration.
+
+#### Fixed
+- **MacOS Deployment Target & FFI Web**: Fixed the macOS Podfile and project files to use `12.0` deployment target, allowing macOS builds to compile cleanly again. Added documentation on web-incompatibility due to dart:ffi OpenCV requirement.
+- **RenderFlex Overflows**: Completely eliminated RenderFlex layout issues in the Deck Details screen under aggressive adversarial bounds testing (320px viewport with 2.0x text scaling) using adaptive slivers, Flexible bounds, and FittedBox clipping.
 # Changelog
 
 All notable changes to the **Countr** project will be documented in this file.

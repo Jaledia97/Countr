@@ -320,7 +320,7 @@ void main() {
         acquiredDate: DateTime(2022, 1, 1),
         quantity: 1,
         condition: 'NM',
-        isGraded: false,
+        isGraded: false, isAltered: false, isMisprint: false, isSigned: false,
         currentMarketPrice: 12.0,
         lastPriceUpdate: DateTime(2022, 1, 1),
         dynamicData: jsonEncode({
@@ -357,7 +357,7 @@ void main() {
         acquiredDate: DateTime(2023, 11, 1),
         quantity: 1,
         condition: 'NM',
-        isGraded: false,
+        isGraded: false, isAltered: false, isMisprint: false, isSigned: false,
         currentMarketPrice: 18.0,
         lastPriceUpdate: DateTime(2023, 11, 1),
         dynamicData: jsonEncode({
@@ -392,7 +392,7 @@ void main() {
         acquiredDate: DateTime(2023, 4, 1),
         quantity: 1,
         condition: 'Gem Mint 10',
-        isGraded: true,
+        isGraded: true, isAltered: false, isMisprint: false, isSigned: false,
         currentMarketPrice: 85.0,
         lastPriceUpdate: DateTime(2023, 4, 1),
         dynamicData: jsonEncode({
@@ -428,7 +428,7 @@ void main() {
         acquiredDate: DateTime(2023, 1, 1),
         quantity: 1,
         condition: 'NM',
-        isGraded: false,
+        isGraded: false, isAltered: false, isMisprint: false, isSigned: false,
         currentMarketPrice: 3.0,
         lastPriceUpdate: DateTime(2023, 1, 1),
         dynamicData: jsonEncode({
@@ -481,7 +481,7 @@ void main() {
           acquiredDate: DateTime(2023, 1, 1),
           quantity: 1,
           condition: 'NM',
-          isGraded: false,
+          isGraded: false, isAltered: false, isMisprint: false, isSigned: false,
           currentMarketPrice: 20.0,
           lastPriceUpdate: DateTime(2023, 1, 1),
           dynamicData: jsonEncode({
@@ -546,7 +546,7 @@ void main() {
           acquiredDate: DateTime(2023, 1, 1),
           quantity: 1,
           condition: 'NM',
-          isGraded: false,
+          isGraded: false, isAltered: false, isMisprint: false, isSigned: false,
           currentMarketPrice: 10.0,
           lastPriceUpdate: DateTime(2023, 1, 1),
           dynamicData: jsonEncode({
@@ -663,7 +663,7 @@ void main() {
         acquiredDate: DateTime(2020, 1, 1),
         quantity: 1,
         condition: 'LP',
-        isGraded: false,
+        isGraded: false, isAltered: false, isMisprint: false, isSigned: false,
         currentMarketPrice: 150.0,
         lastPriceUpdate: DateTime(2020, 1, 1),
         dynamicData: '{}',

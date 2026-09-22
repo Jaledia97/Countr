@@ -57,7 +57,7 @@ void main() {
       acquiredDate: DateTime.now(),
       quantity: 1,
       condition: isFoil ? 'NM (Foil)' : 'NM',
-      isGraded: false,
+      isGraded: false, isAltered: false, isMisprint: false, isSigned: false,
       personalNotes: null,
       currentMarketPrice: currentMarketPrice,
       lastPriceUpdate: DateTime.now(),

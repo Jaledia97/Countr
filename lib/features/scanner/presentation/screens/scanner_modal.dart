@@ -4,21 +4,24 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:google_mlkit_object_detection/google_mlkit_object_detection.dart';
+import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_typography.dart';
 import '../../../../core/database/app_database.dart';
-import '../../../../core/state/app_state.dart';
 import '../../../vault/presentation/providers/vault_providers.dart';
 import '../../domain/adaptive_auto_adjust_controller.dart';
 import '../../domain/card_perimeter_calculator.dart';
-import '../../domain/ocr_heuristic_matcher.dart';
+
+import '../../domain/cascade_scanner_coordinator.dart';
+import '../../domain/vision/bk_tree.dart';
 import '../../utils/camera_image_converter.dart';
 import '../widgets/dynamic_scanner_overlay.dart';
 import '../widgets/scanner_success_toast.dart';
 import 'inbox_screen.dart';
+
+typedef ScannerScreen = ScannerModal;
 
 /// Full-screen Edge Scanner modal featuring live camera streaming,
 /// on-device Google ML Kit text recognition, Adaptive Auto-Adjust glare reduction,
@@ -59,8 +62,8 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
   late TextRecognizer _textRecognizer;
   late ObjectDetector _objectDetector;
   bool _useObjectDetectionFallback = false;
+  late CascadeScannerCoordinator _coordinator;
 
-  int _selectedModeIndex = 0;
   bool _flashOn = false;
   bool _isFoilMode = false;
   bool _isExposureLocked = false;
@@ -71,18 +74,12 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
   DateTime? _lastCardDetectedTime;
   bool _isCameraAvailable = false;
   bool _isScanningPaused = false;
+  bool _isTogglingPause = false;
   int _sessionScanCount = 0;
   DateTime? _lastIdleLogTime;
   String? _lastMatchedCardId;
   DateTime? _lastMatchTimestamp;
   VaultItem? _scannedToastCard;
-
-  final List<String> _scanModes = [
-    'RAW CARD',
-    'SLAB / GRADED',
-    'COMIC BOOK',
-    'BARCODE',
-  ];
 
   @override
   void initState() {
@@ -100,6 +97,7 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
         multipleObjects: false,
       ),
     );
+    _coordinator = CascadeScannerCoordinator(bkTree: BkTree());
     _initializeCamera();
   }
 
@@ -128,7 +126,7 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
 
       final controller = CameraController(
         backCamera,
-        ResolutionPreset.veryHigh,
+        ResolutionPreset.high,
         enableAudio: false,
         imageFormatGroup: Platform.isIOS
             ? ImageFormatGroup.bgra8888
@@ -166,10 +164,21 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
   Future<void> _pauseScanning({bool pausePreview = true}) async {
     if (_isScanningPaused) return;
 
+    if (mounted) {
+      setState(() {
+        _isScanningPaused = true;
+      });
+    }
+
     _scanLineController.stop();
 
     if (_cameraController != null && _cameraController!.value.isInitialized) {
       try {
+        if (_flashOn) {
+          try {
+            await _cameraController!.setFlashMode(FlashMode.off);
+          } catch (_) {}
+        }
         if (_cameraController!.value.isStreamingImages) {
           await _cameraController!.stopImageStream();
         }
@@ -179,12 +188,6 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
       } catch (e) {
         debugPrint('Error pausing camera: $e');
       }
-    }
-
-    if (mounted) {
-      setState(() {
-        _isScanningPaused = true;
-      });
     }
   }
 
@@ -201,6 +204,11 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
         await _cameraController!.resumePreview();
       } catch (e) {
         debugPrint('Error resuming preview: $e');
+      }
+      if (_flashOn) {
+        try {
+          await _cameraController!.setFlashMode(FlashMode.torch);
+        } catch (_) {}
       }
       try {
         if (!_cameraController!.value.isStreamingImages) {
@@ -223,10 +231,16 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
 
   /// Toggles between active scanning and battery-saver paused state.
   Future<void> _togglePause() async {
-    if (_isScanningPaused) {
-      await _resumeScanning();
-    } else {
-      await _pauseScanning(pausePreview: true);
+    if (_isTogglingPause) return;
+    _isTogglingPause = true;
+    try {
+      if (_isScanningPaused) {
+        await _resumeScanning();
+      } else {
+        await _pauseScanning(pausePreview: true);
+      }
+    } finally {
+      _isTogglingPause = false;
     }
   }
 
@@ -249,7 +263,7 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
   /// and permanent camera stream freezes.
   Future<void> _processCameraFrame(CameraImage image) async {
     _frameCount++;
-    if (_frameCount % 10 != 0 || _isProcessing || _isScanningPaused) {
+    if (_frameCount % 8 != 0 || _isProcessing || _isScanningPaused) {
       return;
     }
     _isProcessing = true;
@@ -258,87 +272,72 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
       final camera = _cameraController?.description;
       if (camera == null) return;
 
-      final inputImage = CameraImageConverter.toInputImage(
-        image: image,
-        camera: camera,
-        deviceOrientation: _cameraController?.value.deviceOrientation,
+      final dao = ref.read(vaultDaoProvider);
+
+      debugPrint(
+          '[Countr Scanner] Auto-detect cascade matching across available collectible profiles...');
+
+      final cascadeResult = await _coordinator.processFrame(
+        cameraImage: image,
+        dao: dao,
+        textRecognizer: _textRecognizer,
       );
 
-      if (inputImage == null) return;
+      final result = cascadeResult.$1;
+      final corners = cascadeResult.$2;
 
-      // R2: Object-first detection gate before OCR
-      Rect? detectedObjectBox;
-      if (!_useObjectDetectionFallback) {
-        try {
-          final objects = await _objectDetector.processImage(inputImage);
-          if (objects.isEmpty) {
-            // Abort frame processing early if no card/object detected
-            if (_lastCardDetectedTime == null ||
-                DateTime.now().difference(_lastCardDetectedTime!) >
-                    const Duration(milliseconds: 1200)) {
-              _detectedCardBounds = null;
-            }
-            return;
-          }
-          detectedObjectBox = objects.first.boundingBox;
-        } catch (e) {
-          debugPrint(
-              '[Countr Scanner] Object detection unavailable, falling back to CardPerimeterCalculator: $e');
-          _useObjectDetectionFallback = true;
+      if (!mounted || _isScanningPaused) return;
+
+      if (corners != null && corners.length == 8) {
+        final xs = [corners[0], corners[2], corners[4], corners[6]];
+        final ys = [corners[1], corners[3], corners[5], corners[7]];
+        xs.sort();
+        ys.sort();
+        Rect imageRect = Rect.fromLTRB(xs.first, ys.first, xs.last, ys.last);
+        
+        Size imageSize = Size(image.width.toDouble(), image.height.toDouble());
+        final rotation = CameraImageConverter.calculateRotation(camera, null);
+        
+        // Rotate the unrotated OpenCV rect into upright screen coordinates
+        if (rotation == InputImageRotation.rotation90deg) {
+          imageRect = Rect.fromLTRB(
+            imageSize.height - imageRect.bottom,
+            imageRect.left,
+            imageSize.height - imageRect.top,
+            imageRect.right,
+          );
+          imageSize = Size(imageSize.height, imageSize.width);
+        } else if (rotation == InputImageRotation.rotation270deg) {
+          imageRect = Rect.fromLTRB(
+            imageRect.top,
+            imageSize.width - imageRect.right,
+            imageRect.bottom,
+            imageSize.width - imageRect.left,
+          );
+          imageSize = Size(imageSize.height, imageSize.width);
+        } else if (rotation == InputImageRotation.rotation180deg) {
+          imageRect = Rect.fromLTRB(
+            imageSize.width - imageRect.right,
+            imageSize.height - imageRect.bottom,
+            imageSize.width - imageRect.left,
+            imageSize.height - imageRect.top,
+          );
         }
-      }
-
-      final recognized = await _textRecognizer.processImage(inputImage);
-
-      // Card bounding perimeter calculation
-      if (detectedObjectBox != null && mounted) {
-        final rawSize = inputImage.metadata?.size ??
-            Size(image.width.toDouble(), image.height.toDouble());
-        final uprightSize = CardPerimeterCalculator.getUprightImageSize(
-          rawSize: rawSize,
-          rotation: inputImage.metadata?.rotation,
-        );
+        
         final screenSize = MediaQuery.of(context).size;
         _detectedCardBounds = CardPerimeterCalculator.mapImageRectToScreen(
-          imageRect: detectedObjectBox,
-          imageSize: uprightSize,
+          imageRect: imageRect,
+          imageSize: imageSize,
           screenSize: screenSize,
         );
         _lastCardDetectedTime = DateTime.now();
-      } else if (recognized.blocks.isNotEmpty && mounted) {
-        final rawSize = inputImage.metadata?.size ??
-            Size(image.width.toDouble(), image.height.toDouble());
-        final uprightSize = CardPerimeterCalculator.getUprightImageSize(
-          rawSize: rawSize,
-          rotation: inputImage.metadata?.rotation,
-        );
-
-        final perimeter = CardPerimeterCalculator.calculatePerimeter(
-          recognized.blocks,
-          imageSize: uprightSize,
-        );
-
-        if (perimeter != null) {
-          final screenSize = MediaQuery.of(context).size;
-          _detectedCardBounds = CardPerimeterCalculator.mapImageRectToScreen(
-            imageRect: perimeter,
-            imageSize: uprightSize,
-            screenSize: screenSize,
-          );
-          _lastCardDetectedTime = DateTime.now();
-        }
       } else {
         if (_lastCardDetectedTime == null ||
             DateTime.now().difference(_lastCardDetectedTime!) >
                 const Duration(milliseconds: 1200)) {
           _detectedCardBounds = null;
         }
-      }
 
-      final cleanedLines = OcrHeuristicMatcher.extractCleanedLines(recognized);
-      final ocrResult = OcrHeuristicMatcher.parseRecognizedText(recognized);
-
-      if (cleanedLines.isEmpty) {
         final now = DateTime.now();
         if (_lastIdleLogTime == null ||
             now.difference(_lastIdleLogTime!) > const Duration(seconds: 2)) {
@@ -346,29 +345,10 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
           debugPrint(
               '[Countr Scanner] Video stream active (${image.width}x${image.height}): awaiting card in frame...');
         }
-        await _autoAdjustController?.onFrameResult(matched: false);
-        return;
       }
 
-      final dao = ref.read(vaultDaoProvider);
-      final activeGame = ref.read(activeGameContextProvider);
-
-      debugPrint(
-          '[Countr Scanner OCR] Recognized ${cleanedLines.length} candidate lines: $cleanedLines (Active Game: $activeGame)');
-      if (ocrResult.collectorNumber != null || ocrResult.setCode != null) {
-        debugPrint(
-            '[Countr Scanner OCR] Collector: ${ocrResult.collectorNumber}, Set: ${ocrResult.setCode}');
-      }
-
-      final card = await dao.matchScannedCard(
-        cleanedLines,
-        activeGame,
-        collectorNumber: ocrResult.collectorNumber,
-        setCode: ocrResult.setCode,
-        enforceMultiFactor: true,
-      );
-
-      if (card != null) {
+      if (result != null) {
+        final card = result.match;
         // Debounce same card in frame (4 seconds) to avoid immediate re-trigger loop
         if (_lastMatchedCardId == card.id &&
             _lastMatchTimestamp != null &&
@@ -380,14 +360,14 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
         _lastMatchTimestamp = DateTime.now();
 
         debugPrint(
-            '>>> [Countr Scanner MATCH SUCCESS] Card "${card.name}" matched! Set: "${card.setOrSeries}", ID: "${card.id}" (Context: $activeGame)');
+            '>>> [Countr Scanner MATCH SUCCESS] Card "${card.name}" matched at Tier ${result.tier}! Set: "${card.setOrSeries}", ID: "${card.id}"');
 
         HapticFeedback.mediumImpact();
         await _autoAdjustController?.onFrameResult(matched: true);
         await _onCardMatched(card);
       } else {
         debugPrint(
-            '[Countr Scanner NO MATCH] No card in database matched lines: $cleanedLines in active context: "$activeGame"');
+            '[Countr Scanner NO MATCH] Pipeline yielded no matches across available profiles');
         await _autoAdjustController?.onFrameResult(matched: false);
       }
     } catch (e, stack) {
@@ -496,6 +476,25 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
   @visibleForTesting
   VaultItem? get scannedToastCard => _scannedToastCard;
 
+  @visibleForTesting
+  CascadeScannerCoordinator get coordinator => _coordinator;
+
+  @visibleForTesting
+  Future<ScanMatchResult?> simulateOcrDetection(String ocrText) async {
+    final dao = ref.read(vaultDaoProvider);
+    final result = await _coordinator.matchOcr(
+      ocrText: ocrText,
+      dao: dao,
+    );
+    if (result != null) {
+      await _onCardMatched(result.match);
+    }
+    return result;
+  }
+
+  @visibleForTesting
+  ObjectDetector get objectDetector => _objectDetector;
+
   @override
   void dispose() {
     _scanLineController.dispose();
@@ -584,39 +583,6 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
                           color: AppColors.textSecondary.withValues(alpha: 0.9),
                           fontSize: 10,
                           fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      GestureDetector(
-                        onTap: _resumeScanning,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.accentEmerald,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.play_arrow_rounded,
-                                size: 16,
-                                color: AppColors.textDark,
-                              ),
-                              SizedBox(width: 4),
-                              Text(
-                                'Resume Scanner',
-                                style: TextStyle(
-                                  color: AppColors.textDark,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                            ],
-                          ),
                         ),
                       ),
                     ],
@@ -886,94 +852,88 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
                         ),
                         onPressed: _toggleExposureLock,
                       ),
-                      const SizedBox(width: 6),
-
-                      // Battery-Saver Pause / Resume Toggle
-                      IconButton.filledTonal(
-                        key: const Key('scanner_pause_toggle'),
-                        visualDensity: VisualDensity.compact,
-                        constraints: const BoxConstraints(minWidth: 38, minHeight: 38),
-                        style: IconButton.styleFrom(
-                          padding: EdgeInsets.zero,
-                          backgroundColor: _isScanningPaused
-                              ? AppColors.accentAmber.withValues(alpha: 0.3)
-                              : Colors.black.withValues(alpha: 0.6),
-                          side: BorderSide(
-                            color: _isScanningPaused
-                                ? AppColors.accentAmber
-                                : AppColors.surfaceBorder,
-                          ),
-                        ),
-                        icon: Icon(
-                          _isScanningPaused
-                              ? Icons.play_arrow_rounded
-                              : Icons.pause_rounded,
-                          size: 18,
-                          color: _isScanningPaused
-                              ? AppColors.accentAmber
-                              : Colors.white,
-                        ),
-                        tooltip: _isScanningPaused
-                            ? 'Resume Scanner'
-                            : 'Pause Scanner (Save Battery)',
-                        onPressed: _togglePause,
-                      ),
                     ],
                   ),
                 ),
               ),
             ),
 
-            // Bottom Scan Controls & Modes
+            // Bottom Scan Controls & Prominent Pause Camera / Resume Scanner Button
             Positioned(
               bottom: 24,
               left: 0,
               right: 0,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Mode Selector Tabs
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: List.generate(_scanModes.length, (index) {
-                        final isSelected = _selectedModeIndex == index;
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: ChoiceChip(
-                            label: Text(_scanModes[index]),
-                            selected: isSelected,
-                            onSelected: (selected) {
-                              if (selected) {
-                                setState(() {
-                                  _selectedModeIndex = index;
-                                });
-                              }
-                            },
-                            labelStyle: TextStyle(
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.8,
-                              color: isSelected
+              child: SafeArea(
+                top: false,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Prominent Bottom Control: Pause Camera / Resume Scanner Button
+                    Tooltip(
+                      message: _isScanningPaused
+                          ? 'Resume Scanner'
+                          : 'Pause Camera (Save Battery)',
+                      child: Semantics(
+                        button: true,
+                        enabled: true,
+                        label: _isScanningPaused
+                            ? 'Resume Scanner'
+                            : 'Pause Camera',
+                        hint: _isScanningPaused
+                            ? 'Resumes live camera stream'
+                            : 'Pauses camera to save battery',
+                        child: ElevatedButton.icon(
+                          key: const Key('scanner_pause_toggle'),
+                          onPressed: _togglePause,
+                          icon: Icon(
+                            _isScanningPaused
+                                ? Icons.play_arrow_rounded
+                                : Icons.pause_rounded,
+                            size: 20,
+                            color: _isScanningPaused
+                                ? AppColors.textDark
+                                : Colors.white,
+                          ),
+                          label: Text(
+                            _isScanningPaused
+                                ? 'Resume Scanner'
+                                : 'Pause Camera',
+                            style: TextStyle(
+                              color: _isScanningPaused
                                   ? AppColors.textDark
-                                  : AppColors.textSecondary,
-                            ),
-                            selectedColor: AppColors.accentCyan,
-                            backgroundColor:
-                                AppColors.surface.withValues(alpha: 0.8),
-                            side: BorderSide(
-                              color: isSelected
-                                  ? AppColors.accentCyan
-                                  : AppColors.surfaceBorder,
+                                  : Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.5,
                             ),
                           ),
-                        );
-                      }),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _isScanningPaused
+                                ? AppColors.accentAmber
+                                : Colors.black.withValues(alpha: 0.75),
+                            foregroundColor: _isScanningPaused
+                                ? AppColors.textDark
+                                : Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 24,
+                              vertical: 12,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(30),
+                              side: BorderSide(
+                                color: _isScanningPaused
+                                    ? AppColors.accentAmber
+                                    : AppColors.surfaceBorder,
+                                width: 1.5,
+                              ),
+                            ),
+                            elevation: 4,
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
 
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 14),
 
                   // Continuous Streaming Live Indicator (Zero Keystrokes)
                   Padding(
@@ -1055,6 +1015,7 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
                 ],
               ),
             ),
+          ),
 
             // ManaBox-Style Animated Floating Top Success Toast (rendered last in Stack so it paints on top of all controls and receives taps)
             if (_scannedToastCard != null)

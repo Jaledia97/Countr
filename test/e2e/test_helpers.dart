@@ -80,7 +80,7 @@ VaultItem createTestCard({
     acquiredDate: DateTime.now(),
     quantity: quantity,
     condition: condition,
-    isGraded: false,
+    isGraded: false, isAltered: false, isMisprint: false, isSigned: false,
     personalNotes: null,
     currentMarketPrice: currentMarketPrice,
     lastPriceUpdate: DateTime.now(),

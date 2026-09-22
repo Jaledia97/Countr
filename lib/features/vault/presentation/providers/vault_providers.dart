@@ -209,3 +209,10 @@ final collectionItemCountsProvider = StreamProvider<Map<String, int>>((ref) {
   return dao.watchCollectionItemCounts();
 });
 
+/// Reactive StreamProvider fetching the list of decks currently assigning a specific VaultItem.
+final vaultItemAssignedDecksProvider = StreamProvider.family<List<String>, String>((ref, vaultItemId) {
+  final dao = ref.watch(vaultDaoProvider);
+  return dao.watchItemActiveDecks(vaultItemId);
+});
+
+

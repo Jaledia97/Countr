@@ -15,6 +15,8 @@ import 'package:countr/features/vault/domain/vault_pricing_helper.dart';
 import 'package:countr/features/vault/presentation/providers/vault_providers.dart';
 import 'package:countr/features/vault/presentation/widgets/edit_card_modal.dart';
 import 'package:countr/features/vault/presentation/widgets/full_screen_card_viewer.dart';
+import 'package:countr/features/decks/presentation/widgets/conflict_resolution_modal.dart';
+import 'package:countr/features/decks/presentation/providers/deck_providers.dart';
 
 /// Draggable modal bottom sheet displaying full card breakdown, oracle rules text,
 /// community use cases, deck history, and collection portfolio analytics.
@@ -2204,14 +2206,6 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
   }
 
   Future<void> _showAddToDeckDialog() async {
-    final availableDecks = [
-      'Edgar Markov Aristocrats',
-      'Charizard ex / Pidgeot ex',
-      'Yuriko, the Tiger\'s Shadow',
-      'Ruby / Amethyst Bounce Control',
-      'Lost Zone Giratina VSTAR',
-      'Modern Mono-Green Tron',
-    ];
     final customDeckController = TextEditingController();
 
     await showModalBottomSheet(
@@ -2222,8 +2216,9 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (modalCtx) {
-        return StatefulBuilder(
-          builder: (ctx, setModalState) {
+        return Consumer(
+          builder: (ctx, ref, child) {
+            final deckListAsync = ref.watch(deckListProvider);
             return Padding(
               padding: EdgeInsets.fromLTRB(
                 20,
@@ -2247,40 +2242,69 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
                     ],
                   ),
                   const SizedBox(height: 12),
-                  ...availableDecks.map((deck) {
-                    final inDeck = _deckHistory.contains(deck);
-                    return ListTile(
-                      dense: true,
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.style_rounded, color: AppColors.accentVioletLight, size: 20),
-                      title: Text(deck, style: const TextStyle(fontSize: 13.5, color: AppColors.textPrimary)),
-                      trailing: inDeck
-                          ? const Icon(Icons.check_circle_rounded, color: AppColors.accentEmerald, size: 20)
-                          : const Icon(Icons.add_circle_outline_rounded, color: AppColors.accentCyan, size: 20),
-                      onTap: () async {
-                        if (!inDeck) {
-                          setState(() {
-                            _deckHistory.add(deck);
-                            _dynamicData['deck_history'] = _deckHistory;
-                          });
-                          await ref.read(vaultDaoProvider).updateItemNotesAndDecks(
-                                _currentItem.id,
-                                deckTags: _deckHistory,
-                              );
-                        }
-                        if (modalCtx.mounted) Navigator.of(modalCtx).pop();
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Added to "$deck"'),
-                              behavior: SnackBarBehavior.floating,
-                              duration: const Duration(seconds: 2),
-                            ),
+                  deckListAsync.when(
+                    data: (decks) {
+                      if (decks.isEmpty) {
+                        return const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 8),
+                          child: Text('No decks found. Create one below.', style: TextStyle(color: AppColors.textMuted)),
+                        );
+                      }
+                      return Column(
+                        children: decks.map((deck) {
+                          final inDeck = _deckHistory.contains(deck.name); // Using name for UI badge checking for now
+                          return ListTile(
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                            leading: const Icon(Icons.style_rounded, color: AppColors.accentVioletLight, size: 20),
+                            title: Text(deck.name, style: const TextStyle(fontSize: 13.5, color: AppColors.textPrimary)),
+                            trailing: inDeck
+                                ? const Icon(Icons.check_circle_rounded, color: AppColors.accentEmerald, size: 20)
+                                : const Icon(Icons.add_circle_outline_rounded, color: AppColors.accentCyan, size: 20),
+                            onTap: () async {
+                              final dao = ref.read(vaultDaoProvider);
+                              final availableQty = await dao.getAvailableQuantity(_currentItem.id);
+
+                              if (availableQty < 1) {
+                                if (!modalCtx.mounted) return;
+                                final decksAssigned = await dao.getDecksUsingItem(_currentItem.id);
+                                if (!modalCtx.mounted) return;
+                                
+                                await ConflictResolutionModal.show(
+                                  context: modalCtx,
+                                  cardName: _currentItem.name,
+                                  deckNames: decksAssigned,
+                                  onMovePhysical: () async {
+                                    await dao.moveCardToDeck(_currentItem.id, deck.id);
+                                    if (modalCtx.mounted) Navigator.of(modalCtx).pop();
+                                  },
+                                  onAddAsProxy: () async {
+                                    await dao.addCardToDeck(deck.id, _currentItem.id, isProxy: true);
+                                    if (modalCtx.mounted) Navigator.of(modalCtx).pop();
+                                  },
+                                );
+                                return;
+                              }
+
+                              await dao.addCardToDeck(deck.id, _currentItem.id, isProxy: false);
+                              if (modalCtx.mounted) Navigator.of(modalCtx).pop();
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Added to "${deck.name}"'),
+                                    behavior: SnackBarBehavior.floating,
+                                    duration: const Duration(seconds: 2),
+                                  ),
+                                );
+                              }
+                            },
                           );
-                        }
-                      },
-                    );
-                  }),
+                        }).toList(),
+                      );
+                    },
+                    loading: () => const Center(child: CircularProgressIndicator()),
+                    error: (e, st) => Text('Error: $e'),
+                  ),
                   const SizedBox(height: 12),
                   Row(
                     children: [
@@ -2307,20 +2331,46 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
                         icon: const Icon(Icons.add_circle, color: AppColors.accentCyan, size: 28),
                         onPressed: () async {
                           final name = customDeckController.text.trim();
-                          if (name.isNotEmpty && !_deckHistory.contains(name)) {
-                            setState(() {
-                              _deckHistory.add(name);
-                              _dynamicData['deck_history'] = _deckHistory;
-                            });
-                            await ref.read(vaultDaoProvider).updateItemNotesAndDecks(
-                                  _currentItem.id,
-                                  deckTags: _deckHistory,
-                                );
+                          if (name.isNotEmpty) {
+                            final dao = ref.read(vaultDaoProvider);
+                            final availableQty = await dao.getAvailableQuantity(_currentItem.id);
+
+                            if (availableQty < 1) {
+                              if (!modalCtx.mounted) return;
+                              final result = await showDialog<String>(
+                                context: modalCtx,
+                                builder: (dialogCtx) => AlertDialog(
+                                  title: const Text('Inventory Conflict'),
+                                  content: const Text('You do not have enough available physical copies of this card. What would you like to do?'),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.of(dialogCtx).pop('cancel'),
+                                      child: const Text('Cancel'),
+                                    ),
+                                    TextButton(
+                                      onPressed: () => Navigator.of(dialogCtx).pop('proxy'),
+                                      child: const Text('Add as Proxy'),
+                                    ),
+                                    TextButton(
+                                      onPressed: () => Navigator.of(dialogCtx).pop('move'),
+                                      child: const Text('Move physical card here'),
+                                    ),
+                                  ],
+                                ),
+                              );
+                              if (result != 'proxy') return;
+                              final newDeck = await dao.createDeck(name);
+                              await dao.addCardToDeck(newDeck.id, _currentItem.id, isProxy: true);
+                            } else {
+                              final newDeck = await dao.createDeck(name);
+                              await dao.addCardToDeck(newDeck.id, _currentItem.id, isProxy: false);
+                            }
+
                             if (modalCtx.mounted) Navigator.of(modalCtx).pop();
                             if (mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                  content: Text('Added to "$name"'),
+                                  content: Text('Created "$name" and added card'),
                                   behavior: SnackBarBehavior.floating,
                                   duration: const Duration(seconds: 2),
                                 ),

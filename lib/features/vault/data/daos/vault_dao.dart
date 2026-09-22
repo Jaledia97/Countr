@@ -9,10 +9,24 @@ import 'package:countr/features/scanner/domain/ocr_heuristic_matcher.dart';
 import 'package:countr/features/vault/domain/models/vault_totals.dart';
 import 'package:countr/features/vault/presentation/providers/mtg_filter_state.dart';
 
+import 'package:countr/core/database/tables/decks/decks_table.dart';
+import 'package:countr/core/database/tables/decks/deck_versions_table.dart';
+import 'package:countr/core/database/tables/decks/deck_version_items_table.dart';
+import 'package:countr/core/database/tables/decks/deck_matchups_table.dart';
+import 'package:countr/core/database/tables/decks/deck_synergies_table.dart';
+
 part 'vault_dao.g.dart';
 
 /// Data Access Object for VaultItems and VaultBinders with polymorphic queries and seeding.
-@DriftAccessor(tables: [VaultItems, VaultBinders])
+@DriftAccessor(tables: [
+  VaultItems,
+  VaultBinders,
+  Decks,
+  DeckVersions,
+  DeckVersionItems,
+  DeckMatchups,
+  DeckSynergies,
+])
 class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
   VaultDao(super.db);
 
@@ -1612,5 +1626,193 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     query.orderBy([(t) => OrderingTerm(expression: t.name, mode: OrderingMode.asc)]);
     if (limit != null) query.limit(limit, offset: offset);
     return query.get();
+  }
+
+  /// Evaluates available quantity of a physical VaultItem by subtracting
+  /// assigned copies across all active DeckVersions.
+  /// 
+  /// Available = (VaultItem.quantity) - SUM(DeckVersionItems.quantity across all ACTIVE DeckVersions)
+  Future<int> getAvailableQuantity(String vaultItemId) async {
+    final item = await getItemById(vaultItemId);
+    if (item == null) return 0;
+
+    final querySql = '''
+      SELECT COALESCE(SUM(dvi.quantity), 0) AS allocated
+      FROM deck_version_items dvi
+      INNER JOIN deck_versions dv ON dv.id = dvi.version_id
+      WHERE dvi.vault_item_id = ? AND dv.is_active = 1 AND dvi.is_proxy = 0
+    ''';
+
+    final row = await customSelect(
+      querySql,
+      variables: [Variable.withString(vaultItemId)],
+      readsFrom: {deckVersionItems, deckVersions},
+    ).getSingle();
+
+    final allocated = (row.data['allocated'] as num?)?.toInt() ?? 0;
+    final available = item.quantity - allocated;
+    return available < 0 ? 0 : available;
+  }
+
+  /// Lists all active decks where a vault item is currently assigned.
+  Future<List<String>> getDecksUsingItem(String vaultItemId) async {
+    final querySql = '''
+      SELECT DISTINCT d.name
+      FROM deck_version_items dvi
+      INNER JOIN deck_versions dv ON dv.id = dvi.version_id
+      INNER JOIN decks d ON d.id = dv.deck_id
+      WHERE dvi.vault_item_id = ? AND dv.is_active = 1 AND dvi.is_proxy = 0
+    ''';
+
+    final rows = await customSelect(
+      querySql,
+      variables: [Variable.withString(vaultItemId)],
+      readsFrom: {deckVersionItems, deckVersions, decks},
+    ).get();
+
+    return rows.map((r) => r.read<String>('name')).toList();
+  }
+
+  /// Streams all decks
+  Stream<List<Deck>> watchAllDecks() {
+    return select(decks).watch();
+  }
+
+  /// Streams a single deck
+  Stream<Deck> watchDeck(String id) {
+    return (select(decks)..where((t) => t.id.equals(id))).watchSingle();
+  }
+
+  /// Streams deck items with vault item data for the active deck version
+  Stream<List<Map<String, dynamic>>> watchDeckItems(String deckId) {
+    final querySql = '''
+      SELECT 
+        dvi.id as dvi_id, dvi.version_id, dvi.vault_item_id, dvi.quantity as deck_quantity, dvi.board_zone, dvi.is_proxy,
+        vi.id, vi.name, vi.set_or_series, vi.image_url, vi.dynamic_data, vi.current_market_price, vi.quantity as vault_quantity, vi.is_graded, vi.condition
+      FROM deck_version_items dvi
+      INNER JOIN deck_versions dv ON dv.id = dvi.version_id
+      INNER JOIN vault_items vi ON vi.id = dvi.vault_item_id
+      WHERE dv.deck_id = ? AND dv.is_active = 1
+    ''';
+    
+    return customSelect(
+      querySql,
+      variables: [Variable.withString(deckId)],
+      readsFrom: {deckVersionItems, deckVersions, vaultItems},
+    ).watch().map((rows) {
+      return rows.map((row) => row.data).toList();
+    });
+  }
+
+  /// Streams active decks for a vault item, useful for UI badges
+  Stream<List<String>> watchItemActiveDecks(String vaultItemId) {
+    final querySql = '''
+      SELECT DISTINCT d.name
+      FROM deck_version_items dvi
+      INNER JOIN deck_versions dv ON dv.id = dvi.version_id
+      INNER JOIN decks d ON d.id = dv.deck_id
+      WHERE dvi.vault_item_id = ? AND dv.is_active = 1 AND dvi.is_proxy = 0
+    ''';
+
+    return customSelect(
+      querySql,
+      variables: [Variable.withString(vaultItemId)],
+      readsFrom: {deckVersionItems, deckVersions, decks},
+    ).watch().map((rows) {
+      return rows.map((r) => r.read<String>('name')).toList();
+    });
+  }
+
+  /// Streams deck versions history
+  Stream<List<DeckVersion>> watchDeckVersions(String deckId) {
+    return (select(deckVersions)
+          ..where((t) => t.deckId.equals(deckId))
+          ..orderBy([(t) => OrderingTerm(expression: t.createdAt, mode: OrderingMode.desc)]))
+        .watch();
+  }
+
+  /// Streams deck matchups
+  Stream<List<DeckMatchup>> watchDeckMatchups(String deckId) {
+    return (select(deckMatchups)..where((t) => t.deckId.equals(deckId))).watch();
+  }
+  
+  /// Update deck description
+  Future<void> updateDeckDescription(String deckId, String description) async {
+    await (update(decks)..where((t) => t.id.equals(deckId))).write(DecksCompanion(
+      description: Value(description),
+    ));
+  }
+
+  Future<Deck> createDeck(String name) async {
+    final deckId = const Uuid().v4();
+    final deck = DecksCompanion.insert(
+      id: deckId,
+      name: name,
+      format: 'Commander',
+      createdAt: DateTime.now(),
+    );
+    await into(decks).insert(deck);
+    
+    final versionId = const Uuid().v4();
+    final version = DeckVersionsCompanion.insert(
+      id: versionId,
+      deckId: deckId,
+      versionNumber: 1,
+      isActive: const Value(true),
+      createdAt: DateTime.now(),
+    );
+    await into(deckVersions).insert(version);
+    
+    return (await (select(decks)..where((t) => t.id.equals(deckId))).getSingle());
+  }
+
+  Future<void> addCardToDeck(String deckId, String vaultItemId, {bool isProxy = false}) async {
+    final version = await (select(deckVersions)..where((t) => t.deckId.equals(deckId) & t.isActive.equals(true))).getSingleOrNull();
+    if (version == null) return;
+    
+    final existing = await (select(deckVersionItems)
+      ..where((t) => t.versionId.equals(version.id) & t.vaultItemId.equals(vaultItemId) & t.isProxy.equals(isProxy)))
+      .getSingleOrNull();
+      
+    if (existing != null) {
+      await update(deckVersionItems).replace(existing.copyWith(quantity: existing.quantity + 1));
+    } else {
+      await into(deckVersionItems).insert(DeckVersionItemsCompanion.insert(
+        id: const Uuid().v4(),
+        versionId: version.id,
+        vaultItemId: vaultItemId,
+        quantity: const Value(1),
+        boardZone: 'Mainboard',
+        isProxy: Value(isProxy),
+      ));
+    }
+  }
+
+  Future<void> moveCardToDeck(String vaultItemId, String targetDeckId) async {
+    final row = await customSelect(
+      '''
+      SELECT dvi.id as item_id
+      FROM deck_version_items dvi
+      INNER JOIN deck_versions dv ON dv.id = dvi.version_id
+      WHERE dvi.vault_item_id = ? AND dv.is_active = 1 AND dvi.is_proxy = 0
+      LIMIT 1
+      ''',
+      variables: [Variable.withString(vaultItemId)],
+      readsFrom: {deckVersionItems, deckVersions},
+    ).getSingleOrNull();
+    
+    if (row != null) {
+      final itemId = row.data['item_id'] as String;
+      final existing = await (select(deckVersionItems)..where((t) => t.id.equals(itemId))).getSingleOrNull();
+      if (existing != null) {
+        if (existing.quantity > 1) {
+          await update(deckVersionItems).replace(existing.copyWith(quantity: existing.quantity - 1));
+        } else {
+          await delete(deckVersionItems).delete(existing);
+        }
+      }
+    }
+    
+    await addCardToDeck(targetDeckId, vaultItemId, isProxy: false);
   }
 }

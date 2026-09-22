@@ -22,11 +22,11 @@ class VaultItems extends Table {
   BoolColumn get isGraded =>
       boolean().named('is_graded').withDefault(const Constant(false))();
   BoolColumn get isAltered =>
-      boolean().named('is_altered').withDefault(const Constant(false))();
+      boolean().named('is_altered').clientDefault(() => false)();
   BoolColumn get isMisprint =>
-      boolean().named('is_misprint').withDefault(const Constant(false))();
+      boolean().named('is_misprint').clientDefault(() => false)();
   BoolColumn get isSigned =>
-      boolean().named('is_signed').withDefault(const Constant(false))();
+      boolean().named('is_signed').clientDefault(() => false)();
   TextColumn get personalNotes => text().named('personal_notes').nullable()();
 
   // Physical Home Anchor (NULL = unassigned / Inbox)

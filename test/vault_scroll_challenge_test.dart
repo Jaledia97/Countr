@@ -22,7 +22,7 @@ List<VaultItem> _generateDummyCards(int count) {
       acquiredDate: DateTime(2023, 1, 1).add(Duration(days: i)),
       quantity: 1,
       condition: 'NM',
-      isGraded: false,
+      isGraded: false, isAltered: false, isMisprint: false, isSigned: false,
       currentMarketPrice: 15.0 + i,
       lastPriceUpdate: DateTime.now(),
       dynamicData: '{"oracle_text":"Test text $i","rarity":"rare"}',

@@ -7,6 +7,7 @@ import 'package:countr/core/database/app_database.dart';
 import 'package:countr/core/state/app_state.dart';
 import 'package:countr/features/vault/domain/mtg_keyword_glossary.dart';
 import 'package:countr/features/vault/domain/vault_pricing_helper.dart';
+import 'package:countr/features/vault/presentation/providers/vault_providers.dart';
 import 'card_detail_sheet.dart';
 import 'polymorphic_attribute_chip.dart';
 
@@ -137,6 +138,9 @@ class VaultItemCard extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
+              const SizedBox(height: 4),
+              // Deck Badges
+              OptionalDeckBadges(item: item),
             ],
           ),
         ),
@@ -814,5 +818,60 @@ class VaultItemCard extends StatelessWidget {
       default:
         return AppColors.accentCyan;
     }
+  }
+}
+
+class OptionalDeckBadges extends StatelessWidget {
+  final VaultItem item;
+  const OptionalDeckBadges({super.key, required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    bool hasProviderScope = false;
+    context.visitAncestorElements((element) {
+      final typeStr = element.widget.runtimeType.toString();
+      if (typeStr == 'ProviderScope' || typeStr == 'UncontrolledProviderScope') {
+        hasProviderScope = true;
+        return false;
+      }
+      return true;
+    });
+
+    if (!hasProviderScope) return const SizedBox.shrink();
+
+    return Consumer(
+      builder: (context, ref, _) {
+        final decksAsync = ref.watch(vaultItemAssignedDecksProvider(item.id));
+        return decksAsync.when(
+          data: (decks) {
+            if (decks.isEmpty) return const SizedBox.shrink();
+            return Wrap(
+              spacing: 4,
+              runSpacing: 4,
+              children: decks.map((deckName) {
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceBorderSubtle,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: AppColors.accentCyan.withValues(alpha: 0.3)),
+                  ),
+                  child: Text(
+                    '⚔️ $deckName',
+                    style: const TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.accentCyan,
+                    ),
+                  ),
+                );
+              }).toList(),
+            );
+          },
+          loading: () => const SizedBox.shrink(),
+          error: (_, __) => const SizedBox.shrink(),
+        );
+      },
+    );
   }
 }
