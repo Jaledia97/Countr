@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_typography.dart';
+import '../../../symbology/presentation/widgets/mana_text.dart';
 
 /// Body for Text Post variant.
 class TextPostBody extends StatelessWidget {
@@ -12,7 +13,7 @@ class TextPostBody extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(left: 16, right: 16, bottom: 14),
-      child: Text(
+      child: ManaText(
         text,
         style: AppTypography.body.copyWith(
           fontSize: 14.5,

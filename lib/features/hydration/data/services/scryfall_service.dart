@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:countr/features/hydration/domain/models/scryfall_ruling.dart';
 
@@ -134,14 +135,16 @@ class ScryfallService {
                 .toList();
           }
           return const [];
-        } catch (_) {
+        } catch (e, stackTrace) {
+          debugPrint('[ScryfallService] Failed to parse rulings JSON: $e\n$stackTrace');
           return const [];
         }
       } else if (response.statusCode == 404) {
         return const [];
       }
       return null;
-    } catch (_) {
+    } catch (e, stackTrace) {
+      debugPrint('[ScryfallService] Failed to fetch card rulings: $e\n$stackTrace');
       return null;
     }
   }
@@ -178,7 +181,8 @@ class ScryfallService {
         }
       }
       return const [];
-    } catch (_) {
+    } catch (e, stackTrace) {
+      debugPrint('[ScryfallService] Failed to search cards: $e\n$stackTrace');
       return null;
     }
   }
@@ -251,7 +255,48 @@ class ScryfallService {
       }
 
       return null;
-    } catch (_) {
+    } catch (e, stackTrace) {
+      debugPrint('[ScryfallService] Failed to fetch card details: $e\n$stackTrace');
+      return null;
+    }
+  }
+
+  /// Queries official printings for a card from Scryfall API.
+  Future<List<Map<String, dynamic>>?> fetchCardPrintings({
+    required String cardName,
+    String? oracleId,
+    int limit = 50,
+  }) async {
+    try {
+      final clean = cardName.contains('//') ? cardName.split('//').first.trim() : cardName.trim();
+      Uri uri;
+      if (oracleId != null && oracleId.isNotEmpty) {
+        uri = Uri.parse(
+          'https://api.scryfall.com/cards/search?order=released&q=oracleid%3A${Uri.encodeQueryComponent(oracleId)}&unique=prints',
+        );
+      } else {
+        uri = Uri.parse(
+          'https://api.scryfall.com/cards/search?order=released&q=%21%22${Uri.encodeQueryComponent(clean)}%22+include%3Aextras&unique=prints',
+        );
+      }
+
+      final response = await _client.get(
+        uri,
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'Countr/1.0 (Flutter; Educational Portfolio App)',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        if (decoded is Map<String, dynamic> && decoded['data'] is List) {
+          return (decoded['data'] as List).whereType<Map<String, dynamic>>().take(limit).toList();
+        }
+      }
+      return const [];
+    } catch (e, stackTrace) {
+      debugPrint('[ScryfallService] Failed to fetch card printings: $e\n$stackTrace');
       return null;
     }
   }

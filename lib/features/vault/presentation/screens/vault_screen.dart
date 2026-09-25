@@ -12,6 +12,7 @@ import 'package:countr/features/vault/presentation/providers/vault_providers.dar
 import 'package:countr/features/vault/presentation/screens/binder_detail_screen.dart';
 import 'package:countr/features/vault/presentation/widgets/card_detail_sheet.dart';
 import 'package:countr/features/vault/presentation/widgets/manual_add_bottom_sheet.dart';
+import 'package:countr/features/vault/domain/vault_pricing_helper.dart';
 import 'package:countr/features/vault/presentation/widgets/vault_item_card.dart';
 import 'package:countr/features/vault/presentation/widgets/vault_item_tile.dart';
 import 'package:countr/features/vault/presentation/widgets/mtg_filter_sheet.dart';
@@ -220,6 +221,8 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
     final hydrationState = ref.watch(hydrationControllerProvider);
     final viewMode = ref.watch(vaultViewModeProvider);
     final cardLayout = ref.watch(cardDisplayLayoutProvider);
+    final isPrivacyMode = ref.watch(privacyModeProvider);
+    final baseCurrency = ref.watch(baseCurrencyProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -318,6 +321,17 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
         ),
         actions: [
           IconButton(
+            key: const Key('vault_privacy_mode_button'),
+            icon: Icon(
+              ref.watch(privacyModeProvider) ? Icons.visibility_off : Icons.visibility,
+              color: ref.watch(privacyModeProvider) ? AppColors.accentAmber : AppColors.textSecondary,
+            ),
+            tooltip: ref.watch(privacyModeProvider) ? 'Disable Privacy Mode' : 'Enable Privacy Mode',
+            onPressed: () {
+              ref.read(privacyModeProvider.notifier).state = !ref.read(privacyModeProvider);
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.bolt_rounded, color: AppColors.accentCyan),
             tooltip: 'Hydrate MTG Dictionary',
             onPressed: () {
@@ -367,6 +381,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
         key: const PageStorageKey<String>('vault_custom_scroll_view'),
         controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
+        cacheExtent: 1000,
         slivers: [
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
@@ -381,7 +396,12 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
                   ],
 
                   // Dynamic Portfolio Summary Ledger Card
-                  _buildPortfolioSummaryCard(summary),
+                  _buildPortfolioSummaryCard(
+                    summary,
+                    allVaultCards: asyncItems.asData?.value ?? const [],
+                    isPrivacyMode: isPrivacyMode,
+                    currency: baseCurrency,
+                  ),
 
                   const SizedBox(height: 16),
 
@@ -1293,14 +1313,18 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
     );
   }
 
-  Widget _buildPortfolioSummaryCard(VaultPortfolioSummary summary) {
+  Widget _buildPortfolioSummaryCard(
+    VaultPortfolioSummary summary, {
+    List<VaultItem> allVaultCards = const [],
+    bool isPrivacyMode = false,
+    AppCurrency currency = AppCurrency.usd,
+  }) {
     final isProfit = summary.isProfitable;
     final pLColor = isProfit ? AppColors.accentEmerald : AppColors.accentRose;
-    final pctSign = isProfit ? '+' : '';
-    final deltaSign = isProfit ? '+' : '-';
     final totalCount = summary.totalItemCount;
 
     return Container(
+      key: const Key('vault_portfolio_summary_card'),
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
@@ -1322,12 +1346,12 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Flexible(
+              const Flexible(
                 flex: 3,
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
                   alignment: Alignment.centerLeft,
-                  child: const Text(
+                  child: Text(
                     'ESTIMATED VAULT VALUE',
                     style: TextStyle(
                       color: AppColors.textSecondary,
@@ -1365,7 +1389,13 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          '$pctSign${summary.profitLossPercentage.toStringAsFixed(1)}% ($deltaSign\$${summary.totalProfitLoss.abs().toStringAsFixed(2)})',
+                          VaultPricingHelper.formatReturn(
+                            summary.totalProfitLoss,
+                            summary.profitLossPercentage,
+                            currency: currency,
+                            isPrivacyMode: isPrivacyMode,
+                            amountFirst: false,
+                          ),
                           style: TextStyle(
                             color: pLColor,
                             fontSize: 10.5,
@@ -1384,7 +1414,12 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
             child: Text(
-              '\$${summary.totalMarketValue.toStringAsFixed(2)}',
+              VaultPricingHelper.formatAmount(
+                summary.totalMarketValue,
+                currency: currency,
+                isPrivacyMode: isPrivacyMode,
+                allowZero: true,
+              ),
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 30,

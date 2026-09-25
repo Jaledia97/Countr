@@ -147,7 +147,9 @@ class _ScannerSuccessToastState extends State<ScannerSuccessToast>
           }
         }
       }
-    } catch (_) {}
+    } catch (e, stackTrace) {
+      debugPrint('[ScannerSuccessToast] Error parsing set code from dynamicData: $e\n$stackTrace');
+    }
     return '';
   }
 

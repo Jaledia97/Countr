@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:countr/core/constants/app_colors.dart';
 import 'package:countr/core/constants/app_typography.dart';
 import 'package:countr/core/database/app_database.dart';
+import 'package:countr/core/state/settings_state.dart';
 import 'package:countr/features/vault/presentation/providers/vault_providers.dart';
 import 'package:countr/features/vault/presentation/widgets/vault_item_card.dart';
 
@@ -27,6 +28,7 @@ class BinderDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final dao = ref.watch(vaultDaoProvider);
+    final isPrivacyMode = ref.watch(privacyModeProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -159,7 +161,7 @@ class BinderDetailScreen extends ConsumerWidget {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              '\$${totalMarketValue.toStringAsFixed(2)}',
+                              isPrivacyMode ? '****' : '\$${totalMarketValue.toStringAsFixed(2)}',
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 24,

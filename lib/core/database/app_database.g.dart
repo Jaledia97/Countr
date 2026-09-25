@@ -500,6 +500,71 @@ class $VaultItemsTable extends VaultItems
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _dateObtainedMeta = const VerificationMeta(
+    'dateObtained',
+  );
+  @override
+  late final GeneratedColumn<DateTime> dateObtained = GeneratedColumn<DateTime>(
+    'date_obtained',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _purchasePriceMeta = const VerificationMeta(
+    'purchasePrice',
+  );
+  @override
+  late final GeneratedColumn<double> purchasePrice = GeneratedColumn<double>(
+    'purchase_price',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _binderPageMeta = const VerificationMeta(
+    'binderPage',
+  );
+  @override
+  late final GeneratedColumn<int> binderPage = GeneratedColumn<int>(
+    'binder_page',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _binderSlotMeta = const VerificationMeta(
+    'binderSlot',
+  );
+  @override
+  late final GeneratedColumn<String> binderSlot = GeneratedColumn<String>(
+    'binder_slot',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _notesMeta = const VerificationMeta('notes');
+  @override
+  late final GeneratedColumn<String> notes = GeneratedColumn<String>(
+    'notes',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _protectionStatusMeta = const VerificationMeta(
+    'protectionStatus',
+  );
+  @override
+  late final GeneratedColumn<String> protectionStatus = GeneratedColumn<String>(
+    'protection_status',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('Sleeved'),
+  );
   static const VerificationMeta _primaryBinderIdMeta = const VerificationMeta(
     'primaryBinderId',
   );
@@ -565,6 +630,12 @@ class $VaultItemsTable extends VaultItems
     isMisprint,
     isSigned,
     personalNotes,
+    dateObtained,
+    purchasePrice,
+    binderPage,
+    binderSlot,
+    notes,
+    protectionStatus,
     primaryBinderId,
     currentMarketPrice,
     lastPriceUpdate,
@@ -700,6 +771,51 @@ class $VaultItemsTable extends VaultItems
         ),
       );
     }
+    if (data.containsKey('date_obtained')) {
+      context.handle(
+        _dateObtainedMeta,
+        dateObtained.isAcceptableOrUnknown(
+          data['date_obtained']!,
+          _dateObtainedMeta,
+        ),
+      );
+    }
+    if (data.containsKey('purchase_price')) {
+      context.handle(
+        _purchasePriceMeta,
+        purchasePrice.isAcceptableOrUnknown(
+          data['purchase_price']!,
+          _purchasePriceMeta,
+        ),
+      );
+    }
+    if (data.containsKey('binder_page')) {
+      context.handle(
+        _binderPageMeta,
+        binderPage.isAcceptableOrUnknown(data['binder_page']!, _binderPageMeta),
+      );
+    }
+    if (data.containsKey('binder_slot')) {
+      context.handle(
+        _binderSlotMeta,
+        binderSlot.isAcceptableOrUnknown(data['binder_slot']!, _binderSlotMeta),
+      );
+    }
+    if (data.containsKey('notes')) {
+      context.handle(
+        _notesMeta,
+        notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
+      );
+    }
+    if (data.containsKey('protection_status')) {
+      context.handle(
+        _protectionStatusMeta,
+        protectionStatus.isAcceptableOrUnknown(
+          data['protection_status']!,
+          _protectionStatusMeta,
+        ),
+      );
+    }
     if (data.containsKey('primary_binder_id')) {
       context.handle(
         _primaryBinderIdMeta,
@@ -811,6 +927,30 @@ class $VaultItemsTable extends VaultItems
         DriftSqlType.string,
         data['${effectivePrefix}personal_notes'],
       ),
+      dateObtained: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}date_obtained'],
+      ),
+      purchasePrice: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}purchase_price'],
+      ),
+      binderPage: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}binder_page'],
+      ),
+      binderSlot: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}binder_slot'],
+      ),
+      notes: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}notes'],
+      ),
+      protectionStatus: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}protection_status'],
+      ),
       primaryBinderId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}primary_binder_id'],
@@ -852,6 +992,12 @@ class VaultItem extends DataClass implements Insertable<VaultItem> {
   final bool isMisprint;
   final bool isSigned;
   final String? personalNotes;
+  final DateTime? dateObtained;
+  final double? purchasePrice;
+  final int? binderPage;
+  final String? binderSlot;
+  final String? notes;
+  final String? protectionStatus;
   final String? primaryBinderId;
   final double currentMarketPrice;
   final DateTime lastPriceUpdate;
@@ -872,6 +1018,12 @@ class VaultItem extends DataClass implements Insertable<VaultItem> {
     required this.isMisprint,
     required this.isSigned,
     this.personalNotes,
+    this.dateObtained,
+    this.purchasePrice,
+    this.binderPage,
+    this.binderSlot,
+    this.notes,
+    this.protectionStatus,
     this.primaryBinderId,
     required this.currentMarketPrice,
     required this.lastPriceUpdate,
@@ -898,6 +1050,24 @@ class VaultItem extends DataClass implements Insertable<VaultItem> {
     map['is_signed'] = Variable<bool>(isSigned);
     if (!nullToAbsent || personalNotes != null) {
       map['personal_notes'] = Variable<String>(personalNotes);
+    }
+    if (!nullToAbsent || dateObtained != null) {
+      map['date_obtained'] = Variable<DateTime>(dateObtained);
+    }
+    if (!nullToAbsent || purchasePrice != null) {
+      map['purchase_price'] = Variable<double>(purchasePrice);
+    }
+    if (!nullToAbsent || binderPage != null) {
+      map['binder_page'] = Variable<int>(binderPage);
+    }
+    if (!nullToAbsent || binderSlot != null) {
+      map['binder_slot'] = Variable<String>(binderSlot);
+    }
+    if (!nullToAbsent || notes != null) {
+      map['notes'] = Variable<String>(notes);
+    }
+    if (!nullToAbsent || protectionStatus != null) {
+      map['protection_status'] = Variable<String>(protectionStatus);
     }
     if (!nullToAbsent || primaryBinderId != null) {
       map['primary_binder_id'] = Variable<String>(primaryBinderId);
@@ -929,6 +1099,24 @@ class VaultItem extends DataClass implements Insertable<VaultItem> {
       personalNotes: personalNotes == null && nullToAbsent
           ? const Value.absent()
           : Value(personalNotes),
+      dateObtained: dateObtained == null && nullToAbsent
+          ? const Value.absent()
+          : Value(dateObtained),
+      purchasePrice: purchasePrice == null && nullToAbsent
+          ? const Value.absent()
+          : Value(purchasePrice),
+      binderPage: binderPage == null && nullToAbsent
+          ? const Value.absent()
+          : Value(binderPage),
+      binderSlot: binderSlot == null && nullToAbsent
+          ? const Value.absent()
+          : Value(binderSlot),
+      notes: notes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(notes),
+      protectionStatus: protectionStatus == null && nullToAbsent
+          ? const Value.absent()
+          : Value(protectionStatus),
       primaryBinderId: primaryBinderId == null && nullToAbsent
           ? const Value.absent()
           : Value(primaryBinderId),
@@ -959,6 +1147,12 @@ class VaultItem extends DataClass implements Insertable<VaultItem> {
       isMisprint: serializer.fromJson<bool>(json['isMisprint']),
       isSigned: serializer.fromJson<bool>(json['isSigned']),
       personalNotes: serializer.fromJson<String?>(json['personalNotes']),
+      dateObtained: serializer.fromJson<DateTime?>(json['dateObtained']),
+      purchasePrice: serializer.fromJson<double?>(json['purchasePrice']),
+      binderPage: serializer.fromJson<int?>(json['binderPage']),
+      binderSlot: serializer.fromJson<String?>(json['binderSlot']),
+      notes: serializer.fromJson<String?>(json['notes']),
+      protectionStatus: serializer.fromJson<String?>(json['protectionStatus']),
       primaryBinderId: serializer.fromJson<String?>(json['primaryBinderId']),
       currentMarketPrice: serializer.fromJson<double>(
         json['currentMarketPrice'],
@@ -986,6 +1180,12 @@ class VaultItem extends DataClass implements Insertable<VaultItem> {
       'isMisprint': serializer.toJson<bool>(isMisprint),
       'isSigned': serializer.toJson<bool>(isSigned),
       'personalNotes': serializer.toJson<String?>(personalNotes),
+      'dateObtained': serializer.toJson<DateTime?>(dateObtained),
+      'purchasePrice': serializer.toJson<double?>(purchasePrice),
+      'binderPage': serializer.toJson<int?>(binderPage),
+      'binderSlot': serializer.toJson<String?>(binderSlot),
+      'notes': serializer.toJson<String?>(notes),
+      'protectionStatus': serializer.toJson<String?>(protectionStatus),
       'primaryBinderId': serializer.toJson<String?>(primaryBinderId),
       'currentMarketPrice': serializer.toJson<double>(currentMarketPrice),
       'lastPriceUpdate': serializer.toJson<DateTime>(lastPriceUpdate),
@@ -1009,6 +1209,12 @@ class VaultItem extends DataClass implements Insertable<VaultItem> {
     bool? isMisprint,
     bool? isSigned,
     Value<String?> personalNotes = const Value.absent(),
+    Value<DateTime?> dateObtained = const Value.absent(),
+    Value<double?> purchasePrice = const Value.absent(),
+    Value<int?> binderPage = const Value.absent(),
+    Value<String?> binderSlot = const Value.absent(),
+    Value<String?> notes = const Value.absent(),
+    Value<String?> protectionStatus = const Value.absent(),
     Value<String?> primaryBinderId = const Value.absent(),
     double? currentMarketPrice,
     DateTime? lastPriceUpdate,
@@ -1031,6 +1237,16 @@ class VaultItem extends DataClass implements Insertable<VaultItem> {
     personalNotes: personalNotes.present
         ? personalNotes.value
         : this.personalNotes,
+    dateObtained: dateObtained.present ? dateObtained.value : this.dateObtained,
+    purchasePrice: purchasePrice.present
+        ? purchasePrice.value
+        : this.purchasePrice,
+    binderPage: binderPage.present ? binderPage.value : this.binderPage,
+    binderSlot: binderSlot.present ? binderSlot.value : this.binderSlot,
+    notes: notes.present ? notes.value : this.notes,
+    protectionStatus: protectionStatus.present
+        ? protectionStatus.value
+        : this.protectionStatus,
     primaryBinderId: primaryBinderId.present
         ? primaryBinderId.value
         : this.primaryBinderId,
@@ -1069,6 +1285,22 @@ class VaultItem extends DataClass implements Insertable<VaultItem> {
       personalNotes: data.personalNotes.present
           ? data.personalNotes.value
           : this.personalNotes,
+      dateObtained: data.dateObtained.present
+          ? data.dateObtained.value
+          : this.dateObtained,
+      purchasePrice: data.purchasePrice.present
+          ? data.purchasePrice.value
+          : this.purchasePrice,
+      binderPage: data.binderPage.present
+          ? data.binderPage.value
+          : this.binderPage,
+      binderSlot: data.binderSlot.present
+          ? data.binderSlot.value
+          : this.binderSlot,
+      notes: data.notes.present ? data.notes.value : this.notes,
+      protectionStatus: data.protectionStatus.present
+          ? data.protectionStatus.value
+          : this.protectionStatus,
       primaryBinderId: data.primaryBinderId.present
           ? data.primaryBinderId.value
           : this.primaryBinderId,
@@ -1102,6 +1334,12 @@ class VaultItem extends DataClass implements Insertable<VaultItem> {
           ..write('isMisprint: $isMisprint, ')
           ..write('isSigned: $isSigned, ')
           ..write('personalNotes: $personalNotes, ')
+          ..write('dateObtained: $dateObtained, ')
+          ..write('purchasePrice: $purchasePrice, ')
+          ..write('binderPage: $binderPage, ')
+          ..write('binderSlot: $binderSlot, ')
+          ..write('notes: $notes, ')
+          ..write('protectionStatus: $protectionStatus, ')
           ..write('primaryBinderId: $primaryBinderId, ')
           ..write('currentMarketPrice: $currentMarketPrice, ')
           ..write('lastPriceUpdate: $lastPriceUpdate, ')
@@ -1111,7 +1349,7 @@ class VaultItem extends DataClass implements Insertable<VaultItem> {
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     id,
     collectionType,
     name,
@@ -1127,11 +1365,17 @@ class VaultItem extends DataClass implements Insertable<VaultItem> {
     isMisprint,
     isSigned,
     personalNotes,
+    dateObtained,
+    purchasePrice,
+    binderPage,
+    binderSlot,
+    notes,
+    protectionStatus,
     primaryBinderId,
     currentMarketPrice,
     lastPriceUpdate,
     dynamicData,
-  );
+  ]);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1151,6 +1395,12 @@ class VaultItem extends DataClass implements Insertable<VaultItem> {
           other.isMisprint == this.isMisprint &&
           other.isSigned == this.isSigned &&
           other.personalNotes == this.personalNotes &&
+          other.dateObtained == this.dateObtained &&
+          other.purchasePrice == this.purchasePrice &&
+          other.binderPage == this.binderPage &&
+          other.binderSlot == this.binderSlot &&
+          other.notes == this.notes &&
+          other.protectionStatus == this.protectionStatus &&
           other.primaryBinderId == this.primaryBinderId &&
           other.currentMarketPrice == this.currentMarketPrice &&
           other.lastPriceUpdate == this.lastPriceUpdate &&
@@ -1173,6 +1423,12 @@ class VaultItemsCompanion extends UpdateCompanion<VaultItem> {
   final Value<bool> isMisprint;
   final Value<bool> isSigned;
   final Value<String?> personalNotes;
+  final Value<DateTime?> dateObtained;
+  final Value<double?> purchasePrice;
+  final Value<int?> binderPage;
+  final Value<String?> binderSlot;
+  final Value<String?> notes;
+  final Value<String?> protectionStatus;
   final Value<String?> primaryBinderId;
   final Value<double> currentMarketPrice;
   final Value<DateTime> lastPriceUpdate;
@@ -1194,6 +1450,12 @@ class VaultItemsCompanion extends UpdateCompanion<VaultItem> {
     this.isMisprint = const Value.absent(),
     this.isSigned = const Value.absent(),
     this.personalNotes = const Value.absent(),
+    this.dateObtained = const Value.absent(),
+    this.purchasePrice = const Value.absent(),
+    this.binderPage = const Value.absent(),
+    this.binderSlot = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.protectionStatus = const Value.absent(),
     this.primaryBinderId = const Value.absent(),
     this.currentMarketPrice = const Value.absent(),
     this.lastPriceUpdate = const Value.absent(),
@@ -1216,6 +1478,12 @@ class VaultItemsCompanion extends UpdateCompanion<VaultItem> {
     this.isMisprint = const Value.absent(),
     this.isSigned = const Value.absent(),
     this.personalNotes = const Value.absent(),
+    this.dateObtained = const Value.absent(),
+    this.purchasePrice = const Value.absent(),
+    this.binderPage = const Value.absent(),
+    this.binderSlot = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.protectionStatus = const Value.absent(),
     this.primaryBinderId = const Value.absent(),
     required double currentMarketPrice,
     required DateTime lastPriceUpdate,
@@ -1248,6 +1516,12 @@ class VaultItemsCompanion extends UpdateCompanion<VaultItem> {
     Expression<bool>? isMisprint,
     Expression<bool>? isSigned,
     Expression<String>? personalNotes,
+    Expression<DateTime>? dateObtained,
+    Expression<double>? purchasePrice,
+    Expression<int>? binderPage,
+    Expression<String>? binderSlot,
+    Expression<String>? notes,
+    Expression<String>? protectionStatus,
     Expression<String>? primaryBinderId,
     Expression<double>? currentMarketPrice,
     Expression<DateTime>? lastPriceUpdate,
@@ -1270,6 +1544,12 @@ class VaultItemsCompanion extends UpdateCompanion<VaultItem> {
       if (isMisprint != null) 'is_misprint': isMisprint,
       if (isSigned != null) 'is_signed': isSigned,
       if (personalNotes != null) 'personal_notes': personalNotes,
+      if (dateObtained != null) 'date_obtained': dateObtained,
+      if (purchasePrice != null) 'purchase_price': purchasePrice,
+      if (binderPage != null) 'binder_page': binderPage,
+      if (binderSlot != null) 'binder_slot': binderSlot,
+      if (notes != null) 'notes': notes,
+      if (protectionStatus != null) 'protection_status': protectionStatus,
       if (primaryBinderId != null) 'primary_binder_id': primaryBinderId,
       if (currentMarketPrice != null)
         'current_market_price': currentMarketPrice,
@@ -1295,6 +1575,12 @@ class VaultItemsCompanion extends UpdateCompanion<VaultItem> {
     Value<bool>? isMisprint,
     Value<bool>? isSigned,
     Value<String?>? personalNotes,
+    Value<DateTime?>? dateObtained,
+    Value<double?>? purchasePrice,
+    Value<int?>? binderPage,
+    Value<String?>? binderSlot,
+    Value<String?>? notes,
+    Value<String?>? protectionStatus,
     Value<String?>? primaryBinderId,
     Value<double>? currentMarketPrice,
     Value<DateTime>? lastPriceUpdate,
@@ -1317,6 +1603,12 @@ class VaultItemsCompanion extends UpdateCompanion<VaultItem> {
       isMisprint: isMisprint ?? this.isMisprint,
       isSigned: isSigned ?? this.isSigned,
       personalNotes: personalNotes ?? this.personalNotes,
+      dateObtained: dateObtained ?? this.dateObtained,
+      purchasePrice: purchasePrice ?? this.purchasePrice,
+      binderPage: binderPage ?? this.binderPage,
+      binderSlot: binderSlot ?? this.binderSlot,
+      notes: notes ?? this.notes,
+      protectionStatus: protectionStatus ?? this.protectionStatus,
       primaryBinderId: primaryBinderId ?? this.primaryBinderId,
       currentMarketPrice: currentMarketPrice ?? this.currentMarketPrice,
       lastPriceUpdate: lastPriceUpdate ?? this.lastPriceUpdate,
@@ -1373,6 +1665,24 @@ class VaultItemsCompanion extends UpdateCompanion<VaultItem> {
     if (personalNotes.present) {
       map['personal_notes'] = Variable<String>(personalNotes.value);
     }
+    if (dateObtained.present) {
+      map['date_obtained'] = Variable<DateTime>(dateObtained.value);
+    }
+    if (purchasePrice.present) {
+      map['purchase_price'] = Variable<double>(purchasePrice.value);
+    }
+    if (binderPage.present) {
+      map['binder_page'] = Variable<int>(binderPage.value);
+    }
+    if (binderSlot.present) {
+      map['binder_slot'] = Variable<String>(binderSlot.value);
+    }
+    if (notes.present) {
+      map['notes'] = Variable<String>(notes.value);
+    }
+    if (protectionStatus.present) {
+      map['protection_status'] = Variable<String>(protectionStatus.value);
+    }
     if (primaryBinderId.present) {
       map['primary_binder_id'] = Variable<String>(primaryBinderId.value);
     }
@@ -1409,6 +1719,12 @@ class VaultItemsCompanion extends UpdateCompanion<VaultItem> {
           ..write('isMisprint: $isMisprint, ')
           ..write('isSigned: $isSigned, ')
           ..write('personalNotes: $personalNotes, ')
+          ..write('dateObtained: $dateObtained, ')
+          ..write('purchasePrice: $purchasePrice, ')
+          ..write('binderPage: $binderPage, ')
+          ..write('binderSlot: $binderSlot, ')
+          ..write('notes: $notes, ')
+          ..write('protectionStatus: $protectionStatus, ')
           ..write('primaryBinderId: $primaryBinderId, ')
           ..write('currentMarketPrice: $currentMarketPrice, ')
           ..write('lastPriceUpdate: $lastPriceUpdate, ')
@@ -1525,6 +1841,48 @@ class $DecksTable extends Decks with TableInfo<$DecksTable, Deck> {
     type: DriftSqlType.dateTime,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _tcgDomainMeta = const VerificationMeta(
+    'tcgDomain',
+  );
+  @override
+  late final GeneratedColumn<String> tcgDomain = GeneratedColumn<String>(
+    'tcg_domain',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('mtg'),
+  );
+  static const VerificationMeta _isRegisteredMeta = const VerificationMeta(
+    'isRegistered',
+  );
+  @override
+  late final GeneratedColumn<bool> isRegistered = GeneratedColumn<bool>(
+    'is_registered',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_registered" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _isCompetitiveMeta = const VerificationMeta(
+    'isCompetitive',
+  );
+  @override
+  late final GeneratedColumn<bool> isCompetitive = GeneratedColumn<bool>(
+    'is_competitive',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_competitive" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -1537,6 +1895,9 @@ class $DecksTable extends Decks with TableInfo<$DecksTable, Deck> {
     coverItemId,
     coverCropRect,
     createdAt,
+    tcgDomain,
+    isRegistered,
+    isCompetitive,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1624,6 +1985,30 @@ class $DecksTable extends Decks with TableInfo<$DecksTable, Deck> {
     } else if (isInserting) {
       context.missing(_createdAtMeta);
     }
+    if (data.containsKey('tcg_domain')) {
+      context.handle(
+        _tcgDomainMeta,
+        tcgDomain.isAcceptableOrUnknown(data['tcg_domain']!, _tcgDomainMeta),
+      );
+    }
+    if (data.containsKey('is_registered')) {
+      context.handle(
+        _isRegisteredMeta,
+        isRegistered.isAcceptableOrUnknown(
+          data['is_registered']!,
+          _isRegisteredMeta,
+        ),
+      );
+    }
+    if (data.containsKey('is_competitive')) {
+      context.handle(
+        _isCompetitiveMeta,
+        isCompetitive.isAcceptableOrUnknown(
+          data['is_competitive']!,
+          _isCompetitiveMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -1673,6 +2058,18 @@ class $DecksTable extends Decks with TableInfo<$DecksTable, Deck> {
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
       )!,
+      tcgDomain: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}tcg_domain'],
+      )!,
+      isRegistered: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_registered'],
+      )!,
+      isCompetitive: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_competitive'],
+      )!,
     );
   }
 
@@ -1693,6 +2090,9 @@ class Deck extends DataClass implements Insertable<Deck> {
   final String? coverItemId;
   final String? coverCropRect;
   final DateTime createdAt;
+  final String tcgDomain;
+  final bool isRegistered;
+  final bool isCompetitive;
   const Deck({
     required this.id,
     required this.name,
@@ -1704,6 +2104,9 @@ class Deck extends DataClass implements Insertable<Deck> {
     this.coverItemId,
     this.coverCropRect,
     required this.createdAt,
+    required this.tcgDomain,
+    required this.isRegistered,
+    required this.isCompetitive,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1724,6 +2127,9 @@ class Deck extends DataClass implements Insertable<Deck> {
       map['cover_crop_rect'] = Variable<String>(coverCropRect);
     }
     map['created_at'] = Variable<DateTime>(createdAt);
+    map['tcg_domain'] = Variable<String>(tcgDomain);
+    map['is_registered'] = Variable<bool>(isRegistered);
+    map['is_competitive'] = Variable<bool>(isCompetitive);
     return map;
   }
 
@@ -1745,6 +2151,9 @@ class Deck extends DataClass implements Insertable<Deck> {
           ? const Value.absent()
           : Value(coverCropRect),
       createdAt: Value(createdAt),
+      tcgDomain: Value(tcgDomain),
+      isRegistered: Value(isRegistered),
+      isCompetitive: Value(isCompetitive),
     );
   }
 
@@ -1764,6 +2173,9 @@ class Deck extends DataClass implements Insertable<Deck> {
       coverItemId: serializer.fromJson<String?>(json['coverItemId']),
       coverCropRect: serializer.fromJson<String?>(json['coverCropRect']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      tcgDomain: serializer.fromJson<String>(json['tcgDomain']),
+      isRegistered: serializer.fromJson<bool>(json['isRegistered']),
+      isCompetitive: serializer.fromJson<bool>(json['isCompetitive']),
     );
   }
   @override
@@ -1780,6 +2192,9 @@ class Deck extends DataClass implements Insertable<Deck> {
       'coverItemId': serializer.toJson<String?>(coverItemId),
       'coverCropRect': serializer.toJson<String?>(coverCropRect),
       'createdAt': serializer.toJson<DateTime>(createdAt),
+      'tcgDomain': serializer.toJson<String>(tcgDomain),
+      'isRegistered': serializer.toJson<bool>(isRegistered),
+      'isCompetitive': serializer.toJson<bool>(isCompetitive),
     };
   }
 
@@ -1794,6 +2209,9 @@ class Deck extends DataClass implements Insertable<Deck> {
     Value<String?> coverItemId = const Value.absent(),
     Value<String?> coverCropRect = const Value.absent(),
     DateTime? createdAt,
+    String? tcgDomain,
+    bool? isRegistered,
+    bool? isCompetitive,
   }) => Deck(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -1807,6 +2225,9 @@ class Deck extends DataClass implements Insertable<Deck> {
         ? coverCropRect.value
         : this.coverCropRect,
     createdAt: createdAt ?? this.createdAt,
+    tcgDomain: tcgDomain ?? this.tcgDomain,
+    isRegistered: isRegistered ?? this.isRegistered,
+    isCompetitive: isCompetitive ?? this.isCompetitive,
   );
   Deck copyWithCompanion(DecksCompanion data) {
     return Deck(
@@ -1826,6 +2247,13 @@ class Deck extends DataClass implements Insertable<Deck> {
           ? data.coverCropRect.value
           : this.coverCropRect,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      tcgDomain: data.tcgDomain.present ? data.tcgDomain.value : this.tcgDomain,
+      isRegistered: data.isRegistered.present
+          ? data.isRegistered.value
+          : this.isRegistered,
+      isCompetitive: data.isCompetitive.present
+          ? data.isCompetitive.value
+          : this.isCompetitive,
     );
   }
 
@@ -1841,7 +2269,10 @@ class Deck extends DataClass implements Insertable<Deck> {
           ..write('draws: $draws, ')
           ..write('coverItemId: $coverItemId, ')
           ..write('coverCropRect: $coverCropRect, ')
-          ..write('createdAt: $createdAt')
+          ..write('createdAt: $createdAt, ')
+          ..write('tcgDomain: $tcgDomain, ')
+          ..write('isRegistered: $isRegistered, ')
+          ..write('isCompetitive: $isCompetitive')
           ..write(')'))
         .toString();
   }
@@ -1858,6 +2289,9 @@ class Deck extends DataClass implements Insertable<Deck> {
     coverItemId,
     coverCropRect,
     createdAt,
+    tcgDomain,
+    isRegistered,
+    isCompetitive,
   );
   @override
   bool operator ==(Object other) =>
@@ -1872,7 +2306,10 @@ class Deck extends DataClass implements Insertable<Deck> {
           other.draws == this.draws &&
           other.coverItemId == this.coverItemId &&
           other.coverCropRect == this.coverCropRect &&
-          other.createdAt == this.createdAt);
+          other.createdAt == this.createdAt &&
+          other.tcgDomain == this.tcgDomain &&
+          other.isRegistered == this.isRegistered &&
+          other.isCompetitive == this.isCompetitive);
 }
 
 class DecksCompanion extends UpdateCompanion<Deck> {
@@ -1886,6 +2323,9 @@ class DecksCompanion extends UpdateCompanion<Deck> {
   final Value<String?> coverItemId;
   final Value<String?> coverCropRect;
   final Value<DateTime> createdAt;
+  final Value<String> tcgDomain;
+  final Value<bool> isRegistered;
+  final Value<bool> isCompetitive;
   final Value<int> rowid;
   const DecksCompanion({
     this.id = const Value.absent(),
@@ -1898,6 +2338,9 @@ class DecksCompanion extends UpdateCompanion<Deck> {
     this.coverItemId = const Value.absent(),
     this.coverCropRect = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.tcgDomain = const Value.absent(),
+    this.isRegistered = const Value.absent(),
+    this.isCompetitive = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   DecksCompanion.insert({
@@ -1911,6 +2354,9 @@ class DecksCompanion extends UpdateCompanion<Deck> {
     this.coverItemId = const Value.absent(),
     this.coverCropRect = const Value.absent(),
     required DateTime createdAt,
+    this.tcgDomain = const Value.absent(),
+    this.isRegistered = const Value.absent(),
+    this.isCompetitive = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        name = Value(name),
@@ -1927,6 +2373,9 @@ class DecksCompanion extends UpdateCompanion<Deck> {
     Expression<String>? coverItemId,
     Expression<String>? coverCropRect,
     Expression<DateTime>? createdAt,
+    Expression<String>? tcgDomain,
+    Expression<bool>? isRegistered,
+    Expression<bool>? isCompetitive,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1940,6 +2389,9 @@ class DecksCompanion extends UpdateCompanion<Deck> {
       if (coverItemId != null) 'cover_item_id': coverItemId,
       if (coverCropRect != null) 'cover_crop_rect': coverCropRect,
       if (createdAt != null) 'created_at': createdAt,
+      if (tcgDomain != null) 'tcg_domain': tcgDomain,
+      if (isRegistered != null) 'is_registered': isRegistered,
+      if (isCompetitive != null) 'is_competitive': isCompetitive,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1955,6 +2407,9 @@ class DecksCompanion extends UpdateCompanion<Deck> {
     Value<String?>? coverItemId,
     Value<String?>? coverCropRect,
     Value<DateTime>? createdAt,
+    Value<String>? tcgDomain,
+    Value<bool>? isRegistered,
+    Value<bool>? isCompetitive,
     Value<int>? rowid,
   }) {
     return DecksCompanion(
@@ -1968,6 +2423,9 @@ class DecksCompanion extends UpdateCompanion<Deck> {
       coverItemId: coverItemId ?? this.coverItemId,
       coverCropRect: coverCropRect ?? this.coverCropRect,
       createdAt: createdAt ?? this.createdAt,
+      tcgDomain: tcgDomain ?? this.tcgDomain,
+      isRegistered: isRegistered ?? this.isRegistered,
+      isCompetitive: isCompetitive ?? this.isCompetitive,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -2005,6 +2463,15 @@ class DecksCompanion extends UpdateCompanion<Deck> {
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
+    if (tcgDomain.present) {
+      map['tcg_domain'] = Variable<String>(tcgDomain.value);
+    }
+    if (isRegistered.present) {
+      map['is_registered'] = Variable<bool>(isRegistered.value);
+    }
+    if (isCompetitive.present) {
+      map['is_competitive'] = Variable<bool>(isCompetitive.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -2024,6 +2491,9 @@ class DecksCompanion extends UpdateCompanion<Deck> {
           ..write('coverItemId: $coverItemId, ')
           ..write('coverCropRect: $coverCropRect, ')
           ..write('createdAt: $createdAt, ')
+          ..write('tcgDomain: $tcgDomain, ')
+          ..write('isRegistered: $isRegistered, ')
+          ..write('isCompetitive: $isCompetitive, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -3962,6 +4432,12 @@ typedef $$VaultItemsTableCreateCompanionBuilder =
       Value<bool> isMisprint,
       Value<bool> isSigned,
       Value<String?> personalNotes,
+      Value<DateTime?> dateObtained,
+      Value<double?> purchasePrice,
+      Value<int?> binderPage,
+      Value<String?> binderSlot,
+      Value<String?> notes,
+      Value<String?> protectionStatus,
       Value<String?> primaryBinderId,
       required double currentMarketPrice,
       required DateTime lastPriceUpdate,
@@ -3985,6 +4461,12 @@ typedef $$VaultItemsTableUpdateCompanionBuilder =
       Value<bool> isMisprint,
       Value<bool> isSigned,
       Value<String?> personalNotes,
+      Value<DateTime?> dateObtained,
+      Value<double?> purchasePrice,
+      Value<int?> binderPage,
+      Value<String?> binderSlot,
+      Value<String?> notes,
+      Value<String?> protectionStatus,
       Value<String?> primaryBinderId,
       Value<double> currentMarketPrice,
       Value<DateTime> lastPriceUpdate,
@@ -4116,6 +4598,36 @@ class $$VaultItemsTableFilterComposer
 
   ColumnFilters<String> get personalNotes => $composableBuilder(
     column: $table.personalNotes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get dateObtained => $composableBuilder(
+    column: $table.dateObtained,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get purchasePrice => $composableBuilder(
+    column: $table.purchasePrice,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get binderPage => $composableBuilder(
+    column: $table.binderPage,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get binderSlot => $composableBuilder(
+    column: $table.binderSlot,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get protectionStatus => $composableBuilder(
+    column: $table.protectionStatus,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4267,6 +4779,36 @@ class $$VaultItemsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<DateTime> get dateObtained => $composableBuilder(
+    column: $table.dateObtained,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get purchasePrice => $composableBuilder(
+    column: $table.purchasePrice,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get binderPage => $composableBuilder(
+    column: $table.binderPage,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get binderSlot => $composableBuilder(
+    column: $table.binderSlot,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get protectionStatus => $composableBuilder(
+    column: $table.protectionStatus,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<double> get currentMarketPrice => $composableBuilder(
     column: $table.currentMarketPrice,
     builder: (column) => ColumnOrderings(column),
@@ -4371,6 +4913,34 @@ class $$VaultItemsTableAnnotationComposer
 
   GeneratedColumn<String> get personalNotes => $composableBuilder(
     column: $table.personalNotes,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get dateObtained => $composableBuilder(
+    column: $table.dateObtained,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get purchasePrice => $composableBuilder(
+    column: $table.purchasePrice,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get binderPage => $composableBuilder(
+    column: $table.binderPage,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get binderSlot => $composableBuilder(
+    column: $table.binderSlot,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get notes =>
+      $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  GeneratedColumn<String> get protectionStatus => $composableBuilder(
+    column: $table.protectionStatus,
     builder: (column) => column,
   );
 
@@ -4484,6 +5054,12 @@ class $$VaultItemsTableTableManager
                 Value<bool> isMisprint = const Value.absent(),
                 Value<bool> isSigned = const Value.absent(),
                 Value<String?> personalNotes = const Value.absent(),
+                Value<DateTime?> dateObtained = const Value.absent(),
+                Value<double?> purchasePrice = const Value.absent(),
+                Value<int?> binderPage = const Value.absent(),
+                Value<String?> binderSlot = const Value.absent(),
+                Value<String?> notes = const Value.absent(),
+                Value<String?> protectionStatus = const Value.absent(),
                 Value<String?> primaryBinderId = const Value.absent(),
                 Value<double> currentMarketPrice = const Value.absent(),
                 Value<DateTime> lastPriceUpdate = const Value.absent(),
@@ -4505,6 +5081,12 @@ class $$VaultItemsTableTableManager
                 isMisprint: isMisprint,
                 isSigned: isSigned,
                 personalNotes: personalNotes,
+                dateObtained: dateObtained,
+                purchasePrice: purchasePrice,
+                binderPage: binderPage,
+                binderSlot: binderSlot,
+                notes: notes,
+                protectionStatus: protectionStatus,
                 primaryBinderId: primaryBinderId,
                 currentMarketPrice: currentMarketPrice,
                 lastPriceUpdate: lastPriceUpdate,
@@ -4528,6 +5110,12 @@ class $$VaultItemsTableTableManager
                 Value<bool> isMisprint = const Value.absent(),
                 Value<bool> isSigned = const Value.absent(),
                 Value<String?> personalNotes = const Value.absent(),
+                Value<DateTime?> dateObtained = const Value.absent(),
+                Value<double?> purchasePrice = const Value.absent(),
+                Value<int?> binderPage = const Value.absent(),
+                Value<String?> binderSlot = const Value.absent(),
+                Value<String?> notes = const Value.absent(),
+                Value<String?> protectionStatus = const Value.absent(),
                 Value<String?> primaryBinderId = const Value.absent(),
                 required double currentMarketPrice,
                 required DateTime lastPriceUpdate,
@@ -4549,6 +5137,12 @@ class $$VaultItemsTableTableManager
                 isMisprint: isMisprint,
                 isSigned: isSigned,
                 personalNotes: personalNotes,
+                dateObtained: dateObtained,
+                purchasePrice: purchasePrice,
+                binderPage: binderPage,
+                binderSlot: binderSlot,
+                notes: notes,
+                protectionStatus: protectionStatus,
                 primaryBinderId: primaryBinderId,
                 currentMarketPrice: currentMarketPrice,
                 lastPriceUpdate: lastPriceUpdate,
@@ -4660,6 +5254,9 @@ typedef $$DecksTableCreateCompanionBuilder =
       Value<String?> coverItemId,
       Value<String?> coverCropRect,
       required DateTime createdAt,
+      Value<String> tcgDomain,
+      Value<bool> isRegistered,
+      Value<bool> isCompetitive,
       Value<int> rowid,
     });
 typedef $$DecksTableUpdateCompanionBuilder =
@@ -4674,6 +5271,9 @@ typedef $$DecksTableUpdateCompanionBuilder =
       Value<String?> coverItemId,
       Value<String?> coverCropRect,
       Value<DateTime> createdAt,
+      Value<String> tcgDomain,
+      Value<bool> isRegistered,
+      Value<bool> isCompetitive,
       Value<int> rowid,
     });
 
@@ -4791,6 +5391,21 @@ class $$DecksTableFilterComposer extends Composer<_$AppDatabase, $DecksTable> {
 
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get tcgDomain => $composableBuilder(
+    column: $table.tcgDomain,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isRegistered => $composableBuilder(
+    column: $table.isRegistered,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isCompetitive => $composableBuilder(
+    column: $table.isCompetitive,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4928,6 +5543,21 @@ class $$DecksTableOrderingComposer
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get tcgDomain => $composableBuilder(
+    column: $table.tcgDomain,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isRegistered => $composableBuilder(
+    column: $table.isRegistered,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isCompetitive => $composableBuilder(
+    column: $table.isCompetitive,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$DecksTableAnnotationComposer
@@ -4974,6 +5604,19 @@ class $$DecksTableAnnotationComposer
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<String> get tcgDomain =>
+      $composableBuilder(column: $table.tcgDomain, builder: (column) => column);
+
+  GeneratedColumn<bool> get isRegistered => $composableBuilder(
+    column: $table.isRegistered,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isCompetitive => $composableBuilder(
+    column: $table.isCompetitive,
+    builder: (column) => column,
+  );
 
   Expression<T> deckVersionsRefs<T extends Object>(
     Expression<T> Function($$DeckVersionsTableAnnotationComposer a) f,
@@ -5093,6 +5736,9 @@ class $$DecksTableTableManager
                 Value<String?> coverItemId = const Value.absent(),
                 Value<String?> coverCropRect = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
+                Value<String> tcgDomain = const Value.absent(),
+                Value<bool> isRegistered = const Value.absent(),
+                Value<bool> isCompetitive = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => DecksCompanion(
                 id: id,
@@ -5105,6 +5751,9 @@ class $$DecksTableTableManager
                 coverItemId: coverItemId,
                 coverCropRect: coverCropRect,
                 createdAt: createdAt,
+                tcgDomain: tcgDomain,
+                isRegistered: isRegistered,
+                isCompetitive: isCompetitive,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -5119,6 +5768,9 @@ class $$DecksTableTableManager
                 Value<String?> coverItemId = const Value.absent(),
                 Value<String?> coverCropRect = const Value.absent(),
                 required DateTime createdAt,
+                Value<String> tcgDomain = const Value.absent(),
+                Value<bool> isRegistered = const Value.absent(),
+                Value<bool> isCompetitive = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => DecksCompanion.insert(
                 id: id,
@@ -5131,6 +5783,9 @@ class $$DecksTableTableManager
                 coverItemId: coverItemId,
                 coverCropRect: coverCropRect,
                 createdAt: createdAt,
+                tcgDomain: tcgDomain,
+                isRegistered: isRegistered,
+                isCompetitive: isCompetitive,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:camera/camera.dart';
+import 'package:flutter/foundation.dart';
 import 'package:countr/core/database/app_database.dart';
 import 'package:countr/features/vault/data/daos/vault_dao.dart';
 import 'package:countr/features/scanner/domain/profiles/collectible_profile.dart';
@@ -26,7 +27,8 @@ extension VaultItemMigrationExt on VaultItem {
       if (val is num) return val.toInt();
       if (val is String) return int.tryParse(val);
       return null;
-    } catch (_) {
+    } catch (e, stackTrace) {
+      debugPrint('[CascadeScannerCoordinator] Error parsing artHash: $e\n$stackTrace');
       return null;
     }
   }
@@ -40,7 +42,8 @@ extension VaultItemMigrationExt on VaultItem {
       if (val == null) return null;
       final s = val.toString().trim();
       return s.isEmpty ? null : s;
-    } catch (_) {
+    } catch (e, stackTrace) {
+      debugPrint('[CascadeScannerCoordinator] Error parsing collectorNumber: $e\n$stackTrace');
       return null;
     }
   }
@@ -54,7 +57,8 @@ extension VaultItemMigrationExt on VaultItem {
       if (val == null) return null;
       final s = val.toString().trim();
       return s.isEmpty ? null : s;
-    } catch (_) {
+    } catch (e, stackTrace) {
+      debugPrint('[CascadeScannerCoordinator] Error parsing setCode: $e\n$stackTrace');
       return null;
     }
   }
@@ -68,7 +72,8 @@ extension VaultItemMigrationExt on VaultItem {
       if (val == null) return null;
       final s = val.toString().trim();
       return s.isEmpty ? null : s;
-    } catch (_) {
+    } catch (e, stackTrace) {
+      debugPrint('[CascadeScannerCoordinator] Error parsing barcode: $e\n$stackTrace');
       return null;
     }
   }
@@ -111,15 +116,19 @@ class CascadeScannerCoordinator {
         final barcodeMatch = RegExp(r'\b\d{12,13}\b').firstMatch(ocrText);
         if (barcodeMatch != null) {
           final barcodeStr = barcodeMatch.group(0)!;
-          final allItems = await (profile.collectionType != null
-              ? (dao.select(dao.db.vaultItems)
-                    ..where((t) => t.collectionType.equals(profile.collectionType!)))
-                  .get()
-              : dao.select(dao.db.vaultItems).get());
-          for (final item in allItems) {
-            if (item.barcode == barcodeStr) {
-              return ScanMatchResult(item, 0, profile: profile);
-            }
+          final query = dao.select(dao.db.vaultItems)
+            ..where((t) =>
+                drift.CustomExpression<bool>(
+                  "json_extract(vault_items.dynamic_data, '\$.barcode') = '$barcodeStr'",
+                ) |
+                t.dynamicData.like('%"barcode":"$barcodeStr"%') |
+                t.dynamicData.like('%"barcode": "$barcodeStr"%'));
+          if (profile.collectionType != null) {
+            query.where((t) => t.collectionType.equals(profile.collectionType!));
+          }
+          final matchedItem = await (query..limit(1)).getSingleOrNull();
+          if (matchedItem != null) {
+            return ScanMatchResult(matchedItem, 0, profile: profile);
           }
         }
       }

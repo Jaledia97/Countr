@@ -34,7 +34,9 @@ class MtgFilterSheet extends StatefulWidget {
     try {
       final container = ProviderScope.containerOf(context, listen: false);
       resolvedInitial ??= container.read(mtgFilterProvider);
-    } catch (_) {}
+    } catch (e, stackTrace) {
+      debugPrint('[MtgFilterSheet] ProviderScope not available in show: $e\n$stackTrace');
+    }
 
     return showModalBottomSheet<MtgFilterState>(
       context: context,
@@ -100,7 +102,8 @@ class _MtgFilterSheetState extends State<MtgFilterSheet>
             _setCodeController.text = _state.setCode;
           });
         }
-      } catch (_) {
+      } catch (e, stackTrace) {
+        debugPrint('[MtgFilterSheet] ProviderScope not available in didChangeDependencies: $e\n$stackTrace');
         // Fallback for standalone unit/widget tests without ProviderScope
       }
     }
@@ -147,7 +150,8 @@ class _MtgFilterSheetState extends State<MtgFilterSheet>
     try {
       final container = ProviderScope.containerOf(context, listen: false);
       container.read(mtgFilterProvider.notifier).setFilter(updated);
-    } catch (_) {
+    } catch (e, stackTrace) {
+      debugPrint('[MtgFilterSheet] Failed to sync with provider: $e\n$stackTrace');
       // Safe fallback when running in standalone unit/widget tests
     }
   }

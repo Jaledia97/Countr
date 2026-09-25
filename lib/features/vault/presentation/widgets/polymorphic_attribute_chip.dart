@@ -19,7 +19,8 @@ class PolymorphicAttributeChip extends StatelessWidget {
     Map<String, dynamic> data = {};
     try {
       data = jsonDecode(dynamicDataJson) as Map<String, dynamic>;
-    } catch (_) {
+    } catch (e, stackTrace) {
+      debugPrint('[PolymorphicAttributeChip] Failed to decode dynamicDataJson: $e\n$stackTrace');
       data = {};
     }
 

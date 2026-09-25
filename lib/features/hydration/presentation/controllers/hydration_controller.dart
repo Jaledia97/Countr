@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:countr/features/hydration/data/services/scryfall_service.dart';
 import 'package:countr/features/hydration/domain/isolate/scryfall_parser.dart';
@@ -126,7 +127,8 @@ class HydrationController extends StateNotifier<HydrationState> {
         statusMessage:
             'Hydration complete! ${totalCards.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},')} MTG cards indexed.',
       );
-    } catch (e) {
+    } catch (e, stackTrace) {
+      debugPrint('[HydrationController] Hydration failed: $e\n$stackTrace');
       state = state.copyWith(
         status: HydrationStatus.error,
         errorMessage: e.toString(),
@@ -139,7 +141,9 @@ class HydrationController extends StateNotifier<HydrationState> {
           if (await tempFile.exists()) {
             await tempFile.delete();
           }
-        } catch (_) {}
+        } catch (e, stackTrace) {
+          debugPrint('[HydrationController] Failed to delete temp hydration file: $e\n$stackTrace');
+        }
       }
     }
   }

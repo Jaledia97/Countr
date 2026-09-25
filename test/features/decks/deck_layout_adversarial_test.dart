@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:countr/core/database/app_database.dart';
+import 'deck_test_helpers.dart';
 import 'package:countr/features/decks/data/mock_deck_data.dart';
 import 'package:countr/features/decks/presentation/providers/deck_providers.dart';
 import 'package:countr/features/decks/presentation/screens/deck_builder_screen.dart';
@@ -39,8 +39,8 @@ void main() {
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() => tester.view.resetPhysicalSize());
 
-      final longName = 'A' * 150 + ' ' + 'SuperUltraMegaDeckWithExtremelyLongNameThatShouldNeverCrashTheRenderTree' * 3;
-      final deck = Deck(
+      final longName = '${'A' * 150} ${'SuperUltraMegaDeckWithExtremelyLongNameThatShouldNeverCrashTheRenderTree' * 3}';
+      final deck = createTestDeck(
         id: 'deck-adversarial-1',
         name: longName,
         format: 'MTG Commander',
@@ -74,10 +74,10 @@ void main() {
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() => tester.view.resetPhysicalSize());
 
-      final hundredCharFormat = 'Format_' + ('X' * 93);
+      final hundredCharFormat = 'Format_${'X' * 93}';
       expect(hundredCharFormat.length, equals(100));
 
-      final deck = Deck(
+      final deck = createTestDeck(
         id: 'deck-adversarial-2',
         name: 'Standard Deck',
         format: hundredCharFormat,
@@ -102,7 +102,6 @@ void main() {
       );
       await tester.pumpAndSettle();
       final deckBuilderException = tester.takeException();
-      print('DEBUG: Stress 2 DeckBuilder format exception: $deckBuilderException');
       expect(deckBuilderException, isNull, reason: 'Exception in DeckBuilderScreen with 100-char format: $deckBuilderException');
     });
 
@@ -120,7 +119,6 @@ void main() {
       );
       await tester.pumpAndSettle();
       final decksScreenException = tester.takeException();
-      print('DEBUG: Stress 2b DecksScreen exception: $decksScreenException');
       expect(decksScreenException, isNull, reason: 'Exception in DecksScreen with 320px & 2.0x text scale: $decksScreenException');
       expect(find.byType(DecksScreen), findsOneWidget);
     });
@@ -156,7 +154,7 @@ void main() {
           },
       ];
 
-      final deck = Deck(
+      final deck = createTestDeck(
         id: 'deck-1-99',
         name: 'Commander 1 vs 99',
         format: 'Commander',
@@ -191,7 +189,7 @@ void main() {
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() => tester.view.resetPhysicalSize());
 
-      final deck = Deck(
+      final deck = createTestDeck(
         id: 'deck-empty',
         name: 'Empty Deck With Zero Cards',
         format: 'MTG Standard',
@@ -239,7 +237,7 @@ void main() {
         });
       }
 
-      final deck = Deck(
+      final deck = createTestDeck(
         id: 'deck-50-sections',
         name: 'Deck With 50 Distinct Sections',
         format: 'MTG Custom',
@@ -291,7 +289,7 @@ void main() {
           },
       ];
 
-      final deck = Deck(
+      final deck = createTestDeck(
         id: 'deck-fd-stress',
         name: 'Fast-Draw Stress Test Deck',
         format: 'Commander',
@@ -316,8 +314,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Clear any exception from DeckBuilderScreen rendering
-      final initialException = tester.takeException();
-      print('DEBUG: Stress 6 initial exception from DeckBuilder: $initialException');
+      tester.takeException();
 
       // Open Fast-Draw Playtester
       final fastDrawBtn = find.byIcon(Icons.style_rounded);
@@ -326,7 +323,6 @@ void main() {
       await tester.pumpAndSettle();
 
       final modalException = tester.takeException();
-      print('DEBUG: Stress 6 modal exception: $modalException');
       expect(modalException, isNull, reason: 'RenderFlex or layout exception in Fast-Draw Playtester under 320px & 2.0x text scale: $modalException');
       expect(find.text('Opening 7 Playtester'), findsOneWidget);
 
@@ -348,7 +344,7 @@ void main() {
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() => tester.view.resetPhysicalSize());
 
-      final deck = Deck(
+      final deck = createTestDeck(
         id: 'deck-analytics-stress',
         name: 'Analytics Stress Deck',
         format: 'Commander',
@@ -383,8 +379,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Clear any exception from DeckBuilderScreen rendering
-      final initialException = tester.takeException();
-      print('DEBUG: Stress 7 initial exception from DeckBuilder: $initialException');
+      tester.takeException();
 
       // Open Visual Analytics modal
       final analyticsBtn = find.byIcon(Icons.analytics_rounded);
@@ -393,7 +388,6 @@ void main() {
       await tester.pumpAndSettle();
 
       final modalException = tester.takeException();
-      print('DEBUG: Stress 7 modal exception: $modalException');
       expect(modalException, isNull, reason: 'RenderFlex or layout exception in Visual Analytics under 320px & 2.0x text scale: $modalException');
       expect(find.text('Deck Visual Analytics'), findsOneWidget);
 
@@ -407,7 +401,7 @@ void main() {
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() => tester.view.resetPhysicalSize());
 
-      final deck = Deck(
+      final deck = createTestDeck(
         id: 'deck-scroll-stress',
         name: 'Super Long Deck Name Collapsing Into Toolbar Mode On Narrow Viewport',
         format: 'Commander',
@@ -464,7 +458,7 @@ void main() {
         },
       ];
 
-      final deck = Deck(
+      final deck = createTestDeck(
         id: 'deck-zone-stress',
         name: 'Zone Header Stress',
         format: 'Modern',
@@ -514,7 +508,7 @@ void main() {
         },
       ];
 
-      final deck = Deck(
+      final deck = createTestDeck(
         id: 'deck-card-tile-stress',
         name: 'Tile Stress',
         format: 'Modern',
@@ -539,7 +533,6 @@ void main() {
       await tester.pumpAndSettle();
 
       final tileException = tester.takeException();
-      print('DEBUG: Stress 10 tile exception: $tileException');
       expect(tileException, isNull, reason: 'Exception in card tile layout: $tileException');
     });
   });

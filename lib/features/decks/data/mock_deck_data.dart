@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:countr/core/database/app_database.dart';
 import 'package:countr/features/decks/presentation/providers/deck_providers.dart';
 
@@ -7,6 +8,58 @@ import 'package:countr/features/decks/presentation/providers/deck_providers.dart
 class MockDeckData {
   /// Canonical 100-card MTG Commander Deck ID
   static const String edgarMarkovDeckId = 'deck-edgar-markov';
+
+  /// Default mock Deck entities for UI previews and tests
+  static final List<Deck> defaultDecks = [
+    Deck(
+      id: edgarMarkovDeckId,
+      name: 'Edgar Markov Aristocrats',
+      format: 'Commander',
+      wins: 12,
+      losses: 4,
+      draws: 0,
+      tcgDomain: 'mtg',
+      isRegistered: true,
+      isCompetitive: false,
+      createdAt: DateTime.now(),
+    ),
+    Deck(
+      id: 'deck-charizard-ex',
+      name: 'Charizard ex / Pidgeot ex',
+      format: 'Standard',
+      wins: 8,
+      losses: 2,
+      draws: 1,
+      tcgDomain: 'pokemon',
+      isRegistered: true,
+      isCompetitive: true,
+      createdAt: DateTime.now(),
+    ),
+    Deck(
+      id: 'deck-yuriko',
+      name: "Yuriko, the Tiger's Shadow",
+      format: 'Commander (cEDH)',
+      wins: 15,
+      losses: 7,
+      draws: 2,
+      tcgDomain: 'mtg',
+      isRegistered: false,
+      isCompetitive: true,
+      createdAt: DateTime.now(),
+    ),
+    Deck(
+      id: 'deck-lorcana',
+      name: 'Ruby / Amethyst Bounce Control',
+      format: 'Core',
+      wins: 5,
+      losses: 3,
+      draws: 0,
+      tcgDomain: 'lorcana',
+      isRegistered: false,
+      isCompetitive: false,
+      createdAt: DateTime.now(),
+    ),
+  ];
 
   /// Retrieves a rich, fully populated list of card maps for the given deck ID.
   /// If the deck ID is unknown or represents the Edgar Markov Commander deck,
@@ -177,7 +230,9 @@ class MockDeckData {
               colorProduction[color] = (colorProduction[color] ?? 0) + qty;
             }
           }
-        } catch (_) {}
+        } catch (e, stackTrace) {
+          debugPrint('[MockDeckData] Error parsing card dynamicData: $e\n$stackTrace');
+        }
       }
 
       if (cardHasBling) {

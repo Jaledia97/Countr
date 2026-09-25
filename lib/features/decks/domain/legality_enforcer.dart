@@ -37,7 +37,8 @@ class LegalityEnforcer {
               violations.add('${item.name} is not legal in $format (Status: $status)');
             }
           }
-        } catch (_) {
+        } catch (e, stackTrace) {
+          debugPrint('[LegalityEnforcer] Error parsing legalities for ${item.name}: $e\n$stackTrace');
           // If parsing fails, skip
         }
       }

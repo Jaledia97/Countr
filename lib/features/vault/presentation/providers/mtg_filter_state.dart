@@ -306,7 +306,9 @@ class MtgFilterState {
     if (item.dynamicData.isNotEmpty) {
       try {
         dyn = jsonDecode(item.dynamicData) as Map<String, dynamic>;
-      } catch (_) {}
+      } catch (e, stackTrace) {
+        debugPrint('[MtgFilterState] Failed to decode dynamicData: $e\n$stackTrace');
+      }
     }
 
     // 1. Universes Beyond filter

@@ -359,9 +359,9 @@ void main() {
       expect(find.byType(CardDetailSheet), findsOneWidget);
       expect(scrollable.position.pixels, equals(0.0), reason: 'Card 0 should not disturb 0.0 offset');
 
-      // Empirical check: Verify whether CardDetailSheet overflowed on 360px viewport
-      expect(detectedOverflow, isTrue,
-          reason: 'Empirical bug: CardDetailSheet Row overflowed by 35px on 360px viewport width');
+      // Empirical check: Verify whether CardDetailSheet overflow is resolved on 360px viewport
+      expect(detectedOverflow, isFalse,
+          reason: 'CardDetailSheet Row must not overflow on 360px viewport width');
 
       // Swipe forward through 9 cards to Card 9 (row 3 in 3-column grid)
       for (int i = 0; i < 9; i++) {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_typography.dart';
+import '../../../symbology/presentation/widgets/mana_text.dart';
 
 /// Body for Single Pull Post variant.
 /// Features optional commentary text and a large, high-resolution square
@@ -29,7 +30,7 @@ class SinglePullPostBody extends StatelessWidget {
         if (commentary != null && commentary!.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(left: 16, right: 16, bottom: 12),
-            child: Text(
+            child: ManaText(
               commentary!,
               style: AppTypography.body.copyWith(
                 fontSize: 14,

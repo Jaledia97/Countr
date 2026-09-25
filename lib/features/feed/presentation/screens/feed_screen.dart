@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_typography.dart';
+import 'package:countr/core/state/settings_state.dart';
 import '../../data/mock_feed_data.dart';
 import '../widgets/post_card.dart';
 
@@ -27,6 +28,8 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isPrivacyMode = ref.watch(privacyModeProvider);
+
     return Scaffold(
       appBar: AppBar(
         titleSpacing: 16,
@@ -57,7 +60,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
               );
             },
           ),
-          // Right: Generic Toggle/Notification Icon
+          // Right: Notifications Icon
           IconButton(
             icon: const Icon(Icons.notifications_none_rounded, size: 22),
             tooltip: 'Notifications',
@@ -66,6 +69,19 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('Notifications')),
               );
+            },
+          ),
+          // Right: Privacy Mode Toggle Icon
+          IconButton(
+            key: const Key('feed_privacy_mode_button'),
+            icon: Icon(
+              isPrivacyMode ? Icons.visibility_off : Icons.visibility,
+              size: 22,
+              color: isPrivacyMode ? AppColors.accentAmber : null,
+            ),
+            tooltip: isPrivacyMode ? 'Disable Privacy Mode' : 'Enable Privacy Mode',
+            onPressed: () {
+              ref.read(privacyModeProvider.notifier).state = !isPrivacyMode;
             },
           ),
           const SizedBox(width: 4),

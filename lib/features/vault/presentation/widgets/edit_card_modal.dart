@@ -5,6 +5,7 @@ import 'package:countr/core/constants/app_colors.dart';
 import 'package:countr/core/constants/app_typography.dart';
 import 'package:countr/core/database/app_database.dart';
 import 'package:countr/features/vault/presentation/providers/vault_providers.dart';
+import 'package:countr/features/vault/presentation/widgets/switch_printing_modal.dart';
 
 /// Modal bottom sheet allowing comprehensive edits to a Vault card's
 /// printing variant, custom tags, acquired price, and condition checkboxes.
@@ -84,7 +85,9 @@ class _EditCardModalState extends ConsumerState<EditCardModal> {
         if (rawTags is List) {
           _tags = rawTags.map((e) => e.toString()).toList();
         }
-      } catch (_) {}
+      } catch (e, stackTrace) {
+        debugPrint('[EditCardModal] Failed to parse tags from dynamicData: $e\n$stackTrace');
+      }
     }
   }
 
@@ -107,45 +110,55 @@ class _EditCardModalState extends ConsumerState<EditCardModal> {
 
   Future<void> _saveEdits() async {
     setState(() => _isSaving = true);
-    final dao = ref.read(vaultDaoProvider);
-    final parsedPrice = double.tryParse(_priceController.text) ?? widget.item.acquiredPrice;
+    try {
+      final dao = ref.read(vaultDaoProvider);
+      final parsedPrice = double.tryParse(_priceController.text) ?? widget.item.acquiredPrice;
 
-    String setOrSeries = widget.item.setOrSeries;
-    for (final v in _variants) {
-      setOrSeries = setOrSeries.replaceAll(' ($v)', '');
-    }
-    if (_selectedVariant != 'Standard') {
-      setOrSeries = '$setOrSeries ($_selectedVariant)';
-    }
+      String setOrSeries = widget.item.setOrSeries;
+      for (final v in _variants) {
+        setOrSeries = setOrSeries.replaceAll(' ($v)', '');
+      }
+      if (_selectedVariant != 'Standard') {
+        setOrSeries = '$setOrSeries ($_selectedVariant)';
+      }
 
-    await dao.updateItemCardDetails(
-      id: widget.item.id,
-      acquiredPrice: parsedPrice,
-      condition: _selectedCondition,
-      isGraded: _isGraded,
-      isAltered: _isAltered,
-      isMisprint: _isMisprint,
-      isSigned: _isSigned,
-      setOrSeries: setOrSeries,
-      tags: _tags,
-    );
+      await dao.updateItemCardDetails(
+        id: widget.item.id,
+        acquiredPrice: parsedPrice,
+        condition: _selectedCondition,
+        isGraded: _isGraded,
+        isAltered: _isAltered,
+        isMisprint: _isMisprint,
+        isSigned: _isSigned,
+        setOrSeries: setOrSeries,
+        tags: _tags,
+      );
 
-    final updated = await dao.getItemById(widget.item.id);
-    final fallbackItem = widget.item.copyWith(
-      acquiredPrice: parsedPrice,
-      condition: _selectedCondition,
-      isGraded: _isGraded,
-      isAltered: _isAltered,
-      isMisprint: _isMisprint,
-      isSigned: _isSigned,
-      setOrSeries: setOrSeries,
-    );
+      final updated = await dao.getItemById(widget.item.id);
+      final fallbackItem = widget.item.copyWith(
+        acquiredPrice: parsedPrice,
+        condition: _selectedCondition,
+        isGraded: _isGraded,
+        isAltered: _isAltered,
+        isMisprint: _isMisprint,
+        isSigned: _isSigned,
+        setOrSeries: setOrSeries,
+      );
 
-    final finalItem = updated ?? fallbackItem;
-    widget.onSaved?.call(finalItem);
+      final finalItem = updated ?? fallbackItem;
+      widget.onSaved?.call(finalItem);
 
-    if (mounted) {
-      Navigator.of(context).pop(finalItem);
+      if (mounted) {
+        Navigator.of(context).pop(finalItem);
+      }
+    } catch (e, stackTrace) {
+      debugPrint('[EditCardModal] Failed to save edits: $e\n$stackTrace');
+      if (mounted) {
+        setState(() => _isSaving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error saving card: $e')),
+        );
+      }
     }
   }
 
@@ -219,7 +232,7 @@ class _EditCardModalState extends ConsumerState<EditCardModal> {
 
               // Form content
               Expanded(
-                child: ListView(
+                child: SingleChildScrollView(
                   controller: scrollController,
                   padding: EdgeInsets.fromLTRB(
                     20,
@@ -227,9 +240,31 @@ class _EditCardModalState extends ConsumerState<EditCardModal> {
                     20,
                     MediaQuery.of(context).viewInsets.bottom + 24,
                   ),
-                  children: [
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                     // Section: Variant / Printing Selector
-                    _buildSectionTitle('Variant / Printing Treatment'),
+                    Wrap(
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        _buildSectionTitle('Variant / Printing Treatment'),
+                        TextButton.icon(
+                          key: const Key('open_switch_printing_modal_button'),
+                          icon: const Icon(Icons.swap_horiz_rounded, size: 16, color: AppColors.accentCyan),
+                          label: const Text('Switch Printing', style: TextStyle(color: AppColors.accentCyan, fontWeight: FontWeight.bold)),
+                          onPressed: () async {
+                            final updated = await SwitchPrintingModal.show(context, widget.item);
+                            if (updated != null && mounted) {
+                              setState(() {
+                                _selectedVariant = updated.setOrSeries;
+                              });
+                              widget.onSaved?.call(updated);
+                            }
+                          },
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 8),
                     DropdownButtonFormField<String>(
                       key: const Key('edit_card_variant_selector'),
@@ -503,7 +538,8 @@ class _EditCardModalState extends ConsumerState<EditCardModal> {
                       ],
                     ),
 
-                  ],
+                    ],
+                  ),
                 ),
               ),
 

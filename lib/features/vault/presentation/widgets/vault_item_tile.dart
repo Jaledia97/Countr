@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:countr/core/constants/app_colors.dart';
 import 'package:countr/core/constants/app_typography.dart';
 import 'package:countr/core/database/app_database.dart';
+import 'package:countr/core/state/settings_state.dart';
 import 'package:countr/features/vault/domain/vault_pricing_helper.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:countr/features/vault/presentation/providers/vault_providers.dart';
@@ -12,11 +13,13 @@ import 'card_detail_sheet.dart';
 class VaultItemTile extends StatelessWidget {
   final VaultItem item;
   final VoidCallback? onTap;
+  final bool? isPrivacyMode;
 
   const VaultItemTile({
     super.key,
     required this.item,
     this.onTap,
+    this.isPrivacyMode,
   });
 
   @override
@@ -218,23 +221,30 @@ class VaultItemTile extends StatelessWidget {
                     child: Builder(
                       builder: (context) {
                         final price = _getEffectiveMarketPrice();
-                        final priceText = formatMarketPriceLabel(price);
-                        return Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.85),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: AppColors.accentAmber.withValues(alpha: 0.5)),
-                          ),
-                          child: Text(
-                            priceText,
-                            style: const TextStyle(
-                              color: AppColors.accentAmber,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 11,
-                            ),
-                          ),
+                        final hasScope =
+                            context.findAncestorWidgetOfExactType<ProviderScope>() != null ||
+                                context.findAncestorWidgetOfExactType<UncontrolledProviderScope>() != null;
+
+                        if (hasScope) {
+                          return Consumer(
+                            builder: (context, ref, _) {
+                              final bool privacyActive = isPrivacyMode ?? ref.watch(privacyModeProvider);
+                              final currency = ref.watch(baseCurrencyProvider);
+                              final priceText = formatMarketPriceLabel(
+                                price,
+                                currency: currency,
+                                isPrivacyMode: privacyActive,
+                              );
+                              return _buildPriceBadge(priceText);
+                            },
+                          );
+                        }
+
+                        final priceText = formatMarketPriceLabel(
+                          price,
+                          isPrivacyMode: isPrivacyMode ?? false,
                         );
+                        return _buildPriceBadge(priceText);
                       },
                     ),
                   ),
@@ -270,40 +280,7 @@ class VaultItemTile extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   // Deck Badges
-                  Consumer(
-                    builder: (context, ref, _) {
-                      final decksAsync = ref.watch(vaultItemAssignedDecksProvider(item.id));
-                      return decksAsync.when(
-                        data: (decks) {
-                          if (decks.isEmpty) return const SizedBox.shrink();
-                          return Wrap(
-                            spacing: 4,
-                            runSpacing: 4,
-                            children: decks.map((deckName) {
-                              return Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: AppColors.surfaceBorderSubtle,
-                                  borderRadius: BorderRadius.circular(4),
-                                  border: Border.all(color: AppColors.accentCyan.withValues(alpha: 0.3)),
-                                ),
-                                child: Text(
-                                  '⚔️ $deckName',
-                                  style: const TextStyle(
-                                    fontSize: 8,
-                                    fontWeight: FontWeight.w700,
-                                    color: AppColors.accentCyan,
-                                  ),
-                                ),
-                              );
-                            }).toList(),
-                          );
-                        },
-                        loading: () => const SizedBox.shrink(),
-                        error: (_, __) => const SizedBox.shrink(),
-                      );
-                    },
-                  ),
+                  _OptionalTileDeckBadges(item: item),
                 ],
               ),
             ),
@@ -340,6 +317,77 @@ class VaultItemTile extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildPriceBadge(String priceText) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.85),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: AppColors.accentAmber.withValues(alpha: 0.5)),
+      ),
+      child: Text(
+        priceText,
+        style: const TextStyle(
+          color: AppColors.accentAmber,
+          fontWeight: FontWeight.w800,
+          fontSize: 11,
+        ),
+      ),
+    );
+  }
+}
+
+class _OptionalTileDeckBadges extends StatelessWidget {
+  final VaultItem item;
+  const _OptionalTileDeckBadges({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    bool hasProviderScope = false;
+    context.visitAncestorElements((element) {
+      final typeStr = element.widget.runtimeType.toString();
+      if (typeStr == 'ProviderScope' || typeStr == 'UncontrolledProviderScope') {
+        hasProviderScope = true;
+        return false;
+      }
+      return true;
+    });
+
+    if (!hasProviderScope) return const SizedBox.shrink();
+
+    return Consumer(
+      builder: (context, ref, _) {
+        final assignedDecks = ref.watch(
+          allCardActiveDecksProvider.select((asyncVal) =>
+              asyncVal.asData?.value[item.id] ?? const <String>[]),
+        );
+        if (assignedDecks.isEmpty) return const SizedBox.shrink();
+        return Wrap(
+          spacing: 4,
+          runSpacing: 4,
+          children: assignedDecks.map((deckName) {
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceBorderSubtle,
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: AppColors.accentCyan.withValues(alpha: 0.3)),
+              ),
+              child: Text(
+                '⚔️ $deckName',
+                style: const TextStyle(
+                  fontSize: 8,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.accentCyan,
+                ),
+              ),
+            );
+          }).toList(),
+        );
+      },
     );
   }
 }

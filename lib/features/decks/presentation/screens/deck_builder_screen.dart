@@ -10,6 +10,16 @@ import 'package:countr/features/decks/presentation/widgets/proportional_bubble_s
 import 'package:countr/features/decks/domain/legality_enforcer.dart';
 import 'package:countr/features/decks/domain/deck_io_parser.dart';
 import 'package:countr/features/decks/presentation/screens/deck_metadata_screen.dart';
+import 'package:countr/features/symbology/presentation/widgets/mana_cost_bar.dart';
+import 'package:countr/core/state/settings_state.dart';
+import 'package:countr/features/vault/presentation/widgets/card_detail_sheet.dart';
+import 'package:countr/features/decks/domain/models/deck_item_with_card.dart';
+import 'package:countr/features/values/presentation/widgets/locked_values_view.dart';
+import 'package:countr/features/values/presentation/widgets/pareto_distribution_widget.dart';
+import 'package:countr/features/vault/domain/vault_pricing_helper.dart';
+
+/// Available tabs in DeckBuilderScreen
+enum DeckBuilderTab { details, valuesTab }
 
 class DeckBuilderScreen extends ConsumerStatefulWidget {
   final Deck deck;
@@ -24,6 +34,7 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
   final ScrollController _scrollController = ScrollController();
   LegalityResult? _legalityResult;
   int _lastCheckedItemCount = -1;
+  DeckBuilderTab _selectedTab = DeckBuilderTab.details;
 
   @override
   void dispose() {
@@ -78,24 +89,34 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
         data: (items) {
           // Construct VaultItem list safely without type cast exceptions
           final vaultItems = items.map((i) {
+            if (i is DeckItemWithCard) {
+              return i.toVaultItem();
+            }
+            final map = i;
             return VaultItem(
-              id: i['id'] as String? ?? 'item-${i.hashCode}',
-              name: i['name'] as String? ?? 'Unknown Card',
-              setOrSeries: i['set_or_series'] as String? ?? 'MTG',
-              imageUrl: i['image_url'] as String? ?? '',
-              quantity: i['vault_quantity'] as int? ?? 1,
-              dynamicData: i['dynamic_data'] as String? ?? '',
-              collectionType: 'mtg',
-              acquiredPrice: 0,
+              id: map['id'] as String? ?? 'item-${map.hashCode}',
+              name: map['name'] as String? ?? 'Unknown Card',
+              setOrSeries: map['set_or_series'] as String? ?? 'MTG',
+              imageUrl: map['image_url'] as String? ?? '',
+              quantity: (map['vault_quantity'] as num?)?.toInt() ?? (map['quantity'] as num?)?.toInt() ?? 1,
+              dynamicData: map['dynamic_data'] as String? ?? '',
+              collectionType: map['collection_type'] as String? ?? 'mtg',
+              acquiredPrice: (map['acquired_price'] as num?)?.toDouble() ?? 0.0,
               acquiredDate: DateTime.now(),
               lastPriceUpdate: DateTime.now(),
               currentMarketPrice:
-                  (i['current_market_price'] as num?)?.toDouble() ?? 0.0,
-              isGraded: i['is_graded'] == 1 || i['is_graded'] == true,
-              condition: i['condition'] as String? ?? 'NM',
-              isAltered: i['is_altered'] == 1 || i['is_altered'] == true,
-              isMisprint: i['is_misprint'] == 1 || i['is_misprint'] == true,
-              isSigned: i['is_signed'] == 1 || i['is_signed'] == true,
+                  (map['current_market_price'] as num?)?.toDouble() ?? 0.0,
+              isGraded: map['is_graded'] == 1 || map['is_graded'] == true,
+              condition: map['condition'] as String? ?? 'NM',
+              isAltered: map['is_altered'] == 1 || map['is_altered'] == true,
+              isMisprint: map['is_misprint'] == 1 || map['is_misprint'] == true,
+              isSigned: map['is_signed'] == 1 || map['is_signed'] == true,
+              dateObtained: map['date_obtained'] is DateTime
+                  ? map['date_obtained'] as DateTime
+                  : null,
+              purchasePrice: (map['purchase_price'] as num?)?.toDouble(),
+              notes: map['notes'] as String?,
+              protectionStatus: map['protection_status'] as String? ?? 'Sleeved',
             );
           }).toList();
 
@@ -110,7 +131,9 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
           // Group items by zone
           final Map<String, List<Map<String, dynamic>>> grouped = {};
           for (final item in items) {
-            final zone = item['board_zone'] as String? ?? 'Mainboard';
+            final zone = (item is DeckItemWithCard)
+                ? item.boardZone
+                : (item['board_zone'] as String? ?? 'Mainboard');
             grouped.putIfAbsent(zone, () => []).add(item);
           }
 
@@ -124,7 +147,7 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
             final zoneCards = entry.value;
             final zoneQty = zoneCards.fold<int>(
               0,
-              (sum, i) => sum + (i['deck_quantity'] as int? ?? 1),
+              (sum, i) => sum + ((i['deck_quantity'] as num?)?.toInt() ?? 1),
             );
 
             sectionOffsets.add(currentEstimatedOffset);
@@ -148,34 +171,41 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
                 controller: _scrollController,
                 slivers: [
                   _buildSliverAppBar(),
-                  if (items.isEmpty)
-                    const SliverFillRemaining(
-                      child: Center(
-                        child: Text(
-                          'No cards in this deck yet.\nTap "Import" or add cards from Vault.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(color: AppColors.textSecondary),
+                  SliverToBoxAdapter(
+                    child: _buildSegmentedTabControl(),
+                  ),
+                  if (_selectedTab == DeckBuilderTab.details) ...[
+                    if (items.isEmpty)
+                      const SliverFillRemaining(
+                        child: Center(
+                          child: Text(
+                            'No cards in this deck yet.\nTap "Import" or add cards from Vault.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: AppColors.textSecondary),
+                          ),
                         ),
-                      ),
-                    )
-                  else
-                    for (final entry in grouped.entries) ...[
-                      SliverToBoxAdapter(
-                        child: _buildZoneHeader(entry.key, entry.value),
-                      ),
-                      SliverList(
-                        delegate: SliverChildBuilderDelegate((context, index) {
-                          final item = entry.value[index];
-                          return _buildCardTile(item);
-                        }, childCount: entry.value.length),
-                      ),
-                    ],
-                  const SliverToBoxAdapter(child: SizedBox(height: 80)),
+                      )
+                    else
+                      for (final entry in grouped.entries) ...[
+                        SliverToBoxAdapter(
+                          child: _buildZoneHeader(entry.key, entry.value),
+                        ),
+                        SliverList(
+                          delegate: SliverChildBuilderDelegate((context, index) {
+                            final item = entry.value[index];
+                            return _buildCardTile(item, allDeckCards: vaultItems);
+                          }, childCount: entry.value.length),
+                        ),
+                      ],
+                    const SliverToBoxAdapter(child: SizedBox(height: 80)),
+                  ] else ...[
+                    ..._buildDeckValuesSlivers(items, vaultItems),
+                  ],
                 ],
               ),
 
-              // Pinned Proportional Bubble Scrollbar Overlay
-              if (sections.isNotEmpty)
+              // Pinned Proportional Bubble Scrollbar Overlay (only in Details mode)
+              if (_selectedTab == DeckBuilderTab.details && sections.isNotEmpty)
                 Positioned(
                   right: 4,
                   top: 100,
@@ -200,6 +230,445 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
           appBar: AppBar(title: Text(widget.deck.name)),
           body: Center(child: Text('Error loading deck: $e')),
         ),
+      ),
+    );
+  }
+
+  Widget _buildSegmentedTabControl() {
+    final isPrivacyActive = ref.watch(privacyModeProvider);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      child: Container(
+        key: const Key('deck_builder_segmented_control'),
+        height: 38,
+        padding: const EdgeInsets.all(3),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceRaised,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: AppColors.surfaceBorder),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: InkWell(
+                key: const Key('deck_builder_tab_details'),
+                onTap: () => setState(() => _selectedTab = DeckBuilderTab.details),
+                borderRadius: BorderRadius.circular(7),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  decoration: BoxDecoration(
+                    color: _selectedTab == DeckBuilderTab.details
+                        ? AppColors.surfaceHighlight
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(7),
+                  ),
+                  alignment: Alignment.center,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      'Details',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: _selectedTab == DeckBuilderTab.details
+                            ? FontWeight.w700
+                            : FontWeight.w500,
+                        color: _selectedTab == DeckBuilderTab.details
+                            ? AppColors.accentCyan
+                            : AppColors.textSecondary,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 4),
+            Expanded(
+              child: InkWell(
+                key: const Key('deck_builder_tab_values'),
+                onTap: () => setState(() => _selectedTab = DeckBuilderTab.valuesTab),
+                borderRadius: BorderRadius.circular(7),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  decoration: BoxDecoration(
+                    color: _selectedTab == DeckBuilderTab.valuesTab
+                        ? AppColors.surfaceHighlight
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(7),
+                  ),
+                  alignment: Alignment.center,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Values',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: _selectedTab == DeckBuilderTab.valuesTab
+                                ? FontWeight.w700
+                                : FontWeight.w500,
+                            color: _selectedTab == DeckBuilderTab.valuesTab
+                                ? AppColors.accentCyan
+                                : AppColors.textSecondary,
+                          ),
+                        ),
+                        if (isPrivacyActive) ...[
+                          const SizedBox(width: 4),
+                          const Icon(
+                            Icons.lock_outline_rounded,
+                            size: 13,
+                            color: AppColors.textMuted,
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _buildDeckValuesSlivers(
+    List<dynamic> items,
+    List<VaultItem> vaultItems,
+  ) {
+    final isPrivacyMode = ref.watch(privacyModeProvider);
+    final baseCurrency = ref.watch(baseCurrencyProvider);
+
+    if (isPrivacyMode) {
+      return [
+        const SliverFillRemaining(
+          hasScrollBody: false,
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+            child: Center(
+              child: LockedValuesView(
+                key: Key('deck_builder_values_locked_container'),
+              ),
+            ),
+          ),
+        ),
+      ];
+    }
+
+    if (items.isEmpty) {
+      return [
+        const SliverFillRemaining(
+          hasScrollBody: false,
+          child: Center(
+            child: Text(
+              'No cards in this deck to analyze.',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+          ),
+        ),
+      ];
+    }
+
+    // Compute financial summary
+    final summary = ref.watch(deckFinancialSummaryProvider(widget.deck.id));
+    final pareto = ref.watch(deckParetoDistributionProvider(widget.deck.id));
+
+    final totalMarket = summary.totalMarketValue;
+    final totalCost = summary.totalCostBasis;
+    final delta = summary.dollarReturn;
+    final pct = summary.percentageReturn;
+    final isProfit = summary.isProfit;
+    final totalCards = summary.totalCardCount;
+    final returnColor = isProfit ? AppColors.accentEmerald : AppColors.accentRose;
+
+    // Group zone values
+    final Map<String, double> zoneMarketValues = {};
+    final Map<String, double> zoneCostValues = {};
+    for (final item in items) {
+      final qty = (item is DeckItemWithCard)
+          ? item.deckQuantity
+          : ((item['deck_quantity'] as num?)?.toInt() ?? 1);
+      final price = (item is DeckItemWithCard)
+          ? item.resolveMarketPrice(baseCurrency)
+          : ((item['current_market_price'] as num?)?.toDouble() ?? 0.0);
+      final cost = (item is DeckItemWithCard)
+          ? item.effectiveCostBasis
+          : ((item['purchase_price'] as num?)?.toDouble() ??
+              (item['acquired_price'] as num?)?.toDouble() ??
+              0.0);
+      final zone = (item is DeckItemWithCard)
+          ? item.boardZone
+          : (item['board_zone'] as String? ?? 'Mainboard');
+
+      zoneMarketValues[zone] = (zoneMarketValues[zone] ?? 0.0) + (price * qty);
+      zoneCostValues[zone] = (zoneCostValues[zone] ?? 0.0) + (cost * qty);
+    }
+
+    return [
+      SliverPadding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        sliver: SliverList(
+          delegate: SliverChildListDelegate([
+            // 1. Deck Aggregate P&L Summary Card
+            Container(
+              key: const Key('deck_values_aggregate_card'),
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF1F2633), Color(0xFF141923)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.accentCyan.withValues(alpha: 0.3)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Flexible(
+                        child: Text(
+                          'AGGREGATE DECK VALUATION',
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1.2,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: returnColor.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: returnColor.withValues(alpha: 0.4)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  isProfit ? Icons.trending_up_rounded : Icons.trending_down_rounded,
+                                  color: returnColor,
+                                  size: 13,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  VaultPricingHelper.formatReturn(
+                                    delta,
+                                    pct,
+                                    currency: baseCurrency,
+                                    isPrivacyMode: false,
+                                    amountFirst: true,
+                                  ),
+                                  style: TextStyle(
+                                    color: returnColor,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      VaultPricingHelper.formatAmount(
+                        totalMarket,
+                        currency: baseCurrency,
+                        isPrivacyMode: false,
+                        allowZero: true,
+                      ),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 32,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Divider(color: AppColors.surfaceBorderSubtle, height: 1),
+                  const SizedBox(height: 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Flexible(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'TOTAL COST BASIS',
+                              style: TextStyle(color: AppColors.textMuted, fontSize: 10, fontWeight: FontWeight.w600),
+                            ),
+                            const SizedBox(height: 2),
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                VaultPricingHelper.formatAmount(
+                                  totalCost,
+                                  currency: baseCurrency,
+                                  isPrivacyMode: false,
+                                  allowZero: true,
+                                ),
+                                style: const TextStyle(
+                                  color: AppColors.textPrimary,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Flexible(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            const Text(
+                              'TOTAL CARDS',
+                              style: TextStyle(color: AppColors.textMuted, fontSize: 10, fontWeight: FontWeight.w600),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '$totalCards (${items.length} unique)',
+                              style: const TextStyle(
+                                color: AppColors.textPrimary,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 18),
+
+            // 2. Pareto Distribution Widget ("Heavy Hitters")
+            ParetoDistributionWidget(
+              result: pareto,
+              currency: baseCurrency,
+              isPrivacyMode: false,
+            ),
+
+            const SizedBox(height: 18),
+
+            // 3. Deck Zone Breakdown Section
+            _buildDeckValuesSectionHeader('Valuation by Zone'),
+            const SizedBox(height: 8),
+            for (final zoneEntry in zoneMarketValues.entries) ...[
+              _buildZoneValueRow(
+                zone: zoneEntry.key,
+                marketValue: zoneEntry.value,
+                costBasis: zoneCostValues[zoneEntry.key] ?? 0.0,
+                totalDeckValue: totalMarket,
+                currency: baseCurrency,
+              ),
+              const SizedBox(height: 8),
+            ],
+            const SizedBox(height: 80),
+          ]),
+        ),
+      ),
+    ];
+  }
+
+  Widget _buildDeckValuesSectionHeader(String title) {
+    return Text(
+      title.toUpperCase(),
+      style: const TextStyle(
+        color: AppColors.textSecondary,
+        fontSize: 11,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 1.2,
+      ),
+    );
+  }
+
+  Widget _buildZoneValueRow({
+    required String zone,
+    required double marketValue,
+    required double costBasis,
+    required double totalDeckValue,
+    required AppCurrency currency,
+  }) {
+    final double pctOfTotal = totalDeckValue > 0 ? (marketValue / totalDeckValue) * 100 : 0.0;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceRaised,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.surfaceBorder),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  zone,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Cost: ${VaultPricingHelper.formatAmount(costBasis, currency: currency, isPrivacyMode: false, allowZero: true)}',
+                  style: const TextStyle(
+                    color: AppColors.textMuted,
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                VaultPricingHelper.formatAmount(marketValue, currency: currency, isPrivacyMode: false, allowZero: true),
+                style: const TextStyle(
+                  color: AppColors.accentAmber,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                '${pctOfTotal.toStringAsFixed(1)}% of deck',
+                style: const TextStyle(
+                  color: AppColors.accentCyan,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -375,7 +844,8 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
     );
   }
 
-  Widget _buildCardTile(Map<String, dynamic> item) {
+  Widget _buildCardTile(Map<String, dynamic> item, {List<VaultItem>? allDeckCards}) {
+    final isPrivacyMode = ref.watch(privacyModeProvider);
     final isProxy = item['is_proxy'] == 1;
     final name = item['name'] as String? ?? 'Unknown Card';
     final qty = item['deck_quantity'] as int? ?? 1;
@@ -412,7 +882,47 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(8),
-        onTap: () {},
+        onTap: () {
+          final id = item['id'] as String? ?? 'item-${item.hashCode}';
+          final effectiveDeckCards = allDeckCards ?? [];
+          final targetIndex = effectiveDeckCards.indexWhere((c) => c.id == id);
+          final VaultItem targetItem = targetIndex >= 0
+              ? effectiveDeckCards[targetIndex]
+              : (item is DeckItemWithCard
+                  ? item.toVaultItem()
+                  : VaultItem(
+                      id: id,
+                      name: item['name'] as String? ?? 'Unknown Card',
+                      setOrSeries: item['set_or_series'] as String? ?? 'MTG',
+                      imageUrl: item['image_url'] as String? ?? '',
+                      quantity: (item['vault_quantity'] as num?)?.toInt() ?? 1,
+                      dynamicData: item['dynamic_data'] as String? ?? '',
+                      collectionType: item['collection_type'] as String? ?? 'mtg',
+                      acquiredPrice: (item['acquired_price'] as num?)?.toDouble() ?? 0.0,
+                      acquiredDate: DateTime.now(),
+                      lastPriceUpdate: DateTime.now(),
+                      currentMarketPrice: (item['current_market_price'] as num?)?.toDouble() ?? 0.0,
+                      isGraded: item['is_graded'] == 1 || item['is_graded'] == true,
+                      condition: item['condition'] as String? ?? 'NM',
+                      isAltered: item['is_altered'] == 1 || item['is_altered'] == true,
+                      isMisprint: item['is_misprint'] == 1 || item['is_misprint'] == true,
+                      isSigned: item['is_signed'] == 1 || item['is_signed'] == true,
+                      dateObtained: item['date_obtained'] is DateTime
+                          ? item['date_obtained'] as DateTime
+                          : null,
+                      purchasePrice: (item['purchase_price'] as num?)?.toDouble(),
+                      notes: item['notes'] as String?,
+                      protectionStatus: item['protection_status'] as String? ?? 'Sleeved',
+                    ));
+          CardDetailSheet.show(
+            context,
+            targetItem,
+            items: effectiveDeckCards.isNotEmpty ? effectiveDeckCards : [targetItem],
+            initialIndex: targetIndex >= 0 ? targetIndex : 0,
+            deckId: widget.deck.id,
+            deck: widget.deck,
+          );
+        },
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           child: Row(
@@ -525,15 +1035,9 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
                           color: AppColors.surfaceRaised,
                           borderRadius: BorderRadius.circular(6),
                         ),
-                        child: Text(
-                          manaCost,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 10,
-                            fontFamily: 'monospace',
-                            color: AppColors.accentCyan,
-                          ),
+                        child: ManaCostBar(
+                          manaCost: manaCost,
+                          symbolSize: 11.5,
                         ),
                       ),
                       const SizedBox(height: 3),
@@ -541,7 +1045,9 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
                     FittedBox(
                       fit: BoxFit.scaleDown,
                       child: Text(
-                        price > 0 ? '\$${price.toStringAsFixed(2)}' : '—',
+                        isPrivacyMode
+                            ? '****'
+                            : (price > 0 ? '\$${price.toStringAsFixed(2)}' : '—'),
                         style: const TextStyle(
                           fontSize: 11.5,
                           fontWeight: FontWeight.w600,
@@ -965,12 +1471,11 @@ class _FastDrawSheetState extends State<_FastDrawSheet> {
                                     color: Colors.black38,
                                     borderRadius: BorderRadius.circular(4),
                                   ),
-                                  child: Text(
-                                    manaCost,
-                                    style: const TextStyle(
-                                      fontSize: 10.5,
-                                      fontFamily: 'monospace',
-                                      color: AppColors.accentCyan,
+                                  child: ConstrainedBox(
+                                    constraints: const BoxConstraints(maxWidth: 100),
+                                    child: ManaCostBar(
+                                      manaCost: manaCost,
+                                      symbolSize: 12.0,
                                     ),
                                   ),
                                 ),

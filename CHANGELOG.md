@@ -1,6 +1,47 @@
-## [0.4.0] - 2026-09-21
+## [0.4.4] - 2026-09-24
 
-### Phase 4: Deck Building Ecosystem & Phase 3.8/3.9 Enhancements
+### Phase 4.3 & 4.4: MTG Mana Symbology Engine, Values Engine & Global Privacy Mode
+
+#### Added
+- **Global MTG Mana Symbology Engine (`Phase 4.3`)**:
+  - **Asset Bundle (`assets/symbology/`)**: Bundled all 84 official MTG SVG mana and game symbols fetched directly from Scryfall's Symbology API (numbers 0-20, colors WUBRG, colorless C, X/Y/Z, hybrid, phyrexian, snow, tap/untap, loyalty). Added `flutter_svg: ^2.3.0` and declared asset paths in `pubspec.yaml`.
+  - **Canonical Symbol Catalog (`ScryfallSymbolCatalog`)**: Implemented 84 canonical symbols with 114 transposable and case-insensitive alias lookups.
+  - **Inline Symbology Parser (`ManaTextParser`)**: Built linear regex parser converting bracketed notation (e.g., `{1}{U}`, `{W/U}`, `{P/B}`) into Flutter `InlineSpan` hierarchies using `PlaceholderAlignment.middle` and dynamic `1.1x` proportional scaling matching surrounding text font sizes.
+  - **Reusable Widgets**: Added `ManaSymbolIcon`, `ManaText` (drop-in `RichText` wrapper), and `ManaCostBar` with built-in `FittedBox` overflow defense for narrow list headers and rows.
+  - **Global Symbology Deployment**: Deployed across `CardDetailSheet` (mana costs & Oracle rules text), `DeckBuilderScreen` (card list rows & opening hand preview), and Social Feed / `PostCard` (post content, single/multi pulls, and deck primers).
+
+- **Global App Settings & Streamer Privacy Mode (`Phase 4.4 - R1`)**:
+  - **Currency Preference**: Added base currency selector (`USD`, `EUR`, `GBP`, `CAD`) with real-time multi-market exchange rate normalization (`ExchangeRateService`).
+  - **Streamer Security**: Added `"Auto-Enable Privacy Mode when backgrounded"` toggle using `AppLifecycleListener` to automatically lock and redact financial visibility upon app backgrounding.
+  - **Global Privacy Redaction**: Replaced previous AppBar view switchers with a global Privacy Mode toggle (`Icons.visibility` / `Icons.visibility_off`). Redacts all financial metrics across Vault totals, individual card prices, and deck costs with blurred placeholders or `****`.
+  - **Locked Values View (`LockedValuesView`)**: Displays a locked state UI when accessing the `[ Values ]` tab while in Privacy Mode.
+
+- **Drift Schema v8 & 2-Tab Segmented Control (`Phase 4.4 - R2`)**:
+  - **Schema Migration (v7 $\rightarrow$ v8)**: Extended `VaultItems` with `date_obtained`, `purchase_price`, `binder_page`, `binder_slot`, `notes`, and `protection_status`.
+  - **Segmented 2-Tab Navigation**: Refactored `CardDetailSheet` to feature a `CupertinoSlidingSegmentedControl` directly beneath the card header toggling between `[ Details | Values ]`, complete with privacy lock badge indicator.
+  - **Details Tab Enhancements**: Expandable Scryfall rulings & errata accordion, physical provenance coordinates (binder page/slot, protection status), acquisition date picker & price tracking, and clickable artist filter links.
+  - **Deck Gear & Dynamic Tokens**: Implemented `DeckGearSection` (sleeve brand/color, deck box model) and `DeckTokenExtractor` to auto-discover required physical tokens from card rules text.
+
+- **Collector & Investor Values Engine (`Phase 4.4 - R3`)**:
+  - **Trimmed Market Average (`TrimmedMarketAverageCalculator`)**: Statistical averaging across top market sources (TCGplayer, Cardmarket, eBay) discarding floor minimum anomalies ($\le \$0.02$) with fresh timestamps and pull-to-refresh sync.
+  - **Interactive Multi-Line Chart (`InteractiveMultiLineChart`)**: Canvas `CustomPainter` chart using Fritsch-Carlson cubic splines supporting 7D, 30D, 90D, 1Y, and ALL time horizons, touch tooltips, and toggleable vendor legend lines.
+  - **Cost Basis & P&L Widget (`CostBasisPnLWidget`)**: Computes `Current Market Average - Purchase Price` with absolute dollar and percentage returns color-coded green/red.
+  - **Liquidity & Reality Check (`LiquidityRealityCheckWidget`)**: Retail Replacement Value vs. Buylist Cash Out estimates, High/Low liquidity tags, and Reserved List warning badges.
+  - **52-Week Range Bar (`FiftyTwoWeekRangeBar`)**: Visual price gauge showing current price relative to 52-week low and high.
+  - **Condition & Treatment Matrix (`ConditionTreatmentMatrixWidget`)**: Compact grid of market spreads across Conditions (NM/LP/MP) and Finishes (Non-Foil/Foil/Etched).
+  - **Market Spread Table (`MarketSpreadTableWidget`)**: Multi-vendor price comparison highlighting highest buylist and lowest retail.
+
+- **Aggregate Deck & Vault Analytics (`Phase 4.4 - R4`)**:
+  - **Aggregate P&L**: Total cost basis vs. market value analytics integrated into `DeckBuilderScreen` and `VaultScreen`.
+  - **Pareto Value Concentration (`ParetoDistributionWidget`)**: Calculates and displays *"The top 5 cards represent X% of this deck's total value"* with ranked micro-lists and medal tier badges (#1 Gold, #2 Cyan, #3 Violet).
+
+#### Quality & Verification
+- **Test Suite**: 3,016 / 3,016 tests passing (100% pass rate) with 0 failures, 0 skips, and 0 lints (`dart analyze --fatal-infos`).
+- **Audit Verification**: Passed independent multi-phase Victory Audit (`VICTORY CONFIRMED`).
+
+---
+
+## [0.4.0] - 2026-09-21
 
 #### Added
 - **Deck Schema & Versioning (`Decks`, `DeckVersions`, `DeckVersionItems`)**: Added Git-style deck versioning schema to Drift allowing users to maintain multiple iterative versions of a deck without duplicating cards.

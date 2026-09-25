@@ -80,6 +80,8 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
   String? _lastMatchedCardId;
   DateTime? _lastMatchTimestamp;
   VaultItem? _scannedToastCard;
+  static const _scanModes = ['RAW CARD', 'SLAB / GRADED', 'COMIC BOOK', 'BARCODE'];
+  int _selectedModeIndex = 0;
 
   @override
   void initState() {
@@ -150,8 +152,8 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
       setState(() {
         _isCameraAvailable = true;
       });
-    } catch (e) {
-      debugPrint('Camera init error (graceful fallback active): $e');
+    } catch (e, stackTrace) {
+      debugPrint('[ScannerModal] Camera init error (graceful fallback active): $e\n$stackTrace');
       if (mounted) {
         setState(() {
           _isCameraAvailable = false;
@@ -177,7 +179,9 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
         if (_flashOn) {
           try {
             await _cameraController!.setFlashMode(FlashMode.off);
-          } catch (_) {}
+          } catch (e, stackTrace) {
+            debugPrint('[ScannerModal] Failed to turn off flash when pausing: $e\n$stackTrace');
+          }
         }
         if (_cameraController!.value.isStreamingImages) {
           await _cameraController!.stopImageStream();
@@ -185,8 +189,8 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
         if (pausePreview) {
           await _cameraController!.pausePreview();
         }
-      } catch (e) {
-        debugPrint('Error pausing camera: $e');
+      } catch (e, stackTrace) {
+        debugPrint('[ScannerModal] Error pausing camera: $e\n$stackTrace');
       }
     }
   }
@@ -202,21 +206,23 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
     if (_cameraController != null && _cameraController!.value.isInitialized) {
       try {
         await _cameraController!.resumePreview();
-      } catch (e) {
-        debugPrint('Error resuming preview: $e');
+      } catch (e, stackTrace) {
+        debugPrint('[ScannerModal] Error resuming preview: $e\n$stackTrace');
       }
       if (_flashOn) {
         try {
           await _cameraController!.setFlashMode(FlashMode.torch);
-        } catch (_) {}
+        } catch (e, stackTrace) {
+          debugPrint('[ScannerModal] Failed to restore flash when resuming: $e\n$stackTrace');
+        }
       }
       try {
         if (!_cameraController!.value.isStreamingImages) {
           await _cameraController!.startImageStream(_processCameraFrame);
           debugPrint('[Countr Scanner] Camera image stream resumed successfully.');
         }
-      } catch (e) {
-        debugPrint('Error restarting image stream: $e');
+      } catch (e, stackTrace) {
+        debugPrint('[ScannerModal] Error restarting image stream: $e\n$stackTrace');
       }
     }
 
@@ -420,7 +426,8 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
         newFlash ? FlashMode.torch : FlashMode.off,
       );
       setState(() => _flashOn = newFlash);
-    } catch (_) {
+    } catch (e, stackTrace) {
+      debugPrint('[ScannerModal] Failed to toggle flash: $e\n$stackTrace');
       setState(() => _flashOn = !_flashOn);
     }
   }
@@ -437,7 +444,8 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
         newLock ? ExposureMode.locked : ExposureMode.auto,
       );
       setState(() => _isExposureLocked = newLock);
-    } catch (_) {
+    } catch (e, stackTrace) {
+      debugPrint('[ScannerModal] Failed to toggle exposure lock: $e\n$stackTrace');
       setState(() => _isExposureLocked = !_isExposureLocked);
     }
   }
@@ -868,6 +876,46 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: List.generate(_scanModes.length, (index) {
+                          final isSelected = _selectedModeIndex == index;
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            child: ChoiceChip(
+                              label: Text(_scanModes[index]),
+                              selected: isSelected,
+                              onSelected: (selected) {
+                                if (selected) {
+                                  setState(() {
+                                    _selectedModeIndex = index;
+                                  });
+                                }
+                              },
+                              labelStyle: TextStyle(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.8,
+                                color: isSelected
+                                    ? AppColors.textDark
+                                    : AppColors.textSecondary,
+                              ),
+                              selectedColor: AppColors.accentCyan,
+                              backgroundColor:
+                                  AppColors.surface.withValues(alpha: 0.8),
+                              side: BorderSide(
+                                color: isSelected
+                                    ? AppColors.accentCyan
+                                    : AppColors.surfaceBorder,
+                              ),
+                            ),
+                          );
+                        }),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
                     // Prominent Bottom Control: Pause Camera / Resume Scanner Button
                     Tooltip(
                       message: _isScanningPaused

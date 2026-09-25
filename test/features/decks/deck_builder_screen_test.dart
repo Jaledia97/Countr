@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:countr/core/database/app_database.dart';
+import 'deck_test_helpers.dart';
 import 'package:countr/features/decks/data/mock_deck_data.dart';
 import 'package:countr/features/decks/presentation/providers/deck_providers.dart';
 import 'package:countr/features/decks/presentation/screens/deck_builder_screen.dart';
@@ -9,7 +10,7 @@ import 'package:countr/features/decks/presentation/screens/decks_screen.dart';
 import 'package:countr/features/decks/presentation/widgets/proportional_bubble_scrollbar.dart';
 
 void main() {
-  final testDeck = Deck(
+  final testDeck = createTestDeck(
     id: 'deck-edgar-markov',
     name: 'Edgar Markov Aristocrats Long Name That Could Overflow',
     format: 'MTG Commander',

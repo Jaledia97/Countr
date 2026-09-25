@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:countr/core/database/app_database.dart';
 import 'package:countr/core/state/app_state.dart';
@@ -209,10 +211,66 @@ final collectionItemCountsProvider = StreamProvider<Map<String, int>>((ref) {
   return dao.watchCollectionItemCounts();
 });
 
-/// Reactive StreamProvider fetching the list of decks currently assigning a specific VaultItem.
-final vaultItemAssignedDecksProvider = StreamProvider.family<List<String>, String>((ref, vaultItemId) {
+/// Reactive StreamProvider fetching a single VaultItem by ID.
+final vaultItemProvider = StreamProvider.family<VaultItem?, String>((ref, id) async* {
+  try {
+    final dao = ref.watch(vaultDaoProvider);
+    yield* dao.watchItemById(id);
+  } catch (error, stackTrace) {
+    debugPrint('[vaultItemProvider] Error watching item $id: $error\n$stackTrace');
+    rethrow;
+  }
+});
+
+/// Reactive StreamProvider fetching all active card deck assignments.
+final allCardActiveDecksProvider = StreamProvider<Map<String, List<String>>>((ref) {
   final dao = ref.watch(vaultDaoProvider);
-  return dao.watchItemActiveDecks(vaultItemId);
+  return dao.watchAllCardActiveDecks();
+});
+
+/// Reactive StreamProvider fetching the list of decks currently assigning a specific VaultItem.
+final cardActiveDecksProvider = StreamProvider.family<List<String>, String>((ref, vaultItemId) async* {
+  try {
+    final dao = ref.watch(vaultDaoProvider);
+    final item = await dao.getItemById(vaultItemId);
+    if (item != null) {
+      yield* dao.watchItemActiveDecks(vaultItemId);
+    } else {
+      yield const <String>[];
+    }
+  } catch (error, stackTrace) {
+    debugPrint('[cardActiveDecksProvider] Error watching active decks for $vaultItemId: $error\n$stackTrace');
+    yield const <String>[];
+  }
+});
+
+/// Backward-compatible alias for cardActiveDecksProvider.
+final vaultItemAssignedDecksProvider = cardActiveDecksProvider;
+
+/// Reactive StreamProvider for custom user tags on a VaultItem, parsed from vaultItemProvider.
+final cardCustomTagsProvider = StreamProvider.family<List<String>, String>((ref, vaultItemId) async* {
+  try {
+    final dao = ref.watch(vaultDaoProvider);
+    final item = await dao.getItemById(vaultItemId);
+    if (item != null) {
+      yield* dao.watchItemById(vaultItemId).map((item) {
+        if (item == null || item.dynamicData.isEmpty) return const <String>[];
+        try {
+          final data = jsonDecode(item.dynamicData) as Map<String, dynamic>;
+          final raw = data['tags'];
+          if (raw is List) return raw.map((e) => e.toString()).toList();
+        } catch (error, stackTrace) {
+          debugPrint('[cardCustomTagsProvider] Failed parsing tags: $error\n$stackTrace');
+        }
+        return const <String>[];
+      });
+    } else {
+      yield const <String>[];
+    }
+  } catch (error, stackTrace) {
+    debugPrint('[cardCustomTagsProvider] Error watching custom tags for $vaultItemId: $error\n$stackTrace');
+    yield const <String>[];
+  }
 });
 
 

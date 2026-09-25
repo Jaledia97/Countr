@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_typography.dart';
+import '../../../symbology/presentation/widgets/mana_text.dart';
 
 /// Body for Multi-Pull Post variant.
 /// Displays optional commentary and a 2x2 grid of image placeholders.
@@ -31,7 +32,7 @@ class MultiPullPostBody extends StatelessWidget {
         if (commentary != null && commentary!.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(left: 16, right: 16, bottom: 12),
-            child: Text(
+            child: ManaText(
               commentary!,
               style: AppTypography.body.copyWith(
                 fontSize: 14,
@@ -138,49 +139,53 @@ class _GridCardPlaceholder extends StatelessWidget {
             // Card Content Representation
             Padding(
               padding: const EdgeInsets.all(10),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: AppColors.surfaceRaised,
-                      border: Border.all(
-                        color: accentColors[index % accentColors.length]
-                            .withValues(alpha: 0.6),
-                        width: 1,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AppColors.surfaceRaised,
+                        border: Border.all(
+                          color: accentColors[index % accentColors.length]
+                              .withValues(alpha: 0.6),
+                          width: 1,
+                        ),
+                      ),
+                      child: Icon(
+                        Icons.style_rounded,
+                        size: 22,
+                        color: accentColors[index % accentColors.length],
                       ),
                     ),
-                    child: Icon(
-                      Icons.style_rounded,
-                      size: 22,
-                      color: accentColors[index % accentColors.length],
+                    const SizedBox(height: 8),
+                    Text(
+                      title,
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    title,
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
+                    const SizedBox(height: 2),
+                    Text(
+                      'HIT #${index + 1}',
+                      style: TextStyle(
+                        fontSize: 8.5,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1,
+                        color: accentColors[index % accentColors.length],
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'HIT #${index + 1}',
-                    style: TextStyle(
-                      fontSize: 8.5,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 1,
-                      color: accentColors[index % accentColors.length],
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
 
@@ -192,33 +197,37 @@ class _GridCardPlaceholder extends StatelessWidget {
                   borderRadius: BorderRadius.zero,
                 ),
                 alignment: Alignment.center,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: AppColors.surfaceHighlight.withValues(alpha: 0.8),
-                        border: Border.all(color: AppColors.accentCyan),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: AppColors.surfaceHighlight.withValues(alpha: 0.8),
+                          border: Border.all(color: AppColors.accentCyan),
+                        ),
+                        child: const Icon(
+                          Icons.add_photo_alternate_outlined,
+                          size: 20,
+                          color: AppColors.accentCyan,
+                        ),
                       ),
-                      child: const Icon(
-                        Icons.add_photo_alternate_outlined,
-                        size: 20,
-                        color: AppColors.accentCyan,
+                      const SizedBox(height: 6),
+                      const Text(
+                        '+ SEE MORE',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 1.2,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 6),
-                    const Text(
-                      '+ SEE MORE',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 1.2,
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
           ],

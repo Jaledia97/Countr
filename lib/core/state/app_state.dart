@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+export 'settings_state.dart';
+
 /// Scalable Riverpod StateProvider for the Active Game Context.
 /// Defaults to 'Magic: The Gathering'.
 final activeGameContextProvider = StateProvider<String>((ref) {

@@ -1,11 +1,16 @@
 import 'dart:convert';
+import 'dart:math' as math;
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 import 'package:countr/core/database/app_database.dart';
 import 'package:countr/core/database/tables/vault_binders_table.dart';
 import 'package:countr/core/database/tables/vault_items_table.dart';
+import 'package:countr/features/decks/data/mock_deck_data.dart';
+import 'package:countr/features/decks/domain/models/board_zone.dart';
+import 'package:countr/features/decks/domain/models/assembly_models.dart';
 import 'package:countr/features/scanner/domain/ocr_heuristic_matcher.dart';
+import 'package:countr/features/decks/domain/models/deck_item_with_card.dart';
 import 'package:countr/features/vault/domain/models/vault_totals.dart';
 import 'package:countr/features/vault/presentation/providers/mtg_filter_state.dart';
 
@@ -84,16 +89,29 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
       _applyMtgFilterStage1(query, mtgFilter);
     }
 
-    query.orderBy([
-      (t) => OrderingTerm(
-            expression: t.acquiredDate,
-            mode: OrderingMode.desc,
-          ),
-      (t) => OrderingTerm(
-            expression: t.name,
-            mode: OrderingMode.asc,
-          ),
-    ]);
+    if (searchQuery != null && searchQuery.trim().isNotEmpty) {
+      query.orderBy([
+        (t) => OrderingTerm(
+              expression: _buildSearchRankExpression(t, searchQuery),
+              mode: OrderingMode.asc,
+            ),
+        (t) => OrderingTerm(
+              expression: t.name,
+              mode: OrderingMode.asc,
+            ),
+      ]);
+    } else {
+      query.orderBy([
+        (t) => OrderingTerm(
+              expression: t.acquiredDate,
+              mode: OrderingMode.desc,
+            ),
+        (t) => OrderingTerm(
+              expression: t.name,
+              mode: OrderingMode.asc,
+            ),
+      ]);
+    }
 
     // Defer SQL limit when mtgFilter is active to avoid row starvation prior to Stage 2
     if (limit != null && (mtgFilter == null || !mtgFilter.isActive)) {
@@ -166,16 +184,29 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
       _applyMtgFilterStage1(query, mtgFilter);
     }
 
-    query.orderBy([
-      (t) => OrderingTerm(
-            expression: t.acquiredDate,
-            mode: OrderingMode.desc,
-          ),
-      (t) => OrderingTerm(
-            expression: t.name,
-            mode: OrderingMode.asc,
-          ),
-    ]);
+    if (searchQuery != null && searchQuery.trim().isNotEmpty) {
+      query.orderBy([
+        (t) => OrderingTerm(
+              expression: _buildSearchRankExpression(t, searchQuery),
+              mode: OrderingMode.asc,
+            ),
+        (t) => OrderingTerm(
+              expression: t.name,
+              mode: OrderingMode.asc,
+            ),
+      ]);
+    } else {
+      query.orderBy([
+        (t) => OrderingTerm(
+              expression: t.acquiredDate,
+              mode: OrderingMode.desc,
+            ),
+        (t) => OrderingTerm(
+              expression: t.name,
+              mode: OrderingMode.asc,
+            ),
+      ]);
+    }
 
     // Defer SQL limit when mtgFilter is active to avoid row starvation prior to Stage 2
     if (limit != null && (mtgFilter == null || !mtgFilter.isActive)) {
@@ -198,6 +229,39 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     }
     return filtered;
   }
+
+  /// Generates a weighted search rank [Expression<int>] prioritizing:
+  /// - Tier 1 (rank 1): Exact prefix match on name or flavor_name
+  /// - Tier 1.5 (rank 2): Leading 'The ' bypass prefix match on name or flavor_name
+  /// - Tier 2 (rank 3): Substring match on name or flavor_name
+  /// - Fallback (rank 4): Other matches (e.g. setOrSeries or dynamicData)
+  Expression<int> _buildSearchRankExpression($VaultItemsTable t, String query) {
+    final clean = query.trim();
+    return CaseWhenExpression<int>(
+      cases: [
+        CaseWhen(
+          t.name.like('$clean%') |
+              (t.flavorName.isNotNull() & t.flavorName.like('$clean%')),
+          then: const Constant(1),
+        ),
+        CaseWhen(
+          t.name.like('The $clean%') |
+              (t.flavorName.isNotNull() & t.flavorName.like('The $clean%')),
+          then: const Constant(2),
+        ),
+        CaseWhen(
+          t.name.like('%$clean%') |
+              (t.flavorName.isNotNull() & t.flavorName.like('%$clean%')),
+          then: const Constant(3),
+        ),
+      ],
+      orElse: const Constant(4),
+    );
+  }
+
+  @visibleForTesting
+  Expression<int> buildSearchRankExpression($VaultItemsTable t, String query) =>
+      _buildSearchRankExpression(t, query);
 
   /// Applies Stage 1 SQL pushdown filters to the Drift query.
   void _applyMtgFilterStage1(
@@ -306,7 +370,7 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
         CAST(COALESCE(SUM("quantity"), 0) AS INTEGER) AS total_count,
         CAST(COUNT(*) AS INTEGER) AS unique_count,
         CAST(COALESCE(SUM("current_market_price" * "quantity"), 0.0) AS REAL) AS total_market_value,
-        CAST(COALESCE(SUM("acquired_price" * "quantity"), 0.0) AS REAL) AS total_cost_basis
+        CAST(COALESCE(SUM(COALESCE("purchase_price", "acquired_price", 0.0) * "quantity"), 0.0) AS REAL) AS total_cost_basis
       FROM "vault_items"
       WHERE $whereSql;
     ''';
@@ -365,7 +429,7 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
         CAST(COALESCE(SUM("quantity"), 0) AS INTEGER) AS total_count,
         CAST(COUNT(*) AS INTEGER) AS unique_count,
         CAST(COALESCE(SUM("current_market_price" * "quantity"), 0.0) AS REAL) AS total_market_value,
-        CAST(COALESCE(SUM("acquired_price" * "quantity"), 0.0) AS REAL) AS total_cost_basis
+        CAST(COALESCE(SUM(COALESCE("purchase_price", "acquired_price", 0.0) * "quantity"), 0.0) AS REAL) AS total_cost_basis
       FROM "vault_items"
       WHERE $whereSql;
     ''';
@@ -434,7 +498,20 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
       });
     }
 
-    q.orderBy([(t) => OrderingTerm(expression: t.name, mode: OrderingMode.asc)]);
+    if (trimmed.isNotEmpty) {
+      q.orderBy([
+        (t) => OrderingTerm(
+              expression: _buildSearchRankExpression(t, trimmed),
+              mode: OrderingMode.asc,
+            ),
+        (t) => OrderingTerm(
+              expression: t.name,
+              mode: OrderingMode.asc,
+            ),
+      ]);
+    } else {
+      q.orderBy([(t) => OrderingTerm(expression: t.name, mode: OrderingMode.asc)]);
+    }
     q.limit(limit);
 
     return q.get();
@@ -501,7 +578,9 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     if (existing.dynamicData.isNotEmpty) {
       try {
         data = jsonDecode(existing.dynamicData) as Map<String, dynamic>;
-      } catch (_) {}
+      } catch (error, stackTrace) {
+        debugPrint('[VaultDao._syncItemDeckHistory] Failed decoding dynamicData for $id: $error\n$stackTrace');
+      }
     }
 
     if (deckTags != null) {
@@ -511,7 +590,7 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
       data['use_cases'] = communityNotes;
     }
 
-    return (update(vaultItems)..where((t) => t.id.equals(id))).write(
+    return await (update(vaultItems)..where((t) => t.id.equals(id))).write(
       VaultItemsCompanion(
         personalNotes: personalNotes != null
             ? Value(personalNotes)
@@ -526,6 +605,14 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
   Future<int> updateItemCardDetails({
     required String id,
     double? acquiredPrice,
+    double? purchasePrice,
+    DateTime? acquiredDate,
+    DateTime? dateObtained,
+    int? binderPage,
+    String? binderSlot,
+    String? notes,
+    String? personalNotes,
+    String? protectionStatus,
     String? condition,
     bool? isGraded,
     bool? isAltered,
@@ -537,7 +624,6 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     String? imageUrl,
     double? currentMarketPrice,
     List<String>? tags,
-    String? personalNotes,
   }) async {
     final existing =
         await (select(vaultItems)..where((t) => t.id.equals(id))).getSingleOrNull();
@@ -547,18 +633,45 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     if (existing.dynamicData.isNotEmpty) {
       try {
         data = jsonDecode(existing.dynamicData) as Map<String, dynamic>;
-      } catch (_) {}
+      } catch (error, stackTrace) {
+        debugPrint('[VaultDao.updateItemCardDetails] Failed decoding dynamicData for $id: $error\n$stackTrace');
+      }
     }
 
     if (tags != null) {
       data['tags'] = tags;
-      data['deck_history'] = tags;
     }
 
-    return (update(vaultItems)..where((t) => t.id.equals(id))).write(
+    final effectivePrice = purchasePrice ?? acquiredPrice;
+    final effectiveDate = dateObtained ?? acquiredDate;
+    final effectiveNotes = notes ?? personalNotes;
+
+    return await (update(vaultItems)..where((t) => t.id.equals(id))).write(
       VaultItemsCompanion(
-        acquiredPrice: acquiredPrice != null
-            ? Value(acquiredPrice)
+        acquiredPrice: effectivePrice != null
+            ? Value(effectivePrice)
+            : const Value.absent(),
+        purchasePrice: effectivePrice != null
+            ? Value(effectivePrice)
+            : const Value.absent(),
+        acquiredDate: effectiveDate != null
+            ? Value(effectiveDate)
+            : const Value.absent(),
+        dateObtained: effectiveDate != null
+            ? Value(effectiveDate)
+            : const Value.absent(),
+        personalNotes: effectiveNotes != null
+            ? Value(effectiveNotes)
+            : const Value.absent(),
+        notes: effectiveNotes != null
+            ? Value(effectiveNotes)
+            : const Value.absent(),
+        binderPage:
+            binderPage != null ? Value(binderPage) : const Value.absent(),
+        binderSlot:
+            binderSlot != null ? Value(binderSlot) : const Value.absent(),
+        protectionStatus: protectionStatus != null
+            ? Value(protectionStatus)
             : const Value.absent(),
         condition: condition != null ? Value(condition) : const Value.absent(),
         isGraded: isGraded != null ? Value(isGraded) : const Value.absent(),
@@ -577,18 +690,21 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
         currentMarketPrice: currentMarketPrice != null
             ? Value(currentMarketPrice)
             : const Value.absent(),
-        personalNotes: personalNotes != null
-            ? Value(personalNotes)
-            : const Value.absent(),
         dynamicData: Value(jsonEncode(data)),
         lastPriceUpdate: Value(DateTime.now()),
       ),
     );
   }
 
+
   /// Retrieves a single vault item by ID.
   Future<VaultItem?> getItemById(String id) {
     return (select(vaultItems)..where((t) => t.id.equals(id))).getSingleOrNull();
+  }
+
+  /// Watches a single vault item by ID reactively.
+  Stream<VaultItem?> watchItemById(String id) {
+    return (select(vaultItems)..where((t) => t.id.equals(id))).watchSingleOrNull();
   }
 
   /// Normalizes display collection titles to internal collection types.
@@ -734,8 +850,8 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
   }
 
   /// Inserts a new vault item.
-  Future<int> insertItem(VaultItemsCompanion item) =>
-      into(vaultItems).insert(item);
+  Future<int> insertItem(VaultItemsCompanion item) async =>
+      await into(vaultItems).insert(item);
 
   /// Inserts large lists of catalog/dictionary items in chunks of 1,000 using batch().
   /// Prevents database lockups, transaction limits, and OOM crashes.
@@ -828,20 +944,31 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     return (select(vaultBinders)..where((t) => t.id.equals(id))).getSingle();
   }
 
+  /// Fetches a binder by its unique ID.
+  Future<VaultBinder?> getBinderById(String binderId) {
+    return (select(vaultBinders)..where((t) => t.id.equals(binderId))).getSingleOrNull();
+  }
+
   /// Streams a map of binderId -> total items anchored inside that binder.
   Stream<Map<String, int>> watchBinderItemCounts() {
-    final query = select(vaultItems)
-      ..where((t) =>
-          t.quantity.isBiggerThanValue(0) &
-          t.primaryBinderId.isNotNull() &
-          t.primaryBinderId.equals('INBOX').not());
-    return query.watch().map((items) {
+    final querySql = '''
+      SELECT primary_binder_id, CAST(COALESCE(SUM(quantity), 0) AS INTEGER) AS total_count
+      FROM vault_items
+      WHERE quantity > 0
+        AND primary_binder_id IS NOT NULL
+        AND primary_binder_id != 'INBOX'
+      GROUP BY primary_binder_id
+    ''';
+
+    return customSelect(
+      querySql,
+      readsFrom: {vaultItems},
+    ).watch().map((rows) {
       final counts = <String, int>{};
-      for (final item in items) {
-        final loc = item.primaryBinderId;
-        if (loc != null && loc != 'INBOX') {
-          counts[loc] = (counts[loc] ?? 0) + item.quantity;
-        }
+      for (final r in rows) {
+        final binderId = r.read<String>('primary_binder_id');
+        final count = (r.data['total_count'] as num?)?.toInt() ?? 0;
+        counts[binderId] = count;
       }
       return counts;
     });
@@ -850,13 +977,18 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
   /// Streams aggregate total card copies grouped by collection type.
   /// Keys include 'all', 'mtg', 'pokemon', 'comic', 'sports_card'.
   Stream<Map<String, int>> watchCollectionItemCounts() {
-    final query = select(vaultItems)
-      ..where((t) =>
-          t.quantity.isBiggerThanValue(0) &
-          (t.primaryBinderId.isNull() |
-              t.primaryBinderId.equals('INBOX').not()));
+    final querySql = '''
+      SELECT LOWER(TRIM(collection_type)) AS col_type, CAST(COALESCE(SUM(quantity), 0) AS INTEGER) AS total_count
+      FROM vault_items
+      WHERE quantity > 0
+        AND (primary_binder_id IS NULL OR primary_binder_id != 'INBOX')
+      GROUP BY LOWER(TRIM(collection_type))
+    ''';
 
-    return query.watch().map((items) {
+    return customSelect(
+      querySql,
+      readsFrom: {vaultItems},
+    ).watch().map((rows) {
       final counts = <String, int>{
         'all': 0,
         'mtg': 0,
@@ -865,10 +997,11 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
         'sports_card': 0,
       };
 
-      for (final item in items) {
-        final col = item.collectionType.toLowerCase().trim();
-        counts['all'] = (counts['all'] ?? 0) + item.quantity;
-        counts[col] = (counts[col] ?? 0) + item.quantity;
+      for (final r in rows) {
+        final col = r.read<String>('col_type');
+        final count = (r.data['total_count'] as num?)?.toInt() ?? 0;
+        counts[col] = count;
+        counts['all'] = (counts['all'] ?? 0) + count;
       }
       return counts;
     });
@@ -991,7 +1124,9 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
           cardCollector ??= data['collector_number']?.toString();
           cardSet ??= data['set']?.toString();
           cardTypeLine = data['type_line']?.toString();
-        } catch (_) {}
+        } catch (error, stackTrace) {
+          debugPrint('[VaultDao._detectCardCollectorAndSet] Failed decoding dynamicData: $error\n$stackTrace');
+        }
       }
       cardCollector ??= detectedCollector;
       cardSet ??= item.setOrSeries;
@@ -1195,7 +1330,9 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
               final data = jsonDecode(card.dynamicData) as Map<String, dynamic>;
               cardSet = data['set']?.toString();
               cardCollector = data['collector_number']?.toString();
-            } catch (_) {}
+            } catch (error, stackTrace) {
+              debugPrint('[VaultDao.matchScannedCard] Exact match decoding dynamicData failed: $error\n$stackTrace');
+            }
           }
           cardSet ??= card.setOrSeries;
           if (cardSet.isNotEmpty) {
@@ -1252,7 +1389,9 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
               final data = jsonDecode(card.dynamicData) as Map<String, dynamic>;
               cardSet = data['set']?.toString();
               cardCollector = data['collector_number']?.toString();
-            } catch (_) {}
+            } catch (error, stackTrace) {
+              debugPrint('[VaultDao.matchScannedCard] Substring match decoding dynamicData failed: $error\n$stackTrace');
+            }
           }
           cardSet ??= card.setOrSeries;
           if (cardSet.isNotEmpty) {
@@ -1438,7 +1577,9 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
         CREATE INDEX IF NOT EXISTS "idx_vault_items_is_ub"
         ON "vault_items" (json_extract("dynamic_data", '\$.is_universes_beyond'));
       ''');
-    } catch (_) {}
+    } catch (error, stackTrace) {
+      debugPrint('[VaultDao.ensureSecretLairIndexes] Index creation failed: $error\n$stackTrace');
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -1629,39 +1770,80 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
   }
 
   /// Evaluates available quantity of a physical VaultItem by subtracting
-  /// assigned copies across all active DeckVersions.
+  /// assigned copies across all active DeckVersions of REGISTERED decks.
   /// 
-  /// Available = (VaultItem.quantity) - SUM(DeckVersionItems.quantity across all ACTIVE DeckVersions)
+  /// Available = (VaultItem.quantity) - SUM(DeckVersionItems.quantity across all ACTIVE DeckVersions of REGISTERED Decks)
+  /// Draft decks (is_registered == 0) do NOT lock physical inventory.
   Future<int> getAvailableQuantity(String vaultItemId) async {
-    final item = await getItemById(vaultItemId);
-    if (item == null) return 0;
-
     final querySql = '''
-      SELECT COALESCE(SUM(dvi.quantity), 0) AS allocated
-      FROM deck_version_items dvi
-      INNER JOIN deck_versions dv ON dv.id = dvi.version_id
-      WHERE dvi.vault_item_id = ? AND dv.is_active = 1 AND dvi.is_proxy = 0
+      SELECT 
+        MAX(0, vi.quantity - COALESCE(alloc.total_allocated, 0)) AS available_quantity
+      FROM vault_items vi
+      LEFT JOIN (
+        SELECT dvi.vault_item_id, SUM(dvi.quantity) AS total_allocated
+        FROM deck_version_items dvi
+        INNER JOIN deck_versions dv ON dv.id = dvi.version_id
+        INNER JOIN decks d ON d.id = dv.deck_id
+        WHERE dv.is_active = 1
+          AND dvi.is_proxy = 0
+          AND d.is_registered = 1
+        GROUP BY dvi.vault_item_id
+      ) alloc ON alloc.vault_item_id = vi.id
+      WHERE vi.id = ?
     ''';
 
     final row = await customSelect(
       querySql,
       variables: [Variable.withString(vaultItemId)],
-      readsFrom: {deckVersionItems, deckVersions},
-    ).getSingle();
+      readsFrom: {vaultItems, deckVersionItems, deckVersions, decks},
+    ).getSingleOrNull();
 
-    final allocated = (row.data['allocated'] as num?)?.toInt() ?? 0;
-    final available = item.quantity - allocated;
-    return available < 0 ? 0 : available;
+    if (row == null) return 0;
+    return (row.data['available_quantity'] as num?)?.toInt() ?? 0;
+  }
+
+  /// Streams available physical quantity for a VaultItem reactively.
+  Stream<int> watchAvailableQuantity(String vaultItemId) {
+    final querySql = '''
+      SELECT 
+        MAX(0, vi.quantity - COALESCE(alloc.total_allocated, 0)) AS available_quantity
+      FROM vault_items vi
+      LEFT JOIN (
+        SELECT dvi.vault_item_id, SUM(dvi.quantity) AS total_allocated
+        FROM deck_version_items dvi
+        INNER JOIN deck_versions dv ON dv.id = dvi.version_id
+        INNER JOIN decks d ON d.id = dv.deck_id
+        WHERE dv.is_active = 1
+          AND dvi.is_proxy = 0
+          AND d.is_registered = 1
+        GROUP BY dvi.vault_item_id
+      ) alloc ON alloc.vault_item_id = vi.id
+      WHERE vi.id = ?
+    ''';
+
+    return customSelect(
+      querySql,
+      variables: [Variable.withString(vaultItemId)],
+      readsFrom: {vaultItems, deckVersionItems, deckVersions, decks},
+    ).watchSingleOrNull().map((row) {
+      if (row == null) return 0;
+      return (row.data['available_quantity'] as num?)?.toInt() ?? 0;
+    });
   }
 
   /// Lists all active decks where a vault item is currently assigned.
-  Future<List<String>> getDecksUsingItem(String vaultItemId) async {
+  /// If [onlyRegistered] is true, only decks that lock physical inventory (d.is_registered == 1) are returned.
+  Future<List<String>> getDecksUsingItem(String vaultItemId, {bool onlyRegistered = true}) async {
+    final whereClause = onlyRegistered
+        ? 'WHERE dvi.vault_item_id = ? AND dv.is_active = 1 AND dvi.is_proxy = 0 AND d.is_registered = 1'
+        : 'WHERE dvi.vault_item_id = ? AND dv.is_active = 1 AND dvi.is_proxy = 0';
+
     final querySql = '''
       SELECT DISTINCT d.name
       FROM deck_version_items dvi
       INNER JOIN deck_versions dv ON dv.id = dvi.version_id
       INNER JOIN decks d ON d.id = dv.deck_id
-      WHERE dvi.vault_item_id = ? AND dv.is_active = 1 AND dvi.is_proxy = 0
+      $whereClause
     ''';
 
     final rows = await customSelect(
@@ -1683,12 +1865,23 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     return (select(decks)..where((t) => t.id.equals(id))).watchSingle();
   }
 
+  /// Streams a single deck or null if not found
+  Stream<Deck?> watchDeckOrNull(String id) {
+    return (select(decks)..where((t) => t.id.equals(id))).watchSingleOrNull();
+  }
+
+  /// Retrieves a single deck by ID or null if not found
+  Future<Deck?> getDeck(String id) {
+    return (select(decks)..where((t) => t.id.equals(id))).getSingleOrNull();
+  }
+
   /// Streams deck items with vault item data for the active deck version
-  Stream<List<Map<String, dynamic>>> watchDeckItems(String deckId) {
+  Stream<List<DeckItemWithCard>> watchDeckItems(String deckId) {
     final querySql = '''
       SELECT 
         dvi.id as dvi_id, dvi.version_id, dvi.vault_item_id, dvi.quantity as deck_quantity, dvi.board_zone, dvi.is_proxy,
-        vi.id, vi.name, vi.set_or_series, vi.image_url, vi.dynamic_data, vi.current_market_price, vi.quantity as vault_quantity, vi.is_graded, vi.condition
+        vi.id, vi.name, vi.set_or_series, vi.image_url, vi.dynamic_data, vi.current_market_price, vi.quantity as vault_quantity, vi.is_graded, vi.condition,
+        vi.acquired_price, vi.purchase_price, vi.acquired_date, vi.date_obtained, vi.notes, vi.protection_status
       FROM deck_version_items dvi
       INNER JOIN deck_versions dv ON dv.id = dvi.version_id
       INNER JOIN vault_items vi ON vi.id = dvi.vault_item_id
@@ -1700,7 +1893,7 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
       variables: [Variable.withString(deckId)],
       readsFrom: {deckVersionItems, deckVersions, vaultItems},
     ).watch().map((rows) {
-      return rows.map((row) => row.data).toList();
+      return rows.map((row) => DeckItemWithCard.fromRow(row.data)).toList();
     });
   }
 
@@ -1720,6 +1913,30 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
       readsFrom: {deckVersionItems, deckVersions, decks},
     ).watch().map((rows) {
       return rows.map((r) => r.read<String>('name')).toList();
+    });
+  }
+
+  /// Streams all active decks grouped by vault item id: `Map<String, List<String>>`
+  Stream<Map<String, List<String>>> watchAllCardActiveDecks() {
+    final querySql = '''
+      SELECT DISTINCT dvi.vault_item_id, d.name
+      FROM deck_version_items dvi
+      INNER JOIN deck_versions dv ON dv.id = dvi.version_id
+      INNER JOIN decks d ON d.id = dv.deck_id
+      WHERE dv.is_active = 1 AND dvi.is_proxy = 0
+    ''';
+
+    return customSelect(
+      querySql,
+      readsFrom: {deckVersionItems, deckVersions, decks},
+    ).watch().map((rows) {
+      final map = <String, List<String>>{};
+      for (final r in rows) {
+        final itemId = r.read<String>('vault_item_id');
+        final deckName = r.read<String>('name');
+        map.putIfAbsent(itemId, () => []).add(deckName);
+      }
+      return map;
     });
   }
 
@@ -1743,12 +1960,22 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     ));
   }
 
-  Future<Deck> createDeck(String name) async {
+  /// Creates a deck with custom format, tcgDomain, and initial registration/competitive flags.
+  Future<Deck> createDeck(
+    String name, {
+    String format = 'Commander',
+    String tcgDomain = 'mtg',
+    bool isRegistered = false,
+    bool isCompetitive = false,
+  }) async {
     final deckId = const Uuid().v4();
     final deck = DecksCompanion.insert(
       id: deckId,
       name: name,
-      format: 'Commander',
+      format: format,
+      tcgDomain: Value(tcgDomain),
+      isRegistered: Value(isRegistered),
+      isCompetitive: Value(isCompetitive),
       createdAt: DateTime.now(),
     );
     await into(decks).insert(deck);
@@ -1766,39 +1993,104 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     return (await (select(decks)..where((t) => t.id.equals(deckId))).getSingle());
   }
 
-  Future<void> addCardToDeck(String deckId, String vaultItemId, {bool isProxy = false}) async {
-    final version = await (select(deckVersions)..where((t) => t.deckId.equals(deckId) & t.isActive.equals(true))).getSingleOrNull();
-    if (version == null) return;
+  /// Adds a card to a deck version with specified boardZone and quantity.
+  /// Supports multiple distinct commanders and zone isolation.
+  Future<void> addCardToDeck(
+    String deckId,
+    String vaultItemId, {
+    bool isProxy = false,
+    String boardZone = 'Mainboard',
+    int quantity = 1,
+  }) async {
+    var version = await (select(deckVersions)..where((t) => t.deckId.equals(deckId) & t.isActive.equals(true))).getSingleOrNull();
+    if (version == null) {
+      final existingDeck = await (select(decks)..where((t) => t.id.equals(deckId))).getSingleOrNull();
+      if (existingDeck == null) {
+        final mockMatch = MockDeckData.defaultDecks.where((d) => d.id == deckId).firstOrNull;
+        final resolvedName = mockMatch?.name ?? 'Deck $deckId';
+        final resolvedFormat = mockMatch?.format ?? 'Commander';
+        final resolvedDomain = mockMatch?.tcgDomain ?? 'mtg';
+        final resolvedRegistered = mockMatch?.isRegistered ?? false;
+        final resolvedCompetitive = mockMatch?.isCompetitive ?? false;
+        await into(decks).insert(DecksCompanion.insert(
+          id: deckId,
+          name: resolvedName,
+          format: resolvedFormat,
+          tcgDomain: Value(resolvedDomain),
+          isRegistered: Value(resolvedRegistered),
+          isCompetitive: Value(resolvedCompetitive),
+          createdAt: DateTime.now(),
+        ));
+      }
+      final versionId = const Uuid().v4();
+      await into(deckVersions).insert(DeckVersionsCompanion.insert(
+        id: versionId,
+        deckId: deckId,
+        versionNumber: 1,
+        isActive: const Value(true),
+        createdAt: DateTime.now(),
+      ));
+      version = await (select(deckVersions)..where((t) => t.id.equals(versionId))).getSingle();
+    }
+
+    // Normalize boardZone to canonical PascalCase
+    final canonicalZone = _normalizeBoardZone(boardZone);
     
     final existing = await (select(deckVersionItems)
-      ..where((t) => t.versionId.equals(version.id) & t.vaultItemId.equals(vaultItemId) & t.isProxy.equals(isProxy)))
+      ..where((t) =>
+          t.versionId.equals(version!.id) &
+          t.vaultItemId.equals(vaultItemId) &
+          t.boardZone.equals(canonicalZone) &
+          t.isProxy.equals(isProxy)))
       .getSingleOrNull();
       
     if (existing != null) {
-      await update(deckVersionItems).replace(existing.copyWith(quantity: existing.quantity + 1));
+      await update(deckVersionItems).replace(existing.copyWith(quantity: existing.quantity + quantity));
     } else {
       await into(deckVersionItems).insert(DeckVersionItemsCompanion.insert(
         id: const Uuid().v4(),
         versionId: version.id,
         vaultItemId: vaultItemId,
-        quantity: const Value(1),
-        boardZone: 'Mainboard',
+        quantity: Value(quantity),
+        boardZone: canonicalZone,
         isProxy: Value(isProxy),
       ));
     }
+
+    await _syncItemDeckHistory(vaultItemId);
   }
 
+  String _normalizeBoardZone(String zone) {
+    final lower = zone.trim().toLowerCase();
+    switch (lower) {
+      case 'commander':
+        return 'Commander';
+      case 'sideboard':
+        return 'Sideboard';
+      case 'maybeboard':
+        return 'Maybeboard';
+      case 'companion':
+        return 'Companion';
+      case 'mainboard':
+      default:
+        return 'Mainboard';
+    }
+  }
+
+  /// Moves a physical card from an active deck to targetDeckId, prioritizing registered decks.
   Future<void> moveCardToDeck(String vaultItemId, String targetDeckId) async {
     final row = await customSelect(
       '''
       SELECT dvi.id as item_id
       FROM deck_version_items dvi
       INNER JOIN deck_versions dv ON dv.id = dvi.version_id
+      INNER JOIN decks d ON d.id = dv.deck_id
       WHERE dvi.vault_item_id = ? AND dv.is_active = 1 AND dvi.is_proxy = 0
+      ORDER BY d.is_registered DESC
       LIMIT 1
       ''',
       variables: [Variable.withString(vaultItemId)],
-      readsFrom: {deckVersionItems, deckVersions},
+      readsFrom: {deckVersionItems, deckVersions, decks},
     ).getSingleOrNull();
     
     if (row != null) {
@@ -1815,4 +2107,647 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     
     await addCardToDeck(targetDeckId, vaultItemId, isProxy: false);
   }
+
+  /// Sets physical registration status of a deck (Draft vs Registered).
+  Future<void> setDeckRegistered(String deckId, bool isRegistered) async {
+    await (update(decks)..where((t) => t.id.equals(deckId))).write(DecksCompanion(
+      isRegistered: Value(isRegistered),
+    ));
+  }
+
+  /// Sets competitive status of a deck (Tournament vs Casual).
+  Future<void> setDeckCompetitive(String deckId, bool isCompetitive) async {
+    await (update(decks)..where((t) => t.id.equals(deckId))).write(DecksCompanion(
+      isCompetitive: Value(isCompetitive),
+    ));
+  }
+
+  /// Swaps physical printing assigned to a deck version item.
+  /// Consolidates duplicate rows if the target printing is already present in the same zone,
+  /// and synchronizes dynamicData['deck_history'] for both the former and replacement items.
+  Future<void> swapDeckItemPrinting(String dviId, String newVaultItemId) async {
+    final currentDvi = await (select(deckVersionItems)..where((t) => t.id.equals(dviId))).getSingleOrNull();
+    if (currentDvi == null) return;
+    final oldVaultItemId = currentDvi.vaultItemId;
+    if (oldVaultItemId == newVaultItemId) return;
+
+    // Check if target item already exists in the same version, zone, and proxy status
+    final existingTarget = await (select(deckVersionItems)
+      ..where((t) =>
+          t.versionId.equals(currentDvi.versionId) &
+          t.vaultItemId.equals(newVaultItemId) &
+          t.boardZone.equals(currentDvi.boardZone) &
+          t.isProxy.equals(currentDvi.isProxy)))
+      .getSingleOrNull();
+
+    if (existingTarget != null) {
+      // Merge quantities and remove the duplicate row
+      await (update(deckVersionItems)..where((t) => t.id.equals(existingTarget.id))).write(
+        DeckVersionItemsCompanion(quantity: Value(existingTarget.quantity + currentDvi.quantity)),
+      );
+      await (delete(deckVersionItems)..where((t) => t.id.equals(dviId))).go();
+    } else {
+      await (update(deckVersionItems)..where((t) => t.id.equals(dviId))).write(
+        DeckVersionItemsCompanion(vaultItemId: Value(newVaultItemId)),
+      );
+    }
+
+    // Synchronize deck history for both old and new vault items
+    await _syncItemDeckHistory(oldVaultItemId);
+    await _syncItemDeckHistory(newVaultItemId);
+  }
+
+  /// Finds all owned VaultItems with matching card name or oracle_id for swap printing sheet.
+  /// Strictly filters quantity > 0 (physical copies in vault) and excludes currently assigned copy.
+  Future<List<VaultItem>> getAlternativePrintings(
+    String cardName, {
+    String? oracleId,
+    String? excludeVaultItemId,
+  }) async {
+    final clean = cardName.trim().toLowerCase();
+    final cleanFirstFace = clean.contains('//') ? clean.split('//').first.trim() : clean;
+
+    final items = await (select(vaultItems)
+      ..where((t) => t.quantity.isBiggerThanValue(0))
+      ..orderBy([(t) => OrderingTerm(expression: t.setOrSeries, mode: OrderingMode.asc)]))
+      .get();
+
+    return items.where((t) {
+      if (excludeVaultItemId != null && t.id == excludeVaultItemId) {
+        return false;
+      }
+      final nameLower = t.name.toLowerCase();
+      final firstFaceLower = nameLower.contains('//') ? nameLower.split('//').first.trim() : nameLower;
+      final flavorLower = t.flavorName?.toLowerCase();
+
+      // 1. Check exact or front-face name match
+      if (nameLower == clean || firstFaceLower == cleanFirstFace || (flavorLower != null && flavorLower == clean)) {
+        return true;
+      }
+
+      // 2. Check oracle_id match if present
+      if (oracleId != null && oracleId.isNotEmpty) {
+        try {
+          final dyn = jsonDecode(t.dynamicData) as Map<String, dynamic>;
+          if (dyn['oracle_id'] == oracleId) return true;
+        } catch (error, stackTrace) {
+          debugPrint('[VaultDao._matchesItem] Oracle ID match decoding dynamicData failed: $error\n$stackTrace');
+        }
+      }
+
+      return false;
+    }).toList();
+  }
+
+  /// Finds all owned VaultItems with matching card name or oracle_id for swap printing sheet,
+  /// with binder names and available physical quantity calculated in a single relational query.
+  Future<List<AlternativePrintingDetail>> getAlternativePrintingsWithDetails(
+    String cardName, {
+    String? oracleId,
+    String? excludeVaultItemId,
+  }) async {
+    final clean = cardName.trim().toLowerCase();
+    final cleanFirstFace = clean.contains('//') ? clean.split('//').first.trim() : clean;
+
+    final variables = <Variable>[];
+    var excludeClause = '';
+    if (excludeVaultItemId != null && excludeVaultItemId.isNotEmpty) {
+      excludeClause = 'AND vi.id != ?';
+      variables.add(Variable.withString(excludeVaultItemId));
+    }
+
+    var oracleClause = '';
+    if (oracleId != null && oracleId.isNotEmpty) {
+      oracleClause = '''
+        OR vi.dynamic_data LIKE ?
+        OR vi.dynamic_data LIKE ?
+        OR json_extract(vi.dynamic_data, '\$.oracle_id') = ?
+      ''';
+    }
+
+    variables.add(Variable.withString(clean));
+    variables.add(Variable.withString(cleanFirstFace));
+    variables.add(Variable.withString('$cleanFirstFace // %'));
+    variables.add(Variable.withString(clean));
+    if (oracleId != null && oracleId.isNotEmpty) {
+      variables.add(Variable.withString('%"oracle_id":"$oracleId"%'));
+      variables.add(Variable.withString('%"oracle_id": "$oracleId"%'));
+      variables.add(Variable.withString(oracleId));
+    }
+
+    final querySql = '''
+      SELECT 
+        vi.*,
+        vb.name AS binder_name,
+        MAX(0, vi.quantity - COALESCE(alloc.total_allocated, 0)) AS available_quantity
+      FROM vault_items vi
+      LEFT JOIN vault_binders vb ON vb.id = vi.primary_binder_id
+      LEFT JOIN (
+        SELECT dvi.vault_item_id, SUM(dvi.quantity) AS total_allocated
+        FROM deck_version_items dvi
+        INNER JOIN deck_versions dv ON dv.id = dvi.version_id
+        INNER JOIN decks d ON d.id = dv.deck_id
+        WHERE dv.is_active = 1
+          AND dvi.is_proxy = 0
+          AND d.is_registered = 1
+        GROUP BY dvi.vault_item_id
+      ) alloc ON alloc.vault_item_id = vi.id
+      WHERE vi.quantity > 0
+        $excludeClause
+        AND (
+          LOWER(vi.name) = ?
+          OR LOWER(vi.name) = ?
+          OR LOWER(vi.name) LIKE ?
+          OR (vi.flavor_name IS NOT NULL AND LOWER(vi.flavor_name) = ?)
+          $oracleClause
+        )
+      ORDER BY vi.set_or_series ASC;
+    ''';
+
+    final rows = await customSelect(
+      querySql,
+      variables: variables,
+      readsFrom: {vaultItems, vaultBinders, deckVersionItems, deckVersions, decks},
+    ).get();
+
+    return rows.map((row) {
+      final item = vaultItems.map(row.data);
+      final availableQuantity = (row.data['available_quantity'] as num?)?.toInt() ?? 0;
+      final dbBinderName = row.data['binder_name'] as String?;
+      final String binderName;
+      if (item.primaryBinderId == 'INBOX') {
+        binderName = 'Inbox (Unsorted)';
+      } else if (item.primaryBinderId != null && dbBinderName != null && dbBinderName.isNotEmpty) {
+        binderName = dbBinderName;
+      } else {
+        binderName = 'Main Vault';
+      }
+
+      return AlternativePrintingDetail(
+        item: item,
+        availableQuantity: availableQuantity,
+        binderName: binderName,
+      );
+    }).toList();
+  }
+
+  /// Updates a VaultItem's printing edition, set code, collector number, and art crop
+  /// in place without deleting or re-scanning the card.
+  /// Preserves: id, quantity, primaryBinderId, acquiredPrice, acquiredDate, personalNotes, condition.
+  Future<VaultItem> switchCardPrinting({
+    required String id,
+    required String setCode,
+    required String setName,
+    required String collectorNumber,
+    required String imageUrl,
+    required double marketPrice,
+    String? artCropUrl,
+    String? treatment,
+    Map<String, dynamic>? extraDynamicData,
+  }) async {
+    final existing = await (select(vaultItems)..where((t) => t.id.equals(id))).getSingleOrNull();
+    if (existing == null) {
+      throw StateError('VaultItem with id "$id" not found.');
+    }
+
+    Map<String, dynamic> data = {};
+    if (existing.dynamicData.isNotEmpty) {
+      try {
+        data = jsonDecode(existing.dynamicData) as Map<String, dynamic>;
+      } catch (error, stackTrace) {
+        debugPrint('[VaultDao.switchCardPrinting] Failed decoding existing dynamicData: $error\n$stackTrace');
+      }
+    }
+
+    // Merge new printing attributes into polymorphic dynamicData
+    data['set'] = setCode.toLowerCase();
+    data['set_code'] = setCode.toLowerCase();
+    data['set_name'] = setName;
+    data['collector_number'] = collectorNumber;
+    if (treatment != null) {
+      data['treatment'] = treatment;
+      if (treatment.toLowerCase().contains('foil')) {
+        final finishes = (data['finishes'] as List?)?.cast<String>() ?? [];
+        if (!finishes.contains('foil')) finishes.add('foil');
+        data['finishes'] = finishes;
+      }
+    }
+
+    if (artCropUrl != null && artCropUrl.isNotEmpty) {
+      final imageUris = (data['image_uris'] as Map<String, dynamic>?) ?? {};
+      imageUris['art_crop'] = artCropUrl;
+      data['image_uris'] = imageUris;
+    }
+
+    if (extraDynamicData != null && extraDynamicData.isNotEmpty) {
+      if (extraDynamicData.containsKey('artist')) data['artist'] = extraDynamicData['artist'];
+      if (extraDynamicData.containsKey('flavor_text')) data['flavor_text'] = extraDynamicData['flavor_text'];
+      if (extraDynamicData.containsKey('rarity')) data['rarity'] = extraDynamicData['rarity'];
+      if (extraDynamicData.containsKey('oracle_id')) data['oracle_id'] = extraDynamicData['oracle_id'];
+    }
+
+    final updatedSetOrSeries = treatment != null && treatment != 'Standard'
+        ? '$setName ($treatment)'
+        : setName;
+
+    await (update(vaultItems)..where((t) => t.id.equals(id))).write(
+      VaultItemsCompanion(
+        setOrSeries: Value(updatedSetOrSeries),
+        imageUrl: Value(imageUrl.isNotEmpty ? imageUrl : existing.imageUrl),
+        currentMarketPrice: Value(marketPrice > 0 ? marketPrice : existing.currentMarketPrice),
+        lastPriceUpdate: Value(DateTime.now()),
+        dynamicData: Value(jsonEncode(data)),
+      ),
+    );
+
+    return (select(vaultItems)..where((t) => t.id.equals(id))).getSingle();
+  }
+
+  /// Retrieves all catalog printings (owned and unowned reference dictionary)
+  /// matching the card name or flavor name.
+  Future<List<VaultItem>> getCatalogPrintings(String cardName, {String? oracleId}) async {
+    final clean = cardName.trim().toLowerCase();
+    final cleanFirstFace = clean.contains('//') ? clean.split('//').first.trim() : clean;
+
+    final items = await (select(vaultItems)
+      ..where((t) =>
+          t.name.lower().equals(clean) |
+          t.name.lower().equals(cleanFirstFace) |
+          (t.flavorName.isNotNull() & t.flavorName.lower().equals(clean)))
+      ..orderBy([(t) => OrderingTerm(expression: t.setOrSeries, mode: OrderingMode.asc)]))
+      .get();
+
+    if (oracleId != null && oracleId.isNotEmpty) {
+      final allMatchingOracle = await (select(vaultItems)
+        ..where((t) => t.dynamicData.like('%"oracle_id":"$oracleId"%'))
+        ..orderBy([(t) => OrderingTerm(expression: t.setOrSeries, mode: OrderingMode.asc)]))
+        .get();
+      final seenIds = items.map((e) => e.id).toSet();
+      for (final it in allMatchingOracle) {
+        if (!seenIds.contains(it.id)) {
+          items.add(it);
+          seenIds.add(it.id);
+        }
+      }
+    }
+
+    return items;
+  }
+
+  /// Resolves an assembly plan for a deck with physical inventory and binder breakdown.
+  Future<DeckAssemblyPlan> getDeckAssemblyPlan(String deckId) async {
+    final deck = await (select(decks)..where((t) => t.id.equals(deckId))).getSingleOrNull();
+    final deckName = deck?.name ?? 'Deck $deckId';
+
+    final querySql = '''
+      SELECT 
+        dvi.id AS dvi_id,
+        dvi.version_id,
+        dvi.vault_item_id,
+        dvi.quantity AS deck_quantity,
+        dvi.board_zone,
+        dvi.is_proxy,
+        vi.name AS card_name,
+        vi.set_or_series,
+        vi.image_url,
+        vi.quantity AS vault_quantity,
+        vi.primary_binder_id,
+        vb.name AS binder_name,
+        COALESCE(other_alloc.total_allocated, 0) AS other_allocated
+      FROM deck_version_items dvi
+      INNER JOIN deck_versions dv ON dv.id = dvi.version_id
+      INNER JOIN vault_items vi ON vi.id = dvi.vault_item_id
+      LEFT JOIN vault_binders vb ON vb.id = vi.primary_binder_id
+      LEFT JOIN (
+        SELECT dvi2.vault_item_id, SUM(dvi2.quantity) AS total_allocated
+        FROM deck_version_items dvi2
+        INNER JOIN deck_versions dv2 ON dv2.id = dvi2.version_id
+        INNER JOIN decks d2 ON d2.id = dv2.deck_id
+        WHERE dv2.is_active = 1
+          AND dvi2.is_proxy = 0
+          AND d2.is_registered = 1
+          AND d2.id != ?
+        GROUP BY dvi2.vault_item_id
+      ) other_alloc ON other_alloc.vault_item_id = dvi.vault_item_id
+      WHERE dv.deck_id = ? AND dv.is_active = 1
+    ''';
+
+    final rows = await customSelect(
+      querySql,
+      variables: [Variable.withString(deckId), Variable.withString(deckId)],
+      readsFrom: {deckVersionItems, deckVersions, vaultItems, vaultBinders, decks},
+    ).get();
+
+    final items = <AssemblyPickItem>[];
+    for (final row in rows) {
+      final dviId = row.read<String>('dvi_id');
+      final vaultItemId = row.read<String>('vault_item_id');
+      final cardName = row.read<String>('card_name');
+      final setCode = row.read<String>('set_or_series');
+      final imageUrl = row.readNullable<String>('image_url');
+      final zoneStr = row.read<String>('board_zone');
+      final zone = BoardZone.fromString(zoneStr);
+      final deckQty = row.read<int>('deck_quantity');
+      final isProxy = row.read<bool>('is_proxy');
+      final binderId = row.readNullable<String>('primary_binder_id');
+      final binderName = row.readNullable<String>('binder_name');
+
+      // Exclude wishlist/maybeboard from physical assembly
+      if (zone == BoardZone.maybeboard) continue;
+
+      final otherAlloc = (row.data['other_allocated'] as num?)?.toInt() ?? 0;
+      final totalVaultQty = row.read<int>('vault_quantity');
+      final avail = math.max(0, totalVaultQty - otherAlloc);
+      final pull = isProxy ? 0 : math.min(deckQty, avail);
+      final deficit = isProxy ? 0 : math.max(0, deckQty - avail);
+
+      final locName = binderName != null && binderName.isNotEmpty
+          ? binderName
+          : 'Unsorted Vault';
+
+      items.add(AssemblyPickItem(
+        dviId: dviId,
+        vaultItemId: vaultItemId,
+        cardName: cardName,
+        setCode: setCode,
+        imageUrl: imageUrl,
+        boardZone: zone,
+        requiredQuantity: deckQty,
+        availableQuantity: avail,
+        pullQuantity: pull,
+        deficitQuantity: deficit,
+        binderId: binderId,
+        locationName: locName,
+        isProxy: isProxy,
+      ));
+    }
+
+    final Map<String, List<AssemblyPickItem>> grouped = {};
+    for (final it in items) {
+      if (it.pullQuantity > 0) {
+        grouped.putIfAbsent(it.locationName, () => []).add(it);
+      }
+    }
+    final deficitItems = items.where((it) => it.hasDeficit).toList();
+
+    return DeckAssemblyPlan(
+      deckId: deckId,
+      deckName: deckName,
+      items: items,
+      itemsByLocation: grouped,
+      deficitItems: deficitItems,
+    );
+  }
+
+  /// Persists deck registration and splits deficit items into physical and proxy rows.
+  Future<void> registerDeckWithProxyResolution({
+    required String deckId,
+    required List<AssemblyPickItem> items,
+  }) async {
+    final version = await (select(deckVersions)
+      ..where((t) => t.deckId.equals(deckId) & t.isActive.equals(true)))
+      .getSingleOrNull();
+
+    if (version != null) {
+      for (final item in items) {
+        if (item.hasDeficit) {
+          final existingDvi = await (select(deckVersionItems)
+            ..where((t) => t.id.equals(item.dviId)))
+            .getSingleOrNull();
+
+          if (existingDvi != null) {
+            if (existingDvi.quantity <= item.deficitQuantity) {
+              // Full deficit: mark row as proxy
+              await (update(deckVersionItems)..where((t) => t.id.equals(existingDvi.id)))
+                  .write(const DeckVersionItemsCompanion(isProxy: Value(true)));
+            } else {
+              // Partial deficit: split row
+              final physicalQty = existingDvi.quantity - item.deficitQuantity;
+              await (update(deckVersionItems)..where((t) => t.id.equals(existingDvi.id)))
+                  .write(DeckVersionItemsCompanion(quantity: Value(physicalQty)));
+
+              final existingProxy = await (select(deckVersionItems)
+                ..where((t) =>
+                    t.versionId.equals(version.id) &
+                    t.vaultItemId.equals(existingDvi.vaultItemId) &
+                    t.boardZone.equals(existingDvi.boardZone) &
+                    t.isProxy.equals(true)))
+                .getSingleOrNull();
+
+              if (existingProxy != null) {
+                await (update(deckVersionItems)..where((t) => t.id.equals(existingProxy.id)))
+                    .write(DeckVersionItemsCompanion(
+                      quantity: Value(existingProxy.quantity + item.deficitQuantity),
+                    ));
+              } else {
+                await into(deckVersionItems).insert(DeckVersionItemsCompanion.insert(
+                  id: const Uuid().v4(),
+                  versionId: version.id,
+                  vaultItemId: existingDvi.vaultItemId,
+                  quantity: Value(item.deficitQuantity),
+                  boardZone: existingDvi.boardZone,
+                  isProxy: const Value(true),
+                ));
+              }
+            }
+          }
+        }
+      }
+    }
+
+    await setDeckRegistered(deckId, true);
+  }
+
+  /// Streams a map of deckId -> total allocated quantity for a vault item
+  Stream<Map<String, int>> watchCardDeckAllocations(String vaultItemId) {
+    Future<Map<String, int>> fetch() async {
+      final querySql = '''
+        SELECT dv.deck_id, COALESCE(SUM(dvi.quantity), 0) AS total_qty
+        FROM deck_version_items dvi
+        INNER JOIN deck_versions dv ON dv.id = dvi.version_id
+        WHERE dvi.vault_item_id = ? AND dv.is_active = 1
+        GROUP BY dv.deck_id
+      ''';
+
+      final rows = await customSelect(
+        querySql,
+        variables: [Variable.withString(vaultItemId)],
+        readsFrom: {deckVersionItems, deckVersions},
+      ).get();
+
+      final map = <String, int>{};
+      for (final r in rows) {
+        final deckId = r.read<String>('deck_id');
+        final qty = r.read<int?>('total_qty') ?? 0;
+        map[deckId] = qty;
+      }
+      return map;
+    }
+
+    Stream<Map<String, int>> generate() async* {
+      yield await fetch();
+      final updates = attachedDatabase.tableUpdates(
+        TableUpdateQuery.onAllTables([deckVersionItems, deckVersions]),
+      );
+      await for (final _ in updates) {
+        yield await fetch();
+      }
+    }
+
+    return generate().distinct(mapEquals);
+  }
+
+  /// Sets exact card quantity in active version of deck.
+  Future<void> setCardQuantityInDeck(
+    String deckId,
+    String vaultItemId,
+    int newQuantity, {
+    String boardZone = 'Mainboard',
+    bool isProxy = false,
+  }) async {
+    if (newQuantity <= 0) {
+      await removeCardFromDeck(
+        deckId,
+        vaultItemId,
+        quantity: 999999,
+        boardZone: boardZone,
+        isProxy: isProxy,
+      );
+      return;
+    }
+
+    var version = await (select(deckVersions)
+          ..where((t) => t.deckId.equals(deckId) & t.isActive.equals(true)))
+        .getSingleOrNull();
+
+    if (version == null) {
+      final existingDeck = await (select(decks)..where((t) => t.id.equals(deckId))).getSingleOrNull();
+      if (existingDeck == null) {
+        final mockMatch = MockDeckData.defaultDecks.where((d) => d.id == deckId).firstOrNull;
+        final resolvedName = mockMatch?.name ?? 'Deck $deckId';
+        final resolvedFormat = mockMatch?.format ?? 'Commander';
+        final resolvedDomain = mockMatch?.tcgDomain ?? 'mtg';
+        final resolvedRegistered = mockMatch?.isRegistered ?? false;
+        final resolvedCompetitive = mockMatch?.isCompetitive ?? false;
+        await into(decks).insert(DecksCompanion.insert(
+          id: deckId,
+          name: resolvedName,
+          format: resolvedFormat,
+          tcgDomain: Value(resolvedDomain),
+          isRegistered: Value(resolvedRegistered),
+          isCompetitive: Value(resolvedCompetitive),
+          createdAt: DateTime.now(),
+        ));
+      }
+      final versionId = const Uuid().v4();
+      await into(deckVersions).insert(DeckVersionsCompanion.insert(
+        id: versionId,
+        deckId: deckId,
+        versionNumber: 1,
+        isActive: const Value(true),
+        createdAt: DateTime.now(),
+      ));
+      version = await (select(deckVersions)..where((t) => t.id.equals(versionId))).getSingle();
+    }
+
+    final canonicalZone = _normalizeBoardZone(boardZone);
+    final existing = await (select(deckVersionItems)
+      ..where((t) =>
+          t.versionId.equals(version!.id) &
+          t.vaultItemId.equals(vaultItemId) &
+          t.boardZone.equals(canonicalZone) &
+          t.isProxy.equals(isProxy)))
+      .getSingleOrNull();
+
+    if (existing != null) {
+      await (update(deckVersionItems)..where((t) => t.id.equals(existing.id))).write(
+        DeckVersionItemsCompanion(quantity: Value(newQuantity)),
+      );
+    } else {
+      await into(deckVersionItems).insert(DeckVersionItemsCompanion.insert(
+        id: const Uuid().v4(),
+        versionId: version.id,
+        vaultItemId: vaultItemId,
+        quantity: Value(newQuantity),
+        boardZone: canonicalZone,
+        isProxy: Value(isProxy),
+      ));
+    }
+
+    await _syncItemDeckHistory(vaultItemId);
+  }
+
+  /// Decrements or removes a card from a deck's active version.
+  Future<void> removeCardFromDeck(
+    String deckId,
+    String vaultItemId, {
+    int quantity = 1,
+    String boardZone = 'Mainboard',
+    bool? isProxy,
+  }) async {
+    final version = await (select(deckVersions)
+          ..where((t) => t.deckId.equals(deckId) & t.isActive.equals(true)))
+        .getSingleOrNull();
+    if (version == null) return;
+
+    final canonicalZone = _normalizeBoardZone(boardZone);
+    final query = select(deckVersionItems)
+      ..where((t) =>
+          t.versionId.equals(version.id) &
+          t.vaultItemId.equals(vaultItemId) &
+          t.boardZone.equals(canonicalZone));
+    if (isProxy != null) {
+      query.where((t) => t.isProxy.equals(isProxy));
+    }
+
+    final items = await query.get();
+    if (items.isEmpty) return;
+
+    int remaining = quantity;
+    for (final item in items) {
+      if (remaining <= 0) break;
+      if (item.quantity > remaining) {
+        await (update(deckVersionItems)..where((t) => t.id.equals(item.id))).write(
+          DeckVersionItemsCompanion(quantity: Value(item.quantity - remaining)),
+        );
+        remaining = 0;
+      } else {
+        remaining -= item.quantity;
+        await (delete(deckVersionItems)..where((t) => t.id.equals(item.id))).go();
+      }
+    }
+
+    await _syncItemDeckHistory(vaultItemId);
+  }
+
+  /// Synchronizes VaultItem dynamicData['deck_history'] with currently assigned decks.
+  Future<void> _syncItemDeckHistory(String vaultItemId) async {
+    final activeDecks = await customSelect(
+      '''
+      SELECT DISTINCT d.name
+      FROM deck_version_items dvi
+      INNER JOIN deck_versions dv ON dv.id = dvi.version_id
+      INNER JOIN decks d ON d.id = dv.deck_id
+      WHERE dvi.vault_item_id = ? AND dv.is_active = 1
+      ''',
+      variables: [Variable.withString(vaultItemId)],
+      readsFrom: {deckVersionItems, deckVersions, decks},
+    ).get();
+
+    final deckNames = activeDecks.map((r) => r.read<String>('name')).toList();
+    await updateItemNotesAndDecks(vaultItemId, deckTags: deckNames);
+  }
+}
+
+/// Model representing alternative physical printings with computed headroom and location details.
+class AlternativePrintingDetail {
+  final VaultItem item;
+  final int availableQuantity;
+  final String binderName;
+
+  const AlternativePrintingDetail({
+    required this.item,
+    required this.availableQuantity,
+    required this.binderName,
+  });
 }

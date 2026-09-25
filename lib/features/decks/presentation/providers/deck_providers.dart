@@ -1,31 +1,65 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:countr/core/database/app_database.dart';
+import 'package:countr/core/state/settings_state.dart';
 import 'package:countr/features/vault/presentation/providers/vault_providers.dart';
 import 'package:countr/features/decks/data/mock_deck_data.dart';
+import 'package:countr/features/decks/domain/models/deck_item_with_card.dart';
+import 'package:countr/features/values/domain/models/deck_financial_summary.dart';
+import 'package:countr/features/values/domain/services/deck_values_calculator.dart';
+import 'package:countr/features/values/domain/services/pareto_distribution_calculator.dart';
+
+/// Active TCG domain filter for DecksScreen and new deck creation.
+/// Values: 'all', 'mtg', 'pokemon', 'lorcana'. Defaults to 'all'.
+final activeDeckTcgFilterProvider = StateProvider<String>((ref) {
+  return 'all';
+});
 
 final deckListProvider = StreamProvider<List<Deck>>((ref) {
   final dao = ref.watch(vaultDaoProvider);
   return dao.watchAllDecks();
 });
 
-final deckProvider = StreamProvider.family<Deck, String>((ref, id) {
+final cardDeckAllocationsProvider =
+    StreamProvider.family<Map<String, int>, String>((ref, vaultItemId) {
   final dao = ref.watch(vaultDaoProvider);
-  return dao.watchDeck(id);
+  return dao.watchCardDeckAllocations(vaultItemId);
+});
+
+final deckProvider = StreamProvider.family<Deck, String>((ref, id) async* {
+  final dao = ref.watch(vaultDaoProvider);
+  try {
+    yield* dao.watchDeck(id);
+  } catch (error, stackTrace) {
+    debugPrint('[deckProvider] Error watching deck $id: $error\n$stackTrace');
+    rethrow;
+  }
 });
 
 final deckItemsProvider =
-    StreamProvider.family<List<Map<String, dynamic>>, String>((ref, deckId) {
+    StreamProvider.family<List<Map<String, dynamic>>, String>((ref, deckId) async* {
   try {
     final dao = ref.watch(vaultDaoProvider);
-    return dao.watchDeckItems(deckId).map((items) {
-      if (items.isEmpty) {
+    final deck = await dao.getDeck(deckId);
+    if (deck != null) {
+      // Real deck persisted in SQLite: emit real items even if empty []
+      yield* dao.watchDeckItems(deckId);
+    } else {
+      // Non-persisted mock deck: emit mock items
+      yield* dao.watchDeckItems(deckId).map((items) {
+        if (items.isEmpty) {
+          return MockDeckData.getDeckItems(deckId);
+        }
+        return items;
+      }).handleError((error, stackTrace) {
+        debugPrint('[deckItemsProvider] Error loading deck items stream for $deckId: $error\n$stackTrace');
         return MockDeckData.getDeckItems(deckId);
-      }
-      return items;
-    }).handleError((_) => MockDeckData.getDeckItems(deckId));
-  } catch (_) {
-    return Stream.value(MockDeckData.getDeckItems(deckId));
+      });
+    }
+  } catch (error, stackTrace) {
+    debugPrint('[deckItemsProvider] Error watching deck items for $deckId: $error\n$stackTrace');
+    yield MockDeckData.getDeckItems(deckId);
   }
 });
 
@@ -38,8 +72,12 @@ final deckVersionsProvider =
         return MockDeckData.getMockVersions(deckId);
       }
       return versions;
-    }).handleError((_) => MockDeckData.getMockVersions(deckId));
-  } catch (_) {
+    }).handleError((error, stackTrace) {
+      debugPrint('[deckVersionsProvider] Error loading deck versions for $deckId: $error\n$stackTrace');
+      return MockDeckData.getMockVersions(deckId);
+    });
+  } catch (error, stackTrace) {
+    debugPrint('[deckVersionsProvider] Error watching deck versions for $deckId: $error\n$stackTrace');
     return Stream.value(MockDeckData.getMockVersions(deckId));
   }
 });
@@ -53,8 +91,12 @@ final deckMatchupsProvider =
         return MockDeckData.getMockMatchups(deckId);
       }
       return matchups;
-    }).handleError((_) => MockDeckData.getMockMatchups(deckId));
-  } catch (_) {
+    }).handleError((error, stackTrace) {
+      debugPrint('[deckMatchupsProvider] Error loading deck matchups for $deckId: $error\n$stackTrace');
+      return MockDeckData.getMockMatchups(deckId);
+    });
+  } catch (error, stackTrace) {
+    debugPrint('[deckMatchupsProvider] Error watching deck matchups for $deckId: $error\n$stackTrace');
     return Stream.value(MockDeckData.getMockMatchups(deckId));
   }
 });
@@ -173,7 +215,9 @@ final deckAnalyticsProvider =
               colorProduction[color] = (colorProduction[color] ?? 0) + qty;
             }
           }
-        } catch (_) {}
+        } catch (error, stackTrace) {
+          debugPrint('[deckAnalyticsProvider] Failed parsing dynamicData: $error\n$stackTrace');
+        }
       }
 
       if (cardHasBling) {
@@ -188,4 +232,38 @@ final deckAnalyticsProvider =
       blingPercentage: totalCards > 0 ? (blingCards / totalCards) : 0.0,
     );
   });
+});
+
+/// Exposes the aggregate financial metrics and P&L for a deck.
+final deckFinancialSummaryProvider =
+    Provider.family<DeckFinancialSummary, String>((ref, deckId) {
+  final itemsAsync = ref.watch(deckItemsProvider(deckId));
+  final currency = ref.watch(baseCurrencyProvider);
+  final items = itemsAsync.value ?? const [];
+  return DeckValuesCalculator.calculate(
+    deckId: deckId,
+    items: items,
+    currency: currency,
+  );
+});
+
+/// Exposes the Pareto value concentration calculation for a deck.
+final deckParetoDistributionProvider =
+    Provider.family<ParetoDistributionResult, String>((ref, deckId) {
+  final itemsAsync = ref.watch(deckItemsProvider(deckId));
+  final currency = ref.watch(baseCurrencyProvider);
+  final items = itemsAsync.value ?? const [];
+  final inputCards = <ParetoCardInput>[];
+  for (final item in items) {
+    if (item is DeckItemWithCard) {
+      inputCards.add(ParetoCardInput.fromDeckItemWithCard(item, currency));
+    } else {
+      inputCards.add(ParetoCardInput.fromDeckItemMap(item));
+    }
+  }
+  return ParetoDistributionCalculator.calculate(
+    cards: inputCards,
+    targetK: 5,
+    currency: currency,
+  );
 });

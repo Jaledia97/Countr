@@ -3,12 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:countr/core/database/app_database.dart';
+import 'deck_test_helpers.dart';
 import 'package:countr/features/decks/data/mock_deck_data.dart';
 import 'package:countr/features/decks/presentation/providers/deck_providers.dart';
 import 'package:countr/features/decks/presentation/screens/deck_builder_screen.dart';
 
 void main() {
-  final baseDeck = Deck(
+  final baseDeck = createTestDeck(
     id: 'deck-adversarial-test',
     name: 'Challenger Adversarial Test Deck',
     format: 'MTG Commander',

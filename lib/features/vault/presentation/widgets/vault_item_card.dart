@@ -17,20 +17,18 @@ class VaultItemCard extends StatelessWidget {
   final VaultItem item;
   final UserPersona? persona;
   final VoidCallback? onTap;
+  final bool? isPrivacyMode;
 
   const VaultItemCard({
     super.key,
     required this.item,
     this.persona,
     this.onTap,
+    this.isPrivacyMode,
   });
 
   @override
   Widget build(BuildContext context) {
-    if (persona != null) {
-      return _buildCardContent(context, persona!);
-    }
-
     final hasScope =
         context.findAncestorWidgetOfExactType<ProviderScope>() != null ||
             context.findAncestorWidgetOfExactType<UncontrolledProviderScope>() !=
@@ -39,23 +37,33 @@ class VaultItemCard extends StatelessWidget {
     if (hasScope) {
       return Consumer(
         builder: (context, ref, _) {
-          final activePersona = ref.watch(userPersonaProvider);
-          return _buildCardContent(context, activePersona);
+          final UserPersona activePersona = persona ?? ref.watch(userPersonaProvider);
+          final bool privacyActive = isPrivacyMode ?? ref.watch(privacyModeProvider);
+          return _buildCardContent(context, activePersona, isPrivacyMode: privacyActive);
         },
       );
     }
 
     // Graceful fallback for isolated widget tests without ProviderScope
-    return _buildCardContent(context, UserPersona.investor);
+    return _buildCardContent(
+      context,
+      persona ?? UserPersona.investor,
+      isPrivacyMode: isPrivacyMode ?? false,
+    );
   }
 
-  Widget _buildCardContent(BuildContext context, UserPersona activePersona) {
+  Widget _buildCardContent(
+    BuildContext context,
+    UserPersona activePersona, {
+    required bool isPrivacyMode,
+  }) {
     // Decode dynamic metadata safely
     Map<String, dynamic> data = {};
     if (item.dynamicData.isNotEmpty) {
       try {
         data = jsonDecode(item.dynamicData) as Map<String, dynamic>;
-      } catch (_) {
+      } catch (e, stackTrace) {
+        debugPrint('[VaultItemCard] Failed to decode dynamicData: $e\n$stackTrace');
         data = {};
       }
     }
@@ -95,7 +103,7 @@ class VaultItemCard extends StatelessWidget {
 
                 // Bottom: Dynamic Persona View
                 if (activePersona == UserPersona.investor)
-                  _buildInvestorFinancialRow()
+                  _buildInvestorFinancialRow(isPrivacyMode: isPrivacyMode)
                 else
                   _buildPlayerMechanicsRow(data),
               ],
@@ -225,7 +233,7 @@ class VaultItemCard extends StatelessWidget {
   double _getEffectiveMarketPrice() =>
       VaultPricingHelper.resolveEffectiveMarketPrice(item);
 
-  Widget _buildInvestorFinancialRow() {
+  Widget _buildInvestorFinancialRow({required bool isPrivacyMode}) {
     final effectivePrice = _getEffectiveMarketPrice();
     final delta =
         (effectivePrice - item.acquiredPrice) * item.quantity;
@@ -294,9 +302,11 @@ class VaultItemCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      effectivePrice > 0
-                          ? '\$${effectivePrice.toStringAsFixed(2)}'
-                          : 'Unlisted',
+                      isPrivacyMode
+                          ? '****'
+                          : (effectivePrice > 0
+                              ? '\$${effectivePrice.toStringAsFixed(2)}'
+                              : 'Unlisted'),
                       style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w800,
@@ -338,7 +348,9 @@ class VaultItemCard extends StatelessWidget {
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  '\$${item.acquiredPrice.toStringAsFixed(2)}',
+                                  isPrivacyMode
+                                      ? '****'
+                                      : '\$${item.acquiredPrice.toStringAsFixed(2)}',
                                   overflow: TextOverflow.ellipsis,
                                   maxLines: 1,
                                   style: const TextStyle(
@@ -370,9 +382,11 @@ class VaultItemCard extends StatelessWidget {
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  effectivePrice > 0
-                                      ? '\$${effectivePrice.toStringAsFixed(2)}'
-                                      : 'Unlisted',
+                                  isPrivacyMode
+                                      ? '****'
+                                      : (effectivePrice > 0
+                                          ? '\$${effectivePrice.toStringAsFixed(2)}'
+                                          : 'Unlisted'),
                                   overflow: TextOverflow.ellipsis,
                                   maxLines: 1,
                                   style: const TextStyle(
@@ -416,7 +430,9 @@ class VaultItemCard extends StatelessWidget {
                             const SizedBox(width: 4),
                             Flexible(
                               child: Text(
-                                '$pctSign${pct.toStringAsFixed(1)}% ($deltaSign\$${delta.abs().toStringAsFixed(2)})',
+                                isPrivacyMode
+                                    ? '****'
+                                    : '$pctSign${pct.toStringAsFixed(1)}% ($deltaSign\$${delta.abs().toStringAsFixed(2)})',
                                 overflow: TextOverflow.ellipsis,
                                 maxLines: 1,
                                 style: TextStyle(
@@ -696,7 +712,8 @@ class VaultItemCard extends StatelessWidget {
             }
           }
         }
-      } catch (_) {
+      } catch (e, stackTrace) {
+        debugPrint('[VaultItemCard] Failed to extract small thumbnail URI: $e\n$stackTrace');
         // Fall through to item.imageUrl on malformed JSON
       }
     }
@@ -841,35 +858,32 @@ class OptionalDeckBadges extends StatelessWidget {
 
     return Consumer(
       builder: (context, ref, _) {
-        final decksAsync = ref.watch(vaultItemAssignedDecksProvider(item.id));
-        return decksAsync.when(
-          data: (decks) {
-            if (decks.isEmpty) return const SizedBox.shrink();
-            return Wrap(
-              spacing: 4,
-              runSpacing: 4,
-              children: decks.map((deckName) {
-                return Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceBorderSubtle,
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: AppColors.accentCyan.withValues(alpha: 0.3)),
-                  ),
-                  child: Text(
-                    '⚔️ $deckName',
-                    style: const TextStyle(
-                      fontSize: 9,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.accentCyan,
-                    ),
-                  ),
-                );
-              }).toList(),
+        final assignedDecks = ref.watch(
+          allCardActiveDecksProvider.select((asyncVal) =>
+              asyncVal.asData?.value[item.id] ?? const <String>[]),
+        );
+        if (assignedDecks.isEmpty) return const SizedBox.shrink();
+        return Wrap(
+          spacing: 4,
+          runSpacing: 4,
+          children: assignedDecks.map((deckName) {
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceBorderSubtle,
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: AppColors.accentCyan.withValues(alpha: 0.3)),
+              ),
+              child: Text(
+                '⚔️ $deckName',
+                style: const TextStyle(
+                  fontSize: 9,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.accentCyan,
+                ),
+              ),
             );
-          },
-          loading: () => const SizedBox.shrink(),
-          error: (_, __) => const SizedBox.shrink(),
+          }).toList(),
         );
       },
     );

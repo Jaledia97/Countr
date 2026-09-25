@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:drift/drift.dart';
 import 'package:countr/core/database/connection/connection.dart';
 import 'package:countr/core/database/tables/vault_binders_table.dart';
@@ -26,10 +27,18 @@ part 'app_database.g.dart';
   daos: [VaultDao],
 )
 class AppDatabase extends _$AppDatabase {
-  AppDatabase([QueryExecutor? e]) : super(e ?? openConnection());
+  AppDatabase([QueryExecutor? e])
+      : super(
+          e is DatabaseConnection
+              ? e
+              : DatabaseConnection(
+                  e ?? openConnection(),
+                  closeStreamsSynchronously: true,
+                ),
+        );
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration {
@@ -44,7 +53,8 @@ class AppDatabase extends _$AppDatabase {
         if (from < 3) {
           try {
             await m.addColumn(vaultItems, vaultItems.primaryBinderId);
-          } catch (_) {
+          } catch (error, stackTrace) {
+            debugPrint('[AppDatabase.onUpgrade] Migration to v3 warning: $error\n$stackTrace');
             // Already exists or re-created
           }
         }
@@ -53,12 +63,16 @@ class AppDatabase extends _$AppDatabase {
             await m.addColumn(vaultItems, vaultItems.isAltered);
             await m.addColumn(vaultItems, vaultItems.isMisprint);
             await m.addColumn(vaultItems, vaultItems.isSigned);
-          } catch (_) {}
+          } catch (error, stackTrace) {
+            debugPrint('[AppDatabase.onUpgrade] Migration to v4 warning: $error\n$stackTrace');
+          }
         }
         if (from < 5) {
           try {
             await m.addColumn(vaultItems, vaultItems.flavorName);
-          } catch (_) {}
+          } catch (error, stackTrace) {
+            debugPrint('[AppDatabase.onUpgrade] Migration to v5 warning: $error\n$stackTrace');
+          }
         }
         if (from < 6) {
           await m.createTable(decks);
@@ -66,6 +80,27 @@ class AppDatabase extends _$AppDatabase {
           await m.createTable(deckVersionItems);
           await m.createTable(deckMatchups);
           await m.createTable(deckSynergies);
+        }
+        if (from < 7) {
+          try {
+            await m.addColumn(decks, decks.tcgDomain);
+            await m.addColumn(decks, decks.isRegistered);
+            await m.addColumn(decks, decks.isCompetitive);
+          } catch (error, stackTrace) {
+            debugPrint('[AppDatabase.onUpgrade] Migration to v7 warning: $error\n$stackTrace');
+          }
+        }
+        if (from < 8) {
+          try {
+            await m.addColumn(vaultItems, vaultItems.dateObtained);
+            await m.addColumn(vaultItems, vaultItems.purchasePrice);
+            await m.addColumn(vaultItems, vaultItems.binderPage);
+            await m.addColumn(vaultItems, vaultItems.binderSlot);
+            await m.addColumn(vaultItems, vaultItems.notes);
+            await m.addColumn(vaultItems, vaultItems.protectionStatus);
+          } catch (error, stackTrace) {
+            debugPrint('[AppDatabase.onUpgrade] Migration to v8 warning: $error\n$stackTrace');
+          }
         }
       },
       beforeOpen: (details) async {
@@ -75,7 +110,9 @@ class AppDatabase extends _$AppDatabase {
           await customStatement('PRAGMA synchronous = NORMAL;');
           await customStatement('PRAGMA cache_size = -64000;'); // 64MB page cache
           await customStatement('PRAGMA temp_store = MEMORY;');
-        } catch (_) {}
+        } catch (error, stackTrace) {
+          debugPrint('[AppDatabase.beforeOpen] PRAGMA configuration warning: $error\n$stackTrace');
+        }
 
         // Defensive runtime schema verification:
         // Automatically patch legacy local SQLite databases where schema version may have
@@ -89,7 +126,9 @@ class AppDatabase extends _$AppDatabase {
               "created_at" INTEGER NOT NULL
             );
           ''');
-        } catch (_) {}
+        } catch (error, stackTrace) {
+          debugPrint('[AppDatabase.beforeOpen] vault_binders table creation warning: $error\n$stackTrace');
+        }
 
         try {
           final tableInfo =
@@ -160,7 +199,106 @@ class AppDatabase extends _$AppDatabase {
               AND json_extract("dynamic_data", '\$.prices.eur') != ''
               AND CAST(json_extract("dynamic_data", '\$.prices.eur') AS REAL) > 0.0;
           ''');
-        } catch (_) {}
+        } catch (error, stackTrace) {
+          debugPrint('[AppDatabase.beforeOpen] vault_items schema backfill warning: $error\n$stackTrace');
+        }
+
+        // Defensive runtime schema verification for decks table (v7)
+        try {
+          final decksTableInfo =
+              await customSelect('PRAGMA table_info("decks");').get();
+          final deckColumnNames =
+              decksTableInfo.map((row) => row.read<String>('name')).toSet();
+          if (deckColumnNames.isNotEmpty) {
+            if (!deckColumnNames.contains('tcg_domain')) {
+              await customStatement(
+                'ALTER TABLE "decks" ADD COLUMN "tcg_domain" TEXT NOT NULL DEFAULT \'mtg\';',
+              );
+            }
+            if (!deckColumnNames.contains('is_registered')) {
+              await customStatement(
+                'ALTER TABLE "decks" ADD COLUMN "is_registered" INTEGER NOT NULL DEFAULT 0;',
+              );
+            }
+            if (!deckColumnNames.contains('is_competitive')) {
+              await customStatement(
+                'ALTER TABLE "decks" ADD COLUMN "is_competitive" INTEGER NOT NULL DEFAULT 0;',
+              );
+            }
+          }
+        } catch (error, stackTrace) {
+          debugPrint('[AppDatabase.beforeOpen] decks schema verification warning: $error\n$stackTrace');
+        }
+
+        // Defensive runtime schema verification for vault_items v8 columns
+        try {
+          final tableInfo =
+              await customSelect('PRAGMA table_info("vault_items");').get();
+          final columnNames =
+              tableInfo.map((row) => row.read<String>('name')).toSet();
+
+          if (!columnNames.contains('date_obtained')) {
+            await customStatement(
+              'ALTER TABLE "vault_items" ADD COLUMN "date_obtained" INTEGER;',
+            );
+          }
+          if (!columnNames.contains('purchase_price')) {
+            await customStatement(
+              'ALTER TABLE "vault_items" ADD COLUMN "purchase_price" REAL;',
+            );
+          }
+          if (!columnNames.contains('binder_page')) {
+            await customStatement(
+              'ALTER TABLE "vault_items" ADD COLUMN "binder_page" INTEGER;',
+            );
+          }
+          if (!columnNames.contains('binder_slot')) {
+            await customStatement(
+              'ALTER TABLE "vault_items" ADD COLUMN "binder_slot" TEXT;',
+            );
+          }
+          if (!columnNames.contains('notes')) {
+            await customStatement(
+              'ALTER TABLE "vault_items" ADD COLUMN "notes" TEXT;',
+            );
+          }
+          if (!columnNames.contains('protection_status')) {
+            await customStatement(
+              'ALTER TABLE "vault_items" ADD COLUMN "protection_status" TEXT DEFAULT \'Sleeved\';',
+            );
+          }
+
+          // Safe non-destructive legacy backfill:
+          // 1. Copy acquired_date to date_obtained where not already populated
+          await customStatement('''
+            UPDATE "vault_items"
+            SET "date_obtained" = "acquired_date"
+            WHERE "date_obtained" IS NULL AND "acquired_date" IS NOT NULL;
+          ''');
+
+          // 2. Copy acquired_price to purchase_price where not already populated
+          await customStatement('''
+            UPDATE "vault_items"
+            SET "purchase_price" = "acquired_price"
+            WHERE "purchase_price" IS NULL AND "acquired_price" IS NOT NULL;
+          ''');
+
+          // 3. Copy personal_notes to notes where not already populated
+          await customStatement('''
+            UPDATE "vault_items"
+            SET "notes" = "personal_notes"
+            WHERE "notes" IS NULL AND "personal_notes" IS NOT NULL;
+          ''');
+
+          // 4. Default protection_status to 'Sleeved' for null or empty values
+          await customStatement('''
+            UPDATE "vault_items"
+            SET "protection_status" = 'Sleeved'
+            WHERE "protection_status" IS NULL OR "protection_status" = '';
+          ''');
+        } catch (error, stackTrace) {
+          debugPrint('[AppDatabase.beforeOpen] vault_items v8 schema verification/backfill warning: $error\n$stackTrace');
+        }
 
         // Performance compound indexes for instantaneous query and sorting
         try {
@@ -188,15 +326,44 @@ class AppDatabase extends _$AppDatabase {
             CREATE INDEX IF NOT EXISTS "idx_vault_items_binder"
             ON "vault_items" ("primary_binder_id");
           ''');
-        } catch (_) {}
+          await customStatement('''
+            CREATE INDEX IF NOT EXISTS "idx_vault_items_protection_status"
+            ON "vault_items" ("protection_status");
+          ''');
+          await customStatement('''
+            CREATE INDEX IF NOT EXISTS "idx_vault_items_date_obtained"
+            ON "vault_items" ("date_obtained" DESC);
+          ''');
+        } catch (error, stackTrace) {
+          debugPrint('[AppDatabase.beforeOpen] Index creation warning: $error\n$stackTrace');
+        }
 
         try {
           // Automatically seed database on first open if empty
           await vaultDao.seedDatabase();
-        } catch (_) {
+        } catch (error, stackTrace) {
+          debugPrint('[AppDatabase.beforeOpen] Initial database seeding warning: $error\n$stackTrace');
           // Fallback gracefully; seeding can also be triggered manually
         }
       },
     );
   }
+}
+
+/// Extended physical provenance and backward-compatibility helpers for [VaultItem].
+extension VaultItemX on VaultItem {
+  /// Returns [protectionStatus] if specified, defaulting to 'Sleeved'.
+  String get effectiveProtectionStatus =>
+      (protectionStatus != null && protectionStatus!.isNotEmpty)
+          ? protectionStatus!
+          : 'Sleeved';
+
+  /// Returns [purchasePrice], falling back to legacy [acquiredPrice].
+  double get effectivePurchasePrice => purchasePrice ?? acquiredPrice;
+
+  /// Returns [dateObtained], falling back to legacy [acquiredDate].
+  DateTime get effectiveDateObtained => dateObtained ?? acquiredDate;
+
+  /// Returns [notes], falling back to legacy [personalNotes].
+  String? get effectiveNotes => notes ?? personalNotes;
 }

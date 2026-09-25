@@ -29,6 +29,22 @@ class VaultItems extends Table {
       boolean().named('is_signed').clientDefault(() => false)();
   TextColumn get personalNotes => text().named('personal_notes').nullable()();
 
+  // Physical Inventory & Extended Provenance (v8)
+  DateTimeColumn get dateObtained =>
+      dateTime().named('date_obtained').nullable()();
+  RealColumn get purchasePrice =>
+      real().named('purchase_price').nullable()();
+  IntColumn get binderPage =>
+      integer().named('binder_page').nullable()();
+  TextColumn get binderSlot =>
+      text().named('binder_slot').nullable()();
+  TextColumn get notes =>
+      text().named('notes').nullable()();
+  TextColumn get protectionStatus => text()
+      .named('protection_status')
+      .withDefault(const Constant('Sleeved'))
+      .nullable()();
+
   // Physical Home Anchor (NULL = unassigned / Inbox)
   TextColumn get primaryBinderId => text()
       .named('primary_binder_id')

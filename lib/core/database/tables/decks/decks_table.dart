@@ -12,6 +12,9 @@ class Decks extends Table {
   TextColumn get coverItemId => text().nullable()();
   TextColumn get coverCropRect => text().nullable()();
   DateTimeColumn get createdAt => dateTime()();
+  TextColumn get tcgDomain => text().withDefault(const Constant('mtg'))();
+  BoolColumn get isRegistered => boolean().withDefault(const Constant(false))();
+  BoolColumn get isCompetitive => boolean().withDefault(const Constant(false))();
 
   @override
   Set<Column> get primaryKey => {id};

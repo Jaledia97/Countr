@@ -186,7 +186,7 @@ class _ManualAddBottomSheetState extends ConsumerState<ManualAddBottomSheet> {
 
   void _onSearchChanged(String query) {
     _debounceTimer?.cancel();
-    _debounceTimer = Timer(const Duration(milliseconds: 300), () {
+    _debounceTimer = Timer(const Duration(milliseconds: 250), () {
       _executeSearch(query);
     });
   }
@@ -233,8 +233,8 @@ class _ManualAddBottomSheetState extends ConsumerState<ManualAddBottomSheet> {
             }
           }
         }
-      } catch (_) {
-        // Offline / mock fallback
+      } catch (e, stackTrace) {
+        debugPrint('[ManualAddBottomSheet._onSearchChanged] Offline/fallback: $e\n$stackTrace');
       }
     }
   }
@@ -278,7 +278,8 @@ class _ManualAddBottomSheetState extends ConsumerState<ManualAddBottomSheet> {
           ),
         );
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      debugPrint('[ManualAddBottomSheet._handleBulkAdd] Failed: $e\n$stackTrace');
       if (mounted) {
         setState(() => _isAdding = false);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -297,7 +298,9 @@ class _ManualAddBottomSheetState extends ConsumerState<ManualAddBottomSheet> {
       try {
         final map = jsonDecode(item.dynamicData) as Map<String, dynamic>;
         return map['rarity']?.toString() ?? '';
-      } catch (_) {}
+      } catch (e, stackTrace) {
+        debugPrint('[ManualAddBottomSheet._getRarity] Failed decoding dynamicData: $e\n$stackTrace');
+      }
     }
     return '';
   }
@@ -552,9 +555,24 @@ class _ManualAddBottomSheetState extends ConsumerState<ManualAddBottomSheet> {
     );
   }
 
+  bool get _isPrivacyMode {
+    final hasScope =
+        context.findAncestorWidgetOfExactType<ProviderScope>() != null ||
+            context.findAncestorWidgetOfExactType<UncontrolledProviderScope>() != null;
+    if (hasScope) {
+      try {
+        return ref.watch(privacyModeProvider);
+      } catch (_) {
+        return false;
+      }
+    }
+    return false;
+  }
+
   @override
   Widget build(BuildContext context) {
     final asyncBinders = ref.watch(bindersStreamProvider);
+    final isPrivacyMode = _isPrivacyMode;
 
     return DraggableScrollableSheet(
       initialChildSize: 0.9,
@@ -766,7 +784,9 @@ class _ManualAddBottomSheetState extends ConsumerState<ManualAddBottomSheet> {
                                           ),
                                           const SizedBox(height: 4),
                                           Text(
-                                            '\$${card.currentMarketPrice.toStringAsFixed(2)}',
+                                            isPrivacyMode
+                                                ? '****'
+                                                : '\$${card.currentMarketPrice.toStringAsFixed(2)}',
                                             style: const TextStyle(
                                               color: AppColors.accentEmerald,
                                               fontWeight: FontWeight.w700,

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
+import 'package:flutter/foundation.dart';
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 import 'package:countr/core/database/app_database.dart';
@@ -284,7 +285,9 @@ void _scryfallStreamParserIsolateEntry(_ParserIsolateParams params) async {
         if (header.length >= 2 && header[0] == 0x1F && header[1] == 0x8B) {
           isGzip = true;
         }
-      } catch (_) {}
+      } catch (e, stackTrace) {
+        debugPrint('[ScryfallParser] Failed to check gzip header magic bytes: $e\n$stackTrace');
+      }
     }
 
     final rawStream = file.openRead();
@@ -348,7 +351,8 @@ void _scryfallStreamParserIsolateEntry(_ParserIsolateParams params) async {
                 final companion = mapScryfallCardToCompanion(cardMap);
                 currentChunk.add(companion);
                 totalProcessed++;
-              } catch (_) {
+              } catch (e, stackTrace) {
+                debugPrint('[ScryfallParser] Failed to parse card JSON in chunk stream: $e\n$stackTrace');
                 // Ignore malformed card entry and continue
               }
 
@@ -505,7 +509,9 @@ class ScryfallStreamingParser {
                 final cardMap =
                     jsonDecode(buffer.toString()) as Map<String, dynamic>;
                 currentChunk.add(mapScryfallCardToCompanion(cardMap));
-              } catch (_) {}
+              } catch (e, stackTrace) {
+                debugPrint('[ScryfallParser] Failed to parse card JSON in stream: $e\n$stackTrace');
+              }
 
               buffer.clear();
 

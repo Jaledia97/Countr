@@ -1,6 +1,6 @@
 import 'dart:isolate';
-import 'dart:typed_data';
 import 'package:camera/camera.dart';
+import 'package:flutter/foundation.dart';
 import 'package:opencv_dart/opencv_dart.dart' as cv;
 
 class ScannerWorkerIsolate {
@@ -111,7 +111,8 @@ class ScannerWorkerIsolate {
         }
 
         return (null, null, null);
-      } catch (e) {
+      } catch (e, stackTrace) {
+        debugPrint('[ScannerWorkerIsolate] Frame processing failed: $e\n$stackTrace');
         return (null, null, null);
       }
     });

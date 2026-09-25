@@ -48,9 +48,9 @@ void main() {
 
       final db = AppDatabase(rawDb);
 
-      // Verify PRAGMA user_version upgraded to 5
+      // Verify PRAGMA user_version upgraded to 8
       final versionResult = await db.customSelect('PRAGMA user_version;').getSingle();
-      expect(versionResult.read<int>('user_version'), equals(6));
+      expect(versionResult.read<int>('user_version'), equals(8));
 
       // Verify columns in vault_items
       final tableInfo = await db.customSelect('PRAGMA table_info("vault_items");').get();
@@ -151,9 +151,9 @@ void main() {
 
       final db = AppDatabase(rawDb);
 
-      // Verify PRAGMA user_version is 5
+      // Verify PRAGMA user_version is 8
       final versionResult = await db.customSelect('PRAGMA user_version;').getSingle();
-      expect(versionResult.read<int>('user_version'), equals(6));
+      expect(versionResult.read<int>('user_version'), equals(8));
 
       // Verify binder survived
       final binders = await db.vaultDao.watchBindersByCollection('mtg').first;
@@ -225,7 +225,7 @@ void main() {
       final db = AppDatabase(rawDb);
 
       final versionResult = await db.customSelect('PRAGMA user_version;').getSingle();
-      expect(versionResult.read<int>('user_version'), equals(6));
+      expect(versionResult.read<int>('user_version'), equals(8));
 
       final item = await (db.select(db.vaultItems)..where((t) => t.id.equals('v3-card-1'))).getSingle();
       expect(item.primaryBinderId, equals('binder-v3'));
@@ -297,7 +297,7 @@ void main() {
       final db = AppDatabase(rawDb);
 
       final versionResult = await db.customSelect('PRAGMA user_version;').getSingle();
-      expect(versionResult.read<int>('user_version'), equals(6));
+      expect(versionResult.read<int>('user_version'), equals(8));
 
       final item = await (db.select(db.vaultItems)..where((t) => t.id.equals('v4-card-special'))).getSingle();
       expect(item.isGraded, isTrue);

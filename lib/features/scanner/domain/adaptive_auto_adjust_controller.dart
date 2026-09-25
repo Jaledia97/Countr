@@ -98,7 +98,8 @@ class AdaptiveAutoAdjustController {
 
       await cameraController!.setExposureOffset(target);
       await cameraController!.setFocusMode(FocusMode.auto);
-    } catch (_) {
+    } catch (e, stackTrace) {
+      debugPrint('[AdaptiveAutoAdjustController] Exposure/focus adjustment failed: $e\n$stackTrace');
       // Silently ignore if device/platform does not support exposure or focus controls
     }
   }
@@ -113,7 +114,9 @@ class AdaptiveAutoAdjustController {
       try {
         await cameraController!.setExposureOffset(0.0);
         await cameraController!.setFocusMode(FocusMode.auto);
-      } catch (_) {}
+      } catch (e, stackTrace) {
+        debugPrint('[AdaptiveAutoAdjustController] Hardware reset failed: $e\n$stackTrace');
+      }
     }
   }
 

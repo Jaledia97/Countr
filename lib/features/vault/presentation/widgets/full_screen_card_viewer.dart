@@ -163,7 +163,8 @@ class _FullScreenCardViewerState extends State<FullScreenCardViewer>
     if (current.dynamicData.isNotEmpty) {
       try {
         _dynamicData = jsonDecode(current.dynamicData) as Map<String, dynamic>;
-      } catch (_) {
+      } catch (e, stackTrace) {
+        debugPrint('[FullScreenCardViewer] Failed to decode dynamicData: $e\n$stackTrace');
         _dynamicData = {};
       }
     } else {
@@ -175,7 +176,8 @@ class _FullScreenCardViewerState extends State<FullScreenCardViewer>
     if (item.dynamicData.isNotEmpty) {
       try {
         return jsonDecode(item.dynamicData) as Map<String, dynamic>;
-      } catch (_) {
+      } catch (e, stackTrace) {
+        debugPrint('[FullScreenCardViewer] Failed to decode item dynamicData: $e\n$stackTrace');
         return {};
       }
     }
