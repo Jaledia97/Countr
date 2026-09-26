@@ -53,7 +53,7 @@ VaultItem createChallengerCard({
     isGraded: isGraded,
     isAltered: false,
     isMisprint: false,
-    isSigned: false,
+    isSigned: false, isDeleted: false,
     currentMarketPrice: currentMarketPrice,
     lastPriceUpdate: DateTime(2026, 9, 18),
     dynamicData: rawDynamicData ?? jsonEncode(dyn),

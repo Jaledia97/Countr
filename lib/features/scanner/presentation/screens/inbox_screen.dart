@@ -4,6 +4,7 @@ import 'package:countr/core/constants/app_colors.dart';
 import 'package:countr/core/constants/app_typography.dart';
 import 'package:countr/core/database/app_database.dart';
 import 'package:countr/features/vault/presentation/providers/vault_providers.dart';
+import 'package:countr/core/cache/countr_cached_image.dart';
 
 /// Screen representing the staged "Inbox" holding area where cards scanned
 /// via the Edge Scanner are reviewed before being sorted into Vault Binders.
@@ -564,10 +565,10 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
                                 height: 72,
                                 color: AppColors.surfaceRaised,
                                 child: item.imageUrl.isNotEmpty
-                                    ? Image.network(
-                                        item.imageUrl,
+                                    ? CountrCachedImage(
+                                        imageUrl: item.imageUrl,
                                         fit: BoxFit.cover,
-                                        errorBuilder: (ctx, err, stack) => const Icon(
+                                        errorWidget: const Icon(
                                           Icons.broken_image_rounded,
                                           color: AppColors.textMuted,
                                           size: 24,

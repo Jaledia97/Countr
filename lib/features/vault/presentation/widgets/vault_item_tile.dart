@@ -6,6 +6,7 @@ import 'package:countr/core/state/settings_state.dart';
 import 'package:countr/features/vault/domain/vault_pricing_helper.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:countr/features/vault/presentation/providers/vault_providers.dart';
+import 'package:countr/core/cache/countr_cached_image.dart';
 import 'card_detail_sheet.dart';
 
 /// ManaBox-style Card Tile displaying card artwork, name, set code, and market price.
@@ -53,22 +54,10 @@ class VaultItemTile extends StatelessWidget {
                 children: [
                   // Image
                   item.imageUrl.isNotEmpty
-                      ? Image.network(
-                          item.imageUrl,
+                      ? CountrCachedImage(
+                          imageUrl: item.imageUrl,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => _buildPlaceholder(),
-                          loadingBuilder: (context, child, loadingProgress) {
-                            if (loadingProgress == null) return child;
-                            return Container(
-                              color: AppColors.surfaceRaised,
-                              child: const Center(
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: AppColors.accentCyan,
-                                ),
-                              ),
-                            );
-                          },
+                          errorWidget: _buildPlaceholder(),
                         )
                       : _buildPlaceholder(),
 

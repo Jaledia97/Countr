@@ -35,6 +35,7 @@ void main() {
     bool isAltered = false,
     bool isMisprint = false,
     bool isSigned = false,
+    bool isDeleted = false,
     String dynamicData = '{"tags":["Vintage"],"deck_history":["Vintage"]}',
   }) {
     return VaultItem(
@@ -51,6 +52,7 @@ void main() {
       isAltered: isAltered,
       isMisprint: isMisprint,
       isSigned: isSigned,
+      isDeleted: isDeleted,
       currentMarketPrice: currentMarketPrice,
       lastPriceUpdate: DateTime.now(),
       dynamicData: dynamicData,
@@ -73,6 +75,7 @@ void main() {
             isAltered: drift.Value(item.isAltered),
             isMisprint: drift.Value(item.isMisprint),
             isSigned: drift.Value(item.isSigned),
+            isDeleted: drift.Value(item.isDeleted),
             currentMarketPrice: item.currentMarketPrice,
             lastPriceUpdate: item.lastPriceUpdate,
             dynamicData: item.dynamicData,
@@ -107,7 +110,7 @@ void main() {
         isGraded: false,
         isAltered: false,
         isMisprint: false,
-        isSigned: false,
+        isSigned: false, isDeleted: false,
       );
       await seedCard(card);
 

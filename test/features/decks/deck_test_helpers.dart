@@ -15,6 +15,7 @@ Deck createTestDeck({
   String tcgDomain = 'mtg',
   bool isRegistered = false,
   bool isCompetitive = false,
+  bool isDeleted = false,
 }) {
   return Deck(
     id: id,
@@ -30,5 +31,6 @@ Deck createTestDeck({
     tcgDomain: tcgDomain,
     isRegistered: isRegistered,
     isCompetitive: isCompetitive,
+    isDeleted: isDeleted,
   );
 }

@@ -22,12 +22,18 @@ class SpyVaultDao extends VaultDao {
     String query, {
     String? collectionType,
     int limit = 50,
+    bool groupByOracleId = false,
   }) async {
     recordedQueries.add(query);
     if (simulatedDelayMs > 0) {
       await Future<void>.delayed(Duration(milliseconds: simulatedDelayMs));
     }
-    return super.searchCatalogCards(query, collectionType: collectionType, limit: limit);
+    return super.searchCatalogCards(
+      query,
+      collectionType: collectionType,
+      limit: limit,
+      groupByOracleId: groupByOracleId,
+    );
   }
 }
 

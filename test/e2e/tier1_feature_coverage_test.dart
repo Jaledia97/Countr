@@ -928,8 +928,8 @@ void main() {
       final deletedCount = await deleteVaultItem(dao, 'del-item-1');
       expect(deletedCount, equals(1));
 
-      // Verify removed
-      existing = await (dao.select(dao.vaultItems)..where((t) => t.id.equals('del-item-1'))).getSingleOrNull();
+      // Verify removed from active records
+      existing = await (dao.select(dao.vaultItems)..where((t) => t.id.equals('del-item-1') & t.isDeleted.equals(false))).getSingleOrNull();
       expect(existing, isNull);
     });
 
@@ -1007,7 +1007,7 @@ void main() {
       final deleted = await deleteVaultItems(dao, ['bulk-1', 'bulk-2']);
       expect(deleted, equals(2));
 
-      final remaining = await (dao.select(dao.vaultItems)..where((t) => t.id.isIn(['bulk-1', 'bulk-2', 'bulk-3']))).get();
+      final remaining = await (dao.select(dao.vaultItems)..where((t) => t.id.isIn(['bulk-1', 'bulk-2', 'bulk-3']) & t.isDeleted.equals(false))).get();
       expect(remaining.length, equals(1));
       expect(remaining.first.id, equals('bulk-3'));
     });

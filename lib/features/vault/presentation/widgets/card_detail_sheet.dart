@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:countr/core/constants/app_colors.dart';
 import 'package:countr/core/constants/app_typography.dart';
 import 'package:countr/core/database/app_database.dart';
+import 'package:countr/core/cache/countr_cached_image.dart';
 import 'package:countr/core/state/app_state.dart';
 import 'package:countr/features/hydration/domain/isolate/scryfall_parser.dart';
 import 'package:countr/features/hydration/domain/models/scryfall_ruling.dart';
@@ -15,7 +16,6 @@ import 'package:countr/features/vault/domain/vault_pricing_helper.dart';
 import 'package:countr/features/vault/presentation/providers/vault_providers.dart';
 import 'package:countr/features/vault/presentation/widgets/edit_card_modal.dart';
 import 'package:countr/features/vault/presentation/widgets/full_screen_card_viewer.dart';
-import 'package:countr/features/vault/presentation/widgets/multi_deck_allocation_sheet.dart';
 import 'package:countr/features/vault/presentation/widgets/switch_printing_modal.dart';
 import 'package:countr/features/vault/presentation/widgets/variant_price_chart.dart';
 import 'package:countr/features/decks/presentation/widgets/conflict_resolution_modal.dart';
@@ -49,6 +49,8 @@ class CardDetailSheet extends ConsumerStatefulWidget {
   final bool fetchOnlinePrintings;
   final String? deckId;
   final Deck? deck;
+  final String? binderId;
+  final VaultBinder? binder;
 
   const CardDetailSheet({
     super.key,
@@ -59,6 +61,8 @@ class CardDetailSheet extends ConsumerStatefulWidget {
     this.fetchOnlinePrintings = false,
     this.deckId,
     this.deck,
+    this.binderId,
+    this.binder,
   }) : assert(item != null || (items != null && items.length > 0),
             'Either item or a non-empty items list must be provided.');
 
@@ -72,6 +76,8 @@ class CardDetailSheet extends ConsumerStatefulWidget {
     bool fetchOnlinePrintings = false,
     String? deckId,
     Deck? deck,
+    String? binderId,
+    VaultBinder? binder,
   }) {
     final effectiveItems = items ?? [item];
     final effectiveIndex = initialIndex ?? (items != null ? items.indexOf(item) : 0);
@@ -90,6 +96,8 @@ class CardDetailSheet extends ConsumerStatefulWidget {
         fetchOnlinePrintings: fetchOnlinePrintings,
         deckId: deckId,
         deck: deck,
+        binderId: binderId,
+        binder: binder,
       ),
     );
   }
@@ -107,15 +115,10 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
   ScrollController? _activeSheetScrollController;
 
   CardDetailTab _selectedTab = CardDetailTab.details;
-  late TextEditingController _notesController;
   late TextEditingController _deckTagController;
-  late TextEditingController _binderPageController;
-  late TextEditingController _binderSlotController;
-  late TextEditingController _purchasePriceController;
   late VaultItem _currentItem;
   Map<String, dynamic> _dynamicData = {};
   List<String> _deckHistory = [];
-  bool _isSavingNotes = false;
   CardPrintCandidate? _previewCandidate;
 
   late final AnimationController _flipController;
@@ -141,14 +144,6 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
 
     _currentItem = _items.isNotEmpty ? _items[_currentIndex] : widget.item!;
     _pageController = PageController(initialPage: _currentIndex);
-    _notesController = TextEditingController(text: _currentItem.notes ?? _currentItem.personalNotes ?? '');
-    _binderPageController = TextEditingController(text: _currentItem.binderPage?.toString() ?? '');
-    _binderSlotController = TextEditingController(text: _currentItem.binderSlot ?? '');
-    _purchasePriceController = TextEditingController(
-      text: (_currentItem.purchasePrice ?? _currentItem.acquiredPrice) > 0
-          ? (_currentItem.purchasePrice ?? _currentItem.acquiredPrice).toStringAsFixed(2)
-          : '',
-    );
     _deckTagController = TextEditingController();
     _flipController = AnimationController(
       vsync: this,
@@ -169,10 +164,6 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
   @override
   void dispose() {
     _pageController.dispose();
-    _notesController.dispose();
-    _binderPageController.dispose();
-    _binderSlotController.dispose();
-    _purchasePriceController.dispose();
     _deckTagController.dispose();
     _flipController.dispose();
     _activeSheetScrollController = null;
@@ -204,12 +195,6 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
     } else if (widget.item != null) {
       _currentItem = widget.item!;
     }
-    _notesController.text = _currentItem.notes ?? _currentItem.personalNotes ?? '';
-    _binderPageController.text = _currentItem.binderPage?.toString() ?? '';
-    _binderSlotController.text = _currentItem.binderSlot ?? '';
-    _purchasePriceController.text = (_currentItem.purchasePrice ?? _currentItem.acquiredPrice) > 0
-        ? (_currentItem.purchasePrice ?? _currentItem.acquiredPrice).toStringAsFixed(2)
-        : '';
     _deckTagController.clear();
     _previewCandidate = null;
     _isFlipped = false;
@@ -225,12 +210,6 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
     setState(() {
       _currentIndex = index;
       _currentItem = _items[_currentIndex];
-      _notesController.text = _currentItem.notes ?? _currentItem.personalNotes ?? '';
-      _binderPageController.text = _currentItem.binderPage?.toString() ?? '';
-      _binderSlotController.text = _currentItem.binderSlot ?? '';
-      _purchasePriceController.text = (_currentItem.purchasePrice ?? _currentItem.acquiredPrice) > 0
-          ? (_currentItem.purchasePrice ?? _currentItem.acquiredPrice).toStringAsFixed(2)
-          : '';
       _deckTagController.clear();
       _previewCandidate = null;
       _isFlipped = false;
@@ -700,37 +679,6 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
     } catch (e, stackTrace) {
       debugPrint('[CardDetailSheet._persistCachedRulings] Database update failed: $e\n$stackTrace');
       // Gracefully ignore database persistence errors in test environments
-    }
-  }
-
-  Future<void> _saveNotes() async {
-    setState(() => _isSavingNotes = true);
-    final dao = ref.read(vaultDaoProvider);
-    final text = _notesController.text.trim();
-    await dao.updateItemCardDetails(
-      id: _currentItem.id,
-      notes: text,
-      personalNotes: text,
-    );
-
-    if (mounted) {
-      setState(() {
-        _isSavingNotes = false;
-        _currentItem = _currentItem.copyWith(
-          notes: Value(text.isNotEmpty ? text : null),
-          personalNotes: Value(text.isNotEmpty ? text : null),
-        );
-        if (_currentIndex < _items.length) {
-          _items[_currentIndex] = _currentItem;
-        }
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Card notes saved'),
-          behavior: SnackBarBehavior.floating,
-          duration: Duration(seconds: 2),
-        ),
-      );
     }
   }
 
@@ -1274,7 +1222,7 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
       key: PageStorageKey('card_detail_list_${item.id}'),
       controller: activeScrollController,
       primary: false,
-      cacheExtent: 3000,
+      cacheExtent: 450,
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
       children: [
         // Card Artwork & Core Metadata Row
@@ -1676,7 +1624,21 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
         ],
 
         // Section 3: Physical Provenance
-        _buildSectionHeader(Icons.inventory_2_outlined, 'Physical Provenance'),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            _buildSectionHeader(Icons.inventory_2_outlined, 'Physical Provenance'),
+            TextButton.icon(
+              key: const Key('card_detail_edit_card_button'),
+              icon: const Icon(Icons.edit_note_rounded, size: 16, color: AppColors.accentCyan),
+              label: const Text(
+                'Edit Card',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.accentCyan),
+              ),
+              onPressed: _openEditModal,
+            ),
+          ],
+        ),
         Container(
           key: const Key('section_physical_provenance'),
           margin: const EdgeInsets.only(top: 6, bottom: 8),
@@ -1689,126 +1651,57 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Protection Status Dropdown
-              const Text(
-                'Protection Status',
-                style: TextStyle(color: AppColors.textMuted, fontSize: 11, fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 6),
-              DropdownButtonFormField<String>(
-                key: const Key('card_detail_protection_status_dropdown'),
-                isExpanded: true,
-                initialValue: const [
-                  'Sleeved',
-                  'Double Sleeved',
-                  'Perfect Fit',
-                  'Penny Sleeve',
-                  'Toploader',
-                  'Magnetic One-Touch',
-                  'Graded Slab',
-                  'Raw',
-                ].contains(item.protectionStatus)
-                    ? item.protectionStatus
-                    : 'Sleeved',
-                dropdownColor: AppColors.surfaceRaised,
-                style: const TextStyle(color: AppColors.textPrimary, fontSize: 13),
-                decoration: InputDecoration(
-                  isDense: true,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                  filled: true,
-                  fillColor: AppColors.surface,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: AppColors.surfaceBorder),
-                  ),
-                ),
-                items: const [
-                  'Sleeved',
-                  'Double Sleeved',
-                  'Perfect Fit',
-                  'Penny Sleeve',
-                  'Toploader',
-                  'Magnetic One-Touch',
-                  'Graded Slab',
-                  'Raw',
-                ].map((s) => DropdownMenuItem(
-                      value: s,
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.centerLeft,
-                        child: Text(s),
-                      ),
-                    )).toList(),
-                onChanged: isCurrent ? (val) {
-                  if (val != null) _updateProtectionStatus(val);
-                } : null,
-              ),
-              const SizedBox(height: 12),
-
-              // Binder & Slot Coordinates
               Row(
                 children: [
                   Expanded(
-                    flex: 1,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
-                          'Binder Page',
+                          'Protection Status',
                           style: TextStyle(color: AppColors.textMuted, fontSize: 11, fontWeight: FontWeight.w600),
                         ),
                         const SizedBox(height: 4),
-                        TextField(
-                          key: const Key('card_detail_binder_page_input'),
-                          controller: _binderPageController,
-                          keyboardType: TextInputType.number,
-                          style: const TextStyle(color: AppColors.textPrimary, fontSize: 13),
-                          decoration: InputDecoration(
-                            hintText: 'Page #',
-                            hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 12),
-                            isDense: true,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                            filled: true,
-                            fillColor: AppColors.surface,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(color: AppColors.surfaceBorder),
-                            ),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: AppColors.surface,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: AppColors.surfaceBorder),
                           ),
-                          onSubmitted: isCurrent ? (_) => _saveBinderCoordinates() : null,
+                          child: Text(
+                            item.protectionStatus ?? 'Sleeved',
+                            style: const TextStyle(color: AppColors.textPrimary, fontSize: 12.5, fontWeight: FontWeight.w500),
+                          ),
                         ),
                       ],
                     ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
-                    flex: 2,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
-                          'Binder Slot',
+                          'Binder Location',
                           style: TextStyle(color: AppColors.textMuted, fontSize: 11, fontWeight: FontWeight.w600),
                         ),
                         const SizedBox(height: 4),
-                        TextField(
-                          key: const Key('card_detail_binder_slot_input'),
-                          controller: _binderSlotController,
-                          scrollPhysics: const NeverScrollableScrollPhysics(),
-                          style: const TextStyle(color: AppColors.textPrimary, fontSize: 13),
-                          decoration: InputDecoration(
-                            hintText: 'Slot (e.g. Slot: A3)',
-                            hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 12),
-                            isDense: true,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                            filled: true,
-                            fillColor: AppColors.surface,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(color: AppColors.surfaceBorder),
-                            ),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: AppColors.surface,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: AppColors.surfaceBorder),
                           ),
-                          onSubmitted: isCurrent ? (_) => _saveBinderCoordinates() : null,
+                          child: Text(
+                            (item.binderPage != null || (item.binderSlot?.isNotEmpty ?? false))
+                                ? 'Page ${item.binderPage ?? '-'}, Slot ${item.binderSlot?.isNotEmpty == true ? item.binderSlot : '-'}'
+                                : 'Unassigned',
+                            style: const TextStyle(color: AppColors.textPrimary, fontSize: 12.5, fontWeight: FontWeight.w500),
+                          ),
                         ),
                       ],
                     ),
@@ -1816,62 +1709,36 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
                 ],
               ),
               const SizedBox(height: 12),
-
-              // Notes & Strategy Tips
               const Text(
                 'Personal Notes & Strategy Tips',
                 style: TextStyle(color: AppColors.textMuted, fontSize: 11, fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 4),
-              isCurrent
-                  ? Column(
-                      children: [
-                        TextField(
-                          key: const Key('card_detail_notes_input'),
-                          controller: _notesController,
-                          maxLines: 3,
-                          decoration: const InputDecoration(
-                            hintText: 'Enter combos, strategy tips, or personal notes...',
-                            hintStyle: TextStyle(color: AppColors.textMuted, fontSize: 13),
-                            border: InputBorder.none,
-                          ),
-                          style: const TextStyle(color: AppColors.textPrimary, fontSize: 13.5),
-                        ),
-                        Wrap(
-                          alignment: WrapAlignment.end,
-                          children: [
-                            FittedBox(
-                              fit: BoxFit.scaleDown,
-                              child: TextButton.icon(
-                                key: const Key('card_detail_save_notes_button'),
-                                icon: _isSavingNotes
-                                    ? const SizedBox(
-                                        width: 14,
-                                        height: 14,
-                                        child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.accentCyan),
-                                      )
-                                    : const Icon(Icons.save_rounded, size: 16),
-                                label: const Text('Save Notes'),
-                                onPressed: _isSavingNotes ? null : _saveNotes,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    )
-                  : Text(
-                      item.notes?.isNotEmpty == true
-                          ? item.notes!
-                          : (item.personalNotes?.isNotEmpty == true
-                              ? item.personalNotes!
-                              : 'No personal notes recorded.'),
-                      style: TextStyle(
-                        color: (item.notes?.isNotEmpty == true || item.personalNotes?.isNotEmpty == true)
-                            ? AppColors.textPrimary
-                            : AppColors.textMuted,
-                        fontSize: 13,
-                      ),
-                    ),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.surfaceBorder),
+                ),
+                child: Text(
+                  (item.notes?.isNotEmpty == true)
+                      ? item.notes!
+                      : ((item.personalNotes?.isNotEmpty == true)
+                          ? item.personalNotes!
+                          : 'No personal notes recorded.'),
+                  style: TextStyle(
+                    color: (item.notes?.isNotEmpty == true || item.personalNotes?.isNotEmpty == true)
+                        ? AppColors.textPrimary
+                        : AppColors.textMuted,
+                    fontSize: 12.5,
+                    fontStyle: (item.notes?.isNotEmpty == true || item.personalNotes?.isNotEmpty == true)
+                        ? FontStyle.normal
+                        : FontStyle.italic,
+                  ),
+                ),
+              ),
             ],
           ),
         ),
@@ -1891,20 +1758,15 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Date Obtained Row
-              OutlinedButton.icon(
-                key: const Key('card_detail_date_obtained_button'),
-                icon: const Icon(Icons.calendar_today_outlined, size: 14, color: AppColors.accentCyan),
-                label: Text(
-                  'Date Obtained: ${_formatDate(item.dateObtained ?? item.acquiredDate)}',
-                  style: const TextStyle(fontSize: 12, color: AppColors.accentCyan, fontWeight: FontWeight.w600),
-                ),
-                style: OutlinedButton.styleFrom(
-                  visualDensity: VisualDensity.compact,
-                  side: const BorderSide(color: AppColors.accentCyan),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                ),
-                onPressed: isCurrent ? _pickDateObtained : null,
+              Row(
+                children: [
+                  const Icon(Icons.calendar_today_outlined, size: 14, color: AppColors.accentCyan),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Date Obtained: ${_formatDate(item.dateObtained ?? item.acquiredDate)}',
+                    style: const TextStyle(fontSize: 12.5, color: AppColors.textPrimary, fontWeight: FontWeight.w500),
+                  ),
+                ],
               ),
               const SizedBox(height: 12),
 
@@ -1934,35 +1796,6 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
                     isProfit ? AppColors.accentEmerald : AppColors.accentRose,
                   ),
                 ],
-              ),
-              const SizedBox(height: 12),
-
-              // Purchase Price Input
-              const Text(
-                'Edit Purchase Price',
-                style: TextStyle(color: AppColors.textMuted, fontSize: 11, fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 4),
-              TextField(
-                key: const Key('card_detail_purchase_price_input'),
-                controller: _purchasePriceController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                style: const TextStyle(color: AppColors.textPrimary, fontSize: 13),
-                decoration: InputDecoration(
-                  prefixText: '${_baseCurrency.symbol} ',
-                  prefixStyle: const TextStyle(color: AppColors.accentCyan, fontWeight: FontWeight.w700),
-                  hintText: '0.00',
-                  hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 12),
-                  isDense: true,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                  filled: true,
-                  fillColor: AppColors.surface,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: AppColors.surfaceBorder),
-                  ),
-                ),
-                onSubmitted: isCurrent ? (val) => _updatePurchasePrice(val) : null,
               ),
             ],
           ),
@@ -2004,108 +1837,18 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
           ),
         ),
 
-        // Section 6: Deck History & Associations
-        Wrap(
-          key: const Key('section_deck_history'),
-          alignment: WrapAlignment.spaceBetween,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          spacing: 8,
-          runSpacing: 6,
-          children: [
-            _buildSectionHeader(Icons.view_carousel_rounded, 'Deck History & Tags'),
-            OutlinedButton.icon(
-              key: const Key('button_add_edit_in_decks'),
-              icon: const Icon(Icons.playlist_add_rounded, size: 14, color: AppColors.accentVioletLight),
-              label: const Text('Add / Edit in Decks', style: TextStyle(fontSize: 12, color: AppColors.accentVioletLight)),
-              style: OutlinedButton.styleFrom(
-                visualDensity: VisualDensity.compact,
-                side: const BorderSide(color: AppColors.accentVioletLight),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              ),
-              onPressed: () => MultiDeckAllocationSheet.show(context, _currentItem),
-            ),
-          ],
-        ),
+        // Section 6: Deck History & Assignment Ledger
+        _buildSectionHeader(Icons.history_rounded, 'Deck Assignment History'),
         Container(
-          margin: const EdgeInsets.only(top: 8, bottom: 18),
+          key: const Key('section_deck_history'),
+          margin: const EdgeInsets.only(top: 6, bottom: 18),
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: AppColors.surfaceRaised,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: AppColors.surfaceBorder),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (isCurrent) ...[
-                if (_deckHistory.isEmpty)
-                  const Text(
-                    'No deck history recorded yet.',
-                    style: TextStyle(color: AppColors.textMuted, fontSize: 12.5),
-                  )
-                else
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: _deckHistory.map((deck) {
-                      return Chip(
-                        label: Text(deck, style: const TextStyle(fontSize: 12, color: AppColors.textPrimary)),
-                        backgroundColor: AppColors.surfaceHighlight,
-                        deleteIcon: const Icon(Icons.close, size: 14, color: AppColors.textMuted),
-                        onDeleted: () => _removeDeckTag(deck),
-                      );
-                    }).toList(),
-                  ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _deckTagController,
-                        decoration: InputDecoration(
-                          hintText: 'Add deck tag (e.g. Commander - Urza)...',
-                          hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 12),
-                          isDense: true,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                          filled: true,
-                          fillColor: AppColors.surface,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: const BorderSide(color: AppColors.surfaceBorder),
-                          ),
-                        ),
-                        onSubmitted: (_) => _addDeckTag(),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    IconButton(
-                      tooltip: 'Add tag',
-                      icon: const Icon(Icons.add_circle, color: AppColors.accentCyan),
-                      onPressed: _addDeckTag,
-                    ),
-                  ],
-                ),
-              ] else ...[
-                if ((itemData['deck_history'] as List?)?.isEmpty ?? true)
-                  const Text(
-                    'No deck history recorded yet.',
-                    style: TextStyle(color: AppColors.textMuted, fontSize: 12.5),
-                  )
-                else
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: ((itemData['deck_history'] as List?) ?? []).map((deck) {
-                      return Chip(
-                        label: Text(deck.toString(), style: const TextStyle(fontSize: 12, color: AppColors.textPrimary)),
-                        backgroundColor: AppColors.surfaceHighlight,
-                      );
-                    }).toList(),
-                  ),
-              ],
-            ],
-          ),
+          child: _buildDeckHistoryLedger(itemData, isCurrent: isCurrent),
         ),
 
         // Deck Gear Section (Deck Scope Only)
@@ -2555,94 +2298,147 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
     );
   }
 
-  Future<void> _updateProtectionStatus(String newStatus) async {
-    final dao = ref.read(vaultDaoProvider);
-    await dao.updateItemCardDetails(
-      id: _currentItem.id,
-      protectionStatus: newStatus,
-    );
-    if (mounted) {
-      setState(() {
-        _currentItem = _currentItem.copyWith(protectionStatus: Value(newStatus));
-        if (_currentIndex < _items.length) {
-          _items[_currentIndex] = _currentItem;
-        }
-      });
-    }
-  }
+  Widget _buildDeckHistoryLedger(Map<String, dynamic> itemData, {required bool isCurrent}) {
+    final rawEntries = itemData['assignment_history'] ??
+        itemData['history_ledger'] ??
+        itemData['card_history'] ??
+        (isCurrent ? _deckHistory : (itemData['deck_history'] as List? ?? []));
 
-  Future<void> _saveBinderCoordinates() async {
-    final page = int.tryParse(_binderPageController.text.trim());
-    final slot = _binderSlotController.text.trim();
-    final dao = ref.read(vaultDaoProvider);
-    await dao.updateItemCardDetails(
-      id: _currentItem.id,
-      binderPage: page,
-      binderSlot: slot.isNotEmpty ? slot : null,
-    );
-    if (mounted) {
-      setState(() {
-        _currentItem = _currentItem.copyWith(
-          binderPage: Value(page),
-          binderSlot: Value(slot.isNotEmpty ? slot : null),
-        );
-        if (_currentIndex < _items.length) {
-          _items[_currentIndex] = _currentItem;
+    final entries = <String>[];
+    if (rawEntries is List) {
+      for (final e in rawEntries) {
+        if (e is String && e.trim().isNotEmpty) {
+          entries.add(e.trim());
+        } else if (e is Map) {
+          final type = (e['type'] ?? 'add').toString();
+          final target = (e['target'] ?? e['deck'] ?? e['name'] ?? 'Deck').toString();
+          final date = (e['date'] ?? e['timestamp'] ?? '').toString();
+          final glyph = type == 'swap' ? '<->' : (type == 'remove' ? '-' : '+');
+          entries.add(date.isNotEmpty ? '$glyph $target - $date' : '$glyph $target');
         }
-      });
-    }
-  }
-
-  Future<void> _pickDateObtained() async {
-    final initialDate = _currentItem.dateObtained ?? _currentItem.acquiredDate;
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: initialDate,
-      firstDate: DateTime(1993),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
-    );
-    if (picked != null) {
-      final dao = ref.read(vaultDaoProvider);
-      await dao.updateItemCardDetails(
-        id: _currentItem.id,
-        dateObtained: picked,
-        acquiredDate: picked,
-      );
-      if (mounted) {
-        setState(() {
-          _currentItem = _currentItem.copyWith(
-            dateObtained: Value(picked),
-            acquiredDate: picked,
-          );
-          if (_currentIndex < _items.length) {
-            _items[_currentIndex] = _currentItem;
-          }
-        });
       }
     }
+
+    return SizedBox(
+      key: const Key('card_history_ledger'),
+      width: double.infinity,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (entries.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: Text(
+                'No deck assignment history recorded yet.',
+                style: TextStyle(color: AppColors.textMuted, fontSize: 12.5),
+              ),
+            )
+          else
+            ...entries.map((raw) => _buildLedgerEntryRow(raw, isCurrent: isCurrent)),
+          if (isCurrent) ...[
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _deckTagController,
+                    decoration: InputDecoration(
+                      hintText: 'Add deck assignment...',
+                      hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      filled: true,
+                      fillColor: AppColors.surface,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: AppColors.surfaceBorder),
+                      ),
+                    ),
+                    onSubmitted: (_) => _addDeckTag(),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  tooltip: 'Add assignment',
+                  icon: const Icon(Icons.add_circle, color: AppColors.accentCyan),
+                  onPressed: _addDeckTag,
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
   }
 
-  Future<void> _updatePurchasePrice(String value) async {
-    final parsed = double.tryParse(value.trim());
-    if (parsed != null && parsed >= 0) {
-      final dao = ref.read(vaultDaoProvider);
-      await dao.updateItemCardDetails(
-        id: _currentItem.id,
-        purchasePrice: parsed,
-        acquiredPrice: parsed,
-      );
-      if (mounted) {
-        setState(() {
-          _currentItem = _currentItem.copyWith(
-            purchasePrice: Value(parsed),
-            acquiredPrice: parsed,
-          );
-          if (_currentIndex < _items.length) {
-            _items[_currentIndex] = _currentItem;
-          }
-        });
-      }
+  Widget _buildLedgerEntryRow(String raw, {required bool isCurrent}) {
+    String glyph = '+';
+    Color glyphColor = AppColors.accentEmerald;
+    String displayString = raw;
+
+    if (raw.startsWith('<->')) {
+      glyph = '<->';
+      glyphColor = AppColors.accentAmber;
+      displayString = raw;
+    } else if (raw.startsWith('+')) {
+      glyph = '+';
+      glyphColor = AppColors.accentEmerald;
+      displayString = raw;
+    } else if (raw.startsWith('-')) {
+      glyph = '-';
+      glyphColor = AppColors.accentRose;
+      displayString = raw;
+    } else {
+      glyph = '+';
+      glyphColor = AppColors.accentEmerald;
+      displayString = '+ $raw';
     }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: glyphColor.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: glyphColor.withValues(alpha: 0.4)),
+            ),
+            child: Text(
+              glyph,
+              style: TextStyle(
+                color: glyphColor,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                fontFamily: 'monospace',
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              displayString,
+              style: const TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          if (isCurrent)
+            IconButton(
+              icon: const Icon(Icons.close, size: 14, color: AppColors.textMuted),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+              splashRadius: 14,
+              tooltip: 'Remove',
+              onPressed: () => _removeDeckTag(raw),
+            ),
+        ],
+      ),
+    );
   }
 
   Widget _buildCardArtwork(VaultItem item, bool isCurrent) {
@@ -2690,6 +2486,45 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
       child: Stack(
         children: [
           artwork,
+          Positioned(
+            top: 4,
+            right: 4,
+            child: Semantics(
+              button: true,
+              label: 'Full screen card view',
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  key: const Key('card_art_expand_overlay'),
+                  onTap: _openFullScreenViewer,
+                  borderRadius: BorderRadius.circular(20),
+                  child: Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: AppColors.surface.withValues(alpha: 0.85),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppColors.surfaceBorder),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.5),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: const Center(
+                      child: Icon(
+                        Icons.open_in_full_rounded,
+                        size: 14,
+                        color: AppColors.accentCyan,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
           if (hasFlip)
             Positioned(
               bottom: 4,
@@ -2762,16 +2597,10 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
       ),
       clipBehavior: Clip.antiAlias,
       child: imageUrl.isNotEmpty
-          ? Image.network(
-              imageUrl,
+          ? CountrCachedImage(
+              imageUrl: imageUrl,
               fit: BoxFit.cover,
-              errorBuilder: (_, _, _) => _buildPlaceholderArt(cardName: cardName),
-              loadingBuilder: (context, child, loadingProgress) {
-                if (loadingProgress == null) return child;
-                return const Center(
-                  child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.accentCyan),
-                );
-              },
+              errorWidget: _buildPlaceholderArt(cardName: cardName),
             )
           : _buildPlaceholderArt(cardName: cardName),
     );
@@ -3306,15 +3135,81 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
   // ---------------------------------------------------------------------------
 
   Widget _buildQuickActionBar(BuildContext context) {
+    final isDeckContext = widget.deckId != null || widget.deck != null;
+    final isBinderContext = widget.binderId != null || widget.binder != null;
+
+    final actions = <Widget>[];
+
+    if (isDeckContext) {
+      actions.add(
+        _buildQuickActionButton(
+          key: const Key('quick_action_remove_from_deck'),
+          icon: Icons.playlist_remove_rounded,
+          label: 'Remove from Deck',
+          color: AppColors.accentRose,
+          onTap: _removeFromDeckAction,
+        ),
+      );
+    } else {
+      actions.add(
+        _buildQuickActionButton(
+          key: const Key('quick_action_delete'),
+          icon: Icons.delete_outline_rounded,
+          label: 'Delete',
+          color: AppColors.accentRose,
+          onTap: _confirmDeleteItem,
+        ),
+      );
+      if (isBinderContext) {
+        actions.add(
+          _buildQuickActionButton(
+            key: const Key('quick_action_move_binder'),
+            icon: Icons.drive_file_move_outlined,
+            label: 'Move',
+            color: AppColors.accentCyan,
+            onTap: _showMoveBinderModal,
+          ),
+        );
+      }
+    }
+
+    actions.add(
+      _buildQuickActionButton(
+        key: const Key('quick_action_add_to_deck'),
+        icon: Icons.playlist_add_rounded,
+        label: 'Add to Deck',
+        color: AppColors.accentVioletLight,
+        onTap: _showAddToDeckDialog,
+      ),
+    );
+
+    actions.add(
+      _buildQuickActionButton(
+        key: const Key('quick_action_share'),
+        icon: Icons.share_rounded,
+        label: 'Share',
+        color: AppColors.accentEmerald,
+        onTap: _handleShareAction,
+      ),
+    );
+
+    actions.add(
+      _buildQuickActionButton(
+        key: const Key('quick_action_edit'),
+        icon: Icons.edit_note_rounded,
+        label: 'Edit',
+        color: AppColors.accentAmber,
+        onTap: _openEditModal,
+      ),
+    );
+
     return Container(
       key: const Key('card_detail_quick_action_bar'),
       padding: EdgeInsets.fromLTRB(
-        8,
-        8,
-        8,
-        MediaQuery.of(context).padding.bottom > 0
-            ? MediaQuery.of(context).padding.bottom + 4
-            : 12,
+        16,
+        10,
+        16,
+        math.max(MediaQuery.of(context).padding.bottom, 12),
       ),
       decoration: BoxDecoration(
         color: AppColors.surfaceRaised,
@@ -3329,53 +3224,158 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          // 1. Delete
-          _buildQuickActionButton(
-            key: const Key('quick_action_delete'),
-            icon: Icons.delete_outline_rounded,
-            label: 'Delete',
-            color: AppColors.accentRose,
-            onTap: _confirmDeleteItem,
-          ),
+        children: actions,
+      ),
+    );
+  }
 
-          // 2. Full Screen
-          _buildQuickActionButton(
-            key: const Key('quick_action_fullscreen'),
-            icon: Icons.fullscreen_rounded,
-            label: 'Full Screen',
-            color: AppColors.accentCyan,
-            onTap: _openFullScreenViewer,
-          ),
+  Future<void> _removeFromDeckAction() async {
+    final targetDeckId = widget.deckId ?? widget.deck?.id;
+    if (targetDeckId == null) return;
 
-          // 3. Add to Deck
-          _buildQuickActionButton(
-            key: const Key('quick_action_add_to_deck'),
-            icon: Icons.playlist_add_rounded,
-            label: 'Add to Deck',
-            color: AppColors.accentVioletLight,
-            onTap: _showAddToDeckDialog,
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        key: const Key('remove_from_deck_dialog'),
+        backgroundColor: AppColors.surfaceRaised,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Remove from Deck?', style: AppTypography.heading2),
+        content: Text(
+          'Remove "${_currentItem.name}" from this deck?',
+          style: const TextStyle(color: AppColors.textSecondary, fontSize: 13.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogCtx).pop(false),
+            child: const Text('Cancel', style: TextStyle(color: AppColors.textMuted)),
           ),
-
-          // 4. Share
-          _buildQuickActionButton(
-            key: const Key('quick_action_share'),
-            icon: Icons.share_rounded,
-            label: 'Share',
-            color: AppColors.accentEmerald,
-            onTap: _handleShareAction,
-          ),
-
-          // 5. Edit
-          _buildQuickActionButton(
-            key: const Key('quick_action_edit'),
-            icon: Icons.edit_note_rounded,
-            label: 'Edit',
-            color: AppColors.accentAmber,
-            onTap: _openEditModal,
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppColors.accentRose),
+            onPressed: () => Navigator.of(dialogCtx).pop(true),
+            child: const Text('Remove'),
           ),
         ],
       ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      final dao = ref.read(vaultDaoProvider);
+      await dao.removeCardFromDeck(targetDeckId, _currentItem.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Removed ${_currentItem.name} from deck')),
+        );
+        Navigator.of(context).pop();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error removing from deck: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _showMoveBinderModal() async {
+    final dao = ref.read(vaultDaoProvider);
+    final binders = await dao.getAllBinders();
+    if (!mounted) return;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetCtx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.drive_file_move_outlined, color: AppColors.accentCyan),
+                      const SizedBox(width: 8),
+                      const Text('Move to Binder', style: AppTypography.heading2),
+                      const Spacer(),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: AppColors.textMuted),
+                        onPressed: () => Navigator.of(sheetCtx).pop(),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(color: AppColors.surfaceBorder),
+                ListTile(
+                  key: const Key('move_to_inbox_tile'),
+                  leading: const Icon(Icons.inbox_outlined, color: AppColors.textSecondary),
+                  title: const Text('Unassigned / Inbox', style: TextStyle(color: Colors.white)),
+                  onTap: () async {
+                    await dao.assignItemsToBinder([_currentItem.id], 'INBOX');
+                    if (sheetCtx.mounted) Navigator.of(sheetCtx).pop();
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Moved ${_currentItem.name} to Inbox')),
+                      );
+                      Navigator.of(context).pop();
+                    }
+                  },
+                ),
+                if (binders.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.all(20),
+                    child: Text('No other binders available.', style: TextStyle(color: AppColors.textMuted)),
+                  )
+                else
+                  ...binders.map((b) {
+                    final isCurrentBinder = b.id == (widget.binderId ?? widget.binder?.id);
+                    return ListTile(
+                      key: Key('move_to_binder_${b.id}'),
+                      leading: Icon(
+                        Icons.folder_outlined,
+                        color: isCurrentBinder ? AppColors.textMuted : AppColors.accentCyan,
+                      ),
+                      title: Text(
+                        b.name,
+                        style: TextStyle(
+                          color: isCurrentBinder ? AppColors.textMuted : Colors.white,
+                          fontWeight: isCurrentBinder ? FontWeight.normal : FontWeight.w600,
+                        ),
+                      ),
+                      subtitle: Text(
+                        b.collectionType,
+                        style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                      ),
+                      trailing: isCurrentBinder
+                          ? const Text('Current', style: TextStyle(color: AppColors.textMuted, fontSize: 11))
+                          : null,
+                      enabled: !isCurrentBinder,
+                      onTap: isCurrentBinder
+                          ? null
+                          : () async {
+                              await dao.assignItemsToBinder([_currentItem.id], b.id);
+                              if (sheetCtx.mounted) Navigator.of(sheetCtx).pop();
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Moved ${_currentItem.name} to ${b.name}')),
+                                );
+                                Navigator.of(context).pop();
+                              }
+                            },
+                    );
+                  }),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -3632,7 +3632,6 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
           if (_currentIndex < _items.length) {
             _items[_currentIndex] = finalItem;
           }
-          _notesController.text = finalItem.personalNotes ?? '';
           _parseDynamicData();
         });
       }

@@ -67,9 +67,26 @@ class _MainShellScreenState extends ConsumerState<MainShellScreen> {
       bottomNavigationBar: CustomBottomNavBar(
         currentIndex: widget.navigationShell.currentIndex,
         onBranchSelected: (index) {
+          if (index == widget.navigationShell.currentIndex) {
+            Navigator.of(context, rootNavigator: true)
+                .popUntil((route) => route.isFirst);
+            widget.navigationShell.goBranch(
+              index,
+              initialLocation: true,
+            );
+          } else {
+            widget.navigationShell.goBranch(
+              index,
+              initialLocation: false,
+            );
+          }
+        },
+        onActiveBranchReselected: (index) {
+          Navigator.of(context, rootNavigator: true)
+              .popUntil((route) => route.isFirst);
           widget.navigationShell.goBranch(
             index,
-            initialLocation: index == widget.navigationShell.currentIndex,
+            initialLocation: true,
           );
         },
         onScannerTap: () {

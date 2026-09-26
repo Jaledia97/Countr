@@ -516,7 +516,7 @@ void main() {
       final mockDeck = Deck(
         id: plan.deckId, name: plan.deckName, format: 'Commander',
         wins: 0, losses: 0, draws: 0, createdAt: DateTime.now(),
-        tcgDomain: 'mtg', isRegistered: false, isCompetitive: false,
+        tcgDomain: 'mtg', isRegistered: false, isCompetitive: false, isDeleted: false,
       );
 
       await tester.pumpWidget(createTestWidget(deck: mockDeck, precomputedPlan: plan));
@@ -573,7 +573,7 @@ void main() {
       final mockDeck = Deck(
         id: plan.deckId, name: plan.deckName, format: 'Commander',
         wins: 0, losses: 0, draws: 0, createdAt: DateTime.now(),
-        tcgDomain: 'mtg', isRegistered: false, isCompetitive: false,
+        tcgDomain: 'mtg', isRegistered: false, isCompetitive: false, isDeleted: false,
       );
 
       await tester.pumpWidget(createTestWidget(deck: mockDeck, precomputedPlan: plan));
@@ -666,7 +666,7 @@ void main() {
       final mockDeck = Deck(
         id: plan.deckId, name: plan.deckName, format: 'Commander',
         wins: 0, losses: 0, draws: 0, createdAt: DateTime.now(),
-        tcgDomain: 'mtg', isRegistered: false, isCompetitive: false,
+        tcgDomain: 'mtg', isRegistered: false, isCompetitive: false, isDeleted: false,
       );
 
       await tester.pumpWidget(createTestWidget(
@@ -714,7 +714,7 @@ void main() {
       final mockDeck = Deck(
         id: plan.deckId, name: plan.deckName, format: 'Commander',
         wins: 0, losses: 0, draws: 0, createdAt: DateTime.now(),
-        tcgDomain: 'mtg', isRegistered: false, isCompetitive: false,
+        tcgDomain: 'mtg', isRegistered: false, isCompetitive: false, isDeleted: false,
       );
 
       await tester.pumpWidget(createTestWidget(
@@ -758,7 +758,7 @@ void main() {
       final mockDeck = Deck(
         id: plan.deckId, name: plan.deckName, format: 'Commander',
         wins: 0, losses: 0, draws: 0, createdAt: DateTime.now(),
-        tcgDomain: 'mtg', isRegistered: false, isCompetitive: false,
+        tcgDomain: 'mtg', isRegistered: false, isCompetitive: false, isDeleted: false,
       );
 
       await tester.pumpWidget(createTestWidget(
@@ -782,7 +782,7 @@ void main() {
       final mockDeck = Deck(
         id: plan.deckId, name: plan.deckName, format: 'Commander',
         wins: 0, losses: 0, draws: 0, createdAt: DateTime.now(),
-        tcgDomain: 'mtg', isRegistered: true, isCompetitive: false,
+        tcgDomain: 'mtg', isRegistered: true, isCompetitive: false, isDeleted: false,
       );
 
       bool unregisteredCalled = false;
@@ -830,7 +830,7 @@ void main() {
       final mockDeck = Deck(
         id: emptyPlan.deckId, name: emptyPlan.deckName, format: 'Commander',
         wins: 0, losses: 0, draws: 0, createdAt: DateTime.now(),
-        tcgDomain: 'mtg', isRegistered: false, isCompetitive: false,
+        tcgDomain: 'mtg', isRegistered: false, isCompetitive: false, isDeleted: false,
       );
 
       await tester.pumpWidget(createTestWidget(

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/database/app_database.dart';
+import '../../../../core/cache/countr_cached_image.dart';
 
 /// ManaBox-style animated floating top success prompt that smoothly slides in
 /// from the top edge upon successful card scan match and auto-dismisses after
@@ -217,10 +218,10 @@ class _ScannerSuccessToastState extends State<ScannerSuccessToast>
                       ),
                       clipBehavior: Clip.antiAlias,
                       child: widget.card.imageUrl.isNotEmpty
-                          ? Image.network(
-                              widget.card.imageUrl,
+                          ? CountrCachedImage(
+                              imageUrl: widget.card.imageUrl,
                               fit: BoxFit.cover,
-                              errorBuilder: (_, _, _) =>
+                              errorWidget:
                                   _buildThumbnailPlaceholder(),
                             )
                           : _buildThumbnailPlaceholder(),

@@ -47,7 +47,7 @@ void main() {
       isGraded: false,
       isAltered: false,
       isMisprint: false,
-      isSigned: false,
+      isSigned: false, isDeleted: false,
       currentMarketPrice: price,
       lastPriceUpdate: DateTime(2023, 1, 1),
       personalNotes: 'Primary commander staple in my deck.',
@@ -234,11 +234,11 @@ void main() {
       expect(find.byKey(const Key('card_detail_flip_button')), findsOneWidget);
       expect(find.byKey(const Key('card_detail_quick_action_bar')), findsOneWidget);
       expect(find.byKey(const Key('quick_action_delete')), findsOneWidget);
-      expect(find.byKey(const Key('quick_action_fullscreen')), findsOneWidget);
+      expect(find.byKey(const Key('card_art_expand_overlay')), findsOneWidget);
       expect(find.byKey(const Key('quick_action_add_to_deck')), findsOneWidget);
       expect(find.byKey(const Key('quick_action_share')), findsOneWidget);
       expect(find.byKey(const Key('quick_action_edit')), findsOneWidget);
-      expect(find.byKey(const Key('button_add_edit_in_decks')), findsOneWidget);
+      expect(find.byKey(const Key('card_history_ledger')), findsOneWidget);
       expect(find.byKey(const Key('card_detail_switch_printing_button')), findsOneWidget);
       expect(find.text('Card Mechanics & Rulings'), findsOneWidget);
     });
@@ -564,7 +564,7 @@ void main() {
         acquiredDate: DateTime(2023, 1, 1),
         quantity: 1,
         condition: 'NM',
-        isGraded: false, isAltered: false, isMisprint: false, isSigned: false,
+        isGraded: false, isAltered: false, isMisprint: false, isSigned: false, isDeleted: false,
         currentMarketPrice: 1.75,
         lastPriceUpdate: DateTime(2023, 1, 1),
         dynamicData: jsonEncode({'collector_number': '243', 'set': 'cmd'}),
@@ -580,7 +580,7 @@ void main() {
         acquiredDate: DateTime(2023, 1, 1),
         quantity: 1,
         condition: 'NM',
-        isGraded: false, isAltered: false, isMisprint: false, isSigned: false,
+        isGraded: false, isAltered: false, isMisprint: false, isSigned: false, isDeleted: false,
         currentMarketPrice: 15.00,
         lastPriceUpdate: DateTime(2023, 1, 1),
         dynamicData: jsonEncode({'collector_number': '313', 'set': '2x2'}),

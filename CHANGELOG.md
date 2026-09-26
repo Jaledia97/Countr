@@ -1,6 +1,45 @@
-## [0.4.4] - 2026-09-24
+## [0.4.6] - 2026-09-26
 
-### Phase 4.3 & 4.4: MTG Mana Symbology Engine, Values Engine & Global Privacy Mode
+### Phase 4.5 & 4.6 Master Patch: Offline-First Hardening & Complete UI/UX Overhaul
+
+#### Added & Improved
+- **Stage 1: Offline-First Database Hardening & Sync Queue**:
+  - **Schema Migration (v8 $\rightarrow$ v9)**: Upgraded Drift database schema to version 9, adding `is_deleted` (boolean, default false) and `updated_at` (DateTime) across all 7 core entity tables (`vault_items`, `vault_binders`, `decks`, `deck_versions`, `deck_version_items`, `deck_matchups`, and `deck_synergies`).
+  - **Soft Deletion & Cascade Enforcement**: Completely eliminated hard `DELETE` queries across DAOs. Soft-deleting a deck transactionally cascades soft-deletes to all child `DeckVersions` and `DeckVersionItems`; soft-deleting a binder cleanly unassigns associated cards.
+  - **Active Read Filtering**: All 21 DAO read queries and live streams enforce `WHERE is_deleted = false` via inner joins to guarantee deleted items never leak into active views while preserving historical and outbox integrity.
+  - **Outbox SyncQueue (`sync_queue_table.dart`)**: Created persistent outbox queue logging INSERT, UPDATE, and DELETE operations with entity type, entity ID, timestamps, and atomic SQLite retry counter increments for future cloud syncing.
+  - **Persistent Image Cache Policy (`CountrImageCacheManager`)**: Implemented custom `BaseCacheManager` configured for 35+ day offline retention and 5,000 card capacity; deployed `CountrCachedImage` across the application, purging all raw unmanaged `Image.network` calls.
+
+- **Stage 2A: Global Architecture & App Settings Repositioning**:
+  - **Two-Tiered Relational Architecture**: Abstract `oracle_id` powers global catalog search deduplication, while personal Vault items and Deck inventories strictly query exact printing IDs with finish metadata.
+  - **Command Center App Settings**: Relocated Global Privacy Mode toggle, Base Currency dropdown (`USD`, `EUR`, `GBP`, `CAD`), and Streamer Security auto-lock switch into the Command Center App Settings card.
+  - **UI Decluttering**: Removed obsolete viewing persona drawer toggle and purged the privacy eyeball button from the Feed screen AppBar.
+
+- **Stage 2B: Vault & Card Details Polish**:
+  - **5:7 Aspect Ratio & Variant Sync**: Enforced strict `5:7` aspect ratio with `BoxFit.contain` in `FullScreenCardViewer`. Automatically reads finish metadata to activate GLSL foil shimmer shaders without manual toggles.
+  - **Variant-Bound DFC Flips**: Double-faced card flip animations are strictly bound to the active printing variant's backside art (`card_faces[1]`).
+  - **Contextual Actions & Expand Overlay**: Replaced the bottom "Full Screen" button with a top-corner expand overlay icon on the card art. In Binder scope, displays a "Move" transfer action; in Deck scope, hides Delete/Move and displays a strict "Remove from Deck" action.
+  - **Dedicated Edit Card Modal (`EditCardModal`)**: Extracted physical provenance (`binder_page`, `binder_slot`, `protection_status`), acquisition tracking (`date_obtained`, `purchase_price`), condition, and notes into a dedicated modal. Removed redundant "Add/Edit in Decks" button.
+  - **Chronological Assignment History Ledger**: Formatted card assignment history as a chronological transaction ledger (`+`, `-`, `<->`).
+
+- **Stage 2C: Decks, Binders & Import Workflows**:
+  - **Commander Art Stream**: `DecksDao.watchDeckSummaries()` executes an authentic SQLite `LEFT JOIN` on `DeckVersionItems` and `VaultItems` to stream Commander `art_crop` with skeleton shimmer loading (`SkeletonShimmerBox`), inline color identity pips, assembly status badges, format, and completeness.
+  - **Deck Setup Wizard (`DeckSetupWizardModal`)**: Decoupled `[ + New Deck ]` from cloning, launching a modal prompting for Deck Name, Format, and a choice between Blank mode and text Import mode via `DeckIOParser.parseList`.
+  - **Vault Import Flow (`VaultImportBottomSheet`)**: Replaced the legacy "Add Item" button with an `[ Import + ]` flow parsing bulk card text and links into a selected destination binder.
+  - **Binder Customization & Views**: Added `EditBinderModal` for custom cover art, name, and description. Added persistent state toggle (`binderViewModeProvider`) on `BinderDetailScreen` swapping between a 3x3 Grid view (`5:7` ratio) and a data-dense List view.
+
+- **Stage 2D: List View Density, Pop-to-Root Navigation & Scroll Optimization**:
+  - **Data-Dense `ExpansionTile` List Views**: Standardized list views across Vault (`VaultItemCard`), Decks (`DeckBuilderScreen`), and Catalog (`CatalogCardListTile`) with inline `ManaCostBar` and tap-to-expand Oracle rules text rendered via `ManaText`.
+  - **Pop-to-Root Bottom Navigation**: Retapping the active bottom navigation tab icon executes a stack reset (`popUntil((route) => route.isFirst)`) and resets the branch to its root view.
+  - **Scroll Performance Optimization**: Resolved 6 identified scroll jank bottlenecks (JSON deserialization LRU memoization with `ParsedJsonCache`, `CountrCachedImage`, `RepaintBoundary` paint isolation, compact collapsed row extents, bounded `cacheExtent` of 450px, and universal `const` constructors).
+
+#### Quality & Verification
+- **Test Suite**: 3,057+ automated tests passing (100% pass rate) with 0 failures, 0 skips, and 0 lints (`dart analyze --fatal-infos`).
+- **Audit Verification**: Passed independent multi-phase Victory Audit (`VICTORY CONFIRMED`).
+
+---
+
+## [0.4.4] - 2026-09-24
 
 #### Added
 - **Global MTG Mana Symbology Engine (`Phase 4.3`)**:

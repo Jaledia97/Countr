@@ -21,6 +21,7 @@ class MockDeckData {
       tcgDomain: 'mtg',
       isRegistered: true,
       isCompetitive: false,
+      isDeleted: false,
       createdAt: DateTime.now(),
     ),
     Deck(
@@ -33,6 +34,7 @@ class MockDeckData {
       tcgDomain: 'pokemon',
       isRegistered: true,
       isCompetitive: true,
+      isDeleted: false,
       createdAt: DateTime.now(),
     ),
     Deck(
@@ -45,6 +47,7 @@ class MockDeckData {
       tcgDomain: 'mtg',
       isRegistered: false,
       isCompetitive: true,
+      isDeleted: false,
       createdAt: DateTime.now(),
     ),
     Deck(
@@ -57,6 +60,7 @@ class MockDeckData {
       tcgDomain: 'lorcana',
       isRegistered: false,
       isCompetitive: false,
+      isDeleted: false,
       createdAt: DateTime.now(),
     ),
   ];
@@ -87,6 +91,7 @@ class MockDeckData {
         versionNote:
             'Added Charismatic Conqueror and Bloodtithe Harvester; cut Bloodline Necromancer',
         isActive: true,
+        isDeleted: false,
         createdAt: now.subtract(const Duration(days: 2)),
       ),
       DeckVersion(
@@ -96,6 +101,7 @@ class MockDeckData {
         versionNote:
             'Upgraded mana base with Savai Triome, Vault of Champions, and Luxury Suite',
         isActive: false,
+        isDeleted: false,
         createdAt: now.subtract(const Duration(days: 14)),
       ),
       DeckVersion(
@@ -104,6 +110,7 @@ class MockDeckData {
         versionNumber: 1,
         versionNote: 'Initial Commander 100-card Edgar Markov deck assembly',
         isActive: false,
+        isDeleted: false,
         createdAt: now.subtract(const Duration(days: 45)),
       ),
     ];
@@ -120,6 +127,7 @@ class MockDeckData {
             'Favorable matchup. Maintain sacrificial outlets up to prevent life drain locks.',
         swapInItemIds: 'edgar-card-toxic-deluge,edgar-card-swords',
         swapOutItemIds: 'edgar-card-champion-of-dusk',
+        isDeleted: false,
       ),
       DeckMatchup(
         id: 'match-$deckId-2',
@@ -129,6 +137,7 @@ class MockDeckData {
             'Hold Teferi\'s Protection or Boros Charm for Supreme Verdict. Apply early token pressure.',
         swapInItemIds: 'edgar-card-boros-charm,edgar-card-teferis-protection',
         swapOutItemIds: 'edgar-card-butcher-of-malakir',
+        isDeleted: false,
       ),
       DeckMatchup(
         id: 'match-$deckId-3',
@@ -138,6 +147,7 @@ class MockDeckData {
             'Stabilize life total with Vito and Cruel Celebrant. Mulligan aggressively for early drops.',
         swapInItemIds: 'edgar-card-vito,edgar-card-cruel-celebrant',
         swapOutItemIds: 'edgar-card-necropotence',
+        isDeleted: false,
       ),
     ];
   }

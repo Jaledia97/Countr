@@ -120,8 +120,7 @@ void main() {
       expect(find.text('Collections +'), findsOneWidget);
 
       // Scroll down inside the Command Center modal
-      await tester.drag(find.byType(ListView).last, const Offset(0, -300));
-      await tester.pump();
+      await tester.scrollUntilVisible(find.text('Play / Track +'), 50, scrollable: find.byType(Scrollable).last);
       expect(find.text('Play / Track +'), findsOneWidget);
 
       // Close Command Center
@@ -336,7 +335,9 @@ void main() {
 
       expect(find.text('COMMAND CENTER'), findsOneWidget);
 
-      // Select "Pokémon TCG" from the Collections accordion
+      // Scroll down inside Command Center to ensure Pokémon TCG is on screen
+      await tester.drag(find.byType(ListView).last, const Offset(0, -300));
+      await tester.pump();
       await tester.tap(find.text('Pokémon TCG'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));

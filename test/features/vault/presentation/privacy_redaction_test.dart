@@ -28,7 +28,7 @@ VaultItem createTestItem({
     isGraded: false,
     isAltered: false,
     isMisprint: false,
-    isSigned: false,
+    isSigned: false, isDeleted: false,
     acquiredPrice: acquiredPrice,
     acquiredDate: DateTime.now(),
     currentMarketPrice: currentMarketPrice,

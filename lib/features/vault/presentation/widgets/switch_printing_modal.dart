@@ -7,6 +7,7 @@ import 'package:countr/core/database/app_database.dart';
 import 'package:countr/core/state/settings_state.dart';
 import 'package:countr/features/hydration/domain/isolate/scryfall_parser.dart';
 import 'package:countr/features/hydration/presentation/providers/hydration_providers.dart';
+import 'package:countr/core/cache/countr_cached_image.dart';
 import 'package:countr/features/vault/presentation/providers/vault_providers.dart';
 
 /// Candidate print representation for SwitchPrintingModal.
@@ -366,26 +367,22 @@ class _SwitchPrintingModalState extends ConsumerState<SwitchPrintingModal> {
                       child: Row(
                         children: [
                           if (active?.artCropUrl != null && active!.artCropUrl!.isNotEmpty)
-                            ClipRRect(
+                            CountrCachedImage(
+                              imageUrl: active.artCropUrl!,
+                              width: 80,
+                              height: 58,
+                              fit: BoxFit.cover,
                               borderRadius: BorderRadius.circular(8),
-                              child: Image.network(
-                                active.artCropUrl!,
-                                width: 80,
-                                height: 58,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, _, _) => _buildPlaceholder(),
-                              ),
+                              errorWidget: _buildPlaceholder(),
                             )
                           else if (active?.imageUrl != null && active!.imageUrl.isNotEmpty)
-                            ClipRRect(
+                            CountrCachedImage(
+                              imageUrl: active.imageUrl,
+                              width: 50,
+                              height: 70,
+                              fit: BoxFit.cover,
                               borderRadius: BorderRadius.circular(8),
-                              child: Image.network(
-                                active.imageUrl,
-                                width: 50,
-                                height: 70,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, _, _) => _buildPlaceholder(),
-                              ),
+                              errorWidget: _buildPlaceholder(),
                             )
                           else
                             _buildPlaceholder(),
@@ -508,10 +505,10 @@ class _SwitchPrintingModalState extends ConsumerState<SwitchPrintingModal> {
                                             height: 80,
                                             width: 60,
                                             child: print.imageUrl.isNotEmpty
-                                                ? Image.network(
-                                                    print.imageUrl,
+                                                ? CountrCachedImage(
+                                                    imageUrl: print.imageUrl,
                                                     fit: BoxFit.cover,
-                                                    errorBuilder: (_, _, _) => _buildPlaceholder(),
+                                                    errorWidget: _buildPlaceholder(),
                                                   )
                                                 : _buildPlaceholder(),
                                           ),

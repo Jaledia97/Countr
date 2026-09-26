@@ -49,8 +49,41 @@ class $VaultBindersTable extends VaultBinders
     type: DriftSqlType.dateTime,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _isDeletedMeta = const VerificationMeta(
+    'isDeleted',
+  );
   @override
-  List<GeneratedColumn> get $columns => [id, name, collectionType, createdAt];
+  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
+    'is_deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    name,
+    collectionType,
+    createdAt,
+    isDeleted,
+    updatedAt,
+  ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -95,6 +128,18 @@ class $VaultBindersTable extends VaultBinders
     } else if (isInserting) {
       context.missing(_createdAtMeta);
     }
+    if (data.containsKey('is_deleted')) {
+      context.handle(
+        _isDeletedMeta,
+        isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
     return context;
   }
 
@@ -120,6 +165,14 @@ class $VaultBindersTable extends VaultBinders
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
       )!,
+      isDeleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_deleted'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      ),
     );
   }
 
@@ -134,11 +187,15 @@ class VaultBinder extends DataClass implements Insertable<VaultBinder> {
   final String name;
   final String collectionType;
   final DateTime createdAt;
+  final bool isDeleted;
+  final DateTime? updatedAt;
   const VaultBinder({
     required this.id,
     required this.name,
     required this.collectionType,
     required this.createdAt,
+    required this.isDeleted,
+    this.updatedAt,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -147,6 +204,10 @@ class VaultBinder extends DataClass implements Insertable<VaultBinder> {
     map['name'] = Variable<String>(name);
     map['collection_type'] = Variable<String>(collectionType);
     map['created_at'] = Variable<DateTime>(createdAt);
+    map['is_deleted'] = Variable<bool>(isDeleted);
+    if (!nullToAbsent || updatedAt != null) {
+      map['updated_at'] = Variable<DateTime>(updatedAt);
+    }
     return map;
   }
 
@@ -156,6 +217,10 @@ class VaultBinder extends DataClass implements Insertable<VaultBinder> {
       name: Value(name),
       collectionType: Value(collectionType),
       createdAt: Value(createdAt),
+      isDeleted: Value(isDeleted),
+      updatedAt: updatedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(updatedAt),
     );
   }
 
@@ -169,6 +234,8 @@ class VaultBinder extends DataClass implements Insertable<VaultBinder> {
       name: serializer.fromJson<String>(json['name']),
       collectionType: serializer.fromJson<String>(json['collectionType']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+      updatedAt: serializer.fromJson<DateTime?>(json['updatedAt']),
     );
   }
   @override
@@ -179,6 +246,8 @@ class VaultBinder extends DataClass implements Insertable<VaultBinder> {
       'name': serializer.toJson<String>(name),
       'collectionType': serializer.toJson<String>(collectionType),
       'createdAt': serializer.toJson<DateTime>(createdAt),
+      'isDeleted': serializer.toJson<bool>(isDeleted),
+      'updatedAt': serializer.toJson<DateTime?>(updatedAt),
     };
   }
 
@@ -187,11 +256,15 @@ class VaultBinder extends DataClass implements Insertable<VaultBinder> {
     String? name,
     String? collectionType,
     DateTime? createdAt,
+    bool? isDeleted,
+    Value<DateTime?> updatedAt = const Value.absent(),
   }) => VaultBinder(
     id: id ?? this.id,
     name: name ?? this.name,
     collectionType: collectionType ?? this.collectionType,
     createdAt: createdAt ?? this.createdAt,
+    isDeleted: isDeleted ?? this.isDeleted,
+    updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
   );
   VaultBinder copyWithCompanion(VaultBindersCompanion data) {
     return VaultBinder(
@@ -201,6 +274,8 @@ class VaultBinder extends DataClass implements Insertable<VaultBinder> {
           ? data.collectionType.value
           : this.collectionType,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
   }
 
@@ -210,13 +285,16 @@ class VaultBinder extends DataClass implements Insertable<VaultBinder> {
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('collectionType: $collectionType, ')
-          ..write('createdAt: $createdAt')
+          ..write('createdAt: $createdAt, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('updatedAt: $updatedAt')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, name, collectionType, createdAt);
+  int get hashCode =>
+      Object.hash(id, name, collectionType, createdAt, isDeleted, updatedAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -224,7 +302,9 @@ class VaultBinder extends DataClass implements Insertable<VaultBinder> {
           other.id == this.id &&
           other.name == this.name &&
           other.collectionType == this.collectionType &&
-          other.createdAt == this.createdAt);
+          other.createdAt == this.createdAt &&
+          other.isDeleted == this.isDeleted &&
+          other.updatedAt == this.updatedAt);
 }
 
 class VaultBindersCompanion extends UpdateCompanion<VaultBinder> {
@@ -232,12 +312,16 @@ class VaultBindersCompanion extends UpdateCompanion<VaultBinder> {
   final Value<String> name;
   final Value<String> collectionType;
   final Value<DateTime> createdAt;
+  final Value<bool> isDeleted;
+  final Value<DateTime?> updatedAt;
   final Value<int> rowid;
   const VaultBindersCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
     this.collectionType = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   VaultBindersCompanion.insert({
@@ -245,6 +329,8 @@ class VaultBindersCompanion extends UpdateCompanion<VaultBinder> {
     required String name,
     required String collectionType,
     required DateTime createdAt,
+    this.isDeleted = const Value.absent(),
+    this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        name = Value(name),
@@ -255,6 +341,8 @@ class VaultBindersCompanion extends UpdateCompanion<VaultBinder> {
     Expression<String>? name,
     Expression<String>? collectionType,
     Expression<DateTime>? createdAt,
+    Expression<bool>? isDeleted,
+    Expression<DateTime>? updatedAt,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -262,6 +350,8 @@ class VaultBindersCompanion extends UpdateCompanion<VaultBinder> {
       if (name != null) 'name': name,
       if (collectionType != null) 'collection_type': collectionType,
       if (createdAt != null) 'created_at': createdAt,
+      if (isDeleted != null) 'is_deleted': isDeleted,
+      if (updatedAt != null) 'updated_at': updatedAt,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -271,6 +361,8 @@ class VaultBindersCompanion extends UpdateCompanion<VaultBinder> {
     Value<String>? name,
     Value<String>? collectionType,
     Value<DateTime>? createdAt,
+    Value<bool>? isDeleted,
+    Value<DateTime?>? updatedAt,
     Value<int>? rowid,
   }) {
     return VaultBindersCompanion(
@@ -278,6 +370,8 @@ class VaultBindersCompanion extends UpdateCompanion<VaultBinder> {
       name: name ?? this.name,
       collectionType: collectionType ?? this.collectionType,
       createdAt: createdAt ?? this.createdAt,
+      isDeleted: isDeleted ?? this.isDeleted,
+      updatedAt: updatedAt ?? this.updatedAt,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -297,6 +391,12 @@ class VaultBindersCompanion extends UpdateCompanion<VaultBinder> {
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
+    if (isDeleted.present) {
+      map['is_deleted'] = Variable<bool>(isDeleted.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -310,6 +410,8 @@ class VaultBindersCompanion extends UpdateCompanion<VaultBinder> {
           ..write('name: $name, ')
           ..write('collectionType: $collectionType, ')
           ..write('createdAt: $createdAt, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('updatedAt: $updatedAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -613,6 +715,32 @@ class $VaultItemsTable extends VaultItems
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _isDeletedMeta = const VerificationMeta(
+    'isDeleted',
+  );
+  @override
+  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
+    'is_deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -640,6 +768,8 @@ class $VaultItemsTable extends VaultItems
     currentMarketPrice,
     lastPriceUpdate,
     dynamicData,
+    isDeleted,
+    updatedAt,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -858,6 +988,18 @@ class $VaultItemsTable extends VaultItems
     } else if (isInserting) {
       context.missing(_dynamicDataMeta);
     }
+    if (data.containsKey('is_deleted')) {
+      context.handle(
+        _isDeletedMeta,
+        isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
     return context;
   }
 
@@ -967,6 +1109,14 @@ class $VaultItemsTable extends VaultItems
         DriftSqlType.string,
         data['${effectivePrefix}dynamic_data'],
       )!,
+      isDeleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_deleted'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      ),
     );
   }
 
@@ -1002,6 +1152,8 @@ class VaultItem extends DataClass implements Insertable<VaultItem> {
   final double currentMarketPrice;
   final DateTime lastPriceUpdate;
   final String dynamicData;
+  final bool isDeleted;
+  final DateTime? updatedAt;
   const VaultItem({
     required this.id,
     required this.collectionType,
@@ -1028,6 +1180,8 @@ class VaultItem extends DataClass implements Insertable<VaultItem> {
     required this.currentMarketPrice,
     required this.lastPriceUpdate,
     required this.dynamicData,
+    required this.isDeleted,
+    this.updatedAt,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1075,6 +1229,10 @@ class VaultItem extends DataClass implements Insertable<VaultItem> {
     map['current_market_price'] = Variable<double>(currentMarketPrice);
     map['last_price_update'] = Variable<DateTime>(lastPriceUpdate);
     map['dynamic_data'] = Variable<String>(dynamicData);
+    map['is_deleted'] = Variable<bool>(isDeleted);
+    if (!nullToAbsent || updatedAt != null) {
+      map['updated_at'] = Variable<DateTime>(updatedAt);
+    }
     return map;
   }
 
@@ -1123,6 +1281,10 @@ class VaultItem extends DataClass implements Insertable<VaultItem> {
       currentMarketPrice: Value(currentMarketPrice),
       lastPriceUpdate: Value(lastPriceUpdate),
       dynamicData: Value(dynamicData),
+      isDeleted: Value(isDeleted),
+      updatedAt: updatedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(updatedAt),
     );
   }
 
@@ -1159,6 +1321,8 @@ class VaultItem extends DataClass implements Insertable<VaultItem> {
       ),
       lastPriceUpdate: serializer.fromJson<DateTime>(json['lastPriceUpdate']),
       dynamicData: serializer.fromJson<String>(json['dynamicData']),
+      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+      updatedAt: serializer.fromJson<DateTime?>(json['updatedAt']),
     );
   }
   @override
@@ -1190,6 +1354,8 @@ class VaultItem extends DataClass implements Insertable<VaultItem> {
       'currentMarketPrice': serializer.toJson<double>(currentMarketPrice),
       'lastPriceUpdate': serializer.toJson<DateTime>(lastPriceUpdate),
       'dynamicData': serializer.toJson<String>(dynamicData),
+      'isDeleted': serializer.toJson<bool>(isDeleted),
+      'updatedAt': serializer.toJson<DateTime?>(updatedAt),
     };
   }
 
@@ -1219,6 +1385,8 @@ class VaultItem extends DataClass implements Insertable<VaultItem> {
     double? currentMarketPrice,
     DateTime? lastPriceUpdate,
     String? dynamicData,
+    bool? isDeleted,
+    Value<DateTime?> updatedAt = const Value.absent(),
   }) => VaultItem(
     id: id ?? this.id,
     collectionType: collectionType ?? this.collectionType,
@@ -1253,6 +1421,8 @@ class VaultItem extends DataClass implements Insertable<VaultItem> {
     currentMarketPrice: currentMarketPrice ?? this.currentMarketPrice,
     lastPriceUpdate: lastPriceUpdate ?? this.lastPriceUpdate,
     dynamicData: dynamicData ?? this.dynamicData,
+    isDeleted: isDeleted ?? this.isDeleted,
+    updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
   );
   VaultItem copyWithCompanion(VaultItemsCompanion data) {
     return VaultItem(
@@ -1313,6 +1483,8 @@ class VaultItem extends DataClass implements Insertable<VaultItem> {
       dynamicData: data.dynamicData.present
           ? data.dynamicData.value
           : this.dynamicData,
+      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
   }
 
@@ -1343,7 +1515,9 @@ class VaultItem extends DataClass implements Insertable<VaultItem> {
           ..write('primaryBinderId: $primaryBinderId, ')
           ..write('currentMarketPrice: $currentMarketPrice, ')
           ..write('lastPriceUpdate: $lastPriceUpdate, ')
-          ..write('dynamicData: $dynamicData')
+          ..write('dynamicData: $dynamicData, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('updatedAt: $updatedAt')
           ..write(')'))
         .toString();
   }
@@ -1375,6 +1549,8 @@ class VaultItem extends DataClass implements Insertable<VaultItem> {
     currentMarketPrice,
     lastPriceUpdate,
     dynamicData,
+    isDeleted,
+    updatedAt,
   ]);
   @override
   bool operator ==(Object other) =>
@@ -1404,7 +1580,9 @@ class VaultItem extends DataClass implements Insertable<VaultItem> {
           other.primaryBinderId == this.primaryBinderId &&
           other.currentMarketPrice == this.currentMarketPrice &&
           other.lastPriceUpdate == this.lastPriceUpdate &&
-          other.dynamicData == this.dynamicData);
+          other.dynamicData == this.dynamicData &&
+          other.isDeleted == this.isDeleted &&
+          other.updatedAt == this.updatedAt);
 }
 
 class VaultItemsCompanion extends UpdateCompanion<VaultItem> {
@@ -1433,6 +1611,8 @@ class VaultItemsCompanion extends UpdateCompanion<VaultItem> {
   final Value<double> currentMarketPrice;
   final Value<DateTime> lastPriceUpdate;
   final Value<String> dynamicData;
+  final Value<bool> isDeleted;
+  final Value<DateTime?> updatedAt;
   final Value<int> rowid;
   const VaultItemsCompanion({
     this.id = const Value.absent(),
@@ -1460,6 +1640,8 @@ class VaultItemsCompanion extends UpdateCompanion<VaultItem> {
     this.currentMarketPrice = const Value.absent(),
     this.lastPriceUpdate = const Value.absent(),
     this.dynamicData = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   VaultItemsCompanion.insert({
@@ -1488,6 +1670,8 @@ class VaultItemsCompanion extends UpdateCompanion<VaultItem> {
     required double currentMarketPrice,
     required DateTime lastPriceUpdate,
     required String dynamicData,
+    this.isDeleted = const Value.absent(),
+    this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        collectionType = Value(collectionType),
@@ -1526,6 +1710,8 @@ class VaultItemsCompanion extends UpdateCompanion<VaultItem> {
     Expression<double>? currentMarketPrice,
     Expression<DateTime>? lastPriceUpdate,
     Expression<String>? dynamicData,
+    Expression<bool>? isDeleted,
+    Expression<DateTime>? updatedAt,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1555,6 +1741,8 @@ class VaultItemsCompanion extends UpdateCompanion<VaultItem> {
         'current_market_price': currentMarketPrice,
       if (lastPriceUpdate != null) 'last_price_update': lastPriceUpdate,
       if (dynamicData != null) 'dynamic_data': dynamicData,
+      if (isDeleted != null) 'is_deleted': isDeleted,
+      if (updatedAt != null) 'updated_at': updatedAt,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1585,6 +1773,8 @@ class VaultItemsCompanion extends UpdateCompanion<VaultItem> {
     Value<double>? currentMarketPrice,
     Value<DateTime>? lastPriceUpdate,
     Value<String>? dynamicData,
+    Value<bool>? isDeleted,
+    Value<DateTime?>? updatedAt,
     Value<int>? rowid,
   }) {
     return VaultItemsCompanion(
@@ -1613,6 +1803,8 @@ class VaultItemsCompanion extends UpdateCompanion<VaultItem> {
       currentMarketPrice: currentMarketPrice ?? this.currentMarketPrice,
       lastPriceUpdate: lastPriceUpdate ?? this.lastPriceUpdate,
       dynamicData: dynamicData ?? this.dynamicData,
+      isDeleted: isDeleted ?? this.isDeleted,
+      updatedAt: updatedAt ?? this.updatedAt,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1695,6 +1887,12 @@ class VaultItemsCompanion extends UpdateCompanion<VaultItem> {
     if (dynamicData.present) {
       map['dynamic_data'] = Variable<String>(dynamicData.value);
     }
+    if (isDeleted.present) {
+      map['is_deleted'] = Variable<bool>(isDeleted.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1729,6 +1927,8 @@ class VaultItemsCompanion extends UpdateCompanion<VaultItem> {
           ..write('currentMarketPrice: $currentMarketPrice, ')
           ..write('lastPriceUpdate: $lastPriceUpdate, ')
           ..write('dynamicData: $dynamicData, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('updatedAt: $updatedAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -1883,6 +2083,32 @@ class $DecksTable extends Decks with TableInfo<$DecksTable, Deck> {
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _isDeletedMeta = const VerificationMeta(
+    'isDeleted',
+  );
+  @override
+  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
+    'is_deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -1898,6 +2124,8 @@ class $DecksTable extends Decks with TableInfo<$DecksTable, Deck> {
     tcgDomain,
     isRegistered,
     isCompetitive,
+    isDeleted,
+    updatedAt,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2009,6 +2237,18 @@ class $DecksTable extends Decks with TableInfo<$DecksTable, Deck> {
         ),
       );
     }
+    if (data.containsKey('is_deleted')) {
+      context.handle(
+        _isDeletedMeta,
+        isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
     return context;
   }
 
@@ -2070,6 +2310,14 @@ class $DecksTable extends Decks with TableInfo<$DecksTable, Deck> {
         DriftSqlType.bool,
         data['${effectivePrefix}is_competitive'],
       )!,
+      isDeleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_deleted'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      ),
     );
   }
 
@@ -2093,6 +2341,8 @@ class Deck extends DataClass implements Insertable<Deck> {
   final String tcgDomain;
   final bool isRegistered;
   final bool isCompetitive;
+  final bool isDeleted;
+  final DateTime? updatedAt;
   const Deck({
     required this.id,
     required this.name,
@@ -2107,6 +2357,8 @@ class Deck extends DataClass implements Insertable<Deck> {
     required this.tcgDomain,
     required this.isRegistered,
     required this.isCompetitive,
+    required this.isDeleted,
+    this.updatedAt,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2130,6 +2382,10 @@ class Deck extends DataClass implements Insertable<Deck> {
     map['tcg_domain'] = Variable<String>(tcgDomain);
     map['is_registered'] = Variable<bool>(isRegistered);
     map['is_competitive'] = Variable<bool>(isCompetitive);
+    map['is_deleted'] = Variable<bool>(isDeleted);
+    if (!nullToAbsent || updatedAt != null) {
+      map['updated_at'] = Variable<DateTime>(updatedAt);
+    }
     return map;
   }
 
@@ -2154,6 +2410,10 @@ class Deck extends DataClass implements Insertable<Deck> {
       tcgDomain: Value(tcgDomain),
       isRegistered: Value(isRegistered),
       isCompetitive: Value(isCompetitive),
+      isDeleted: Value(isDeleted),
+      updatedAt: updatedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(updatedAt),
     );
   }
 
@@ -2176,6 +2436,8 @@ class Deck extends DataClass implements Insertable<Deck> {
       tcgDomain: serializer.fromJson<String>(json['tcgDomain']),
       isRegistered: serializer.fromJson<bool>(json['isRegistered']),
       isCompetitive: serializer.fromJson<bool>(json['isCompetitive']),
+      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+      updatedAt: serializer.fromJson<DateTime?>(json['updatedAt']),
     );
   }
   @override
@@ -2195,6 +2457,8 @@ class Deck extends DataClass implements Insertable<Deck> {
       'tcgDomain': serializer.toJson<String>(tcgDomain),
       'isRegistered': serializer.toJson<bool>(isRegistered),
       'isCompetitive': serializer.toJson<bool>(isCompetitive),
+      'isDeleted': serializer.toJson<bool>(isDeleted),
+      'updatedAt': serializer.toJson<DateTime?>(updatedAt),
     };
   }
 
@@ -2212,6 +2476,8 @@ class Deck extends DataClass implements Insertable<Deck> {
     String? tcgDomain,
     bool? isRegistered,
     bool? isCompetitive,
+    bool? isDeleted,
+    Value<DateTime?> updatedAt = const Value.absent(),
   }) => Deck(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -2228,6 +2494,8 @@ class Deck extends DataClass implements Insertable<Deck> {
     tcgDomain: tcgDomain ?? this.tcgDomain,
     isRegistered: isRegistered ?? this.isRegistered,
     isCompetitive: isCompetitive ?? this.isCompetitive,
+    isDeleted: isDeleted ?? this.isDeleted,
+    updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
   );
   Deck copyWithCompanion(DecksCompanion data) {
     return Deck(
@@ -2254,6 +2522,8 @@ class Deck extends DataClass implements Insertable<Deck> {
       isCompetitive: data.isCompetitive.present
           ? data.isCompetitive.value
           : this.isCompetitive,
+      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
   }
 
@@ -2272,7 +2542,9 @@ class Deck extends DataClass implements Insertable<Deck> {
           ..write('createdAt: $createdAt, ')
           ..write('tcgDomain: $tcgDomain, ')
           ..write('isRegistered: $isRegistered, ')
-          ..write('isCompetitive: $isCompetitive')
+          ..write('isCompetitive: $isCompetitive, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('updatedAt: $updatedAt')
           ..write(')'))
         .toString();
   }
@@ -2292,6 +2564,8 @@ class Deck extends DataClass implements Insertable<Deck> {
     tcgDomain,
     isRegistered,
     isCompetitive,
+    isDeleted,
+    updatedAt,
   );
   @override
   bool operator ==(Object other) =>
@@ -2309,7 +2583,9 @@ class Deck extends DataClass implements Insertable<Deck> {
           other.createdAt == this.createdAt &&
           other.tcgDomain == this.tcgDomain &&
           other.isRegistered == this.isRegistered &&
-          other.isCompetitive == this.isCompetitive);
+          other.isCompetitive == this.isCompetitive &&
+          other.isDeleted == this.isDeleted &&
+          other.updatedAt == this.updatedAt);
 }
 
 class DecksCompanion extends UpdateCompanion<Deck> {
@@ -2326,6 +2602,8 @@ class DecksCompanion extends UpdateCompanion<Deck> {
   final Value<String> tcgDomain;
   final Value<bool> isRegistered;
   final Value<bool> isCompetitive;
+  final Value<bool> isDeleted;
+  final Value<DateTime?> updatedAt;
   final Value<int> rowid;
   const DecksCompanion({
     this.id = const Value.absent(),
@@ -2341,6 +2619,8 @@ class DecksCompanion extends UpdateCompanion<Deck> {
     this.tcgDomain = const Value.absent(),
     this.isRegistered = const Value.absent(),
     this.isCompetitive = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   DecksCompanion.insert({
@@ -2357,6 +2637,8 @@ class DecksCompanion extends UpdateCompanion<Deck> {
     this.tcgDomain = const Value.absent(),
     this.isRegistered = const Value.absent(),
     this.isCompetitive = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        name = Value(name),
@@ -2376,6 +2658,8 @@ class DecksCompanion extends UpdateCompanion<Deck> {
     Expression<String>? tcgDomain,
     Expression<bool>? isRegistered,
     Expression<bool>? isCompetitive,
+    Expression<bool>? isDeleted,
+    Expression<DateTime>? updatedAt,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -2392,6 +2676,8 @@ class DecksCompanion extends UpdateCompanion<Deck> {
       if (tcgDomain != null) 'tcg_domain': tcgDomain,
       if (isRegistered != null) 'is_registered': isRegistered,
       if (isCompetitive != null) 'is_competitive': isCompetitive,
+      if (isDeleted != null) 'is_deleted': isDeleted,
+      if (updatedAt != null) 'updated_at': updatedAt,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -2410,6 +2696,8 @@ class DecksCompanion extends UpdateCompanion<Deck> {
     Value<String>? tcgDomain,
     Value<bool>? isRegistered,
     Value<bool>? isCompetitive,
+    Value<bool>? isDeleted,
+    Value<DateTime?>? updatedAt,
     Value<int>? rowid,
   }) {
     return DecksCompanion(
@@ -2426,6 +2714,8 @@ class DecksCompanion extends UpdateCompanion<Deck> {
       tcgDomain: tcgDomain ?? this.tcgDomain,
       isRegistered: isRegistered ?? this.isRegistered,
       isCompetitive: isCompetitive ?? this.isCompetitive,
+      isDeleted: isDeleted ?? this.isDeleted,
+      updatedAt: updatedAt ?? this.updatedAt,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -2472,6 +2762,12 @@ class DecksCompanion extends UpdateCompanion<Deck> {
     if (isCompetitive.present) {
       map['is_competitive'] = Variable<bool>(isCompetitive.value);
     }
+    if (isDeleted.present) {
+      map['is_deleted'] = Variable<bool>(isDeleted.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -2494,6 +2790,8 @@ class DecksCompanion extends UpdateCompanion<Deck> {
           ..write('tcgDomain: $tcgDomain, ')
           ..write('isRegistered: $isRegistered, ')
           ..write('isCompetitive: $isCompetitive, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('updatedAt: $updatedAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -2575,6 +2873,32 @@ class $DeckVersionsTable extends DeckVersions
     type: DriftSqlType.dateTime,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _isDeletedMeta = const VerificationMeta(
+    'isDeleted',
+  );
+  @override
+  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
+    'is_deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -2583,6 +2907,8 @@ class $DeckVersionsTable extends DeckVersions
     versionNote,
     isActive,
     createdAt,
+    isDeleted,
+    updatedAt,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2643,6 +2969,18 @@ class $DeckVersionsTable extends DeckVersions
     } else if (isInserting) {
       context.missing(_createdAtMeta);
     }
+    if (data.containsKey('is_deleted')) {
+      context.handle(
+        _isDeletedMeta,
+        isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
     return context;
   }
 
@@ -2676,6 +3014,14 @@ class $DeckVersionsTable extends DeckVersions
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
       )!,
+      isDeleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_deleted'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      ),
     );
   }
 
@@ -2692,6 +3038,8 @@ class DeckVersion extends DataClass implements Insertable<DeckVersion> {
   final String? versionNote;
   final bool isActive;
   final DateTime createdAt;
+  final bool isDeleted;
+  final DateTime? updatedAt;
   const DeckVersion({
     required this.id,
     required this.deckId,
@@ -2699,6 +3047,8 @@ class DeckVersion extends DataClass implements Insertable<DeckVersion> {
     this.versionNote,
     required this.isActive,
     required this.createdAt,
+    required this.isDeleted,
+    this.updatedAt,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2711,6 +3061,10 @@ class DeckVersion extends DataClass implements Insertable<DeckVersion> {
     }
     map['is_active'] = Variable<bool>(isActive);
     map['created_at'] = Variable<DateTime>(createdAt);
+    map['is_deleted'] = Variable<bool>(isDeleted);
+    if (!nullToAbsent || updatedAt != null) {
+      map['updated_at'] = Variable<DateTime>(updatedAt);
+    }
     return map;
   }
 
@@ -2724,6 +3078,10 @@ class DeckVersion extends DataClass implements Insertable<DeckVersion> {
           : Value(versionNote),
       isActive: Value(isActive),
       createdAt: Value(createdAt),
+      isDeleted: Value(isDeleted),
+      updatedAt: updatedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(updatedAt),
     );
   }
 
@@ -2739,6 +3097,8 @@ class DeckVersion extends DataClass implements Insertable<DeckVersion> {
       versionNote: serializer.fromJson<String?>(json['versionNote']),
       isActive: serializer.fromJson<bool>(json['isActive']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+      updatedAt: serializer.fromJson<DateTime?>(json['updatedAt']),
     );
   }
   @override
@@ -2751,6 +3111,8 @@ class DeckVersion extends DataClass implements Insertable<DeckVersion> {
       'versionNote': serializer.toJson<String?>(versionNote),
       'isActive': serializer.toJson<bool>(isActive),
       'createdAt': serializer.toJson<DateTime>(createdAt),
+      'isDeleted': serializer.toJson<bool>(isDeleted),
+      'updatedAt': serializer.toJson<DateTime?>(updatedAt),
     };
   }
 
@@ -2761,6 +3123,8 @@ class DeckVersion extends DataClass implements Insertable<DeckVersion> {
     Value<String?> versionNote = const Value.absent(),
     bool? isActive,
     DateTime? createdAt,
+    bool? isDeleted,
+    Value<DateTime?> updatedAt = const Value.absent(),
   }) => DeckVersion(
     id: id ?? this.id,
     deckId: deckId ?? this.deckId,
@@ -2768,6 +3132,8 @@ class DeckVersion extends DataClass implements Insertable<DeckVersion> {
     versionNote: versionNote.present ? versionNote.value : this.versionNote,
     isActive: isActive ?? this.isActive,
     createdAt: createdAt ?? this.createdAt,
+    isDeleted: isDeleted ?? this.isDeleted,
+    updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
   );
   DeckVersion copyWithCompanion(DeckVersionsCompanion data) {
     return DeckVersion(
@@ -2781,6 +3147,8 @@ class DeckVersion extends DataClass implements Insertable<DeckVersion> {
           : this.versionNote,
       isActive: data.isActive.present ? data.isActive.value : this.isActive,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
   }
 
@@ -2792,14 +3160,24 @@ class DeckVersion extends DataClass implements Insertable<DeckVersion> {
           ..write('versionNumber: $versionNumber, ')
           ..write('versionNote: $versionNote, ')
           ..write('isActive: $isActive, ')
-          ..write('createdAt: $createdAt')
+          ..write('createdAt: $createdAt, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('updatedAt: $updatedAt')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, deckId, versionNumber, versionNote, isActive, createdAt);
+  int get hashCode => Object.hash(
+    id,
+    deckId,
+    versionNumber,
+    versionNote,
+    isActive,
+    createdAt,
+    isDeleted,
+    updatedAt,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -2809,7 +3187,9 @@ class DeckVersion extends DataClass implements Insertable<DeckVersion> {
           other.versionNumber == this.versionNumber &&
           other.versionNote == this.versionNote &&
           other.isActive == this.isActive &&
-          other.createdAt == this.createdAt);
+          other.createdAt == this.createdAt &&
+          other.isDeleted == this.isDeleted &&
+          other.updatedAt == this.updatedAt);
 }
 
 class DeckVersionsCompanion extends UpdateCompanion<DeckVersion> {
@@ -2819,6 +3199,8 @@ class DeckVersionsCompanion extends UpdateCompanion<DeckVersion> {
   final Value<String?> versionNote;
   final Value<bool> isActive;
   final Value<DateTime> createdAt;
+  final Value<bool> isDeleted;
+  final Value<DateTime?> updatedAt;
   final Value<int> rowid;
   const DeckVersionsCompanion({
     this.id = const Value.absent(),
@@ -2827,6 +3209,8 @@ class DeckVersionsCompanion extends UpdateCompanion<DeckVersion> {
     this.versionNote = const Value.absent(),
     this.isActive = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   DeckVersionsCompanion.insert({
@@ -2836,6 +3220,8 @@ class DeckVersionsCompanion extends UpdateCompanion<DeckVersion> {
     this.versionNote = const Value.absent(),
     this.isActive = const Value.absent(),
     required DateTime createdAt,
+    this.isDeleted = const Value.absent(),
+    this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        deckId = Value(deckId),
@@ -2848,6 +3234,8 @@ class DeckVersionsCompanion extends UpdateCompanion<DeckVersion> {
     Expression<String>? versionNote,
     Expression<bool>? isActive,
     Expression<DateTime>? createdAt,
+    Expression<bool>? isDeleted,
+    Expression<DateTime>? updatedAt,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -2857,6 +3245,8 @@ class DeckVersionsCompanion extends UpdateCompanion<DeckVersion> {
       if (versionNote != null) 'version_note': versionNote,
       if (isActive != null) 'is_active': isActive,
       if (createdAt != null) 'created_at': createdAt,
+      if (isDeleted != null) 'is_deleted': isDeleted,
+      if (updatedAt != null) 'updated_at': updatedAt,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -2868,6 +3258,8 @@ class DeckVersionsCompanion extends UpdateCompanion<DeckVersion> {
     Value<String?>? versionNote,
     Value<bool>? isActive,
     Value<DateTime>? createdAt,
+    Value<bool>? isDeleted,
+    Value<DateTime?>? updatedAt,
     Value<int>? rowid,
   }) {
     return DeckVersionsCompanion(
@@ -2877,6 +3269,8 @@ class DeckVersionsCompanion extends UpdateCompanion<DeckVersion> {
       versionNote: versionNote ?? this.versionNote,
       isActive: isActive ?? this.isActive,
       createdAt: createdAt ?? this.createdAt,
+      isDeleted: isDeleted ?? this.isDeleted,
+      updatedAt: updatedAt ?? this.updatedAt,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -2902,6 +3296,12 @@ class DeckVersionsCompanion extends UpdateCompanion<DeckVersion> {
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
+    if (isDeleted.present) {
+      map['is_deleted'] = Variable<bool>(isDeleted.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -2917,6 +3317,8 @@ class DeckVersionsCompanion extends UpdateCompanion<DeckVersion> {
           ..write('versionNote: $versionNote, ')
           ..write('isActive: $isActive, ')
           ..write('createdAt: $createdAt, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('updatedAt: $updatedAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -3004,6 +3406,32 @@ class $DeckVersionItemsTable extends DeckVersionItems
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _isDeletedMeta = const VerificationMeta(
+    'isDeleted',
+  );
+  @override
+  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
+    'is_deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -3012,6 +3440,8 @@ class $DeckVersionItemsTable extends DeckVersionItems
     quantity,
     boardZone,
     isProxy,
+    isDeleted,
+    updatedAt,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -3069,6 +3499,18 @@ class $DeckVersionItemsTable extends DeckVersionItems
         isProxy.isAcceptableOrUnknown(data['is_proxy']!, _isProxyMeta),
       );
     }
+    if (data.containsKey('is_deleted')) {
+      context.handle(
+        _isDeletedMeta,
+        isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
     return context;
   }
 
@@ -3102,6 +3544,14 @@ class $DeckVersionItemsTable extends DeckVersionItems
         DriftSqlType.bool,
         data['${effectivePrefix}is_proxy'],
       )!,
+      isDeleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_deleted'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      ),
     );
   }
 
@@ -3118,6 +3568,8 @@ class DeckVersionItem extends DataClass implements Insertable<DeckVersionItem> {
   final int quantity;
   final String boardZone;
   final bool isProxy;
+  final bool isDeleted;
+  final DateTime? updatedAt;
   const DeckVersionItem({
     required this.id,
     required this.versionId,
@@ -3125,6 +3577,8 @@ class DeckVersionItem extends DataClass implements Insertable<DeckVersionItem> {
     required this.quantity,
     required this.boardZone,
     required this.isProxy,
+    required this.isDeleted,
+    this.updatedAt,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -3135,6 +3589,10 @@ class DeckVersionItem extends DataClass implements Insertable<DeckVersionItem> {
     map['quantity'] = Variable<int>(quantity);
     map['board_zone'] = Variable<String>(boardZone);
     map['is_proxy'] = Variable<bool>(isProxy);
+    map['is_deleted'] = Variable<bool>(isDeleted);
+    if (!nullToAbsent || updatedAt != null) {
+      map['updated_at'] = Variable<DateTime>(updatedAt);
+    }
     return map;
   }
 
@@ -3146,6 +3604,10 @@ class DeckVersionItem extends DataClass implements Insertable<DeckVersionItem> {
       quantity: Value(quantity),
       boardZone: Value(boardZone),
       isProxy: Value(isProxy),
+      isDeleted: Value(isDeleted),
+      updatedAt: updatedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(updatedAt),
     );
   }
 
@@ -3161,6 +3623,8 @@ class DeckVersionItem extends DataClass implements Insertable<DeckVersionItem> {
       quantity: serializer.fromJson<int>(json['quantity']),
       boardZone: serializer.fromJson<String>(json['boardZone']),
       isProxy: serializer.fromJson<bool>(json['isProxy']),
+      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+      updatedAt: serializer.fromJson<DateTime?>(json['updatedAt']),
     );
   }
   @override
@@ -3173,6 +3637,8 @@ class DeckVersionItem extends DataClass implements Insertable<DeckVersionItem> {
       'quantity': serializer.toJson<int>(quantity),
       'boardZone': serializer.toJson<String>(boardZone),
       'isProxy': serializer.toJson<bool>(isProxy),
+      'isDeleted': serializer.toJson<bool>(isDeleted),
+      'updatedAt': serializer.toJson<DateTime?>(updatedAt),
     };
   }
 
@@ -3183,6 +3649,8 @@ class DeckVersionItem extends DataClass implements Insertable<DeckVersionItem> {
     int? quantity,
     String? boardZone,
     bool? isProxy,
+    bool? isDeleted,
+    Value<DateTime?> updatedAt = const Value.absent(),
   }) => DeckVersionItem(
     id: id ?? this.id,
     versionId: versionId ?? this.versionId,
@@ -3190,6 +3658,8 @@ class DeckVersionItem extends DataClass implements Insertable<DeckVersionItem> {
     quantity: quantity ?? this.quantity,
     boardZone: boardZone ?? this.boardZone,
     isProxy: isProxy ?? this.isProxy,
+    isDeleted: isDeleted ?? this.isDeleted,
+    updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
   );
   DeckVersionItem copyWithCompanion(DeckVersionItemsCompanion data) {
     return DeckVersionItem(
@@ -3201,6 +3671,8 @@ class DeckVersionItem extends DataClass implements Insertable<DeckVersionItem> {
       quantity: data.quantity.present ? data.quantity.value : this.quantity,
       boardZone: data.boardZone.present ? data.boardZone.value : this.boardZone,
       isProxy: data.isProxy.present ? data.isProxy.value : this.isProxy,
+      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
   }
 
@@ -3212,14 +3684,24 @@ class DeckVersionItem extends DataClass implements Insertable<DeckVersionItem> {
           ..write('vaultItemId: $vaultItemId, ')
           ..write('quantity: $quantity, ')
           ..write('boardZone: $boardZone, ')
-          ..write('isProxy: $isProxy')
+          ..write('isProxy: $isProxy, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('updatedAt: $updatedAt')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, versionId, vaultItemId, quantity, boardZone, isProxy);
+  int get hashCode => Object.hash(
+    id,
+    versionId,
+    vaultItemId,
+    quantity,
+    boardZone,
+    isProxy,
+    isDeleted,
+    updatedAt,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -3229,7 +3711,9 @@ class DeckVersionItem extends DataClass implements Insertable<DeckVersionItem> {
           other.vaultItemId == this.vaultItemId &&
           other.quantity == this.quantity &&
           other.boardZone == this.boardZone &&
-          other.isProxy == this.isProxy);
+          other.isProxy == this.isProxy &&
+          other.isDeleted == this.isDeleted &&
+          other.updatedAt == this.updatedAt);
 }
 
 class DeckVersionItemsCompanion extends UpdateCompanion<DeckVersionItem> {
@@ -3239,6 +3723,8 @@ class DeckVersionItemsCompanion extends UpdateCompanion<DeckVersionItem> {
   final Value<int> quantity;
   final Value<String> boardZone;
   final Value<bool> isProxy;
+  final Value<bool> isDeleted;
+  final Value<DateTime?> updatedAt;
   final Value<int> rowid;
   const DeckVersionItemsCompanion({
     this.id = const Value.absent(),
@@ -3247,6 +3733,8 @@ class DeckVersionItemsCompanion extends UpdateCompanion<DeckVersionItem> {
     this.quantity = const Value.absent(),
     this.boardZone = const Value.absent(),
     this.isProxy = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   DeckVersionItemsCompanion.insert({
@@ -3256,6 +3744,8 @@ class DeckVersionItemsCompanion extends UpdateCompanion<DeckVersionItem> {
     this.quantity = const Value.absent(),
     required String boardZone,
     this.isProxy = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        versionId = Value(versionId),
@@ -3268,6 +3758,8 @@ class DeckVersionItemsCompanion extends UpdateCompanion<DeckVersionItem> {
     Expression<int>? quantity,
     Expression<String>? boardZone,
     Expression<bool>? isProxy,
+    Expression<bool>? isDeleted,
+    Expression<DateTime>? updatedAt,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -3277,6 +3769,8 @@ class DeckVersionItemsCompanion extends UpdateCompanion<DeckVersionItem> {
       if (quantity != null) 'quantity': quantity,
       if (boardZone != null) 'board_zone': boardZone,
       if (isProxy != null) 'is_proxy': isProxy,
+      if (isDeleted != null) 'is_deleted': isDeleted,
+      if (updatedAt != null) 'updated_at': updatedAt,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -3288,6 +3782,8 @@ class DeckVersionItemsCompanion extends UpdateCompanion<DeckVersionItem> {
     Value<int>? quantity,
     Value<String>? boardZone,
     Value<bool>? isProxy,
+    Value<bool>? isDeleted,
+    Value<DateTime?>? updatedAt,
     Value<int>? rowid,
   }) {
     return DeckVersionItemsCompanion(
@@ -3297,6 +3793,8 @@ class DeckVersionItemsCompanion extends UpdateCompanion<DeckVersionItem> {
       quantity: quantity ?? this.quantity,
       boardZone: boardZone ?? this.boardZone,
       isProxy: isProxy ?? this.isProxy,
+      isDeleted: isDeleted ?? this.isDeleted,
+      updatedAt: updatedAt ?? this.updatedAt,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -3322,6 +3820,12 @@ class DeckVersionItemsCompanion extends UpdateCompanion<DeckVersionItem> {
     if (isProxy.present) {
       map['is_proxy'] = Variable<bool>(isProxy.value);
     }
+    if (isDeleted.present) {
+      map['is_deleted'] = Variable<bool>(isDeleted.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -3337,6 +3841,8 @@ class DeckVersionItemsCompanion extends UpdateCompanion<DeckVersionItem> {
           ..write('quantity: $quantity, ')
           ..write('boardZone: $boardZone, ')
           ..write('isProxy: $isProxy, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('updatedAt: $updatedAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -3413,6 +3919,32 @@ class $DeckMatchupsTable extends DeckMatchups
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _isDeletedMeta = const VerificationMeta(
+    'isDeleted',
+  );
+  @override
+  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
+    'is_deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -3421,6 +3953,8 @@ class $DeckMatchupsTable extends DeckMatchups
     notes,
     swapInItemIds,
     swapOutItemIds,
+    isDeleted,
+    updatedAt,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -3482,6 +4016,18 @@ class $DeckMatchupsTable extends DeckMatchups
         ),
       );
     }
+    if (data.containsKey('is_deleted')) {
+      context.handle(
+        _isDeletedMeta,
+        isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
     return context;
   }
 
@@ -3515,6 +4061,14 @@ class $DeckMatchupsTable extends DeckMatchups
         DriftSqlType.string,
         data['${effectivePrefix}swap_out_item_ids'],
       ),
+      isDeleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_deleted'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      ),
     );
   }
 
@@ -3531,6 +4085,8 @@ class DeckMatchup extends DataClass implements Insertable<DeckMatchup> {
   final String? notes;
   final String? swapInItemIds;
   final String? swapOutItemIds;
+  final bool isDeleted;
+  final DateTime? updatedAt;
   const DeckMatchup({
     required this.id,
     required this.deckId,
@@ -3538,6 +4094,8 @@ class DeckMatchup extends DataClass implements Insertable<DeckMatchup> {
     this.notes,
     this.swapInItemIds,
     this.swapOutItemIds,
+    required this.isDeleted,
+    this.updatedAt,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -3553,6 +4111,10 @@ class DeckMatchup extends DataClass implements Insertable<DeckMatchup> {
     }
     if (!nullToAbsent || swapOutItemIds != null) {
       map['swap_out_item_ids'] = Variable<String>(swapOutItemIds);
+    }
+    map['is_deleted'] = Variable<bool>(isDeleted);
+    if (!nullToAbsent || updatedAt != null) {
+      map['updated_at'] = Variable<DateTime>(updatedAt);
     }
     return map;
   }
@@ -3571,6 +4133,10 @@ class DeckMatchup extends DataClass implements Insertable<DeckMatchup> {
       swapOutItemIds: swapOutItemIds == null && nullToAbsent
           ? const Value.absent()
           : Value(swapOutItemIds),
+      isDeleted: Value(isDeleted),
+      updatedAt: updatedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(updatedAt),
     );
   }
 
@@ -3586,6 +4152,8 @@ class DeckMatchup extends DataClass implements Insertable<DeckMatchup> {
       notes: serializer.fromJson<String?>(json['notes']),
       swapInItemIds: serializer.fromJson<String?>(json['swapInItemIds']),
       swapOutItemIds: serializer.fromJson<String?>(json['swapOutItemIds']),
+      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+      updatedAt: serializer.fromJson<DateTime?>(json['updatedAt']),
     );
   }
   @override
@@ -3598,6 +4166,8 @@ class DeckMatchup extends DataClass implements Insertable<DeckMatchup> {
       'notes': serializer.toJson<String?>(notes),
       'swapInItemIds': serializer.toJson<String?>(swapInItemIds),
       'swapOutItemIds': serializer.toJson<String?>(swapOutItemIds),
+      'isDeleted': serializer.toJson<bool>(isDeleted),
+      'updatedAt': serializer.toJson<DateTime?>(updatedAt),
     };
   }
 
@@ -3608,6 +4178,8 @@ class DeckMatchup extends DataClass implements Insertable<DeckMatchup> {
     Value<String?> notes = const Value.absent(),
     Value<String?> swapInItemIds = const Value.absent(),
     Value<String?> swapOutItemIds = const Value.absent(),
+    bool? isDeleted,
+    Value<DateTime?> updatedAt = const Value.absent(),
   }) => DeckMatchup(
     id: id ?? this.id,
     deckId: deckId ?? this.deckId,
@@ -3619,6 +4191,8 @@ class DeckMatchup extends DataClass implements Insertable<DeckMatchup> {
     swapOutItemIds: swapOutItemIds.present
         ? swapOutItemIds.value
         : this.swapOutItemIds,
+    isDeleted: isDeleted ?? this.isDeleted,
+    updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
   );
   DeckMatchup copyWithCompanion(DeckMatchupsCompanion data) {
     return DeckMatchup(
@@ -3634,6 +4208,8 @@ class DeckMatchup extends DataClass implements Insertable<DeckMatchup> {
       swapOutItemIds: data.swapOutItemIds.present
           ? data.swapOutItemIds.value
           : this.swapOutItemIds,
+      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
   }
 
@@ -3645,7 +4221,9 @@ class DeckMatchup extends DataClass implements Insertable<DeckMatchup> {
           ..write('opponentArchetype: $opponentArchetype, ')
           ..write('notes: $notes, ')
           ..write('swapInItemIds: $swapInItemIds, ')
-          ..write('swapOutItemIds: $swapOutItemIds')
+          ..write('swapOutItemIds: $swapOutItemIds, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('updatedAt: $updatedAt')
           ..write(')'))
         .toString();
   }
@@ -3658,6 +4236,8 @@ class DeckMatchup extends DataClass implements Insertable<DeckMatchup> {
     notes,
     swapInItemIds,
     swapOutItemIds,
+    isDeleted,
+    updatedAt,
   );
   @override
   bool operator ==(Object other) =>
@@ -3668,7 +4248,9 @@ class DeckMatchup extends DataClass implements Insertable<DeckMatchup> {
           other.opponentArchetype == this.opponentArchetype &&
           other.notes == this.notes &&
           other.swapInItemIds == this.swapInItemIds &&
-          other.swapOutItemIds == this.swapOutItemIds);
+          other.swapOutItemIds == this.swapOutItemIds &&
+          other.isDeleted == this.isDeleted &&
+          other.updatedAt == this.updatedAt);
 }
 
 class DeckMatchupsCompanion extends UpdateCompanion<DeckMatchup> {
@@ -3678,6 +4260,8 @@ class DeckMatchupsCompanion extends UpdateCompanion<DeckMatchup> {
   final Value<String?> notes;
   final Value<String?> swapInItemIds;
   final Value<String?> swapOutItemIds;
+  final Value<bool> isDeleted;
+  final Value<DateTime?> updatedAt;
   final Value<int> rowid;
   const DeckMatchupsCompanion({
     this.id = const Value.absent(),
@@ -3686,6 +4270,8 @@ class DeckMatchupsCompanion extends UpdateCompanion<DeckMatchup> {
     this.notes = const Value.absent(),
     this.swapInItemIds = const Value.absent(),
     this.swapOutItemIds = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   DeckMatchupsCompanion.insert({
@@ -3695,6 +4281,8 @@ class DeckMatchupsCompanion extends UpdateCompanion<DeckMatchup> {
     this.notes = const Value.absent(),
     this.swapInItemIds = const Value.absent(),
     this.swapOutItemIds = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        deckId = Value(deckId),
@@ -3706,6 +4294,8 @@ class DeckMatchupsCompanion extends UpdateCompanion<DeckMatchup> {
     Expression<String>? notes,
     Expression<String>? swapInItemIds,
     Expression<String>? swapOutItemIds,
+    Expression<bool>? isDeleted,
+    Expression<DateTime>? updatedAt,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -3715,6 +4305,8 @@ class DeckMatchupsCompanion extends UpdateCompanion<DeckMatchup> {
       if (notes != null) 'notes': notes,
       if (swapInItemIds != null) 'swap_in_item_ids': swapInItemIds,
       if (swapOutItemIds != null) 'swap_out_item_ids': swapOutItemIds,
+      if (isDeleted != null) 'is_deleted': isDeleted,
+      if (updatedAt != null) 'updated_at': updatedAt,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -3726,6 +4318,8 @@ class DeckMatchupsCompanion extends UpdateCompanion<DeckMatchup> {
     Value<String?>? notes,
     Value<String?>? swapInItemIds,
     Value<String?>? swapOutItemIds,
+    Value<bool>? isDeleted,
+    Value<DateTime?>? updatedAt,
     Value<int>? rowid,
   }) {
     return DeckMatchupsCompanion(
@@ -3735,6 +4329,8 @@ class DeckMatchupsCompanion extends UpdateCompanion<DeckMatchup> {
       notes: notes ?? this.notes,
       swapInItemIds: swapInItemIds ?? this.swapInItemIds,
       swapOutItemIds: swapOutItemIds ?? this.swapOutItemIds,
+      isDeleted: isDeleted ?? this.isDeleted,
+      updatedAt: updatedAt ?? this.updatedAt,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -3760,6 +4356,12 @@ class DeckMatchupsCompanion extends UpdateCompanion<DeckMatchup> {
     if (swapOutItemIds.present) {
       map['swap_out_item_ids'] = Variable<String>(swapOutItemIds.value);
     }
+    if (isDeleted.present) {
+      map['is_deleted'] = Variable<bool>(isDeleted.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -3775,6 +4377,8 @@ class DeckMatchupsCompanion extends UpdateCompanion<DeckMatchup> {
           ..write('notes: $notes, ')
           ..write('swapInItemIds: $swapInItemIds, ')
           ..write('swapOutItemIds: $swapOutItemIds, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('updatedAt: $updatedAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -3830,8 +4434,41 @@ class $DeckSynergiesTable extends DeckSynergies
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _isDeletedMeta = const VerificationMeta(
+    'isDeleted',
+  );
   @override
-  List<GeneratedColumn> get $columns => [id, deckId, synergyName, vaultItemIds];
+  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
+    'is_deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    deckId,
+    synergyName,
+    vaultItemIds,
+    isDeleted,
+    updatedAt,
+  ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -3879,6 +4516,18 @@ class $DeckSynergiesTable extends DeckSynergies
     } else if (isInserting) {
       context.missing(_vaultItemIdsMeta);
     }
+    if (data.containsKey('is_deleted')) {
+      context.handle(
+        _isDeletedMeta,
+        isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
     return context;
   }
 
@@ -3904,6 +4553,14 @@ class $DeckSynergiesTable extends DeckSynergies
         DriftSqlType.string,
         data['${effectivePrefix}vault_item_ids'],
       )!,
+      isDeleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_deleted'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      ),
     );
   }
 
@@ -3918,11 +4575,15 @@ class DeckSynergy extends DataClass implements Insertable<DeckSynergy> {
   final String deckId;
   final String synergyName;
   final String vaultItemIds;
+  final bool isDeleted;
+  final DateTime? updatedAt;
   const DeckSynergy({
     required this.id,
     required this.deckId,
     required this.synergyName,
     required this.vaultItemIds,
+    required this.isDeleted,
+    this.updatedAt,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -3931,6 +4592,10 @@ class DeckSynergy extends DataClass implements Insertable<DeckSynergy> {
     map['deck_id'] = Variable<String>(deckId);
     map['synergy_name'] = Variable<String>(synergyName);
     map['vault_item_ids'] = Variable<String>(vaultItemIds);
+    map['is_deleted'] = Variable<bool>(isDeleted);
+    if (!nullToAbsent || updatedAt != null) {
+      map['updated_at'] = Variable<DateTime>(updatedAt);
+    }
     return map;
   }
 
@@ -3940,6 +4605,10 @@ class DeckSynergy extends DataClass implements Insertable<DeckSynergy> {
       deckId: Value(deckId),
       synergyName: Value(synergyName),
       vaultItemIds: Value(vaultItemIds),
+      isDeleted: Value(isDeleted),
+      updatedAt: updatedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(updatedAt),
     );
   }
 
@@ -3953,6 +4622,8 @@ class DeckSynergy extends DataClass implements Insertable<DeckSynergy> {
       deckId: serializer.fromJson<String>(json['deckId']),
       synergyName: serializer.fromJson<String>(json['synergyName']),
       vaultItemIds: serializer.fromJson<String>(json['vaultItemIds']),
+      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+      updatedAt: serializer.fromJson<DateTime?>(json['updatedAt']),
     );
   }
   @override
@@ -3963,6 +4634,8 @@ class DeckSynergy extends DataClass implements Insertable<DeckSynergy> {
       'deckId': serializer.toJson<String>(deckId),
       'synergyName': serializer.toJson<String>(synergyName),
       'vaultItemIds': serializer.toJson<String>(vaultItemIds),
+      'isDeleted': serializer.toJson<bool>(isDeleted),
+      'updatedAt': serializer.toJson<DateTime?>(updatedAt),
     };
   }
 
@@ -3971,11 +4644,15 @@ class DeckSynergy extends DataClass implements Insertable<DeckSynergy> {
     String? deckId,
     String? synergyName,
     String? vaultItemIds,
+    bool? isDeleted,
+    Value<DateTime?> updatedAt = const Value.absent(),
   }) => DeckSynergy(
     id: id ?? this.id,
     deckId: deckId ?? this.deckId,
     synergyName: synergyName ?? this.synergyName,
     vaultItemIds: vaultItemIds ?? this.vaultItemIds,
+    isDeleted: isDeleted ?? this.isDeleted,
+    updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
   );
   DeckSynergy copyWithCompanion(DeckSynergiesCompanion data) {
     return DeckSynergy(
@@ -3987,6 +4664,8 @@ class DeckSynergy extends DataClass implements Insertable<DeckSynergy> {
       vaultItemIds: data.vaultItemIds.present
           ? data.vaultItemIds.value
           : this.vaultItemIds,
+      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
   }
 
@@ -3996,13 +4675,16 @@ class DeckSynergy extends DataClass implements Insertable<DeckSynergy> {
           ..write('id: $id, ')
           ..write('deckId: $deckId, ')
           ..write('synergyName: $synergyName, ')
-          ..write('vaultItemIds: $vaultItemIds')
+          ..write('vaultItemIds: $vaultItemIds, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('updatedAt: $updatedAt')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, deckId, synergyName, vaultItemIds);
+  int get hashCode =>
+      Object.hash(id, deckId, synergyName, vaultItemIds, isDeleted, updatedAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -4010,7 +4692,9 @@ class DeckSynergy extends DataClass implements Insertable<DeckSynergy> {
           other.id == this.id &&
           other.deckId == this.deckId &&
           other.synergyName == this.synergyName &&
-          other.vaultItemIds == this.vaultItemIds);
+          other.vaultItemIds == this.vaultItemIds &&
+          other.isDeleted == this.isDeleted &&
+          other.updatedAt == this.updatedAt);
 }
 
 class DeckSynergiesCompanion extends UpdateCompanion<DeckSynergy> {
@@ -4018,12 +4702,16 @@ class DeckSynergiesCompanion extends UpdateCompanion<DeckSynergy> {
   final Value<String> deckId;
   final Value<String> synergyName;
   final Value<String> vaultItemIds;
+  final Value<bool> isDeleted;
+  final Value<DateTime?> updatedAt;
   final Value<int> rowid;
   const DeckSynergiesCompanion({
     this.id = const Value.absent(),
     this.deckId = const Value.absent(),
     this.synergyName = const Value.absent(),
     this.vaultItemIds = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   DeckSynergiesCompanion.insert({
@@ -4031,6 +4719,8 @@ class DeckSynergiesCompanion extends UpdateCompanion<DeckSynergy> {
     required String deckId,
     required String synergyName,
     required String vaultItemIds,
+    this.isDeleted = const Value.absent(),
+    this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        deckId = Value(deckId),
@@ -4041,6 +4731,8 @@ class DeckSynergiesCompanion extends UpdateCompanion<DeckSynergy> {
     Expression<String>? deckId,
     Expression<String>? synergyName,
     Expression<String>? vaultItemIds,
+    Expression<bool>? isDeleted,
+    Expression<DateTime>? updatedAt,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -4048,6 +4740,8 @@ class DeckSynergiesCompanion extends UpdateCompanion<DeckSynergy> {
       if (deckId != null) 'deck_id': deckId,
       if (synergyName != null) 'synergy_name': synergyName,
       if (vaultItemIds != null) 'vault_item_ids': vaultItemIds,
+      if (isDeleted != null) 'is_deleted': isDeleted,
+      if (updatedAt != null) 'updated_at': updatedAt,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -4057,6 +4751,8 @@ class DeckSynergiesCompanion extends UpdateCompanion<DeckSynergy> {
     Value<String>? deckId,
     Value<String>? synergyName,
     Value<String>? vaultItemIds,
+    Value<bool>? isDeleted,
+    Value<DateTime?>? updatedAt,
     Value<int>? rowid,
   }) {
     return DeckSynergiesCompanion(
@@ -4064,6 +4760,8 @@ class DeckSynergiesCompanion extends UpdateCompanion<DeckSynergy> {
       deckId: deckId ?? this.deckId,
       synergyName: synergyName ?? this.synergyName,
       vaultItemIds: vaultItemIds ?? this.vaultItemIds,
+      isDeleted: isDeleted ?? this.isDeleted,
+      updatedAt: updatedAt ?? this.updatedAt,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -4083,6 +4781,12 @@ class DeckSynergiesCompanion extends UpdateCompanion<DeckSynergy> {
     if (vaultItemIds.present) {
       map['vault_item_ids'] = Variable<String>(vaultItemIds.value);
     }
+    if (isDeleted.present) {
+      map['is_deleted'] = Variable<bool>(isDeleted.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -4096,6 +4800,431 @@ class DeckSynergiesCompanion extends UpdateCompanion<DeckSynergy> {
           ..write('deckId: $deckId, ')
           ..write('synergyName: $synergyName, ')
           ..write('vaultItemIds: $vaultItemIds, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $SyncQueueTable extends SyncQueue
+    with TableInfo<$SyncQueueTable, SyncQueueEntry> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SyncQueueTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _entityTypeMeta = const VerificationMeta(
+    'entityType',
+  );
+  @override
+  late final GeneratedColumn<String> entityType = GeneratedColumn<String>(
+    'entity_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _entityIdMeta = const VerificationMeta(
+    'entityId',
+  );
+  @override
+  late final GeneratedColumn<String> entityId = GeneratedColumn<String>(
+    'entity_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _operationMeta = const VerificationMeta(
+    'operation',
+  );
+  @override
+  late final GeneratedColumn<String> operation = GeneratedColumn<String>(
+    'operation',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _timestampMeta = const VerificationMeta(
+    'timestamp',
+  );
+  @override
+  late final GeneratedColumn<DateTime> timestamp = GeneratedColumn<DateTime>(
+    'timestamp',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _retryCountMeta = const VerificationMeta(
+    'retryCount',
+  );
+  @override
+  late final GeneratedColumn<int> retryCount = GeneratedColumn<int>(
+    'retry_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    entityType,
+    entityId,
+    operation,
+    timestamp,
+    retryCount,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'sync_queue';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SyncQueueEntry> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('entity_type')) {
+      context.handle(
+        _entityTypeMeta,
+        entityType.isAcceptableOrUnknown(data['entity_type']!, _entityTypeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_entityTypeMeta);
+    }
+    if (data.containsKey('entity_id')) {
+      context.handle(
+        _entityIdMeta,
+        entityId.isAcceptableOrUnknown(data['entity_id']!, _entityIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_entityIdMeta);
+    }
+    if (data.containsKey('operation')) {
+      context.handle(
+        _operationMeta,
+        operation.isAcceptableOrUnknown(data['operation']!, _operationMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_operationMeta);
+    }
+    if (data.containsKey('timestamp')) {
+      context.handle(
+        _timestampMeta,
+        timestamp.isAcceptableOrUnknown(data['timestamp']!, _timestampMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_timestampMeta);
+    }
+    if (data.containsKey('retry_count')) {
+      context.handle(
+        _retryCountMeta,
+        retryCount.isAcceptableOrUnknown(data['retry_count']!, _retryCountMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  SyncQueueEntry map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SyncQueueEntry(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      entityType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}entity_type'],
+      )!,
+      entityId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}entity_id'],
+      )!,
+      operation: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}operation'],
+      )!,
+      timestamp: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}timestamp'],
+      )!,
+      retryCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}retry_count'],
+      )!,
+    );
+  }
+
+  @override
+  $SyncQueueTable createAlias(String alias) {
+    return $SyncQueueTable(attachedDatabase, alias);
+  }
+}
+
+class SyncQueueEntry extends DataClass implements Insertable<SyncQueueEntry> {
+  /// Unique mutation ID (UUID v4)
+  final String id;
+
+  /// Entity table type (e.g. 'vault_item', 'deck', 'binder', 'deck_version', 'deck_version_item')
+  final String entityType;
+
+  /// Target entity primary key ID
+  final String entityId;
+
+  /// Mutation operation: 'INSERT', 'UPDATE', 'DELETE'
+  final String operation;
+
+  /// Timestamp when mutation occurred
+  final DateTime timestamp;
+
+  /// Number of sync attempt retries
+  final int retryCount;
+  const SyncQueueEntry({
+    required this.id,
+    required this.entityType,
+    required this.entityId,
+    required this.operation,
+    required this.timestamp,
+    required this.retryCount,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['entity_type'] = Variable<String>(entityType);
+    map['entity_id'] = Variable<String>(entityId);
+    map['operation'] = Variable<String>(operation);
+    map['timestamp'] = Variable<DateTime>(timestamp);
+    map['retry_count'] = Variable<int>(retryCount);
+    return map;
+  }
+
+  SyncQueueCompanion toCompanion(bool nullToAbsent) {
+    return SyncQueueCompanion(
+      id: Value(id),
+      entityType: Value(entityType),
+      entityId: Value(entityId),
+      operation: Value(operation),
+      timestamp: Value(timestamp),
+      retryCount: Value(retryCount),
+    );
+  }
+
+  factory SyncQueueEntry.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SyncQueueEntry(
+      id: serializer.fromJson<String>(json['id']),
+      entityType: serializer.fromJson<String>(json['entityType']),
+      entityId: serializer.fromJson<String>(json['entityId']),
+      operation: serializer.fromJson<String>(json['operation']),
+      timestamp: serializer.fromJson<DateTime>(json['timestamp']),
+      retryCount: serializer.fromJson<int>(json['retryCount']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'entityType': serializer.toJson<String>(entityType),
+      'entityId': serializer.toJson<String>(entityId),
+      'operation': serializer.toJson<String>(operation),
+      'timestamp': serializer.toJson<DateTime>(timestamp),
+      'retryCount': serializer.toJson<int>(retryCount),
+    };
+  }
+
+  SyncQueueEntry copyWith({
+    String? id,
+    String? entityType,
+    String? entityId,
+    String? operation,
+    DateTime? timestamp,
+    int? retryCount,
+  }) => SyncQueueEntry(
+    id: id ?? this.id,
+    entityType: entityType ?? this.entityType,
+    entityId: entityId ?? this.entityId,
+    operation: operation ?? this.operation,
+    timestamp: timestamp ?? this.timestamp,
+    retryCount: retryCount ?? this.retryCount,
+  );
+  SyncQueueEntry copyWithCompanion(SyncQueueCompanion data) {
+    return SyncQueueEntry(
+      id: data.id.present ? data.id.value : this.id,
+      entityType: data.entityType.present
+          ? data.entityType.value
+          : this.entityType,
+      entityId: data.entityId.present ? data.entityId.value : this.entityId,
+      operation: data.operation.present ? data.operation.value : this.operation,
+      timestamp: data.timestamp.present ? data.timestamp.value : this.timestamp,
+      retryCount: data.retryCount.present
+          ? data.retryCount.value
+          : this.retryCount,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncQueueEntry(')
+          ..write('id: $id, ')
+          ..write('entityType: $entityType, ')
+          ..write('entityId: $entityId, ')
+          ..write('operation: $operation, ')
+          ..write('timestamp: $timestamp, ')
+          ..write('retryCount: $retryCount')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, entityType, entityId, operation, timestamp, retryCount);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SyncQueueEntry &&
+          other.id == this.id &&
+          other.entityType == this.entityType &&
+          other.entityId == this.entityId &&
+          other.operation == this.operation &&
+          other.timestamp == this.timestamp &&
+          other.retryCount == this.retryCount);
+}
+
+class SyncQueueCompanion extends UpdateCompanion<SyncQueueEntry> {
+  final Value<String> id;
+  final Value<String> entityType;
+  final Value<String> entityId;
+  final Value<String> operation;
+  final Value<DateTime> timestamp;
+  final Value<int> retryCount;
+  final Value<int> rowid;
+  const SyncQueueCompanion({
+    this.id = const Value.absent(),
+    this.entityType = const Value.absent(),
+    this.entityId = const Value.absent(),
+    this.operation = const Value.absent(),
+    this.timestamp = const Value.absent(),
+    this.retryCount = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  SyncQueueCompanion.insert({
+    required String id,
+    required String entityType,
+    required String entityId,
+    required String operation,
+    required DateTime timestamp,
+    this.retryCount = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       entityType = Value(entityType),
+       entityId = Value(entityId),
+       operation = Value(operation),
+       timestamp = Value(timestamp);
+  static Insertable<SyncQueueEntry> custom({
+    Expression<String>? id,
+    Expression<String>? entityType,
+    Expression<String>? entityId,
+    Expression<String>? operation,
+    Expression<DateTime>? timestamp,
+    Expression<int>? retryCount,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (entityType != null) 'entity_type': entityType,
+      if (entityId != null) 'entity_id': entityId,
+      if (operation != null) 'operation': operation,
+      if (timestamp != null) 'timestamp': timestamp,
+      if (retryCount != null) 'retry_count': retryCount,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  SyncQueueCompanion copyWith({
+    Value<String>? id,
+    Value<String>? entityType,
+    Value<String>? entityId,
+    Value<String>? operation,
+    Value<DateTime>? timestamp,
+    Value<int>? retryCount,
+    Value<int>? rowid,
+  }) {
+    return SyncQueueCompanion(
+      id: id ?? this.id,
+      entityType: entityType ?? this.entityType,
+      entityId: entityId ?? this.entityId,
+      operation: operation ?? this.operation,
+      timestamp: timestamp ?? this.timestamp,
+      retryCount: retryCount ?? this.retryCount,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (entityType.present) {
+      map['entity_type'] = Variable<String>(entityType.value);
+    }
+    if (entityId.present) {
+      map['entity_id'] = Variable<String>(entityId.value);
+    }
+    if (operation.present) {
+      map['operation'] = Variable<String>(operation.value);
+    }
+    if (timestamp.present) {
+      map['timestamp'] = Variable<DateTime>(timestamp.value);
+    }
+    if (retryCount.present) {
+      map['retry_count'] = Variable<int>(retryCount.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncQueueCompanion(')
+          ..write('id: $id, ')
+          ..write('entityType: $entityType, ')
+          ..write('entityId: $entityId, ')
+          ..write('operation: $operation, ')
+          ..write('timestamp: $timestamp, ')
+          ..write('retryCount: $retryCount, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -4114,6 +5243,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   );
   late final $DeckMatchupsTable deckMatchups = $DeckMatchupsTable(this);
   late final $DeckSynergiesTable deckSynergies = $DeckSynergiesTable(this);
+  late final $SyncQueueTable syncQueue = $SyncQueueTable(this);
   late final VaultDao vaultDao = VaultDao(this as AppDatabase);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
@@ -4127,6 +5257,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     deckVersionItems,
     deckMatchups,
     deckSynergies,
+    syncQueue,
   ];
 }
 
@@ -4136,6 +5267,8 @@ typedef $$VaultBindersTableCreateCompanionBuilder =
       required String name,
       required String collectionType,
       required DateTime createdAt,
+      Value<bool> isDeleted,
+      Value<DateTime?> updatedAt,
       Value<int> rowid,
     });
 typedef $$VaultBindersTableUpdateCompanionBuilder =
@@ -4144,6 +5277,8 @@ typedef $$VaultBindersTableUpdateCompanionBuilder =
       Value<String> name,
       Value<String> collectionType,
       Value<DateTime> createdAt,
+      Value<bool> isDeleted,
+      Value<DateTime?> updatedAt,
       Value<int> rowid,
     });
 
@@ -4195,6 +5330,16 @@ class $$VaultBindersTableFilterComposer
 
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4252,6 +5397,16 @@ class $$VaultBindersTableOrderingComposer
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$VaultBindersTableAnnotationComposer
@@ -4276,6 +5431,12 @@ class $$VaultBindersTableAnnotationComposer
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<bool> get isDeleted =>
+      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
 
   Expression<T> vaultItemsRefs<T extends Object>(
     Expression<T> Function($$VaultItemsTableAnnotationComposer a) f,
@@ -4335,12 +5496,16 @@ class $$VaultBindersTableTableManager
                 Value<String> name = const Value.absent(),
                 Value<String> collectionType = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<DateTime?> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => VaultBindersCompanion(
                 id: id,
                 name: name,
                 collectionType: collectionType,
                 createdAt: createdAt,
+                isDeleted: isDeleted,
+                updatedAt: updatedAt,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -4349,12 +5514,16 @@ class $$VaultBindersTableTableManager
                 required String name,
                 required String collectionType,
                 required DateTime createdAt,
+                Value<bool> isDeleted = const Value.absent(),
+                Value<DateTime?> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => VaultBindersCompanion.insert(
                 id: id,
                 name: name,
                 collectionType: collectionType,
                 createdAt: createdAt,
+                isDeleted: isDeleted,
+                updatedAt: updatedAt,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -4442,6 +5611,8 @@ typedef $$VaultItemsTableCreateCompanionBuilder =
       required double currentMarketPrice,
       required DateTime lastPriceUpdate,
       required String dynamicData,
+      Value<bool> isDeleted,
+      Value<DateTime?> updatedAt,
       Value<int> rowid,
     });
 typedef $$VaultItemsTableUpdateCompanionBuilder =
@@ -4471,6 +5642,8 @@ typedef $$VaultItemsTableUpdateCompanionBuilder =
       Value<double> currentMarketPrice,
       Value<DateTime> lastPriceUpdate,
       Value<String> dynamicData,
+      Value<bool> isDeleted,
+      Value<DateTime?> updatedAt,
       Value<int> rowid,
     });
 
@@ -4643,6 +5816,16 @@ class $$VaultItemsTableFilterComposer
 
   ColumnFilters<String> get dynamicData => $composableBuilder(
     column: $table.dynamicData,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4824,6 +6007,16 @@ class $$VaultItemsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$VaultBindersTableOrderingComposer get primaryBinderId {
     final $$VaultBindersTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -4959,6 +6152,12 @@ class $$VaultItemsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<bool> get isDeleted =>
+      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
   $$VaultBindersTableAnnotationComposer get primaryBinderId {
     final $$VaultBindersTableAnnotationComposer composer = $composerBuilder(
       composer: this,
@@ -5064,6 +6263,8 @@ class $$VaultItemsTableTableManager
                 Value<double> currentMarketPrice = const Value.absent(),
                 Value<DateTime> lastPriceUpdate = const Value.absent(),
                 Value<String> dynamicData = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<DateTime?> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => VaultItemsCompanion(
                 id: id,
@@ -5091,6 +6292,8 @@ class $$VaultItemsTableTableManager
                 currentMarketPrice: currentMarketPrice,
                 lastPriceUpdate: lastPriceUpdate,
                 dynamicData: dynamicData,
+                isDeleted: isDeleted,
+                updatedAt: updatedAt,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -5120,6 +6323,8 @@ class $$VaultItemsTableTableManager
                 required double currentMarketPrice,
                 required DateTime lastPriceUpdate,
                 required String dynamicData,
+                Value<bool> isDeleted = const Value.absent(),
+                Value<DateTime?> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => VaultItemsCompanion.insert(
                 id: id,
@@ -5147,6 +6352,8 @@ class $$VaultItemsTableTableManager
                 currentMarketPrice: currentMarketPrice,
                 lastPriceUpdate: lastPriceUpdate,
                 dynamicData: dynamicData,
+                isDeleted: isDeleted,
+                updatedAt: updatedAt,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -5257,6 +6464,8 @@ typedef $$DecksTableCreateCompanionBuilder =
       Value<String> tcgDomain,
       Value<bool> isRegistered,
       Value<bool> isCompetitive,
+      Value<bool> isDeleted,
+      Value<DateTime?> updatedAt,
       Value<int> rowid,
     });
 typedef $$DecksTableUpdateCompanionBuilder =
@@ -5274,6 +6483,8 @@ typedef $$DecksTableUpdateCompanionBuilder =
       Value<String> tcgDomain,
       Value<bool> isRegistered,
       Value<bool> isCompetitive,
+      Value<bool> isDeleted,
+      Value<DateTime?> updatedAt,
       Value<int> rowid,
     });
 
@@ -5406,6 +6617,16 @@ class $$DecksTableFilterComposer extends Composer<_$AppDatabase, $DecksTable> {
 
   ColumnFilters<bool> get isCompetitive => $composableBuilder(
     column: $table.isCompetitive,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -5558,6 +6779,16 @@ class $$DecksTableOrderingComposer
     column: $table.isCompetitive,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$DecksTableAnnotationComposer
@@ -5617,6 +6848,12 @@ class $$DecksTableAnnotationComposer
     column: $table.isCompetitive,
     builder: (column) => column,
   );
+
+  GeneratedColumn<bool> get isDeleted =>
+      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
 
   Expression<T> deckVersionsRefs<T extends Object>(
     Expression<T> Function($$DeckVersionsTableAnnotationComposer a) f,
@@ -5739,6 +6976,8 @@ class $$DecksTableTableManager
                 Value<String> tcgDomain = const Value.absent(),
                 Value<bool> isRegistered = const Value.absent(),
                 Value<bool> isCompetitive = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<DateTime?> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => DecksCompanion(
                 id: id,
@@ -5754,6 +6993,8 @@ class $$DecksTableTableManager
                 tcgDomain: tcgDomain,
                 isRegistered: isRegistered,
                 isCompetitive: isCompetitive,
+                isDeleted: isDeleted,
+                updatedAt: updatedAt,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -5771,6 +7012,8 @@ class $$DecksTableTableManager
                 Value<String> tcgDomain = const Value.absent(),
                 Value<bool> isRegistered = const Value.absent(),
                 Value<bool> isCompetitive = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<DateTime?> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => DecksCompanion.insert(
                 id: id,
@@ -5786,6 +7029,8 @@ class $$DecksTableTableManager
                 tcgDomain: tcgDomain,
                 isRegistered: isRegistered,
                 isCompetitive: isCompetitive,
+                isDeleted: isDeleted,
+                updatedAt: updatedAt,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -5907,6 +7152,8 @@ typedef $$DeckVersionsTableCreateCompanionBuilder =
       Value<String?> versionNote,
       Value<bool> isActive,
       required DateTime createdAt,
+      Value<bool> isDeleted,
+      Value<DateTime?> updatedAt,
       Value<int> rowid,
     });
 typedef $$DeckVersionsTableUpdateCompanionBuilder =
@@ -5917,6 +7164,8 @@ typedef $$DeckVersionsTableUpdateCompanionBuilder =
       Value<String?> versionNote,
       Value<bool> isActive,
       Value<DateTime> createdAt,
+      Value<bool> isDeleted,
+      Value<DateTime?> updatedAt,
       Value<int> rowid,
     });
 
@@ -5993,6 +7242,16 @@ class $$DeckVersionsTableFilterComposer
 
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -6079,6 +7338,16 @@ class $$DeckVersionsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$DecksTableOrderingComposer get deckId {
     final $$DecksTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -6130,6 +7399,12 @@ class $$DeckVersionsTableAnnotationComposer
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<bool> get isDeleted =>
+      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
 
   $$DecksTableAnnotationComposer get deckId {
     final $$DecksTableAnnotationComposer composer = $composerBuilder(
@@ -6214,6 +7489,8 @@ class $$DeckVersionsTableTableManager
                 Value<String?> versionNote = const Value.absent(),
                 Value<bool> isActive = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<DateTime?> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => DeckVersionsCompanion(
                 id: id,
@@ -6222,6 +7499,8 @@ class $$DeckVersionsTableTableManager
                 versionNote: versionNote,
                 isActive: isActive,
                 createdAt: createdAt,
+                isDeleted: isDeleted,
+                updatedAt: updatedAt,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -6232,6 +7511,8 @@ class $$DeckVersionsTableTableManager
                 Value<String?> versionNote = const Value.absent(),
                 Value<bool> isActive = const Value.absent(),
                 required DateTime createdAt,
+                Value<bool> isDeleted = const Value.absent(),
+                Value<DateTime?> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => DeckVersionsCompanion.insert(
                 id: id,
@@ -6240,6 +7521,8 @@ class $$DeckVersionsTableTableManager
                 versionNote: versionNote,
                 isActive: isActive,
                 createdAt: createdAt,
+                isDeleted: isDeleted,
+                updatedAt: updatedAt,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -6344,6 +7627,8 @@ typedef $$DeckVersionItemsTableCreateCompanionBuilder =
       Value<int> quantity,
       required String boardZone,
       Value<bool> isProxy,
+      Value<bool> isDeleted,
+      Value<DateTime?> updatedAt,
       Value<int> rowid,
     });
 typedef $$DeckVersionItemsTableUpdateCompanionBuilder =
@@ -6354,6 +7639,8 @@ typedef $$DeckVersionItemsTableUpdateCompanionBuilder =
       Value<int> quantity,
       Value<String> boardZone,
       Value<bool> isProxy,
+      Value<bool> isDeleted,
+      Value<DateTime?> updatedAt,
       Value<int> rowid,
     });
 
@@ -6427,6 +7714,16 @@ class $$DeckVersionItemsTableFilterComposer
 
   ColumnFilters<bool> get isProxy => $composableBuilder(
     column: $table.isProxy,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -6506,6 +7803,16 @@ class $$DeckVersionItemsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$DeckVersionsTableOrderingComposer get versionId {
     final $$DeckVersionsTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -6573,6 +7880,12 @@ class $$DeckVersionItemsTableAnnotationComposer
 
   GeneratedColumn<bool> get isProxy =>
       $composableBuilder(column: $table.isProxy, builder: (column) => column);
+
+  GeneratedColumn<bool> get isDeleted =>
+      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
 
   $$DeckVersionsTableAnnotationComposer get versionId {
     final $$DeckVersionsTableAnnotationComposer composer = $composerBuilder(
@@ -6657,6 +7970,8 @@ class $$DeckVersionItemsTableTableManager
                 Value<int> quantity = const Value.absent(),
                 Value<String> boardZone = const Value.absent(),
                 Value<bool> isProxy = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<DateTime?> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => DeckVersionItemsCompanion(
                 id: id,
@@ -6665,6 +7980,8 @@ class $$DeckVersionItemsTableTableManager
                 quantity: quantity,
                 boardZone: boardZone,
                 isProxy: isProxy,
+                isDeleted: isDeleted,
+                updatedAt: updatedAt,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -6675,6 +7992,8 @@ class $$DeckVersionItemsTableTableManager
                 Value<int> quantity = const Value.absent(),
                 required String boardZone,
                 Value<bool> isProxy = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<DateTime?> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => DeckVersionItemsCompanion.insert(
                 id: id,
@@ -6683,6 +8002,8 @@ class $$DeckVersionItemsTableTableManager
                 quantity: quantity,
                 boardZone: boardZone,
                 isProxy: isProxy,
+                isDeleted: isDeleted,
+                updatedAt: updatedAt,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -6777,6 +8098,8 @@ typedef $$DeckMatchupsTableCreateCompanionBuilder =
       Value<String?> notes,
       Value<String?> swapInItemIds,
       Value<String?> swapOutItemIds,
+      Value<bool> isDeleted,
+      Value<DateTime?> updatedAt,
       Value<int> rowid,
     });
 typedef $$DeckMatchupsTableUpdateCompanionBuilder =
@@ -6787,6 +8110,8 @@ typedef $$DeckMatchupsTableUpdateCompanionBuilder =
       Value<String?> notes,
       Value<String?> swapInItemIds,
       Value<String?> swapOutItemIds,
+      Value<bool> isDeleted,
+      Value<DateTime?> updatedAt,
       Value<int> rowid,
     });
 
@@ -6843,6 +8168,16 @@ class $$DeckMatchupsTableFilterComposer
 
   ColumnFilters<String> get swapOutItemIds => $composableBuilder(
     column: $table.swapOutItemIds,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -6904,6 +8239,16 @@ class $$DeckMatchupsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$DecksTableOrderingComposer get deckId {
     final $$DecksTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -6957,6 +8302,12 @@ class $$DeckMatchupsTableAnnotationComposer
     column: $table.swapOutItemIds,
     builder: (column) => column,
   );
+
+  GeneratedColumn<bool> get isDeleted =>
+      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
 
   $$DecksTableAnnotationComposer get deckId {
     final $$DecksTableAnnotationComposer composer = $composerBuilder(
@@ -7016,6 +8367,8 @@ class $$DeckMatchupsTableTableManager
                 Value<String?> notes = const Value.absent(),
                 Value<String?> swapInItemIds = const Value.absent(),
                 Value<String?> swapOutItemIds = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<DateTime?> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => DeckMatchupsCompanion(
                 id: id,
@@ -7024,6 +8377,8 @@ class $$DeckMatchupsTableTableManager
                 notes: notes,
                 swapInItemIds: swapInItemIds,
                 swapOutItemIds: swapOutItemIds,
+                isDeleted: isDeleted,
+                updatedAt: updatedAt,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -7034,6 +8389,8 @@ class $$DeckMatchupsTableTableManager
                 Value<String?> notes = const Value.absent(),
                 Value<String?> swapInItemIds = const Value.absent(),
                 Value<String?> swapOutItemIds = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<DateTime?> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => DeckMatchupsCompanion.insert(
                 id: id,
@@ -7042,6 +8399,8 @@ class $$DeckMatchupsTableTableManager
                 notes: notes,
                 swapInItemIds: swapInItemIds,
                 swapOutItemIds: swapOutItemIds,
+                isDeleted: isDeleted,
+                updatedAt: updatedAt,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -7117,6 +8476,8 @@ typedef $$DeckSynergiesTableCreateCompanionBuilder =
       required String deckId,
       required String synergyName,
       required String vaultItemIds,
+      Value<bool> isDeleted,
+      Value<DateTime?> updatedAt,
       Value<int> rowid,
     });
 typedef $$DeckSynergiesTableUpdateCompanionBuilder =
@@ -7125,6 +8486,8 @@ typedef $$DeckSynergiesTableUpdateCompanionBuilder =
       Value<String> deckId,
       Value<String> synergyName,
       Value<String> vaultItemIds,
+      Value<bool> isDeleted,
+      Value<DateTime?> updatedAt,
       Value<int> rowid,
     });
 
@@ -7178,6 +8541,16 @@ class $$DeckSynergiesTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
   $$DecksTableFilterComposer get deckId {
     final $$DecksTableFilterComposer composer = $composerBuilder(
       composer: this,
@@ -7226,6 +8599,16 @@ class $$DeckSynergiesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$DecksTableOrderingComposer get deckId {
     final $$DecksTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -7271,6 +8654,12 @@ class $$DeckSynergiesTableAnnotationComposer
     column: $table.vaultItemIds,
     builder: (column) => column,
   );
+
+  GeneratedColumn<bool> get isDeleted =>
+      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
 
   $$DecksTableAnnotationComposer get deckId {
     final $$DecksTableAnnotationComposer composer = $composerBuilder(
@@ -7328,12 +8717,16 @@ class $$DeckSynergiesTableTableManager
                 Value<String> deckId = const Value.absent(),
                 Value<String> synergyName = const Value.absent(),
                 Value<String> vaultItemIds = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<DateTime?> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => DeckSynergiesCompanion(
                 id: id,
                 deckId: deckId,
                 synergyName: synergyName,
                 vaultItemIds: vaultItemIds,
+                isDeleted: isDeleted,
+                updatedAt: updatedAt,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -7342,12 +8735,16 @@ class $$DeckSynergiesTableTableManager
                 required String deckId,
                 required String synergyName,
                 required String vaultItemIds,
+                Value<bool> isDeleted = const Value.absent(),
+                Value<DateTime?> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => DeckSynergiesCompanion.insert(
                 id: id,
                 deckId: deckId,
                 synergyName: synergyName,
                 vaultItemIds: vaultItemIds,
+                isDeleted: isDeleted,
+                updatedAt: updatedAt,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -7417,6 +8814,229 @@ typedef $$DeckSynergiesTableProcessedTableManager =
       DeckSynergy,
       PrefetchHooks Function({bool deckId})
     >;
+typedef $$SyncQueueTableCreateCompanionBuilder =
+    SyncQueueCompanion Function({
+      required String id,
+      required String entityType,
+      required String entityId,
+      required String operation,
+      required DateTime timestamp,
+      Value<int> retryCount,
+      Value<int> rowid,
+    });
+typedef $$SyncQueueTableUpdateCompanionBuilder =
+    SyncQueueCompanion Function({
+      Value<String> id,
+      Value<String> entityType,
+      Value<String> entityId,
+      Value<String> operation,
+      Value<DateTime> timestamp,
+      Value<int> retryCount,
+      Value<int> rowid,
+    });
+
+class $$SyncQueueTableFilterComposer
+    extends Composer<_$AppDatabase, $SyncQueueTable> {
+  $$SyncQueueTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get entityType => $composableBuilder(
+    column: $table.entityType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get entityId => $composableBuilder(
+    column: $table.entityId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get operation => $composableBuilder(
+    column: $table.operation,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get timestamp => $composableBuilder(
+    column: $table.timestamp,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get retryCount => $composableBuilder(
+    column: $table.retryCount,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$SyncQueueTableOrderingComposer
+    extends Composer<_$AppDatabase, $SyncQueueTable> {
+  $$SyncQueueTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get entityType => $composableBuilder(
+    column: $table.entityType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get entityId => $composableBuilder(
+    column: $table.entityId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get operation => $composableBuilder(
+    column: $table.operation,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get timestamp => $composableBuilder(
+    column: $table.timestamp,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get retryCount => $composableBuilder(
+    column: $table.retryCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$SyncQueueTableAnnotationComposer
+    extends Composer<_$AppDatabase, $SyncQueueTable> {
+  $$SyncQueueTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get entityType => $composableBuilder(
+    column: $table.entityType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get entityId =>
+      $composableBuilder(column: $table.entityId, builder: (column) => column);
+
+  GeneratedColumn<String> get operation =>
+      $composableBuilder(column: $table.operation, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get timestamp =>
+      $composableBuilder(column: $table.timestamp, builder: (column) => column);
+
+  GeneratedColumn<int> get retryCount => $composableBuilder(
+    column: $table.retryCount,
+    builder: (column) => column,
+  );
+}
+
+class $$SyncQueueTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $SyncQueueTable,
+          SyncQueueEntry,
+          $$SyncQueueTableFilterComposer,
+          $$SyncQueueTableOrderingComposer,
+          $$SyncQueueTableAnnotationComposer,
+          $$SyncQueueTableCreateCompanionBuilder,
+          $$SyncQueueTableUpdateCompanionBuilder,
+          (
+            SyncQueueEntry,
+            BaseReferences<_$AppDatabase, $SyncQueueTable, SyncQueueEntry>,
+          ),
+          SyncQueueEntry,
+          PrefetchHooks Function()
+        > {
+  $$SyncQueueTableTableManager(_$AppDatabase db, $SyncQueueTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SyncQueueTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SyncQueueTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$SyncQueueTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> entityType = const Value.absent(),
+                Value<String> entityId = const Value.absent(),
+                Value<String> operation = const Value.absent(),
+                Value<DateTime> timestamp = const Value.absent(),
+                Value<int> retryCount = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SyncQueueCompanion(
+                id: id,
+                entityType: entityType,
+                entityId: entityId,
+                operation: operation,
+                timestamp: timestamp,
+                retryCount: retryCount,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String entityType,
+                required String entityId,
+                required String operation,
+                required DateTime timestamp,
+                Value<int> retryCount = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SyncQueueCompanion.insert(
+                id: id,
+                entityType: entityType,
+                entityId: entityId,
+                operation: operation,
+                timestamp: timestamp,
+                retryCount: retryCount,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$SyncQueueTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $SyncQueueTable,
+      SyncQueueEntry,
+      $$SyncQueueTableFilterComposer,
+      $$SyncQueueTableOrderingComposer,
+      $$SyncQueueTableAnnotationComposer,
+      $$SyncQueueTableCreateCompanionBuilder,
+      $$SyncQueueTableUpdateCompanionBuilder,
+      (
+        SyncQueueEntry,
+        BaseReferences<_$AppDatabase, $SyncQueueTable, SyncQueueEntry>,
+      ),
+      SyncQueueEntry,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -7435,4 +9055,6 @@ class $AppDatabaseManager {
       $$DeckMatchupsTableTableManager(_db, _db.deckMatchups);
   $$DeckSynergiesTableTableManager get deckSynergies =>
       $$DeckSynergiesTableTableManager(_db, _db.deckSynergies);
+  $$SyncQueueTableTableManager get syncQueue =>
+      $$SyncQueueTableTableManager(_db, _db.syncQueue);
 }

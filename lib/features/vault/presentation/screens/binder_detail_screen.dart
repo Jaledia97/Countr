@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:countr/core/cache/countr_image_cache_manager.dart';
+import 'package:countr/core/cache/parsed_json_cache.dart';
 import 'package:countr/core/constants/app_colors.dart';
 import 'package:countr/core/constants/app_typography.dart';
 import 'package:countr/core/database/app_database.dart';
 import 'package:countr/core/state/settings_state.dart';
 import 'package:countr/features/vault/presentation/providers/vault_providers.dart';
+import 'package:countr/features/vault/presentation/widgets/card_detail_sheet.dart';
+import 'package:countr/features/vault/presentation/widgets/edit_binder_modal.dart';
 import 'package:countr/features/vault/presentation/widgets/vault_item_card.dart';
 
 /// Screen displaying the physical inventory of cards anchored to a specific Vault Binder.
@@ -29,6 +34,15 @@ class BinderDetailScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final dao = ref.watch(vaultDaoProvider);
     final isPrivacyMode = ref.watch(privacyModeProvider);
+    final viewMode = ref.watch(binderViewModeProvider);
+    final metadata = ref.watch(binderMetadataProvider(binder.id));
+
+    // Watch binders to get reactive updates when edited
+    final bindersAsync = ref.watch(bindersStreamProvider);
+    final currentBinder = bindersAsync.maybeWhen(
+      data: (binders) => binders.firstWhere((b) => b.id == binder.id, orElse: () => binder),
+      orElse: () => binder,
+    );
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -44,7 +58,7 @@ class BinderDetailScreen extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              binder.name,
+              currentBinder.name,
               style: const TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.w800,
@@ -52,7 +66,7 @@ class BinderDetailScreen extends ConsumerWidget {
               ),
             ),
             Text(
-              '${binder.collectionType.toUpperCase()} Physical Anchor',
+              '${currentBinder.collectionType.toUpperCase()} Physical Anchor',
               style: const TextStyle(
                 color: AppColors.accentCyan,
                 fontSize: 11,
@@ -61,9 +75,39 @@ class BinderDetailScreen extends ConsumerWidget {
             ),
           ],
         ),
+        actions: [
+          // Edit Binder button
+          IconButton(
+            key: const Key('binder_edit_button'),
+            icon: const Icon(Icons.edit_outlined, color: Colors.white, size: 20),
+            tooltip: 'Edit Binder',
+            onPressed: () => EditBinderModal.show(context, currentBinder),
+          ),
+          // View Mode toggle (3x3 Grid vs List)
+          IconButton(
+            key: const Key('binder_view_mode_toggle'),
+            icon: Icon(
+              viewMode == BinderViewMode.grid3x3
+                  ? Icons.view_list_rounded
+                  : Icons.grid_view_rounded,
+              color: AppColors.accentCyan,
+              size: 22,
+            ),
+            tooltip: viewMode == BinderViewMode.grid3x3
+                ? 'Switch to List View'
+                : 'Switch to 3x3 Grid',
+            onPressed: () {
+              ref.read(binderViewModeProvider.notifier).state =
+                  viewMode == BinderViewMode.grid3x3
+                      ? BinderViewMode.list
+                      : BinderViewMode.grid3x3;
+            },
+          ),
+          const SizedBox(width: 4),
+        ],
       ),
       body: StreamBuilder<List<VaultItem>>(
-        stream: dao.watchItemsByBinder(binder.id),
+        stream: dao.watchItemsByBinder(currentBinder.id),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(
@@ -107,7 +151,7 @@ class BinderDetailScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'No cards are currently anchored to "${binder.name}".\nTransfer scanned cards from your Inbox to place them in this physical home.',
+                      'No cards are currently anchored to "${currentBinder.name}".\nTransfer scanned cards from your Inbox to place them in this physical home.',
                       textAlign: TextAlign.center,
                       style: AppTypography.bodySecondary
                           .copyWith(color: AppColors.textSecondary),
@@ -144,72 +188,150 @@ class BinderDetailScreen extends ConsumerWidget {
                         color: AppColors.accentCyan.withValues(alpha: 0.3),
                       ),
                     ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text(
-                              'TOTAL BINDER VALUE',
-                              style: TextStyle(
-                                color: AppColors.textSecondary,
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 1.0,
+                            Flexible(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'TOTAL BINDER VALUE',
+                                    style: TextStyle(
+                                      color: AppColors.textSecondary,
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 1.0,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    alignment: Alignment.centerLeft,
+                                    child: Text(
+                                      isPrivacyMode ? '****' : '\$${totalMarketValue.toStringAsFixed(2)}',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              isPrivacyMode ? '****' : '\$${totalMarketValue.toStringAsFixed(2)}',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 24,
-                                fontWeight: FontWeight.w900,
+                            const SizedBox(width: 8),
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: AppColors.surfaceRaised,
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: AppColors.surfaceBorder),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.style_outlined,
+                                        color: AppColors.accentEmerald, size: 16),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      '$totalCards ${totalCards == 1 ? "Card" : "Cards"}',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ],
                         ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: AppColors.surfaceRaised,
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: AppColors.surfaceBorder),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.style_outlined,
-                                  color: AppColors.accentEmerald, size: 16),
-                              const SizedBox(width: 6),
-                              Text(
-                                '$totalCards ${totalCards == 1 ? "Card" : "Cards"}',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
+                        if (metadata.description != null && metadata.description!.isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: AppColors.surfaceRaised.withValues(alpha: 0.6),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Icon(Icons.info_outline, size: 14, color: AppColors.accentCyan),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    metadata.description!,
+                                    key: const Key('binder_detail_description'),
+                                    style: const TextStyle(
+                                      color: AppColors.textSecondary,
+                                      fontSize: 12,
+                                      fontStyle: FontStyle.italic,
+                                    ),
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
-                        ),
+                        ],
                       ],
                     ),
                   ),
                 ),
               ),
 
-              // Virtualized Card List
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                sliver: SliverList.builder(
-                  itemCount: items.length,
-                  itemBuilder: (context, index) {
-                    return VaultItemCard(item: items[index]);
-                  },
+              // Virtualized Cards View: 3x3 Grid or List
+              if (viewMode == BinderViewMode.grid3x3)
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                  sliver: SliverGrid.builder(
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 3,
+                      childAspectRatio: 5 / 7,
+                      crossAxisSpacing: 8,
+                      mainAxisSpacing: 8,
+                    ),
+                    itemCount: items.length,
+                    itemBuilder: (context, index) {
+                      final item = items[index];
+                      return RepaintBoundary(
+                        child: BinderGridCardTile(
+                          item: item,
+                          onTap: () => CardDetailSheet.show(
+                            context,
+                            item,
+                            items: items,
+                            initialIndex: index,
+                            binderId: currentBinder.id,
+                            binder: currentBinder,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                )
+              else
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                  sliver: SliverList.builder(
+                    itemCount: items.length,
+                    itemBuilder: (context, index) {
+                      return RepaintBoundary(
+                        child: VaultItemCard(
+                          item: items[index],
+                          initiallyExpanded: false,
+                        ),
+                      );
+                    },
+                  ),
                 ),
-              ),
             ],
           );
         },
@@ -217,3 +339,148 @@ class BinderDetailScreen extends ConsumerWidget {
     );
   }
 }
+
+/// 3x3 Grid Card Tile rendering in strict 5:7 card aspect ratio.
+class BinderGridCardTile extends StatelessWidget {
+  final VaultItem item;
+  final VoidCallback onTap;
+
+  const BinderGridCardTile({
+    super.key,
+    required this.item,
+    required this.onTap,
+  });
+
+  bool _isCardFoil(VaultItem item) {
+    if (item.dynamicData.isNotEmpty) {
+      final data = ParsedJsonCache.parse(item.dynamicData);
+      final finish = data['finish']?.toString().toLowerCase();
+      if (finish != null && (finish.contains('foil') || finish == 'etched')) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final imgUrl = item.imageUrl;
+    final isFoil = _isCardFoil(item);
+
+    return GestureDetector(
+      onTap: onTap,
+      child: AspectRatio(
+        aspectRatio: 5 / 7,
+        child: Container(
+          decoration: BoxDecoration(
+            color: AppColors.surfaceRaised,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: isFoil ? AppColors.accentGold.withValues(alpha: 0.6) : AppColors.surfaceBorder,
+              width: isFoil ? 1.5 : 1.0,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.3),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // Card Image
+              CachedNetworkImage(
+                imageUrl: imgUrl,
+                cacheManager: CountrImageCacheManager.instance,
+                fit: BoxFit.cover,
+                placeholder: (context, url) => Container(
+                  color: AppColors.surfaceRaised,
+                ),
+                errorWidget: (context, url, error) => Container(
+                  color: AppColors.surface,
+                  padding: const EdgeInsets.all(6),
+                  alignment: Alignment.center,
+                  child: Text(
+                    item.name,
+                    textAlign: TextAlign.center,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+
+              // Foil sheen overlay if foil
+              if (isFoil)
+                IgnorePointer(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.purple.withValues(alpha: 0.15),
+                          Colors.amber.withValues(alpha: 0.15),
+                          Colors.cyan.withValues(alpha: 0.15),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                    ),
+                  ),
+                ),
+
+              // Quantity Badge (if > 1)
+              if (item.quantity > 1)
+                Positioned(
+                  top: 4,
+                  right: 4,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.8),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: AppColors.accentCyan, width: 0.8),
+                    ),
+                    child: Text(
+                      '${item.quantity}x',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ),
+
+              // Foil star badge in bottom-left
+              if (isFoil)
+                Positioned(
+                  bottom: 4,
+                  left: 4,
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.7),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.auto_awesome,
+                      color: AppColors.accentGold,
+                      size: 11,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+

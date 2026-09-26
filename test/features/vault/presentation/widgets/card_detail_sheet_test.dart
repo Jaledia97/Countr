@@ -42,7 +42,7 @@ void main() {
       isGraded: false,
       isAltered: false,
       isMisprint: false,
-      isSigned: false,
+      isSigned: false, isDeleted: false,
       currentMarketPrice: price,
       lastPriceUpdate: DateTime.now(),
       dynamicData: jsonEncode({

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:countr/core/cache/countr_cached_image.dart';
 import 'package:countr/core/constants/app_colors.dart';
 import 'package:countr/core/constants/app_typography.dart';
 import 'package:countr/core/database/app_database.dart';
@@ -570,10 +571,10 @@ class _VariantPriceChartState extends ConsumerState<VariantPriceChart> {
       );
     }
 
-    return Image.network(
-      url,
+    return CountrCachedImage(
+      imageUrl: url,
       fit: BoxFit.cover,
-      errorBuilder: (context, error, stackTrace) => Container(
+      errorWidget: Container(
         color: AppColors.surfaceHighlight,
         alignment: Alignment.center,
         child: const Icon(Icons.broken_image_outlined, size: 22, color: AppColors.textMuted),

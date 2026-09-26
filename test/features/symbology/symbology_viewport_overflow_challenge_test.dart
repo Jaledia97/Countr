@@ -60,7 +60,7 @@ VaultItem createChallengeCard({
     isGraded: false,
     isAltered: false,
     isMisprint: false,
-    isSigned: false,
+    isSigned: false, isDeleted: false,
     currentMarketPrice: price,
     lastPriceUpdate: DateTime.now(),
     dynamicData: jsonEncode(dataMap),
@@ -109,7 +109,7 @@ Deck createChallengeDeck({
     createdAt: DateTime.now(),
     tcgDomain: 'mtg',
     isRegistered: false,
-    isCompetitive: false,
+    isCompetitive: false, isDeleted: false,
   );
 }
 

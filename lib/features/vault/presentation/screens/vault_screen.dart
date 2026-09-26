@@ -12,6 +12,7 @@ import 'package:countr/features/vault/presentation/providers/vault_providers.dar
 import 'package:countr/features/vault/presentation/screens/binder_detail_screen.dart';
 import 'package:countr/features/vault/presentation/widgets/card_detail_sheet.dart';
 import 'package:countr/features/vault/presentation/widgets/manual_add_bottom_sheet.dart';
+import 'package:countr/features/vault/presentation/widgets/vault_import_bottom_sheet.dart';
 import 'package:countr/features/vault/domain/vault_pricing_helper.dart';
 import 'package:countr/features/vault/presentation/widgets/vault_item_card.dart';
 import 'package:countr/features/vault/presentation/widgets/vault_item_tile.dart';
@@ -381,7 +382,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
         key: const PageStorageKey<String>('vault_custom_scroll_view'),
         controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
-        cacheExtent: 1000,
+        cacheExtent: 500,
         slivers: [
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
@@ -1170,9 +1171,11 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
             ),
             delegate: SliverChildBuilderDelegate(
               (context, index) {
-                return VaultItemTile(
-                  item: filtered[index],
-                  onTap: () => _openCardDetail(filtered, index),
+                return RepaintBoundary(
+                  child: VaultItemTile(
+                    item: filtered[index],
+                    onTap: () => _openCardDetail(filtered, index),
+                  ),
                 );
               },
               childCount: filtered.length,
@@ -1187,9 +1190,12 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
           key: const PageStorageKey<String>('vault_cards_sliver_list'),
           itemCount: filtered.length,
           itemBuilder: (context, index) {
-            return VaultItemCard(
-              item: filtered[index],
-              onTap: () => _openCardDetail(filtered, index),
+            return RepaintBoundary(
+              child: VaultItemCard(
+                item: filtered[index],
+                initiallyExpanded: false,
+                onTap: () => _openCardDetail(filtered, index),
+              ),
             );
           },
         ),
@@ -1444,16 +1450,27 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
               ),
               const Spacer(),
               ElevatedButton.icon(
-                key: const Key('vault_add_item_button'),
+                key: const Key('vault_import_button'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.accentCyan,
                   foregroundColor: AppColors.textDark,
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   minimumSize: Size.zero,
                 ),
-                icon: const Icon(Icons.add, size: 16),
-                label: const Text('Add Item',
+                icon: const Icon(Icons.file_download_outlined, size: 16),
+                label: const Text('Import +',
                     style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+                onPressed: () {
+                  VaultImportBottomSheet.show(context);
+                },
+              ),
+              const SizedBox(width: 6),
+              IconButton(
+                key: const Key('vault_add_item_button'),
+                icon: const Icon(Icons.add, size: 18, color: AppColors.accentCyan),
+                tooltip: 'Add Single Item',
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
                 onPressed: () {
                   ManualAddBottomSheet.show(context);
                 },

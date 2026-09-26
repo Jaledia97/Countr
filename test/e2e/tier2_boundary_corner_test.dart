@@ -970,7 +970,7 @@ void main() {
 
       await deleteVaultItem(dao, 'stack-1');
 
-      final found = await (dao.select(dao.vaultItems)..where((t) => t.id.equals('stack-1'))).getSingleOrNull();
+      final found = await (dao.select(dao.vaultItems)..where((t) => t.id.equals('stack-1') & t.isDeleted.equals(false))).getSingleOrNull();
       expect(found, isNull);
     });
 

@@ -179,6 +179,30 @@ VaultItemsCompanion mapScryfallCardToCompanion(Map<String, dynamic> card) {
       frameEffects.contains('universes_beyond') ||
       securityStamp == 'triangle';
 
+  // Extract oracle_id (top-level or from card_faces)
+  String? oracleId = card['oracle_id']?.toString();
+  if ((oracleId == null || oracleId.isEmpty) && card['card_faces'] is List) {
+    for (final face in (card['card_faces'] as List)) {
+      if (face is Map && face['oracle_id'] != null) {
+        oracleId = face['oracle_id']?.toString();
+        break;
+      }
+    }
+  }
+
+  // Extract finishes metadata (e.g. ['nonfoil', 'foil', 'etched'])
+  List<String> finishes = const ['nonfoil'];
+  if (card['finishes'] is List) {
+    finishes = (card['finishes'] as List)
+        .map((f) => f?.toString().toLowerCase() ?? '')
+        .where((f) => f.isNotEmpty)
+        .toList();
+  }
+  if (finishes.isEmpty) {
+    finishes = const ['nonfoil'];
+  }
+  final finish = finishes.contains('nonfoil') ? 'nonfoil' : finishes.first;
+
   // Dynamic metadata JSON payload
   final dynamicData = jsonEncode({
     'layout': card['layout'] ?? '',
@@ -205,6 +229,9 @@ VaultItemsCompanion mapScryfallCardToCompanion(Map<String, dynamic> card) {
     'set': setCode,
     'set_code': setCode,
     'set_name': setName,
+    if (oracleId != null && oracleId.isNotEmpty) 'oracle_id': oracleId,
+    'finishes': finishes,
+    'finish': finish,
   });
 
   return VaultItemsCompanion.insert(

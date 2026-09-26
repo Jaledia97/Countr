@@ -8,6 +8,7 @@ import 'package:countr/core/database/tables/decks/deck_versions_table.dart';
 import 'package:countr/core/database/tables/decks/deck_version_items_table.dart';
 import 'package:countr/core/database/tables/decks/deck_matchups_table.dart';
 import 'package:countr/core/database/tables/decks/deck_synergies_table.dart';
+import 'package:countr/core/database/tables/sync_queue_table.dart';
 import 'package:countr/features/vault/data/daos/vault_dao.dart';
 
 part 'app_database.g.dart';
@@ -23,6 +24,7 @@ part 'app_database.g.dart';
     DeckVersionItems,
     DeckMatchups,
     DeckSynergies,
+    SyncQueue,
   ],
   daos: [VaultDao],
 )
@@ -38,7 +40,7 @@ class AppDatabase extends _$AppDatabase {
         );
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 9;
 
   @override
   MigrationStrategy get migration {
@@ -101,6 +103,40 @@ class AppDatabase extends _$AppDatabase {
           } catch (error, stackTrace) {
             debugPrint('[AppDatabase.onUpgrade] Migration to v8 warning: $error\n$stackTrace');
           }
+        }
+        if (from < 9) {
+          try {
+            await m.createTable(syncQueue);
+          } catch (error, stackTrace) {
+            debugPrint('[AppDatabase.onUpgrade] Migration to v9 (syncQueue) warning: $error\n$stackTrace');
+          }
+
+          Future<void> addSoftDeleteCols(TableInfo table, GeneratedColumn isDeletedCol, GeneratedColumn updatedAtCol) async {
+            try {
+              final tableCheck = await customSelect(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name=?;",
+                variables: [Variable.withString(table.actualTableName)],
+              ).get();
+              if (tableCheck.isEmpty) return;
+
+              try {
+                await m.addColumn(table, isDeletedCol);
+              } catch (_) {}
+              try {
+                await m.addColumn(table, updatedAtCol);
+              } catch (_) {}
+            } catch (error, stackTrace) {
+              debugPrint('[AppDatabase.onUpgrade] Migration to v9 ($table) warning: $error\n$stackTrace');
+            }
+          }
+
+          await addSoftDeleteCols(vaultItems, vaultItems.isDeleted, vaultItems.updatedAt);
+          await addSoftDeleteCols(vaultBinders, vaultBinders.isDeleted, vaultBinders.updatedAt);
+          await addSoftDeleteCols(decks, decks.isDeleted, decks.updatedAt);
+          await addSoftDeleteCols(deckVersions, deckVersions.isDeleted, deckVersions.updatedAt);
+          await addSoftDeleteCols(deckVersionItems, deckVersionItems.isDeleted, deckVersionItems.updatedAt);
+          await addSoftDeleteCols(deckMatchups, deckMatchups.isDeleted, deckMatchups.updatedAt);
+          await addSoftDeleteCols(deckSynergies, deckSynergies.isDeleted, deckSynergies.updatedAt);
         }
       },
       beforeOpen: (details) async {
@@ -300,6 +336,56 @@ class AppDatabase extends _$AppDatabase {
           debugPrint('[AppDatabase.beforeOpen] vault_items v8 schema verification/backfill warning: $error\n$stackTrace');
         }
 
+        // Defensive runtime schema verification for v9:
+        // 1. Ensure sync_queue table exists
+        try {
+          await customStatement('''
+            CREATE TABLE IF NOT EXISTS "sync_queue" (
+              "id" TEXT NOT NULL PRIMARY KEY,
+              "entity_type" TEXT NOT NULL,
+              "entity_id" TEXT NOT NULL,
+              "operation" TEXT NOT NULL,
+              "timestamp" INTEGER NOT NULL,
+              "retry_count" INTEGER NOT NULL DEFAULT 0
+            );
+          ''');
+        } catch (error, stackTrace) {
+          debugPrint('[AppDatabase.beforeOpen] sync_queue table creation warning: $error\n$stackTrace');
+        }
+
+        // 2. Ensure is_deleted and updated_at exist on all entity tables
+        final entityTables = [
+          'vault_items',
+          'vault_binders',
+          'decks',
+          'deck_versions',
+          'deck_version_items',
+          'deck_matchups',
+          'deck_synergies',
+        ];
+
+        for (final tableName in entityTables) {
+          try {
+            final tableInfo =
+                await customSelect('PRAGMA table_info("$tableName");').get();
+            final columnNames =
+                tableInfo.map((row) => row.read<String>('name')).toSet();
+
+            if (!columnNames.contains('is_deleted')) {
+              await customStatement(
+                'ALTER TABLE "$tableName" ADD COLUMN "is_deleted" INTEGER NOT NULL DEFAULT 0;',
+              );
+            }
+            if (!columnNames.contains('updated_at')) {
+              await customStatement(
+                'ALTER TABLE "$tableName" ADD COLUMN "updated_at" INTEGER;',
+              );
+            }
+          } catch (error, stackTrace) {
+            debugPrint('[AppDatabase.beforeOpen] v9 schema verification ($tableName) warning: $error\n$stackTrace');
+          }
+        }
+
         // Performance compound indexes for instantaneous query and sorting
         try {
           await customStatement('''
@@ -333,6 +419,22 @@ class AppDatabase extends _$AppDatabase {
           await customStatement('''
             CREATE INDEX IF NOT EXISTS "idx_vault_items_date_obtained"
             ON "vault_items" ("date_obtained" DESC);
+          ''');
+          await customStatement('''
+            CREATE INDEX IF NOT EXISTS "idx_vault_items_active"
+            ON "vault_items" ("is_deleted", "collection_type", "quantity");
+          ''');
+          await customStatement('''
+            CREATE INDEX IF NOT EXISTS "idx_decks_active"
+            ON "decks" ("is_deleted");
+          ''');
+          await customStatement('''
+            CREATE INDEX IF NOT EXISTS "idx_deck_version_items_active"
+            ON "deck_version_items" ("is_deleted", "version_id");
+          ''');
+          await customStatement('''
+            CREATE INDEX IF NOT EXISTS "idx_sync_queue_order"
+            ON "sync_queue" ("timestamp" ASC, "retry_count" ASC);
           ''');
         } catch (error, stackTrace) {
           debugPrint('[AppDatabase.beforeOpen] Index creation warning: $error\n$stackTrace');

@@ -86,6 +86,8 @@ VaultItem createTestCard({
     lastPriceUpdate: DateTime.now(),
     dynamicData: data,
     primaryBinderId: primaryBinderId,
+    isDeleted: false,
+    updatedAt: null,
   );
 }
 

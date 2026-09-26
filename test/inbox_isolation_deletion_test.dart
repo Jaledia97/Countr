@@ -55,7 +55,7 @@ void main() {
       acquiredDate: DateTime.now(),
       quantity: quantity,
       condition: 'NM',
-      isGraded: false, isAltered: false, isMisprint: false, isSigned: false,
+      isGraded: false, isAltered: false, isMisprint: false, isSigned: false, isDeleted: false,
       personalNotes: null,
       currentMarketPrice: price,
       lastPriceUpdate: DateTime.now(),
@@ -301,7 +301,7 @@ void main() {
       final deleted = await db.vaultDao.deleteItem('item-to-delete');
       expect(deleted, equals(1));
 
-      item = await (db.select(db.vaultItems)..where((t) => t.id.equals('item-to-delete'))).getSingleOrNull();
+      item = await (db.select(db.vaultItems)..where((t) => t.id.equals('item-to-delete') & t.isDeleted.equals(false))).getSingleOrNull();
       expect(item, isNull);
 
       final notFound = await db.vaultDao.deleteItem('non-existent-id');
@@ -320,7 +320,7 @@ void main() {
       final deleted = await db.vaultDao.deleteItems(['del-1', 'del-2']);
       expect(deleted, equals(2));
 
-      final remaining = await (db.select(db.vaultItems)..where((t) => t.primaryBinderId.equals('INBOX'))).get();
+      final remaining = await (db.select(db.vaultItems)..where((t) => t.primaryBinderId.equals('INBOX') & t.isDeleted.equals(false))).get();
       expect(remaining.length, equals(1));
       expect(remaining.first.id, equals('keep-1'));
 
@@ -354,7 +354,7 @@ void main() {
       expect(find.text('Card to Swipe'), findsNothing);
       expect(find.text('Card to Keep'), findsOneWidget);
 
-      final row = await (db.select(db.vaultItems)..where((t) => t.id.equals('swipe-card-1'))).getSingleOrNull();
+      final row = await (db.select(db.vaultItems)..where((t) => t.id.equals('swipe-card-1') & t.isDeleted.equals(false))).getSingleOrNull();
       expect(row, isNull);
 
       // SnackBar feedback displayed
@@ -424,8 +424,8 @@ void main() {
       await tester.tap(trashButton);
       await tester.pumpAndSettle();
 
-      // Verify both cards are removed from SQLite
-      final rows = await (db.select(db.vaultItems)..where((t) => t.primaryBinderId.equals('INBOX'))).get();
+      // Verify both cards are removed from active SQLite inbox
+      final rows = await (db.select(db.vaultItems)..where((t) => t.primaryBinderId.equals('INBOX') & t.isDeleted.equals(false))).get();
       expect(rows, isEmpty);
 
       // Verify empty state is displayed

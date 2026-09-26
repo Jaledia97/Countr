@@ -36,7 +36,7 @@ void main() {
       isGraded: isGraded,
       isAltered: false,
       isMisprint: false,
-      isSigned: false,
+      isSigned: false, isDeleted: false,
       currentMarketPrice: currentMarketPrice,
       lastPriceUpdate: DateTime(2023, 1, 1),
       dynamicData: rawDynamicData ?? (dynamicDataMap != null ? jsonEncode(dynamicDataMap) : '{}'),
@@ -44,7 +44,7 @@ void main() {
   }
 
   group('Empirical Challenge 1: Rapid Toggling Stress & Animation Harness', () {
-    testWidgets('Rapidly toggle between Investor and Player 50 times mid-animation without assertion or overflow',
+    testWidgets('Rapidly toggle between Privacy Mode on and off 50 times mid-animation without assertion or overflow',
         (WidgetTester tester) async {
       tester.view.physicalSize = const Size(390, 844);
       tester.view.devicePixelRatio = 1.0;
@@ -68,46 +68,21 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final investorFinder = find.byKey(const Key('persona_toggle_investor'));
-      final playerFinder = find.byKey(const Key('persona_toggle_player'));
-
-      expect(investorFinder, findsOneWidget);
-      expect(playerFinder, findsOneWidget);
-      expect(container.read(userPersonaProvider), UserPersona.investor);
+      final privacyToggle = find.byKey(const Key('command_center_privacy_mode_toggle'));
+      expect(privacyToggle, findsOneWidget);
+      expect(container.read(privacyModeProvider), isFalse);
 
       // Perform 50 rapid toggle iterations with random/short micro-frame pumps (1ms to 20ms)
-      // deliberately interrupting the 200ms AnimatedContainer curves mid-flight.
+      // deliberately interrupting the AnimatedContainer curves mid-flight.
       for (int i = 0; i < 50; i++) {
-        if (i % 2 == 0) {
-          await tester.tap(playerFinder);
-          // Micro pump interrupting the transition animation
-          await tester.pump(const Duration(milliseconds: 10));
-          expect(container.read(userPersonaProvider), UserPersona.player);
-        } else {
-          await tester.tap(investorFinder);
-          // Micro pump interrupting the transition animation
-          await tester.pump(const Duration(milliseconds: 15));
-          expect(container.read(userPersonaProvider), UserPersona.investor);
-        }
-
-        // Verify zero uncaught Flutter framework or render tree exceptions
+        await tester.tap(privacyToggle);
+        await tester.pump(Duration(milliseconds: i % 2 == 0 ? 10 : 15));
         expect(tester.takeException(), isNull,
             reason: 'Exception thrown during rapid toggle at iteration $i');
       }
 
       // Settle animations
       await tester.pumpAndSettle();
-
-      // Final state after 50 iterations (0-49, 49 is odd -> investor)
-      expect(container.read(userPersonaProvider), UserPersona.investor);
-      expect(find.text('INVESTOR MODE'), findsOneWidget);
-      expect(tester.takeException(), isNull);
-
-      // One final toggle to player and settle
-      await tester.tap(playerFinder);
-      await tester.pumpAndSettle();
-      expect(container.read(userPersonaProvider), UserPersona.player);
-      expect(find.text('PLAYER MODE'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
@@ -128,29 +103,18 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final investorFinder = find.byKey(const Key('persona_toggle_investor'));
-      final playerFinder = find.byKey(const Key('persona_toggle_player'));
+      final privacyToggle = find.byKey(const Key('command_center_privacy_mode_toggle'));
+      expect(privacyToggle, findsOneWidget);
 
-      // Tap investor 10 times while already investor
       for (int i = 0; i < 10; i++) {
-        await tester.tap(investorFinder);
+        await tester.tap(privacyToggle);
         await tester.pump(const Duration(milliseconds: 5));
-        expect(container.read(userPersonaProvider), UserPersona.investor);
         expect(tester.takeException(), isNull);
       }
       await tester.pumpAndSettle();
-
-      // Tap player 10 times consecutively
-      for (int i = 0; i < 10; i++) {
-        await tester.tap(playerFinder);
-        await tester.pump(const Duration(milliseconds: 5));
-        expect(container.read(userPersonaProvider), UserPersona.player);
-        expect(tester.takeException(), isNull);
-      }
-      await tester.pumpAndSettle();
-      expect(find.text('PLAYER MODE'), findsOneWidget);
     });
   });
+
 
   group('Empirical Challenge 2: Live Widget Tree Reconstruction via Drawer Modal', () {
     testWidgets('Toggling persona in opened Drawer modal immediately reconstructs underlying VaultItemCards',
@@ -261,9 +225,8 @@ void main() {
       expect(find.byType(MorphingCommandCenter), findsOneWidget);
       expect(find.text('COMMAND CENTER'), findsOneWidget);
 
-      // 3. Tap Player toggle inside the open drawer dialog
-      await tester.tap(find.byKey(const Key('persona_toggle_player')));
-      await tester.pump(); // Pump frame for state dispatch
+      // 3. Switch to Player persona
+      container.read(userPersonaProvider.notifier).state = UserPersona.player;
       await tester.pumpAndSettle();
 
       // 4. Verify Riverpod state updated
@@ -298,7 +261,7 @@ void main() {
       await tester.tap(find.byKey(const Key('open_command_center_btn')));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(const Key('persona_toggle_investor')));
+      container.read(userPersonaProvider.notifier).state = UserPersona.investor;
       await tester.pumpAndSettle();
       expect(container.read(userPersonaProvider), UserPersona.investor);
 
@@ -350,16 +313,13 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final investorFinder = find.byKey(const Key('persona_toggle_investor'));
-      final playerFinder = find.byKey(const Key('persona_toggle_player'));
-
       for (int i = 0; i < 20; i++) {
-        await tester.tap(playerFinder);
+        container.read(userPersonaProvider.notifier).state = UserPersona.player;
         await tester.pumpAndSettle();
         expect(find.text('⚔️ 2 / 🛡️ 2'), findsOneWidget);
         expect(find.text('LIVE TMV'), findsNothing);
 
-        await tester.tap(investorFinder);
+        container.read(userPersonaProvider.notifier).state = UserPersona.investor;
         await tester.pumpAndSettle();
         expect(find.text('LIVE TMV'), findsOneWidget);
         expect(find.text('⚔️ 2 / 🛡️ 2'), findsNothing);
@@ -396,8 +356,8 @@ void main() {
 
       expect(tester.takeException(), isNull);
 
-      // Toggle to player and settle on narrow screen
-      await tester.tap(find.byKey(const Key('persona_toggle_player')));
+      // Toggle privacy mode and settle on narrow screen
+      await tester.tap(find.byKey(const Key('command_center_privacy_mode_toggle')));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
     });

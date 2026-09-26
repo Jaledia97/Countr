@@ -6,6 +6,7 @@ import 'package:countr/core/state/settings_state.dart';
 import 'package:countr/features/vault/presentation/providers/vault_providers.dart';
 import 'package:countr/features/decks/data/mock_deck_data.dart';
 import 'package:countr/features/decks/domain/models/deck_item_with_card.dart';
+import 'package:countr/features/decks/domain/models/deck_summary.dart';
 import 'package:countr/features/values/domain/models/deck_financial_summary.dart';
 import 'package:countr/features/values/domain/services/deck_values_calculator.dart';
 import 'package:countr/features/values/domain/services/pareto_distribution_calculator.dart';
@@ -19,6 +20,13 @@ final activeDeckTcgFilterProvider = StateProvider<String>((ref) {
 final deckListProvider = StreamProvider<List<Deck>>((ref) {
   final dao = ref.watch(vaultDaoProvider);
   return dao.watchAllDecks();
+});
+
+/// Reactive StreamProvider that queries active decks with Commander art crop, color identity,
+/// card count, and completeness from SQLite.
+final deckSummariesProvider = StreamProvider<List<DeckSummary>>((ref) {
+  final dao = ref.watch(vaultDaoProvider);
+  return dao.watchDeckSummaries();
 });
 
 final cardDeckAllocationsProvider =

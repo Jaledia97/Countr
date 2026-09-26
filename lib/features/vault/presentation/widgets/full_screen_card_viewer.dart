@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:countr/core/constants/app_colors.dart';
 import 'package:countr/core/constants/app_typography.dart';
 import 'package:countr/core/database/app_database.dart';
+import 'package:countr/core/cache/countr_cached_image.dart';
 
 /// Immersive, zoomable full-screen card viewer featuring [PageView.builder]
 /// for swiping across cards, [InteractiveViewer] for pinch/pan zoom,
@@ -107,6 +108,61 @@ class _FullScreenCardViewerState extends State<FullScreenCardViewer>
       curve: Curves.easeInOutCubic,
     );
     _parseDynamicData();
+    _checkAndApplyFoilForCurrentItem();
+  }
+
+  void _checkAndApplyFoilForCurrentItem() {
+    final shouldFoil = _shouldAutoActivateFoil(_currentItem, _dynamicData);
+    _isFoilActive = shouldFoil;
+    if (_isFoilActive) {
+      if (!_foilController.isAnimating) {
+        _foilController.repeat();
+      }
+    } else {
+      _foilController.stop();
+      _foilController.reset();
+    }
+  }
+
+  bool _shouldAutoActivateFoil(VaultItem item, [Map<String, dynamic>? data]) {
+    final d = data ?? (item.id == _currentItem.id ? _dynamicData : _parseItemDynamicData(item));
+
+    final finish = (d['finish'] ?? '').toString().toLowerCase().trim();
+    if (finish != 'nonfoil' && finish != 'non-foil') {
+      if (finish == 'foil' || finish == 'etched' || (finish.contains('foil') && !finish.contains('nonfoil')) || finish.contains('etched')) {
+        return true;
+      }
+    }
+
+    final finishes = d['finishes'];
+    if (finishes is List && (finishes.contains('foil') || finishes.contains('etched'))) {
+      return true;
+    }
+
+    final treatment = (d['treatment'] ?? '').toString().toLowerCase().trim();
+    if (treatment.isNotEmpty && !treatment.contains('nonfoil')) {
+      if (treatment.contains('foil') ||
+          treatment.contains('etched') ||
+          treatment.contains('halo') ||
+          treatment.contains('textured') ||
+          treatment.contains('galaxy') ||
+          treatment.contains('confetti') ||
+          treatment.contains('surge') ||
+          treatment.contains('glossy')) {
+        return true;
+      }
+    }
+
+    if (d['foil'] == true || d['is_foil'] == true || d['etched'] == true) {
+      return true;
+    }
+
+    final setLower = item.setOrSeries.toLowerCase();
+    if (setLower.contains('foil') || setLower.contains('etched')) {
+      return true;
+    }
+
+    return false;
   }
 
   void _onTransformationChanged() {
@@ -127,6 +183,7 @@ class _FullScreenCardViewerState extends State<FullScreenCardViewer>
         _items = List<VaultItem>.from(widget.items!);
         _currentIndex = _currentIndex.clamp(0, _items.isEmpty ? 0 : _items.length - 1);
         _parseDynamicData();
+        _checkAndApplyFoilForCurrentItem();
       });
     } else if (widget.item != null && widget.item != oldWidget.item) {
       setState(() {
@@ -135,6 +192,7 @@ class _FullScreenCardViewerState extends State<FullScreenCardViewer>
         _isFlipped = false;
         _flipController.reset();
         _parseDynamicData();
+        _checkAndApplyFoilForCurrentItem();
       });
     }
   }
@@ -264,10 +322,6 @@ class _FullScreenCardViewerState extends State<FullScreenCardViewer>
     final layout = d['layout']?.toString().toLowerCase() ?? '';
     if (layout == 'adventure' || layout == 'split' || layout == 'flip') return null;
 
-    if (d['back_image_url'] is String &&
-        (d['back_image_url'] as String).isNotEmpty) {
-      return d['back_image_url'] as String;
-    }
     final faces = d['card_faces'];
     if (faces is List && faces.length > 1) {
       final back = faces[1];
@@ -276,8 +330,8 @@ class _FullScreenCardViewerState extends State<FullScreenCardViewer>
           final uris = back['image_uris'] as Map<String, dynamic>;
           final url = uris['normal'] ??
               uris['large'] ??
-              uris['small'] ??
               uris['png'] ??
+              uris['small'] ??
               uris['border_crop'] ??
               uris['art_crop'];
           if (url != null && url.toString().isNotEmpty) return url.toString();
@@ -285,6 +339,11 @@ class _FullScreenCardViewerState extends State<FullScreenCardViewer>
         final direct = back['image_url']?.toString() ?? back['imageUrl']?.toString();
         if (direct != null && direct.isNotEmpty) return direct;
       }
+    }
+
+    if (d['back_image_url'] is String &&
+        (d['back_image_url'] as String).isNotEmpty) {
+      return d['back_image_url'] as String;
     }
     // Only synthesize back URL if verified DFC
     if (_isDfcFor(item, d)) {
@@ -329,8 +388,6 @@ class _FullScreenCardViewerState extends State<FullScreenCardViewer>
     }
     return '';
   }
-
-  String _getFrontImageUrl() => _getFrontImageUrlFor(_currentItem, _dynamicData);
 
   bool get _hasFlipArt =>
       !_isAdventureCard() && _isDfc() && _getBackImageUrl() != null;
@@ -532,6 +589,7 @@ class _FullScreenCardViewerState extends State<FullScreenCardViewer>
               _transformationController.value = Matrix4.identity();
               _isZoomed = false;
               _parseDynamicData();
+              _checkAndApplyFoilForCurrentItem();
             });
             widget.onPageChanged?.call(index);
           },
@@ -555,21 +613,30 @@ class _FullScreenCardViewerState extends State<FullScreenCardViewer>
                   transformationController: isCurrent ? _transformationController : null,
                   child: Hero(
                     tag: 'card_artwork_${item.id}',
-                    child: Container(
-                      width: 320,
-                      height: 448,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.8),
-                            blurRadius: 24,
-                            spreadRadius: 4,
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(
+                          maxWidth: 420,
+                          maxHeight: 588,
+                        ),
+                        child: AspectRatio(
+                          aspectRatio: 5 / 7,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.8),
+                                  blurRadius: 24,
+                                  spreadRadius: 4,
+                                ),
+                              ],
+                            ),
+                            clipBehavior: Clip.antiAlias,
+                            child: _buildArtworkWithFlipAndFoil(item, isCurrent),
                           ),
-                        ],
+                        ),
                       ),
-                      clipBehavior: Clip.antiAlias,
-                      child: _buildArtworkWithFlipAndFoil(item, isCurrent),
                     ),
                   ),
                 ),
@@ -598,8 +665,8 @@ class _FullScreenCardViewerState extends State<FullScreenCardViewer>
           builder: (context, child) {
             final angle = _flipAnimation.value * math.pi;
             final isUnder = angle > (math.pi / 2);
-            final backUrl = _getBackImageUrl();
-            final frontUrl = _getFrontImageUrl();
+            final backUrl = _getBackImageUrlFor(item, itemData);
+            final frontUrl = _getFrontImageUrlFor(item, itemData);
             final currentUrl = isUnder ? (backUrl ?? frontUrl) : frontUrl;
             return Transform(
               transform: Matrix4.identity()
@@ -711,10 +778,10 @@ class _FullScreenCardViewerState extends State<FullScreenCardViewer>
 
   Widget _buildFaceImage(String url, VaultItem item) {
     if (url.isNotEmpty) {
-      return Image.network(
-        url,
-        fit: BoxFit.cover,
-        errorBuilder: (_, _, _) => _buildPlaceholder(item),
+      return CountrCachedImage(
+        imageUrl: url,
+        fit: BoxFit.contain,
+        errorWidget: _buildPlaceholder(item),
       );
     }
     return _buildPlaceholder(item);

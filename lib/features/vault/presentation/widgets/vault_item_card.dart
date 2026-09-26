@@ -1,10 +1,13 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:countr/core/cache/countr_cached_image.dart';
+import 'package:countr/core/cache/parsed_json_cache.dart';
 import 'package:countr/core/constants/app_colors.dart';
 import 'package:countr/core/constants/app_typography.dart';
 import 'package:countr/core/database/app_database.dart';
 import 'package:countr/core/state/app_state.dart';
+import 'package:countr/features/symbology/presentation/widgets/mana_cost_bar.dart';
+import 'package:countr/features/symbology/presentation/widgets/mana_text.dart';
 import 'package:countr/features/vault/domain/mtg_keyword_glossary.dart';
 import 'package:countr/features/vault/domain/vault_pricing_helper.dart';
 import 'package:countr/features/vault/presentation/providers/vault_providers.dart';
@@ -13,11 +16,12 @@ import 'polymorphic_attribute_chip.dart';
 
 /// Individual Ledger Card for a VaultItem.
 /// Dynamically adapts between Investor Mode (financial ledger) and Player Mode (game mechanics).
-class VaultItemCard extends StatelessWidget {
+class VaultItemCard extends StatefulWidget {
   final VaultItem item;
   final UserPersona? persona;
   final VoidCallback? onTap;
   final bool? isPrivacyMode;
+  final bool? initiallyExpanded;
 
   const VaultItemCard({
     super.key,
@@ -25,7 +29,32 @@ class VaultItemCard extends StatelessWidget {
     this.persona,
     this.onTap,
     this.isPrivacyMode,
+    this.initiallyExpanded,
   });
+
+  @override
+  State<VaultItemCard> createState() => _VaultItemCardState();
+}
+
+class _VaultItemCardState extends State<VaultItemCard> {
+  bool? _isExpanded;
+
+  VaultItem get item => widget.item;
+  UserPersona? get persona => widget.persona;
+  VoidCallback? get onTap => widget.onTap;
+  bool? get isPrivacyMode => widget.isPrivacyMode;
+
+  @override
+  void didUpdateWidget(covariant VaultItemCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initiallyExpanded != widget.initiallyExpanded) {
+      _isExpanded = widget.initiallyExpanded;
+    }
+  }
+
+  bool _resolveInitialExpanded(BuildContext context) {
+    return widget.initiallyExpanded ?? true;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -34,21 +63,41 @@ class VaultItemCard extends StatelessWidget {
             context.findAncestorWidgetOfExactType<UncontrolledProviderScope>() !=
                 null;
 
-    if (hasScope) {
-      return Consumer(
-        builder: (context, ref, _) {
-          final UserPersona activePersona = persona ?? ref.watch(userPersonaProvider);
-          final bool privacyActive = isPrivacyMode ?? ref.watch(privacyModeProvider);
-          return _buildCardContent(context, activePersona, isPrivacyMode: privacyActive);
-        },
-      );
-    }
+    final bool effectiveExpanded =
+        _isExpanded ?? _resolveInitialExpanded(context);
 
-    // Graceful fallback for isolated widget tests without ProviderScope
-    return _buildCardContent(
-      context,
-      persona ?? UserPersona.investor,
-      isPrivacyMode: isPrivacyMode ?? false,
+    final content = hasScope
+        ? Consumer(
+            builder: (context, ref, _) {
+              final UserPersona activePersona =
+                  persona ?? ref.watch(userPersonaProvider);
+              final bool privacyActive =
+                  isPrivacyMode ?? ref.watch(privacyModeProvider);
+              return _buildCardContent(
+                context,
+                activePersona,
+                isPrivacyMode: privacyActive,
+                effectiveExpanded: effectiveExpanded,
+              );
+            },
+          )
+        : _buildCardContent(
+            context,
+            persona ?? UserPersona.investor,
+            isPrivacyMode: isPrivacyMode ?? false,
+            effectiveExpanded: effectiveExpanded,
+          );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.hasBoundedHeight) {
+          return SingleChildScrollView(
+            physics: const ClampingScrollPhysics(),
+            child: content,
+          );
+        }
+        return content;
+      },
     );
   }
 
@@ -56,164 +105,322 @@ class VaultItemCard extends StatelessWidget {
     BuildContext context,
     UserPersona activePersona, {
     required bool isPrivacyMode,
+    required bool effectiveExpanded,
   }) {
-    // Decode dynamic metadata safely
-    Map<String, dynamic> data = {};
-    if (item.dynamicData.isNotEmpty) {
-      try {
-        data = jsonDecode(item.dynamicData) as Map<String, dynamic>;
-      } catch (e, stackTrace) {
-        debugPrint('[VaultItemCard] Failed to decode dynamicData: $e\n$stackTrace');
-        data = {};
+    final data = ParsedJsonCache.parse(item.dynamicData);
+
+    String? manaCost = data['mana_cost']?.toString();
+    String? typeLine = data['type_line']?.toString();
+    String? oracleText = data['oracle_text']?.toString();
+    if (data['card_faces'] is List && (data['card_faces'] as List).isNotEmpty) {
+      final face0 = (data['card_faces'] as List)[0];
+      if (face0 is Map) {
+        manaCost ??= face0['mana_cost']?.toString();
+        typeLine ??= face0['type_line']?.toString();
+        oracleText ??= face0['oracle_text']?.toString();
       }
     }
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: AppColors.surfaceBorder,
-          width: 1,
+    String? rulingsSnippet;
+    if (data['rulings'] is List && (data['rulings'] as List).isNotEmpty) {
+      final r0 = (data['rulings'] as List).first;
+      if (r0 is Map) {
+        rulingsSnippet = r0['comment']?.toString();
+      } else if (r0 is String) {
+        rulingsSnippet = r0;
+      }
+    } else if (data['scryfall_rulings'] is List &&
+        (data['scryfall_rulings'] as List).isNotEmpty) {
+      final r0 = (data['scryfall_rulings'] as List).first;
+      if (r0 is Map) {
+        rulingsSnippet = r0['comment']?.toString();
+      }
+    }
+
+    return RepaintBoundary(
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 2),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: AppColors.surfaceBorderSubtle,
+            width: 1,
+          ),
         ),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(14),
-          onTap: onTap ?? () => CardDetailSheet.show(context, item),
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+        clipBehavior: Clip.antiAlias,
+        child: Theme(
+          data: Theme.of(context).copyWith(
+            dividerColor: Colors.transparent,
+            splashColor: AppColors.accentCyan.withValues(alpha: 0.08),
+            highlightColor: Colors.transparent,
+            listTileTheme: const ListTileThemeData(
+              horizontalTitleGap: 12.0,
+            ),
+          ),
+          child: ExpansionTile(
+            key: Key('vault_item_expansion_tile_${item.id}'),
+            initiallyExpanded: effectiveExpanded,
+            maintainState: true,
+            onExpansionChanged: (expanded) {
+              setState(() {
+                _isExpanded = expanded;
+              });
+            },
+            shape: const Border(),
+            collapsedShape: const Border(),
+            tilePadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+            childrenPadding: const EdgeInsets.fromLTRB(8, 2, 8, 2),
+            leading: GestureDetector(
+              onTap: onTap ?? () => CardDetailSheet.show(context, item),
+              child: _buildLeadingThumbnail(width: 38, height: 52),
+            ),
+            title: Row(
               children: [
-                // Top Row: Category Icon, Name, Condition & Grade Badge
-                _buildHeaderRow(),
-
-                const SizedBox(height: 10),
-
-                // Middle: Polymorphic Chip
-                PolymorphicAttributeChip(
-                  collectionType: item.collectionType,
-                  dynamicDataJson: item.dynamicData,
+                Expanded(
+                  child: Text(
+                    item.flavorName != null && item.flavorName!.isNotEmpty
+                        ? item.flavorName!
+                        : item.name,
+                    style: AppTypography.heading2.copyWith(fontSize: 13.5),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-
-                const SizedBox(height: 12),
-
-                // Bottom: Dynamic Persona View
-                if (activePersona == UserPersona.investor)
-                  _buildInvestorFinancialRow(isPrivacyMode: isPrivacyMode)
-                else
-                  _buildPlayerMechanicsRow(data),
+                if (manaCost != null && manaCost.isNotEmpty) ...[
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: ManaCostBar(
+                        manaCost: manaCost,
+                        symbolSize: 13,
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
+            subtitle: _buildSubtitleRow(
+              data,
+              isPrivacyMode: isPrivacyMode,
+              activePersona: activePersona,
+              isExpanded: effectiveExpanded,
+            ),
+            trailing: _buildTrailing(data),
+            children: [
+              if (oracleText != null && oracleText.isNotEmpty) ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceRaised,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: AppColors.surfaceBorderSubtle,
+                      width: 0.8,
+                    ),
+                  ),
+                  child: ManaText(
+                    oracleText,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textPrimary,
+                      height: 1.35,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 4),
+              ],
+              if (rulingsSnippet != null && rulingsSnippet.isNotEmpty) ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceRaised.withValues(alpha: 0.6),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    'Ruling: $rulingsSnippet',
+                    style: const TextStyle(
+                      fontSize: 10.5,
+                      fontStyle: FontStyle.italic,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 4),
+              ],
+              PolymorphicAttributeChip(
+                collectionType: item.collectionType,
+                dynamicDataJson: item.dynamicData,
+              ),
+              const SizedBox(height: 4),
+              if (activePersona == UserPersona.investor)
+                _buildInvestorFinancialRow(isPrivacyMode: isPrivacyMode)
+              else
+                _buildPlayerMechanicsRow(data),
+              const SizedBox(height: 4),
+              _buildQuickActionButtons(context),
+            ],
           ),
         ),
       ),
     );
   }
 
-  Widget _buildHeaderRow() {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Leading Artwork Thumbnail with Type Icon Fallback
-        _buildLeadingThumbnail(),
-        const SizedBox(width: 12),
+  Widget _buildSubtitleRow(
+    Map<String, dynamic> data, {
+    required bool isPrivacyMode,
+    required UserPersona activePersona,
+    required bool isExpanded,
+  }) {
+    final rarity = (data['rarity']?.toString() ?? '').toLowerCase();
+    final typeLine = data['type_line']?.toString() ?? '';
+    final rarityColor = _getRarityColor(rarity);
 
-        // Name & Set
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    final String setAndNameText =
+        item.flavorName != null && item.flavorName!.isNotEmpty
+            ? '[${item.name}] • ${item.setOrSeries}'
+            : item.setOrSeries;
+
+    final effectivePrice = _getEffectiveMarketPrice();
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 2),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Text(
-                item.flavorName != null && item.flavorName!.isNotEmpty
-                    ? item.flavorName!
-                    : item.name,
-                style: AppTypography.heading2.copyWith(fontSize: 14.5),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 2),
-              Text(
-                item.flavorName != null && item.flavorName!.isNotEmpty
-                    ? '[${item.name}] • ${item.setOrSeries}'
-                    : item.setOrSeries,
-                style: AppTypography.caption.copyWith(
-                  color: AppColors.textSecondary,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 4),
-              // Deck Badges
-              OptionalDeckBadges(item: item),
-            ],
-          ),
-        ),
-
-        const SizedBox(width: 8),
-
-        // Condition / Grade Pill & Duplicate Counter Badge
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (item.quantity > 1) ...[
-                  Container(
-                    key: Key('vault_item_duplicate_badge_${item.id}'),
-                    margin: const EdgeInsets.only(right: 6),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 6, vertical: 2.5),
-                    decoration: BoxDecoration(
-                      color: AppColors.accentCyan.withValues(alpha: 0.18),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(
-                        color: AppColors.accentCyan.withValues(alpha: 0.6),
-                        width: 1,
-                      ),
-                    ),
-                    child: Text(
-                      '${item.quantity}x',
-                      style: const TextStyle(
-                        color: AppColors.accentCyan,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
+              Expanded(
+                child: Text(
+                  setAndNameText,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textSecondary,
                   ),
-                ],
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (rarity.isNotEmpty) ...[
+                const SizedBox(width: 4),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                   decoration: BoxDecoration(
-                    color: item.isGraded
-                        ? AppColors.accentCyan.withValues(alpha: 0.18)
-                        : AppColors.surfaceRaised,
-                    borderRadius: BorderRadius.circular(6),
+                    color: rarityColor.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(4),
                     border: Border.all(
-                      color: item.isGraded
-                          ? AppColors.accentCyan.withValues(alpha: 0.6)
-                          : AppColors.surfaceBorder,
+                      color: rarityColor.withValues(alpha: 0.4),
+                      width: 0.6,
                     ),
                   ),
                   child: Text(
-                    item.condition,
+                    rarity.toUpperCase(),
                     style: TextStyle(
-                      color: item.isGraded
-                          ? AppColors.accentCyan
-                          : AppColors.textPrimary,
-                      fontSize: 10,
+                      fontSize: 8.5,
                       fontWeight: FontWeight.w800,
+                      color: rarityColor,
                     ),
                   ),
                 ),
               ],
+              if (typeLine.isNotEmpty) ...[
+                const SizedBox(width: 4),
+                Flexible(
+                  child: Text(
+                    typeLine,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 10,
+                      color: AppColors.textMuted,
+                    ),
+                  ),
+                ),
+              ],
+              if (activePersona != UserPersona.player && !isExpanded) ...[
+                const SizedBox(width: 6),
+                Text(
+                  isPrivacyMode
+                      ? '****'
+                      : (effectivePrice > 0
+                          ? '\$${effectivePrice.toStringAsFixed(2)}'
+                          : 'Unlisted'),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.accentEmerald,
+                  ),
+                ),
+              ],
+            ],
+          ),
+          OptionalDeckBadges(item: item),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTrailing(Map<String, dynamic> data) {
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: Alignment.centerRight,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+      children: [
+        if (item.quantity > 1) ...[
+          Container(
+            key: Key('vault_item_duplicate_badge_${item.id}'),
+            margin: const EdgeInsets.only(right: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+            decoration: BoxDecoration(
+              color: AppColors.accentCyan.withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(5),
+              border: Border.all(
+                color: AppColors.accentCyan.withValues(alpha: 0.6),
+                width: 1,
+              ),
             ),
-            if (item.isGraded) ...[
-              const SizedBox(height: 3),
+            child: Text(
+              '${item.quantity}x',
+              style: const TextStyle(
+                color: AppColors.accentCyan,
+                fontSize: 9.5,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+        if (item.isGraded)
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppColors.accentCyan.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(5),
+                  border: Border.all(
+                    color: AppColors.accentCyan.withValues(alpha: 0.6),
+                    width: 0.8,
+                  ),
+                ),
+                child: Text(
+                  item.condition.isNotEmpty ? item.condition : 'SLAB',
+                  style: const TextStyle(
+                    color: AppColors.accentCyan,
+                    fontSize: 8.5,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 2),
               const Text(
                 'SLAB / GRADED',
                 style: TextStyle(
@@ -224,10 +431,118 @@ class VaultItemCard extends StatelessWidget {
                 ),
               ),
             ],
-          ],
+          )
+        else if (item.condition.isNotEmpty)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceRaised,
+              borderRadius: BorderRadius.circular(5),
+              border: Border.all(
+                color: AppColors.surfaceBorder,
+                width: 0.8,
+              ),
+            ),
+            child: Text(
+              item.condition.toUpperCase(),
+              style: const TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 9,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        const SizedBox(width: 2),
+        const Icon(
+          Icons.expand_more_rounded,
+          color: AppColors.textMuted,
+          size: 18,
         ),
       ],
+    ),);
+  }
+
+  Widget _buildQuickActionButtons(BuildContext context) {
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: Alignment.centerLeft,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ElevatedButton.icon(
+            key: Key('vault_card_full_details_${item.id}'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.accentCyan,
+              foregroundColor: AppColors.textDark,
+              visualDensity: VisualDensity.compact,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+              minimumSize: const Size(0, 26),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(6),
+              ),
+            ),
+            icon: const Icon(Icons.open_in_new_rounded, size: 13),
+            label: const Text(
+              'Full Details',
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+            ),
+            onPressed: onTap ?? () => CardDetailSheet.show(context, item),
+          ),
+          const SizedBox(width: 6),
+          OutlinedButton.icon(
+            key: Key('vault_card_switch_printing_${item.id}'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.textPrimary,
+              side: const BorderSide(color: AppColors.surfaceBorder),
+              visualDensity: VisualDensity.compact,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+              minimumSize: const Size(0, 26),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(6),
+              ),
+            ),
+            icon: const Icon(Icons.swap_horiz_rounded, size: 13),
+            label: const Text('Switch', style: TextStyle(fontSize: 10)),
+            onPressed: () => CardDetailSheet.show(context, item),
+          ),
+          const SizedBox(width: 6),
+          OutlinedButton.icon(
+            key: Key('vault_card_move_assign_${item.id}'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.textPrimary,
+              side: const BorderSide(color: AppColors.surfaceBorder),
+              visualDensity: VisualDensity.compact,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+              minimumSize: const Size(0, 26),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(6),
+              ),
+            ),
+            icon: const Icon(Icons.drive_file_move_outlined, size: 13),
+            label: const Text('Move', style: TextStyle(fontSize: 10)),
+            onPressed: () => CardDetailSheet.show(context, item),
+          ),
+        ],
+      ),
     );
+  }
+
+  Color _getRarityColor(String rarity) {
+    switch (rarity.toLowerCase()) {
+      case 'mythic':
+        return AppColors.accentAmber;
+      case 'rare':
+        return AppColors.accentAmberLight;
+      case 'uncommon':
+        return AppColors.accentCyan;
+      case 'common':
+        return AppColors.textSecondary;
+      default:
+        return AppColors.textMuted;
+    }
   }
 
   double _getEffectiveMarketPrice() =>
@@ -248,7 +563,7 @@ class VaultItemCard extends StatelessWidget {
     final deltaSign = isProfit ? '+' : '-';
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
       decoration: BoxDecoration(
         color: AppColors.surfaceRaised,
         borderRadius: BorderRadius.circular(10),
@@ -689,8 +1004,8 @@ class VaultItemCard extends StatelessWidget {
   String _resolveThumbnailUrl() {
     if (item.dynamicData.isNotEmpty) {
       try {
-        final decoded = jsonDecode(item.dynamicData);
-        if (decoded is Map) {
+        final decoded = ParsedJsonCache.parse(item.dynamicData);
+        if (decoded.isNotEmpty) {
           // 1. Top-level image_uris['small']
           if (decoded['image_uris'] is Map) {
             final uris = decoded['image_uris'] as Map;
@@ -752,27 +1067,12 @@ class VaultItemCard extends StatelessWidget {
           ),
         ),
         clipBehavior: Clip.antiAlias,
-        child: Image.network(
-          thumbUrl,
+        child: CountrCachedImage(
+          imageUrl: thumbUrl,
           fit: BoxFit.cover,
-          loadingBuilder: (context, child, loadingProgress) {
-            if (loadingProgress == null) return child;
-            return Container(
-              color: AppColors.surfaceRaised,
-              child: const Center(
-                child: SizedBox(
-                  width: 12,
-                  height: 12,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 1.5,
-                    color: AppColors.accentCyan,
-                  ),
-                ),
-              ),
-            );
-          },
-          errorBuilder: (context, error, stackTrace) =>
-              _buildFallbackTypeIcon(width: width, height: height, borderRadius: borderRadius),
+          width: width,
+          height: height,
+          errorWidget: _buildFallbackTypeIcon(width: width, height: height, borderRadius: borderRadius),
         ),
       );
     }

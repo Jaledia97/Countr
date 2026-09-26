@@ -371,6 +371,7 @@ void main() {
       bool isAltered = false,
       bool isMisprint = false,
       bool isSigned = false,
+      bool isDeleted = false,
     }) {
       return VaultItem(
         id: id,
@@ -387,6 +388,7 @@ void main() {
         isAltered: isAltered,
         isMisprint: isMisprint,
         isSigned: isSigned,
+        isDeleted: isDeleted,
         currentMarketPrice: 10.0,
         lastPriceUpdate: DateTime(2026, 9, 18),
         dynamicData: jsonEncode(dynamicData ?? {}),
@@ -673,6 +675,7 @@ void main() {
       bool isAltered = false,
       bool isMisprint = false,
       bool isSigned = false,
+      bool isDeleted = false,
       DateTime? acquiredDate,
       Map<String, dynamic>? dynamicDataMap,
     }) {
@@ -691,6 +694,7 @@ void main() {
         isAltered: isAltered,
         isMisprint: isMisprint,
         isSigned: isSigned,
+        isDeleted: isDeleted,
         personalNotes: null,
         primaryBinderId: null,
         currentMarketPrice: 10.0,

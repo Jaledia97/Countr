@@ -15,6 +15,7 @@ import '../../../../core/constants/app_typography.dart';
 class CustomBottomNavBar extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onBranchSelected;
+  final ValueChanged<int>? onActiveBranchReselected;
   final VoidCallback onScannerTap;
   final VoidCallback onMenuTap;
 
@@ -22,9 +23,18 @@ class CustomBottomNavBar extends StatelessWidget {
     super.key,
     required this.currentIndex,
     required this.onBranchSelected,
+    this.onActiveBranchReselected,
     required this.onScannerTap,
     required this.onMenuTap,
   });
+
+  void _handleBranchTap(int index) {
+    if (index == currentIndex && onActiveBranchReselected != null) {
+      onActiveBranchReselected!(index);
+    } else {
+      onBranchSelected(index);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -53,7 +63,7 @@ class CustomBottomNavBar extends StatelessWidget {
                       : Icons.home_outlined,
                   label: 'Feed',
                   isSelected: currentIndex == 0,
-                  onTap: () => onBranchSelected(0),
+                  onTap: () => _handleBranchTap(0),
                 ),
               ),
 
@@ -65,7 +75,7 @@ class CustomBottomNavBar extends StatelessWidget {
                       : Icons.shield_outlined,
                   label: 'Vault',
                   isSelected: currentIndex == 1,
-                  onTap: () => onBranchSelected(1),
+                  onTap: () => _handleBranchTap(1),
                 ),
               ),
 
@@ -84,7 +94,7 @@ class CustomBottomNavBar extends StatelessWidget {
                       : Icons.style_outlined,
                   label: 'Decks',
                   isSelected: currentIndex == 2,
-                  onTap: () => onBranchSelected(2),
+                  onTap: () => _handleBranchTap(2),
                 ),
               ),
 

@@ -36,7 +36,7 @@ void main() {
       isGraded: isGraded,
       isAltered: false,
       isMisprint: false,
-      isSigned: false,
+      isSigned: false, isDeleted: false,
       currentMarketPrice: currentMarketPrice,
       lastPriceUpdate: DateTime(2023, 1, 1),
       dynamicData: dynString,

@@ -1,5 +1,5 @@
-import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:countr/core/cache/parsed_json_cache.dart';
 import 'package:countr/core/database/app_database.dart';
 import 'package:countr/core/state/settings_state.dart';
 import 'package:countr/features/values/domain/exchange_rate_service.dart';
@@ -71,8 +71,8 @@ class VaultPricingHelper {
       if (dynamicData is Map) {
         map = dynamicData;
       } else if (dynamicData is String && dynamicData.trim().isNotEmpty) {
-        final decoded = jsonDecode(dynamicData);
-        if (decoded is Map) {
+        final decoded = ParsedJsonCache.parse(dynamicData);
+        if (decoded.isNotEmpty) {
           map = decoded;
         }
       }

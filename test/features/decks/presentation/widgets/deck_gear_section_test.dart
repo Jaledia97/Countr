@@ -22,7 +22,7 @@ void main() {
       condition: 'NM',
       isAltered: false,
       isMisprint: false,
-      isSigned: false,
+      isSigned: false, isDeleted: false,
       dynamicData: '{"oracle_text": "Whenever an opponent draws a card, that player may pay {2}. If the player doesn\'t, you create a Treasure token."}',
     );
 

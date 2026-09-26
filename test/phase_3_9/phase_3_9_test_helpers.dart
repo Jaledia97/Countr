@@ -27,6 +27,7 @@ VaultItem createPhase39Card({
   bool isAltered = false,
   bool isMisprint = false,
   bool isSigned = false,
+  bool isDeleted = false,
   String? primaryBinderId,
   Map<String, dynamic>? dynamicDataMap,
 }) {
@@ -46,6 +47,7 @@ VaultItem createPhase39Card({
     isAltered: isAltered,
     isMisprint: isMisprint,
     isSigned: isSigned,
+    isDeleted: isDeleted,
     personalNotes: null,
     primaryBinderId: primaryBinderId,
     currentMarketPrice: currentMarketPrice,

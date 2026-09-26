@@ -220,7 +220,7 @@ void main() {
         isGraded: false,
         isAltered: false,
         isMisprint: false,
-        isSigned: false,
+        isSigned: false, isDeleted: false,
         currentMarketPrice: 2.0,
         lastPriceUpdate: DateTime(2023, 1, 1),
         dynamicData: jsonEncode({
@@ -269,7 +269,7 @@ void main() {
         isGraded: false,
         isAltered: false,
         isMisprint: false,
-        isSigned: false,
+        isSigned: false, isDeleted: false,
         currentMarketPrice: 8.0,
         lastPriceUpdate: DateTime(2023, 1, 1),
         dynamicData: jsonEncode({
@@ -313,7 +313,7 @@ void main() {
         isGraded: false,
         isAltered: false,
         isMisprint: false,
-        isSigned: false,
+        isSigned: false, isDeleted: false,
         currentMarketPrice: 25.0,
         lastPriceUpdate: DateTime(2023, 1, 1),
         dynamicData: jsonEncode({
@@ -353,7 +353,7 @@ void main() {
         isGraded: false,
         isAltered: false,
         isMisprint: false,
-        isSigned: false,
+        isSigned: false, isDeleted: false,
         currentMarketPrice: 2.5,
         lastPriceUpdate: DateTime(2023, 1, 1),
         dynamicData: jsonEncode({

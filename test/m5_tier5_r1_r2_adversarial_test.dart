@@ -69,7 +69,7 @@ VaultItem createAdversarialTestCard({
     isGraded: false,
     isAltered: false,
     isMisprint: false,
-    isSigned: false,
+    isSigned: false, isDeleted: false,
     currentMarketPrice: price,
     lastPriceUpdate: DateTime(2024, 1, 15),
     dynamicData: jsonEncode({

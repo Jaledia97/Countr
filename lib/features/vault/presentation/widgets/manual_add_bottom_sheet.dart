@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:countr/core/constants/app_colors.dart';
@@ -9,6 +8,7 @@ import 'package:countr/core/state/app_state.dart';
 import 'package:countr/features/hydration/domain/isolate/scryfall_parser.dart';
 import 'package:countr/features/hydration/presentation/providers/hydration_providers.dart';
 import 'package:countr/features/vault/presentation/providers/vault_providers.dart';
+import 'package:countr/features/vault/presentation/widgets/catalog_card_list_tile.dart';
 
 /// Custom styled search text input component for ManualAddBottomSheet.
 class SearchField extends StatefulWidget {
@@ -293,59 +293,6 @@ class _ManualAddBottomSheetState extends ConsumerState<ManualAddBottomSheet> {
     }
   }
 
-  String _getRarity(VaultItem item) {
-    if (item.dynamicData.isNotEmpty) {
-      try {
-        final map = jsonDecode(item.dynamicData) as Map<String, dynamic>;
-        return map['rarity']?.toString() ?? '';
-      } catch (e, stackTrace) {
-        debugPrint('[ManualAddBottomSheet._getRarity] Failed decoding dynamicData: $e\n$stackTrace');
-      }
-    }
-    return '';
-  }
-
-  Color _getRarityColor(String rarity) {
-    switch (rarity.toLowerCase()) {
-      case 'mythic':
-        return AppColors.accentAmber;
-      case 'rare':
-        return AppColors.accentAmberLight;
-      case 'uncommon':
-        return AppColors.accentCyan;
-      case 'common':
-        return AppColors.textSecondary;
-      default:
-        return AppColors.textMuted;
-    }
-  }
-
-  Widget _buildCardThumbnail(String imageUrl) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(6),
-      child: Container(
-        width: 44,
-        height: 62,
-        color: AppColors.surfaceRaised,
-        child: imageUrl.isNotEmpty
-            ? Image.network(
-                imageUrl,
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => _buildCardPlaceholder(),
-              )
-            : _buildCardPlaceholder(),
-      ),
-    );
-  }
-
-  Widget _buildCardPlaceholder() {
-    return Container(
-      color: AppColors.surfaceBorder.withValues(alpha: 0.3),
-      child: const Center(
-        child: Icon(Icons.style_outlined, color: AppColors.textMuted, size: 20),
-      ),
-    );
-  }
 
   Widget _buildStepper(VaultItem card) {
     final stagedQty = _stagedQuantities[card.id] ?? 0;
@@ -691,117 +638,19 @@ class _ManualAddBottomSheetState extends ConsumerState<ManualAddBottomSheet> {
                               ],
                             ),
                           )
-                        : ListView.separated(
+                        : ListView.builder(
                             controller: scrollController,
                             padding: const EdgeInsets.symmetric(
                               horizontal: 16,
                               vertical: 6,
                             ),
                             itemCount: _searchResults.length,
-                            separatorBuilder: (_, _) =>
-                                const Divider(color: AppColors.surfaceBorder, height: 12),
                             itemBuilder: (context, index) {
                               final card = _searchResults[index];
-                              final rarity = _getRarity(card);
-                              final rarityColor = _getRarityColor(rarity);
-
-                              return Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 4),
-                                child: Row(
-                                  children: [
-                                    // Thumbnail
-                                    _buildCardThumbnail(card.imageUrl),
-                                    const SizedBox(width: 12),
-
-                                    // Card Info
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            card.flavorName != null &&
-                                                    card.flavorName!.isNotEmpty
-                                                ? card.flavorName!
-                                                : card.name,
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.w700,
-                                              fontSize: 14,
-                                            ),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Row(
-                                            children: [
-                                              Flexible(
-                                                child: Text(
-                                                  card.flavorName != null &&
-                                                          card.flavorName!.isNotEmpty
-                                                      ? '[${card.name}] • ${card.setOrSeries}'
-                                                      : card.setOrSeries,
-                                                  style: const TextStyle(
-                                                    color: AppColors.textSecondary,
-                                                    fontSize: 12,
-                                                  ),
-                                                  maxLines: 1,
-                                                  overflow: TextOverflow.ellipsis,
-                                                ),
-                                              ),
-                                              if (rarity.isNotEmpty) ...[
-                                                const SizedBox(width: 8),
-                                                Container(
-                                                  padding: const EdgeInsets.symmetric(
-                                                    horizontal: 6,
-                                                    vertical: 2,
-                                                  ),
-                                                  decoration: BoxDecoration(
-                                                    color: rarityColor.withValues(
-                                                      alpha: 0.15,
-                                                    ),
-                                                    borderRadius:
-                                                        BorderRadius.circular(4),
-                                                    border: Border.all(
-                                                      color: rarityColor.withValues(
-                                                        alpha: 0.5,
-                                                      ),
-                                                      width: 0.8,
-                                                    ),
-                                                  ),
-                                                  child: Text(
-                                                    rarity.toUpperCase(),
-                                                    style: TextStyle(
-                                                      color: rarityColor,
-                                                      fontSize: 9.5,
-                                                      fontWeight:
-                                                          FontWeight.w700,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ],
-                                            ],
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            isPrivacyMode
-                                                ? '****'
-                                                : '\$${card.currentMarketPrice.toStringAsFixed(2)}',
-                                            style: const TextStyle(
-                                              color: AppColors.accentEmerald,
-                                              fontWeight: FontWeight.w700,
-                                              fontSize: 13,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-
-                                    // Stepper
-                                    _buildStepper(card),
-                                  ],
-                                ),
+                              return CatalogCardListTile(
+                                card: card,
+                                trailing: _buildStepper(card),
+                                isPrivacyMode: isPrivacyMode,
                               );
                             },
                           ),

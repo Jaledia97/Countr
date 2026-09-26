@@ -85,7 +85,7 @@ void main() {
         isGraded: false,
         isAltered: false,
         isMisprint: false,
-        isSigned: false,
+        isSigned: false, isDeleted: false,
         personalNotes: null,
         primaryBinderId: null,
         currentMarketPrice: 0.0,

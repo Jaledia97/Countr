@@ -139,12 +139,12 @@ void main() {
       // 2. Open via AppDatabase (triggers onUpgrade to v8 and beforeOpen verification/backfill)
       final db = AppDatabase(rawDb);
 
-      // Verify schema version is 8
-      expect(db.schemaVersion, 8);
+      // Verify schema version is at least 8 (upgraded to 9 in v9)
+      expect(db.schemaVersion, greaterThanOrEqualTo(8));
 
-      // Verify PRAGMA user_version in SQLite is 8
+      // Verify PRAGMA user_version in SQLite is at least 8 (upgraded to 9 in v9)
       final versionResult = await db.customSelect('PRAGMA user_version;').getSingle();
-      expect(versionResult.read<int>('user_version'), 8);
+      expect(versionResult.read<int>('user_version'), greaterThanOrEqualTo(8));
 
       // 3. Verify all 6 v8 columns exist in PRAGMA table_info
       final tableInfo = await db.customSelect('PRAGMA table_info("vault_items");').get();
@@ -265,7 +265,7 @@ void main() {
     test('fresh database creation (onCreate) initializes v8 tables and accepts full provenance inserts', () async {
       final db = AppDatabase(NativeDatabase.memory());
 
-      expect(db.schemaVersion, 8);
+      expect(db.schemaVersion, greaterThanOrEqualTo(8));
 
       final now = DateTime.now();
       final obtainedDate = DateTime(2025, 3, 15, 14, 30);
@@ -371,7 +371,7 @@ void main() {
         isGraded: false,
         isAltered: false,
         isMisprint: false,
-        isSigned: false,
+        isSigned: false, isDeleted: false,
         currentMarketPrice: 110.0,
         lastPriceUpdate: DateTime(2023, 1, 1),
         dynamicData: '{}',

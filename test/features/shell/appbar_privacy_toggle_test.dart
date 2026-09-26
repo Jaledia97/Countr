@@ -123,7 +123,7 @@ void main() {
       );
     });
 
-    testWidgets('FeedScreen: Privacy toggle in AppBar updates state and switches icon', (tester) async {
+    testWidgets('FeedScreen: Eyeball privacy toggle is removed from AppBar and privacy is controlled globally', (tester) async {
       final container = ProviderContainer();
       addTearDown(container.dispose);
 
@@ -139,34 +139,22 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final toggleButton = find.byKey(const Key('feed_privacy_mode_button'));
-      expect(toggleButton, findsOneWidget);
+      // Eyeball button must NOT be present on FeedScreen AppBar
+      expect(find.byKey(const Key('feed_privacy_mode_button')), findsNothing);
 
-      // Initially visibility icon
-      expect(
-        find.descendant(of: toggleButton, matching: find.byIcon(Icons.visibility)),
-        findsOneWidget,
-      );
+      // Verify Feed AppBar standard actions (Search, Inbox, Notifications) are cleanly present
+      expect(find.byTooltip('Search'), findsOneWidget);
+      expect(find.byTooltip('Inbox'), findsOneWidget);
+      expect(find.byTooltip('Notifications'), findsOneWidget);
 
-      // Tap toggle -> activates privacy mode
-      await tester.tap(toggleButton);
+      // Verify privacyModeProvider state is independently controlled
+      container.read(privacyModeProvider.notifier).state = true;
       await tester.pumpAndSettle();
-
       expect(container.read(privacyModeProvider), isTrue);
-      expect(
-        find.descendant(of: toggleButton, matching: find.byIcon(Icons.visibility_off)),
-        findsOneWidget,
-      );
 
-      // Tap toggle again -> deactivates privacy mode
-      await tester.tap(toggleButton);
+      container.read(privacyModeProvider.notifier).state = false;
       await tester.pumpAndSettle();
-
       expect(container.read(privacyModeProvider), isFalse);
-      expect(
-        find.descendant(of: toggleButton, matching: find.byIcon(Icons.visibility)),
-        findsOneWidget,
-      );
     });
   });
 }

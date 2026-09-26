@@ -11,6 +11,12 @@ class DeckVersionItems extends Table {
   TextColumn get boardZone => text()(); // Mainboard, Sideboard, Maybeboard, Commander
   BoolColumn get isProxy => boolean().withDefault(const Constant(false))();
 
+  // Soft Delete & Outbox Sync (v9)
+  BoolColumn get isDeleted =>
+      boolean().named('is_deleted').withDefault(const Constant(false))();
+  DateTimeColumn get updatedAt =>
+      dateTime().named('updated_at').nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }

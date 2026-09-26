@@ -11,6 +11,7 @@ import 'package:countr/features/decks/domain/models/board_zone.dart';
 import 'package:countr/features/decks/domain/models/assembly_models.dart';
 import 'package:countr/features/scanner/domain/ocr_heuristic_matcher.dart';
 import 'package:countr/features/decks/domain/models/deck_item_with_card.dart';
+import 'package:countr/features/decks/domain/models/deck_summary.dart';
 import 'package:countr/features/vault/domain/models/vault_totals.dart';
 import 'package:countr/features/vault/presentation/providers/mtg_filter_state.dart';
 
@@ -19,6 +20,7 @@ import 'package:countr/core/database/tables/decks/deck_versions_table.dart';
 import 'package:countr/core/database/tables/decks/deck_version_items_table.dart';
 import 'package:countr/core/database/tables/decks/deck_matchups_table.dart';
 import 'package:countr/core/database/tables/decks/deck_synergies_table.dart';
+import 'package:countr/core/database/tables/sync_queue_table.dart';
 
 part 'vault_dao.g.dart';
 
@@ -31,9 +33,79 @@ part 'vault_dao.g.dart';
   DeckVersionItems,
   DeckMatchups,
   DeckSynergies,
+  SyncQueue,
 ])
 class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
   VaultDao(super.db);
+
+  // ---------------------------------------------------------------------------
+  // OUTBOX SYNC QUEUE HELPERS
+  // ---------------------------------------------------------------------------
+
+  /// Internal outbox logging helper. Records all mutations for cloud synchronization.
+  Future<void> _recordSync(
+    String entityType,
+    String entityId,
+    String operation, {
+    DateTime? timestamp,
+  }) async {
+    final now = timestamp ?? DateTime.now();
+    await into(syncQueue).insert(
+      SyncQueueCompanion.insert(
+        id: const Uuid().v4(),
+        entityType: entityType,
+        entityId: entityId,
+        operation: operation,
+        timestamp: now,
+        retryCount: const Value(0),
+      ),
+    );
+  }
+
+  /// Retrieves pending sync queue entries ordered chronologically.
+  Future<List<SyncQueueEntry>> getPendingSyncEntries({int limit = 100}) {
+    return (select(syncQueue)
+          ..orderBy([(t) => OrderingTerm(expression: t.timestamp, mode: OrderingMode.asc)])
+          ..limit(limit))
+        .get();
+  }
+
+  /// Acknowledges and deletes a synchronized entry from the outbox.
+  Future<int> markSyncCompleted(String syncId) {
+    return (delete(syncQueue)..where((t) => t.id.equals(syncId))).go();
+  }
+
+  /// Increments the retry counter for a failed synchronization attempt atomically in SQLite.
+  Future<int> incrementSyncRetry(String syncId) {
+    return customUpdate(
+      'UPDATE sync_queue SET retry_count = retry_count + 1 WHERE id = ?',
+      variables: [Variable.withString(syncId)],
+      updates: {syncQueue},
+    );
+  }
+
+  /// Clears all entries from the sync queue outbox.
+  Future<int> clearSyncQueue() {
+    return delete(syncQueue).go();
+  }
+
+  /// Cleans up old sync queue entries older than a cutoff threshold (defaults to 30 days ago).
+  Future<int> cleanupOldProcessedSyncQueue({
+    Duration maxAge = const Duration(days: 30),
+    DateTime? olderThan,
+  }) {
+    final cutoff = olderThan ?? DateTime.now().subtract(maxAge);
+    return (delete(syncQueue)
+          ..where((t) => t.timestamp.isSmallerThanValue(cutoff)))
+        .go();
+  }
+
+  /// Watches the pending sync queue count for UI status indicators.
+  Stream<int> watchPendingSyncCount() {
+    final count = syncQueue.id.count();
+    final query = selectOnly(syncQueue)..addColumns([count]);
+    return query.map((row) => row.read(count) ?? 0).watchSingle();
+  }
 
   /// Streams items filtered by collection type and optional [MtgFilterState].
   /// If [onlyOwned] is true, filters for quantity > 0 (personal vault inventory).
@@ -48,6 +120,7 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
   }) {
     final normalized = _normalizeCollectionType(collectionType);
     final query = select(vaultItems);
+    query.where((t) => t.isDeleted.equals(false));
 
     if (normalized != 'all') {
       query.where((t) => t.collectionType.equals(normalized));
@@ -143,6 +216,7 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
   }) async {
     final normalized = _normalizeCollectionType(collectionType);
     final query = select(vaultItems);
+    query.where((t) => t.isDeleted.equals(false));
 
     if (normalized != 'all') {
       query.where((t) => t.collectionType.equals(normalized));
@@ -346,7 +420,7 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     String? collectionType,
     String? binderId,
   }) {
-    final whereClauses = <String>['"quantity" > 0'];
+    final whereClauses = <String>['"quantity" > 0', '"is_deleted" = 0'];
     final variables = <Variable>[];
 
     if (collectionType != null) {
@@ -405,7 +479,7 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     String? collectionType,
     String? binderId,
   }) async {
-    final whereClauses = <String>['"quantity" > 0'];
+    final whereClauses = <String>['"quantity" > 0', '"is_deleted" = 0'];
     final variables = <Variable>[];
 
     if (collectionType != null) {
@@ -462,15 +536,19 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
   /// Queries vaultItems table with case-insensitive name or setOrSeries matching.
   /// Filters by normalized collection type if specified (unless 'all').
   /// Orders by name ASC and applies limit.
+  /// When [groupByOracleId] is true, groups results by abstract oracle_id for catalog discovery,
+  /// returning one representative printing per abstract card concept.
   Future<List<VaultItem>> searchCatalogCards(
     String query, {
     String? collectionType,
     int limit = 50,
-  }) {
+    bool groupByOracleId = false,
+  }) async {
     final normalized =
         collectionType != null ? _normalizeCollectionType(collectionType) : 'all';
     final trimmed = query.trim();
     final q = select(vaultItems);
+    q.where((t) => t.isDeleted.equals(false));
 
     if (normalized != 'all') {
       q.where((t) => t.collectionType.equals(normalized));
@@ -512,9 +590,93 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     } else {
       q.orderBy([(t) => OrderingTerm(expression: t.name, mode: OrderingMode.asc)]);
     }
+
+    if (groupByOracleId) {
+      q.limit(limit * 3 > 100 ? limit * 3 : 100);
+      final rawResults = await q.get();
+      final seenKeys = <String>{};
+      final deduplicated = <VaultItem>[];
+      for (final item in rawResults) {
+        String? oracleId;
+        if (item.dynamicData.isNotEmpty) {
+          try {
+            final dyn = jsonDecode(item.dynamicData) as Map<String, dynamic>;
+            oracleId = dyn['oracle_id']?.toString();
+          } catch (_) {}
+        }
+        final key = (oracleId != null && oracleId.isNotEmpty)
+            ? oracleId
+            : item.name.toLowerCase().trim();
+        if (seenKeys.add(key)) {
+          deduplicated.add(item);
+          if (deduplicated.length >= limit) break;
+        }
+      }
+      return deduplicated;
+    }
+
     q.limit(limit);
 
     return q.get();
+  }
+
+  /// Searches catalog items by their abstract Scryfall oracle_id.
+  /// Returns all printings sharing that abstract oracle rules identity.
+  Future<List<VaultItem>> searchByOracleId(
+    String oracleId, {
+    int limit = 50,
+  }) async {
+    final clean = oracleId.trim();
+    if (clean.isEmpty) return [];
+
+    final q = select(vaultItems);
+    q.where((t) =>
+        t.isDeleted.equals(false) &
+        (t.dynamicData.like('%"oracle_id":"$clean"%') |
+         t.dynamicData.like('%"oracle_id": "$clean"%') |
+         t.dynamicData.like('%"oracle_id":$clean%')));
+    q.orderBy([(t) => OrderingTerm(expression: t.name, mode: OrderingMode.asc)]);
+    q.limit(limit);
+    return q.get();
+  }
+
+  /// Updates the physical finish metadata ('nonfoil', 'foil', 'etched') of a specific VaultItem.
+  /// Enforces that physical inventory copies strictly specify their physical finish.
+  Future<void> updateItemFinish(String id, String finish) async {
+    final validFinishes = {'nonfoil', 'foil', 'etched'};
+    final normalized = finish.toLowerCase().trim();
+    if (!validFinishes.contains(normalized)) {
+      throw ArgumentError('Invalid finish "$finish". Must be one of: nonfoil, foil, etched');
+    }
+    final existing =
+        await (select(vaultItems)..where((t) => t.id.equals(id))).getSingleOrNull();
+    if (existing == null) {
+      throw StateError('VaultItem with id "$id" not found.');
+    }
+    Map<String, dynamic> data = {};
+    if (existing.dynamicData.isNotEmpty) {
+      try {
+        data = jsonDecode(existing.dynamicData) as Map<String, dynamic>;
+      } catch (e) {
+        debugPrint('[VaultDao.updateItemFinish] JSON decode error: $e');
+      }
+    }
+    data['finish'] = normalized;
+    data['treatment'] = normalized;
+    final finishes = (data['finishes'] as List?)?.cast<String>() ?? [];
+    if (!finishes.contains(normalized)) {
+      finishes.add(normalized);
+    }
+    data['finishes'] = finishes;
+
+    final now = DateTime.now();
+    await (update(vaultItems)..where((t) => t.id.equals(id))).write(
+      VaultItemsCompanion(
+        dynamicData: Value(jsonEncode(data)),
+        updatedAt: Value(now),
+      ),
+    );
+    await _recordSync('vault_item', id, 'UPDATE', timestamp: now);
   }
 
   /// Bulk inserts or upserts catalog items into user inventory scoped to a destination binder.
@@ -548,6 +710,8 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
               acquiredPrice: Value(acquired),
               acquiredDate: Value(now),
               lastPriceUpdate: Value(now),
+              isDeleted: const Value(false),
+              updatedAt: Value(now),
             ),
           );
         } else {
@@ -556,9 +720,12 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
               quantity: Value(existing.quantity + quantityToAdd),
               primaryBinderId: Value(targetBinderId ?? existing.primaryBinderId),
               lastPriceUpdate: Value(now),
+              isDeleted: const Value(false),
+              updatedAt: Value(now),
             ),
           );
         }
+        await _recordSync('vault_item', cardId, 'UPDATE', timestamp: now);
       }
     });
   }
@@ -590,14 +757,20 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
       data['use_cases'] = communityNotes;
     }
 
-    return await (update(vaultItems)..where((t) => t.id.equals(id))).write(
+    final now = DateTime.now();
+    final count = await (update(vaultItems)..where((t) => t.id.equals(id))).write(
       VaultItemsCompanion(
         personalNotes: personalNotes != null
             ? Value(personalNotes)
             : const Value.absent(),
         dynamicData: Value(jsonEncode(data)),
+        updatedAt: Value(now),
       ),
     );
+    if (count > 0) {
+      await _recordSync('vault_item', id, 'UPDATE', timestamp: now);
+    }
+    return count;
   }
 
   /// Updates existing card condition flags, acquired price, variant art/series,
@@ -645,8 +818,9 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     final effectivePrice = purchasePrice ?? acquiredPrice;
     final effectiveDate = dateObtained ?? acquiredDate;
     final effectiveNotes = notes ?? personalNotes;
+    final now = DateTime.now();
 
-    return await (update(vaultItems)..where((t) => t.id.equals(id))).write(
+    final result = await (update(vaultItems)..where((t) => t.id.equals(id))).write(
       VaultItemsCompanion(
         acquiredPrice: effectivePrice != null
             ? Value(effectivePrice)
@@ -691,20 +865,33 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
             ? Value(currentMarketPrice)
             : const Value.absent(),
         dynamicData: Value(jsonEncode(data)),
-        lastPriceUpdate: Value(DateTime.now()),
+        lastPriceUpdate: Value(now),
+        updatedAt: Value(now),
       ),
     );
+    if (result > 0) {
+      await _recordSync('vault_item', id, 'UPDATE', timestamp: now);
+    }
+    return result;
   }
 
 
   /// Retrieves a single vault item by ID.
-  Future<VaultItem?> getItemById(String id) {
-    return (select(vaultItems)..where((t) => t.id.equals(id))).getSingleOrNull();
+  Future<VaultItem?> getItemById(String id, {bool includeDeleted = false}) {
+    final query = select(vaultItems)..where((t) => t.id.equals(id));
+    if (!includeDeleted) {
+      query.where((t) => t.isDeleted.equals(false));
+    }
+    return query.getSingleOrNull();
   }
 
   /// Watches a single vault item by ID reactively.
-  Stream<VaultItem?> watchItemById(String id) {
-    return (select(vaultItems)..where((t) => t.id.equals(id))).watchSingleOrNull();
+  Stream<VaultItem?> watchItemById(String id, {bool includeDeleted = false}) {
+    final query = select(vaultItems)..where((t) => t.id.equals(id));
+    if (!includeDeleted) {
+      query.where((t) => t.isDeleted.equals(false));
+    }
+    return query.watchSingleOrNull();
   }
 
   /// Normalizes display collection titles to internal collection types.
@@ -733,7 +920,7 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
 
   /// Seeds the 4 hyper-detailed mock records if the ledger is empty.
   Future<void> seedDatabase() async {
-    final existing = await (select(vaultItems)..limit(1)).get();
+    final existing = await (select(vaultItems)..where((t) => t.isDeleted.equals(false))..limit(1)).get();
     if (existing.isNotEmpty) return;
 
     final now = DateTime.now();
@@ -845,13 +1032,23 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
           dynamicData:
               '{"sport": "Football", "team": "Steelers", "is_rookie": true}',
         ),
-      ]);
+      ], mode: InsertMode.insertOrReplace);
     });
   }
 
   /// Inserts a new vault item.
-  Future<int> insertItem(VaultItemsCompanion item) async =>
-      await into(vaultItems).insert(item);
+  Future<int> insertItem(VaultItemsCompanion item) async {
+    final now = DateTime.now();
+    final companion = item.copyWith(
+      isDeleted: item.isDeleted.present ? item.isDeleted : const Value(false),
+      updatedAt: item.updatedAt.present ? item.updatedAt : Value(now),
+    );
+    final count = await into(vaultItems).insert(companion);
+    if (item.id.present) {
+      await _recordSync('vault_item', item.id.value, 'INSERT', timestamp: now);
+    }
+    return count;
+  }
 
   /// Inserts large lists of catalog/dictionary items in chunks of 1,000 using batch().
   /// Prevents database lockups, transaction limits, and OOM crashes.
@@ -907,8 +1104,18 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     });
   }
 
-  /// Deletes all items (used for test resets).
-  Future<int> clearAllItems() => delete(vaultItems).go();
+  /// Soft deletes all items (used for test and bulk resets).
+  Future<int> clearAllItems() async {
+    final now = DateTime.now();
+    final count = await (update(vaultItems)).write(
+      VaultItemsCompanion(
+        isDeleted: const Value(true),
+        updatedAt: Value(now),
+      ),
+    );
+    await _recordSync('vault_item', 'ALL', 'DELETE', timestamp: now);
+    return count;
+  }
 
   // ---------------------------------------------------------------------------
   // PHASE 3: VAULT BINDER METHODS
@@ -917,7 +1124,7 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
   /// Streams all binders filtered by collection type (or all collections).
   Stream<List<VaultBinder>> watchBindersByCollection(String collectionType) {
     final normalized = _normalizeCollectionType(collectionType);
-    final query = select(vaultBinders);
+    final query = select(vaultBinders)..where((t) => t.isDeleted.equals(false));
     if (normalized != 'all') {
       query.where((t) => t.collectionType.equals(normalized));
     }
@@ -934,35 +1141,85 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
   }) async {
     final id = const Uuid().v4();
     final normalized = _normalizeCollectionType(collectionType);
+    final now = DateTime.now();
     final binder = VaultBindersCompanion.insert(
       id: id,
       name: name.trim().isEmpty ? 'Untitled Binder' : name.trim(),
       collectionType: normalized == 'all' ? 'mtg' : normalized,
-      createdAt: DateTime.now(),
+      createdAt: now,
+      isDeleted: const Value(false),
+      updatedAt: Value(now),
     );
     await into(vaultBinders).insert(binder);
+    await _recordSync('binder', id, 'INSERT', timestamp: now);
     return (select(vaultBinders)..where((t) => t.id.equals(id))).getSingle();
   }
 
   /// Fetches a binder by its unique ID.
-  Future<VaultBinder?> getBinderById(String binderId) {
-    return (select(vaultBinders)..where((t) => t.id.equals(binderId))).getSingleOrNull();
+  Future<VaultBinder?> getBinderById(String binderId, {bool includeDeleted = false}) {
+    final query = select(vaultBinders)..where((t) => t.id.equals(binderId));
+    if (!includeDeleted) {
+      query.where((t) => t.isDeleted.equals(false));
+    }
+    return query.getSingleOrNull();
+  }
+
+  /// Returns all active binders across collections.
+  Future<List<VaultBinder>> getAllBinders() {
+    return (select(vaultBinders)
+          ..where((t) => t.isDeleted.equals(false))
+          ..orderBy([(t) => OrderingTerm(expression: t.createdAt, mode: OrderingMode.desc)]))
+        .get();
+  }
+
+  final Map<String, String> _binderDescriptions = {};
+  final Map<String, String> _binderCoverArts = {};
+
+  /// Gets optional custom description for a binder.
+  String? getBinderDescription(String binderId) => _binderDescriptions[binderId];
+
+  /// Gets optional custom cover art URL for a binder.
+  String? getBinderCoverArt(String binderId) => _binderCoverArts[binderId];
+
+  /// Updates binder attributes (name, description, coverArtUrl) and logs to SyncQueue.
+  Future<void> updateBinder(
+    String binderId, {
+    String? name,
+    String? description,
+    String? coverArtUrl,
+  }) async {
+    final now = DateTime.now();
+    if (description != null) {
+      _binderDescriptions[binderId] = description;
+    }
+    if (coverArtUrl != null) {
+      _binderCoverArts[binderId] = coverArtUrl;
+    }
+    final companion = VaultBindersCompanion(
+      name: name != null && name.trim().isNotEmpty ? Value(name.trim()) : const Value.absent(),
+      updatedAt: Value(now),
+    );
+    await (update(vaultBinders)..where((t) => t.id.equals(binderId))).write(companion);
+    await _recordSync('binder', binderId, 'UPDATE', timestamp: now);
   }
 
   /// Streams a map of binderId -> total items anchored inside that binder.
   Stream<Map<String, int>> watchBinderItemCounts() {
     final querySql = '''
-      SELECT primary_binder_id, CAST(COALESCE(SUM(quantity), 0) AS INTEGER) AS total_count
-      FROM vault_items
-      WHERE quantity > 0
-        AND primary_binder_id IS NOT NULL
-        AND primary_binder_id != 'INBOX'
-      GROUP BY primary_binder_id
+      SELECT vi.primary_binder_id, CAST(COALESCE(SUM(vi.quantity), 0) AS INTEGER) AS total_count
+      FROM vault_items vi
+      LEFT JOIN vault_binders vb ON vb.id = vi.primary_binder_id
+      WHERE vi.quantity > 0
+        AND vi.is_deleted = 0
+        AND vi.primary_binder_id IS NOT NULL
+        AND vi.primary_binder_id != 'INBOX'
+        AND (vb.is_deleted IS NULL OR vb.is_deleted = 0)
+      GROUP BY vi.primary_binder_id
     ''';
 
     return customSelect(
       querySql,
-      readsFrom: {vaultItems},
+      readsFrom: {vaultItems, vaultBinders},
     ).watch().map((rows) {
       final counts = <String, int>{};
       for (final r in rows) {
@@ -981,6 +1238,7 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
       SELECT LOWER(TRIM(collection_type)) AS col_type, CAST(COALESCE(SUM(quantity), 0) AS INTEGER) AS total_count
       FROM vault_items
       WHERE quantity > 0
+        AND is_deleted = 0
         AND (primary_binder_id IS NULL OR primary_binder_id != 'INBOX')
       GROUP BY LOWER(TRIM(collection_type))
     ''';
@@ -1010,11 +1268,17 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
   /// Bulk assigns a list of item IDs to their physical home anchor (binder).
   Future<int> assignItemsToBinder(
       List<String> itemIds, String targetBinderId) async {
-    return (update(vaultItems)..where((t) => t.id.isIn(itemIds))).write(
+    final now = DateTime.now();
+    final count = await (update(vaultItems)..where((t) => t.id.isIn(itemIds))).write(
       VaultItemsCompanion(
         primaryBinderId: Value(targetBinderId),
+        updatedAt: Value(now),
       ),
     );
+    for (final id in itemIds) {
+      await _recordSync('vault_item', id, 'UPDATE', timestamp: now);
+    }
+    return count;
   }
 
   /// Alias for assignItemsToBinder
@@ -1024,16 +1288,47 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
 
   /// Streams all owned cards anchored to a specific physical binder.
   Stream<List<VaultItem>> watchItemsByBinder(String binderId) {
-    return (select(vaultItems)
-          ..where((t) =>
-              t.primaryBinderId.equals(binderId) &
-              t.quantity.isBiggerThanValue(0))
-          ..orderBy([
-            (t) => OrderingTerm(
-                expression: t.lastPriceUpdate, mode: OrderingMode.desc),
-            (t) => OrderingTerm(expression: t.name, mode: OrderingMode.asc),
-          ]))
-        .watch();
+    final query = select(vaultItems).join([
+      leftOuterJoin(
+          vaultBinders, vaultBinders.id.equalsExp(vaultItems.primaryBinderId)),
+    ]);
+    query.where(
+      vaultItems.primaryBinderId.equals(binderId) &
+          vaultItems.quantity.isBiggerThanValue(0) &
+          vaultItems.isDeleted.equals(false) &
+          (vaultBinders.isDeleted.isNull() |
+              vaultBinders.isDeleted.equals(false)),
+    );
+    query.orderBy([
+      OrderingTerm(
+          expression: vaultItems.lastPriceUpdate, mode: OrderingMode.desc),
+      OrderingTerm(expression: vaultItems.name, mode: OrderingMode.asc),
+    ]);
+    return query
+        .watch()
+        .map((rows) => rows.map((r) => r.readTable(vaultItems)).toList());
+  }
+
+  /// Returns all owned cards anchored to a specific physical binder.
+  Future<List<VaultItem>> getItemsByBinder(String binderId) async {
+    final query = select(vaultItems).join([
+      leftOuterJoin(
+          vaultBinders, vaultBinders.id.equalsExp(vaultItems.primaryBinderId)),
+    ]);
+    query.where(
+      vaultItems.primaryBinderId.equals(binderId) &
+          vaultItems.quantity.isBiggerThanValue(0) &
+          vaultItems.isDeleted.equals(false) &
+          (vaultBinders.isDeleted.isNull() |
+              vaultBinders.isDeleted.equals(false)),
+    );
+    query.orderBy([
+      OrderingTerm(
+          expression: vaultItems.lastPriceUpdate, mode: OrderingMode.desc),
+      OrderingTerm(expression: vaultItems.name, mode: OrderingMode.asc),
+    ]);
+    final rows = await query.get();
+    return rows.map((r) => r.readTable(vaultItems)).toList();
   }
 
   // ---------------------------------------------------------------------------
@@ -1045,7 +1340,8 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     return (select(vaultItems)
           ..where((t) =>
               t.primaryBinderId.equals('INBOX') &
-              t.quantity.isBiggerThanValue(0))
+              t.quantity.isBiggerThanValue(0) &
+              t.isDeleted.equals(false))
           ..orderBy([
             (t) => OrderingTerm(
                 expression: t.lastPriceUpdate, mode: OrderingMode.desc),
@@ -1058,15 +1354,118 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
   // PHASE 3: ITEM DELETION
   // ---------------------------------------------------------------------------
 
-  /// Permanently deletes a single item from SQLite by its ID.
-  Future<int> deleteItem(String id) {
-    return (delete(vaultItems)..where((t) => t.id.equals(id))).go();
+  /// Soft deletes a single item from SQLite by its ID.
+  Future<int> deleteItem(String id) async {
+    final now = DateTime.now();
+    final count = await (update(vaultItems)
+          ..where((t) => t.id.equals(id) & t.isDeleted.equals(false)))
+        .write(
+      VaultItemsCompanion(
+        isDeleted: const Value(true),
+        updatedAt: Value(now),
+      ),
+    );
+    if (count > 0) {
+      await _recordSync('vault_item', id, 'DELETE', timestamp: now);
+    }
+    return count;
   }
 
-  /// Permanently deletes multiple items from SQLite by their IDs.
-  Future<int> deleteItems(List<String> ids) {
-    if (ids.isEmpty) return Future.value(0);
-    return (delete(vaultItems)..where((t) => t.id.isIn(ids))).go();
+  /// Soft deletes multiple items from SQLite by their IDs.
+  Future<int> deleteItems(List<String> ids) async {
+    if (ids.isEmpty) return 0;
+    final now = DateTime.now();
+    final activeItems = await (select(vaultItems)
+          ..where((t) => t.id.isIn(ids) & t.isDeleted.equals(false)))
+        .get();
+    if (activeItems.isEmpty) return 0;
+    final activeIds = activeItems.map((e) => e.id).toList();
+    final count = await (update(vaultItems)
+          ..where((t) => t.id.isIn(activeIds)))
+        .write(
+      VaultItemsCompanion(
+        isDeleted: const Value(true),
+        updatedAt: Value(now),
+      ),
+    );
+    for (final id in activeIds) {
+      await _recordSync('vault_item', id, 'DELETE', timestamp: now);
+    }
+    return count;
+  }
+
+  /// Soft deletes a deck, cascades soft-deletion to all child versions and items, and flags sync deletion.
+  Future<int> deleteDeck(String deckId) async {
+    return transaction(() async {
+      final now = DateTime.now();
+      final count = await (update(decks)
+            ..where((t) => t.id.equals(deckId) & t.isDeleted.equals(false)))
+          .write(
+        DecksCompanion(
+          isDeleted: const Value(true),
+          updatedAt: Value(now),
+        ),
+      );
+      if (count > 0) {
+        await _recordSync('deck', deckId, 'DELETE', timestamp: now);
+
+        final versions = await (select(deckVersions)..where((t) => t.deckId.equals(deckId))).get();
+        for (final v in versions) {
+          await (update(deckVersions)..where((t) => t.id.equals(v.id))).write(
+            DeckVersionsCompanion(
+              isDeleted: const Value(true),
+              updatedAt: Value(now),
+            ),
+          );
+          await _recordSync('deck_version', v.id, 'DELETE', timestamp: now);
+
+          final items = await (select(deckVersionItems)..where((t) => t.versionId.equals(v.id))).get();
+          for (final item in items) {
+            await (update(deckVersionItems)..where((t) => t.id.equals(item.id))).write(
+              DeckVersionItemsCompanion(
+                isDeleted: const Value(true),
+                updatedAt: Value(now),
+              ),
+            );
+            await _recordSync('deck_version_item', item.id, 'DELETE', timestamp: now);
+          }
+        }
+      }
+      return count;
+    });
+  }
+
+  /// Soft deletes a binder, unassigns its cards, and flags its sync deletion.
+  Future<int> deleteBinder(String binderId) async {
+    return transaction(() async {
+      final now = DateTime.now();
+      final count = await (update(vaultBinders)
+            ..where((t) => t.id.equals(binderId) & t.isDeleted.equals(false)))
+          .write(
+        VaultBindersCompanion(
+          isDeleted: const Value(true),
+          updatedAt: Value(now),
+        ),
+      );
+      if (count > 0) {
+        await _recordSync('binder', binderId, 'DELETE', timestamp: now);
+
+        // Unassign cards that were anchored to this binder
+        final cardsInBinder = await (select(vaultItems)..where((t) => t.primaryBinderId.equals(binderId))).get();
+        if (cardsInBinder.isNotEmpty) {
+          await (update(vaultItems)..where((t) => t.primaryBinderId.equals(binderId))).write(
+            VaultItemsCompanion(
+              primaryBinderId: const Value(null),
+              updatedAt: Value(now),
+            ),
+          );
+          for (final card in cardsInBinder) {
+            await _recordSync('vault_item', card.id, 'UPDATE', timestamp: now);
+          }
+        }
+      }
+      return count;
+    });
   }
 
   // ---------------------------------------------------------------------------
@@ -1198,7 +1597,7 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
 
       final collectorCandidates = await (select(vaultItems)
             ..where((t) {
-              final pred = buildCollectorPred(t);
+              final pred = buildCollectorPred(t) & t.isDeleted.equals(false);
               if (normalized != 'all') {
                 return pred & t.collectionType.equals(normalized);
               }
@@ -1220,7 +1619,7 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
 
       if (normalized != 'all') {
         final crossCandidates = await (select(vaultItems)
-              ..where(buildCollectorPred)
+              ..where((t) => buildCollectorPred(t) & t.isDeleted.equals(false))
               ..limit(25))
             .get();
 
@@ -1276,7 +1675,8 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
 
       final sql = '''
         SELECT * FROM "vault_items"
-        WHERE ${collection != 'all' ? '"collection_type" = ? AND ' : ''}
+        WHERE "is_deleted" = 0 AND 
+              ${collection != 'all' ? '"collection_type" = ? AND ' : ''}
               ${catalogOnly ? '"quantity" = 0 AND ' : ''}
               (
                 "name" LIKE ?
@@ -1485,9 +1885,10 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     VaultItem card, {
     bool isFoil = false,
   }) async {
-    final existing = await (select(vaultItems)..where((t) => t.id.equals(card.id)))
+    final existing = await (select(vaultItems)..where((t) => t.id.equals(card.id) & t.isDeleted.equals(false)))
         .getSingleOrNull();
 
+    final now = DateTime.now();
     if (existing == null) {
       await into(vaultItems).insert(
         VaultItemsCompanion.insert(
@@ -1497,7 +1898,7 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
           setOrSeries: card.setOrSeries,
           imageUrl: card.imageUrl,
           acquiredPrice: card.currentMarketPrice,
-          acquiredDate: DateTime.now(),
+          acquiredDate: now,
           quantity: const Value(1),
           condition: isFoil ? 'NM (Foil)' : 'NM',
           isGraded: const Value(false),
@@ -1505,11 +1906,14 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
               ? const Value('Scanned Foil / Variant')
               : const Value('Edge Scanned'),
           currentMarketPrice: card.currentMarketPrice,
-          lastPriceUpdate: DateTime.now(),
+          lastPriceUpdate: now,
           dynamicData: card.dynamicData,
           primaryBinderId: const Value('INBOX'),
+          isDeleted: const Value(false),
+          updatedAt: Value(now),
         ),
       );
+      await _recordSync('vault_item', card.id, 'INSERT', timestamp: now);
     } else {
       final newQuantity = existing.quantity > 0 ? existing.quantity + 1 : 1;
       final newNotes = existing.personalNotes != null &&
@@ -1522,12 +1926,14 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
           quantity: Value(newQuantity),
           primaryBinderId: const Value('INBOX'),
           currentMarketPrice: Value(card.currentMarketPrice),
-          lastPriceUpdate: Value(DateTime.now()),
+          lastPriceUpdate: Value(now),
           condition:
               isFoil ? const Value('NM (Foil)') : Value(existing.condition),
           personalNotes: Value(newNotes),
+          updatedAt: Value(now),
         ),
       );
+      await _recordSync('vault_item', card.id, 'UPDATE', timestamp: now);
     }
   }
 
@@ -1539,6 +1945,7 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     double? currentMarketPrice,
     String? dynamicData,
   }) async {
+    final now = DateTime.now();
     await (update(vaultItems)..where((t) => t.id.equals(id))).write(
       VaultItemsCompanion(
         flavorName:
@@ -1552,10 +1959,12 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
         dynamicData:
             dynamicData != null ? Value(dynamicData) : const Value.absent(),
         lastPriceUpdate: currentMarketPrice != null
-            ? Value(DateTime.now())
+            ? Value(now)
             : const Value.absent(),
+        updatedAt: Value(now),
       ),
     );
+    await _recordSync('vault_item', id, 'UPDATE', timestamp: now);
   }
 
   /// Ensures case-insensitive indexes for Secret Lair sets, flavor names, and Universes Beyond.
@@ -1596,11 +2005,12 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     final normalized = collectionType != null ? _normalizeCollectionType(collectionType) : 'all';
     final query = select(vaultItems)
       ..where((t) =>
-          const CustomExpression<bool>(
+          t.isDeleted.equals(false) &
+          (const CustomExpression<bool>(
             "json_extract(vault_items.dynamic_data, '\$.is_universes_beyond') = 1",
           ) |
           t.dynamicData.like('%"is_universes_beyond":true%') |
-          t.dynamicData.like('%"is_universes_beyond": true%'));
+          t.dynamicData.like('%"is_universes_beyond": true%')));
 
     if (normalized != 'all') {
       query.where((t) => t.collectionType.equals(normalized));
@@ -1627,11 +2037,12 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     final normalized = collectionType != null ? _normalizeCollectionType(collectionType) : 'all';
     final query = select(vaultItems)
       ..where((t) =>
-          const CustomExpression<bool>(
+          t.isDeleted.equals(false) &
+          (const CustomExpression<bool>(
             "json_extract(vault_items.dynamic_data, '\$.is_universes_beyond') = 1",
           ) |
           t.dynamicData.like('%"is_universes_beyond":true%') |
-          t.dynamicData.like('%"is_universes_beyond": true%'));
+          t.dynamicData.like('%"is_universes_beyond": true%')));
 
     if (normalized != 'all') {
       query.where((t) => t.collectionType.equals(normalized));
@@ -1656,7 +2067,8 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
   }) {
     final query = select(vaultItems)
       ..where((t) =>
-          t.setOrSeries.like('%Secret Lair%') |
+          t.isDeleted.equals(false) &
+          (t.setOrSeries.like('%Secret Lair%') |
           const CustomExpression<bool>(
             "json_extract(vault_items.dynamic_data, '\$.set') = 'sld' COLLATE NOCASE",
           ) |
@@ -1666,7 +2078,7 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
           t.dynamicData.like('%"set":"sld"%') |
           t.dynamicData.like('%"set_code":"sld"%') |
           t.dynamicData.like('%"set": "sld"%') |
-          t.dynamicData.like('%"set_code": "sld"%'));
+          t.dynamicData.like('%"set_code": "sld"%')));
 
     if (onlyOwned) {
       query.where((t) => t.quantity.isBiggerThanValue(0));
@@ -1688,7 +2100,8 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
   }) {
     final query = select(vaultItems)
       ..where((t) =>
-          t.setOrSeries.like('%Secret Lair%') |
+          t.isDeleted.equals(false) &
+          (t.setOrSeries.like('%Secret Lair%') |
           const CustomExpression<bool>(
             "json_extract(vault_items.dynamic_data, '\$.set') = 'sld' COLLATE NOCASE",
           ) |
@@ -1698,7 +2111,7 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
           t.dynamicData.like('%"set":"sld"%') |
           t.dynamicData.like('%"set_code":"sld"%') |
           t.dynamicData.like('%"set": "sld"%') |
-          t.dynamicData.like('%"set_code": "sld"%'));
+          t.dynamicData.like('%"set_code": "sld"%')));
 
     if (onlyOwned) {
       query.where((t) => t.quantity.isBiggerThanValue(0));
@@ -1724,7 +2137,7 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     final cleanSet = setIdentifier.trim().toLowerCase();
     final isSld = cleanSet == 'sld' || cleanSet == 'secret lair' || cleanSet == 'secret lair drop';
 
-    final query = select(vaultItems);
+    final query = select(vaultItems)..where((t) => t.isDeleted.equals(false));
     if (isSld) {
       query.where((t) =>
           t.setOrSeries.like('%Secret Lair%') |
@@ -1787,9 +2200,12 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
         WHERE dv.is_active = 1
           AND dvi.is_proxy = 0
           AND d.is_registered = 1
+          AND dvi.is_deleted = 0
+          AND dv.is_deleted = 0
+          AND d.is_deleted = 0
         GROUP BY dvi.vault_item_id
       ) alloc ON alloc.vault_item_id = vi.id
-      WHERE vi.id = ?
+      WHERE vi.id = ? AND vi.is_deleted = 0
     ''';
 
     final row = await customSelect(
@@ -1816,9 +2232,12 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
         WHERE dv.is_active = 1
           AND dvi.is_proxy = 0
           AND d.is_registered = 1
+          AND dvi.is_deleted = 0
+          AND dv.is_deleted = 0
+          AND d.is_deleted = 0
         GROUP BY dvi.vault_item_id
       ) alloc ON alloc.vault_item_id = vi.id
-      WHERE vi.id = ?
+      WHERE vi.id = ? AND vi.is_deleted = 0
     ''';
 
     return customSelect(
@@ -1835,8 +2254,8 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
   /// If [onlyRegistered] is true, only decks that lock physical inventory (d.is_registered == 1) are returned.
   Future<List<String>> getDecksUsingItem(String vaultItemId, {bool onlyRegistered = true}) async {
     final whereClause = onlyRegistered
-        ? 'WHERE dvi.vault_item_id = ? AND dv.is_active = 1 AND dvi.is_proxy = 0 AND d.is_registered = 1'
-        : 'WHERE dvi.vault_item_id = ? AND dv.is_active = 1 AND dvi.is_proxy = 0';
+        ? 'WHERE dvi.vault_item_id = ? AND dv.is_active = 1 AND dvi.is_proxy = 0 AND d.is_registered = 1 AND dvi.is_deleted = 0 AND dv.is_deleted = 0 AND d.is_deleted = 0'
+        : 'WHERE dvi.vault_item_id = ? AND dv.is_active = 1 AND dvi.is_proxy = 0 AND dvi.is_deleted = 0 AND dv.is_deleted = 0 AND d.is_deleted = 0';
 
     final querySql = '''
       SELECT DISTINCT d.name
@@ -1855,24 +2274,178 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     return rows.map((r) => r.read<String>('name')).toList();
   }
 
+  /// Streams all active decks with Commander art crop, color identity, card count, and completeness.
+  Stream<List<DeckSummary>> watchDeckSummaries() {
+    const querySql = '''
+      SELECT 
+        d.id AS deck_id,
+        d.name AS deck_name,
+        d.format AS deck_format,
+        d.tcg_domain AS tcg_domain,
+        d.is_registered AS is_registered,
+        d.is_competitive AS is_competitive,
+        d.created_at AS created_at,
+        dv.id AS active_version_id,
+        vi.id AS commander_card_id,
+        vi.name AS commander_name,
+        vi.image_url AS commander_image_url,
+        vi.dynamic_data AS commander_dynamic_data,
+        (SELECT COALESCE(SUM(dvi_count.quantity), 0) 
+         FROM deck_version_items dvi_count 
+         WHERE dvi_count.version_id = dv.id 
+           AND (dvi_count.is_deleted IS NULL OR dvi_count.is_deleted = 0)) AS total_card_count
+      FROM decks d
+      LEFT JOIN deck_versions dv 
+        ON dv.deck_id = d.id 
+       AND dv.is_active = 1 
+       AND (dv.is_deleted IS NULL OR dv.is_deleted = 0)
+      LEFT JOIN deck_version_items dvi 
+        ON dvi.version_id = dv.id 
+       AND dvi.board_zone = 'Commander' 
+       AND (dvi.is_deleted IS NULL OR dvi.is_deleted = 0)
+      LEFT JOIN vault_items vi 
+        ON vi.id = dvi.vault_item_id 
+       AND (vi.is_deleted IS NULL OR vi.is_deleted = 0)
+      WHERE (d.is_deleted IS NULL OR d.is_deleted = 0)
+      GROUP BY d.id
+      ORDER BY d.created_at DESC;
+    ''';
+
+    return customSelect(
+      querySql,
+      readsFrom: {decks, deckVersions, deckVersionItems, vaultItems},
+    ).watch().map((rows) {
+      return rows.map((row) {
+        return DeckSummary.fromRow(
+          id: row.read<String>('deck_id'),
+          name: row.read<String>('deck_name'),
+          format: row.read<String>('deck_format'),
+          tcgDomain: row.read<String?>('tcg_domain') ?? 'mtg',
+          isRegistered: row.read<bool?>('is_registered') ?? false,
+          isCompetitive: row.read<bool?>('is_competitive') ?? false,
+          createdAt: row.read<DateTime>('created_at'),
+          activeVersionId: row.read<String?>('active_version_id'),
+          commanderCardId: row.read<String?>('commander_card_id'),
+          commanderName: row.read<String?>('commander_name'),
+          commanderImageUrl: row.read<String?>('commander_image_url'),
+          commanderDynamicData: row.read<String?>('commander_dynamic_data'),
+          cardCount: row.read<int?>('total_card_count') ?? 0,
+        );
+      }).toList();
+    });
+  }
+
+  /// One-shot query for active deck summaries.
+  Future<List<DeckSummary>> getDeckSummaries() async {
+    const querySql = '''
+      SELECT 
+        d.id AS deck_id,
+        d.name AS deck_name,
+        d.format AS deck_format,
+        d.tcg_domain AS tcg_domain,
+        d.is_registered AS is_registered,
+        d.is_competitive AS is_competitive,
+        d.created_at AS created_at,
+        dv.id AS active_version_id,
+        vi.id AS commander_card_id,
+        vi.name AS commander_name,
+        vi.image_url AS commander_image_url,
+        vi.dynamic_data AS commander_dynamic_data,
+        (SELECT COALESCE(SUM(dvi_count.quantity), 0) 
+         FROM deck_version_items dvi_count 
+         WHERE dvi_count.version_id = dv.id 
+           AND (dvi_count.is_deleted IS NULL OR dvi_count.is_deleted = 0)) AS total_card_count
+      FROM decks d
+      LEFT JOIN deck_versions dv 
+        ON dv.deck_id = d.id 
+       AND dv.is_active = 1 
+       AND (dv.is_deleted IS NULL OR dv.is_deleted = 0)
+      LEFT JOIN deck_version_items dvi 
+        ON dvi.version_id = dv.id 
+       AND dvi.board_zone = 'Commander' 
+       AND (dvi.is_deleted IS NULL OR dvi.is_deleted = 0)
+      LEFT JOIN vault_items vi 
+        ON vi.id = dvi.vault_item_id 
+       AND (vi.is_deleted IS NULL OR vi.is_deleted = 0)
+      WHERE (d.is_deleted IS NULL OR d.is_deleted = 0)
+      GROUP BY d.id
+      ORDER BY d.created_at DESC;
+    ''';
+
+    final rows = await customSelect(
+      querySql,
+      readsFrom: {decks, deckVersions, deckVersionItems, vaultItems},
+    ).get();
+
+    return rows.map((row) {
+      return DeckSummary.fromRow(
+        id: row.read<String>('deck_id'),
+        name: row.read<String>('deck_name'),
+        format: row.read<String>('deck_format'),
+        tcgDomain: row.read<String?>('tcg_domain') ?? 'mtg',
+        isRegistered: row.read<bool?>('is_registered') ?? false,
+        isCompetitive: row.read<bool?>('is_competitive') ?? false,
+        createdAt: row.read<DateTime>('created_at'),
+        activeVersionId: row.read<String?>('active_version_id'),
+        commanderCardId: row.read<String?>('commander_card_id'),
+        commanderName: row.read<String?>('commander_name'),
+        commanderImageUrl: row.read<String?>('commander_image_url'),
+        commanderDynamicData: row.read<String?>('commander_dynamic_data'),
+        cardCount: row.read<int?>('total_card_count') ?? 0,
+      );
+    }).toList();
+  }
+
   /// Streams all decks
   Stream<List<Deck>> watchAllDecks() {
-    return select(decks).watch();
+    return (select(decks)..where((t) => t.isDeleted.equals(false))).watch();
+  }
+
+  /// Returns all active decks.
+  Future<List<Deck>> getAllDecks() {
+    return (select(decks)..where((t) => t.isDeleted.equals(false))).get();
+  }
+
+  /// Returns all active versions for a deck.
+  Future<List<DeckVersion>> getDeckVersions(String deckId) {
+    return (select(deckVersions)..where((t) => t.deckId.equals(deckId) & t.isDeleted.equals(false))).get();
+  }
+
+  /// Returns deck items with card data for active version.
+  Future<List<DeckItemWithCard>> getDeckItems(String deckId) async {
+    const querySql = '''
+      SELECT 
+        dvi.id as dvi_id, dvi.version_id, dvi.vault_item_id, dvi.quantity as deck_quantity, dvi.board_zone, dvi.is_proxy,
+        vi.id, vi.name, vi.set_or_series, vi.image_url, vi.dynamic_data, vi.current_market_price, vi.quantity as vault_quantity, vi.is_graded, vi.condition,
+        vi.acquired_price, vi.purchase_price, vi.acquired_date, vi.date_obtained, vi.notes, vi.protection_status
+      FROM deck_version_items dvi
+      INNER JOIN deck_versions dv ON dv.id = dvi.version_id
+      INNER JOIN decks d ON d.id = dv.deck_id
+      INNER JOIN vault_items vi ON vi.id = dvi.vault_item_id
+      WHERE dv.deck_id = ? AND dv.is_active = 1
+        AND dvi.is_deleted = 0 AND dv.is_deleted = 0 AND d.is_deleted = 0 AND vi.is_deleted = 0
+    ''';
+    final rows = await customSelect(
+      querySql,
+      variables: [Variable.withString(deckId)],
+      readsFrom: {decks, deckVersions, deckVersionItems, vaultItems},
+    ).get();
+    return rows.map((row) => DeckItemWithCard.fromRow(row.data)).toList();
   }
 
   /// Streams a single deck
   Stream<Deck> watchDeck(String id) {
-    return (select(decks)..where((t) => t.id.equals(id))).watchSingle();
+    return (select(decks)..where((t) => t.id.equals(id) & t.isDeleted.equals(false))).watchSingle();
   }
 
   /// Streams a single deck or null if not found
   Stream<Deck?> watchDeckOrNull(String id) {
-    return (select(decks)..where((t) => t.id.equals(id))).watchSingleOrNull();
+    return (select(decks)..where((t) => t.id.equals(id) & t.isDeleted.equals(false))).watchSingleOrNull();
   }
 
   /// Retrieves a single deck by ID or null if not found
   Future<Deck?> getDeck(String id) {
-    return (select(decks)..where((t) => t.id.equals(id))).getSingleOrNull();
+    return (select(decks)..where((t) => t.id.equals(id) & t.isDeleted.equals(false))).getSingleOrNull();
   }
 
   /// Streams deck items with vault item data for the active deck version
@@ -1884,14 +2457,16 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
         vi.acquired_price, vi.purchase_price, vi.acquired_date, vi.date_obtained, vi.notes, vi.protection_status
       FROM deck_version_items dvi
       INNER JOIN deck_versions dv ON dv.id = dvi.version_id
+      INNER JOIN decks d ON d.id = dv.deck_id
       INNER JOIN vault_items vi ON vi.id = dvi.vault_item_id
       WHERE dv.deck_id = ? AND dv.is_active = 1
+        AND dvi.is_deleted = 0 AND dv.is_deleted = 0 AND d.is_deleted = 0 AND vi.is_deleted = 0
     ''';
     
     return customSelect(
       querySql,
       variables: [Variable.withString(deckId)],
-      readsFrom: {deckVersionItems, deckVersions, vaultItems},
+      readsFrom: {deckVersionItems, deckVersions, decks, vaultItems},
     ).watch().map((rows) {
       return rows.map((row) => DeckItemWithCard.fromRow(row.data)).toList();
     });
@@ -1905,6 +2480,7 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
       INNER JOIN deck_versions dv ON dv.id = dvi.version_id
       INNER JOIN decks d ON d.id = dv.deck_id
       WHERE dvi.vault_item_id = ? AND dv.is_active = 1 AND dvi.is_proxy = 0
+        AND dvi.is_deleted = 0 AND dv.is_deleted = 0 AND d.is_deleted = 0
     ''';
 
     return customSelect(
@@ -1924,6 +2500,7 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
       INNER JOIN deck_versions dv ON dv.id = dvi.version_id
       INNER JOIN decks d ON d.id = dv.deck_id
       WHERE dv.is_active = 1 AND dvi.is_proxy = 0
+        AND dvi.is_deleted = 0 AND dv.is_deleted = 0 AND d.is_deleted = 0
     ''';
 
     return customSelect(
@@ -1940,24 +2517,38 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     });
   }
 
-  /// Streams deck versions history
+  /// Streams deck versions history for active decks
   Stream<List<DeckVersion>> watchDeckVersions(String deckId) {
-    return (select(deckVersions)
-          ..where((t) => t.deckId.equals(deckId))
-          ..orderBy([(t) => OrderingTerm(expression: t.createdAt, mode: OrderingMode.desc)]))
-        .watch();
+    final query = select(deckVersions).join([
+      innerJoin(decks, decks.id.equalsExp(deckVersions.deckId)),
+    ]);
+    query.where(
+      deckVersions.deckId.equals(deckId) &
+          deckVersions.isDeleted.equals(false) &
+          decks.isDeleted.equals(false),
+    );
+    query.orderBy([
+      OrderingTerm(
+          expression: deckVersions.createdAt, mode: OrderingMode.desc),
+    ]);
+    return query
+        .watch()
+        .map((rows) => rows.map((r) => r.readTable(deckVersions)).toList());
   }
 
   /// Streams deck matchups
   Stream<List<DeckMatchup>> watchDeckMatchups(String deckId) {
-    return (select(deckMatchups)..where((t) => t.deckId.equals(deckId))).watch();
+    return (select(deckMatchups)..where((t) => t.deckId.equals(deckId) & t.isDeleted.equals(false))).watch();
   }
   
   /// Update deck description
   Future<void> updateDeckDescription(String deckId, String description) async {
+    final now = DateTime.now();
     await (update(decks)..where((t) => t.id.equals(deckId))).write(DecksCompanion(
       description: Value(description),
+      updatedAt: Value(now),
     ));
+    await _recordSync('deck', deckId, 'UPDATE', timestamp: now);
   }
 
   /// Creates a deck with custom format, tcgDomain, and initial registration/competitive flags.
@@ -1968,6 +2559,7 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     bool isRegistered = false,
     bool isCompetitive = false,
   }) async {
+    final now = DateTime.now();
     final deckId = const Uuid().v4();
     final deck = DecksCompanion.insert(
       id: deckId,
@@ -1976,9 +2568,12 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
       tcgDomain: Value(tcgDomain),
       isRegistered: Value(isRegistered),
       isCompetitive: Value(isCompetitive),
-      createdAt: DateTime.now(),
+      createdAt: now,
+      isDeleted: const Value(false),
+      updatedAt: Value(now),
     );
     await into(decks).insert(deck);
+    await _recordSync('deck', deckId, 'INSERT', timestamp: now);
     
     final versionId = const Uuid().v4();
     final version = DeckVersionsCompanion.insert(
@@ -1986,9 +2581,12 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
       deckId: deckId,
       versionNumber: 1,
       isActive: const Value(true),
-      createdAt: DateTime.now(),
+      createdAt: now,
+      isDeleted: const Value(false),
+      updatedAt: Value(now),
     );
     await into(deckVersions).insert(version);
+    await _recordSync('deck_version', versionId, 'INSERT', timestamp: now);
     
     return (await (select(decks)..where((t) => t.id.equals(deckId))).getSingle());
   }
@@ -2002,9 +2600,10 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     String boardZone = 'Mainboard',
     int quantity = 1,
   }) async {
-    var version = await (select(deckVersions)..where((t) => t.deckId.equals(deckId) & t.isActive.equals(true))).getSingleOrNull();
+    final now = DateTime.now();
+    var version = await (select(deckVersions)..where((t) => t.deckId.equals(deckId) & t.isActive.equals(true) & t.isDeleted.equals(false))).getSingleOrNull();
     if (version == null) {
-      final existingDeck = await (select(decks)..where((t) => t.id.equals(deckId))).getSingleOrNull();
+      final existingDeck = await (select(decks)..where((t) => t.id.equals(deckId) & t.isDeleted.equals(false))).getSingleOrNull();
       if (existingDeck == null) {
         final mockMatch = MockDeckData.defaultDecks.where((d) => d.id == deckId).firstOrNull;
         final resolvedName = mockMatch?.name ?? 'Deck $deckId';
@@ -2019,8 +2618,11 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
           tcgDomain: Value(resolvedDomain),
           isRegistered: Value(resolvedRegistered),
           isCompetitive: Value(resolvedCompetitive),
-          createdAt: DateTime.now(),
+          createdAt: now,
+          isDeleted: const Value(false),
+          updatedAt: Value(now),
         ));
+        await _recordSync('deck', deckId, 'INSERT', timestamp: now);
       }
       final versionId = const Uuid().v4();
       await into(deckVersions).insert(DeckVersionsCompanion.insert(
@@ -2028,8 +2630,11 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
         deckId: deckId,
         versionNumber: 1,
         isActive: const Value(true),
-        createdAt: DateTime.now(),
+        createdAt: now,
+        isDeleted: const Value(false),
+        updatedAt: Value(now),
       ));
+      await _recordSync('deck_version', versionId, 'INSERT', timestamp: now);
       version = await (select(deckVersions)..where((t) => t.id.equals(versionId))).getSingle();
     }
 
@@ -2041,20 +2646,29 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
           t.versionId.equals(version!.id) &
           t.vaultItemId.equals(vaultItemId) &
           t.boardZone.equals(canonicalZone) &
-          t.isProxy.equals(isProxy)))
+          t.isProxy.equals(isProxy) &
+          t.isDeleted.equals(false)))
       .getSingleOrNull();
       
     if (existing != null) {
-      await update(deckVersionItems).replace(existing.copyWith(quantity: existing.quantity + quantity));
+      await update(deckVersionItems).replace(existing.copyWith(
+        quantity: existing.quantity + quantity,
+        updatedAt: Value(now),
+      ));
+      await _recordSync('deck_version_item', existing.id, 'UPDATE', timestamp: now);
     } else {
+      final newDviId = const Uuid().v4();
       await into(deckVersionItems).insert(DeckVersionItemsCompanion.insert(
-        id: const Uuid().v4(),
+        id: newDviId,
         versionId: version.id,
         vaultItemId: vaultItemId,
         quantity: Value(quantity),
         boardZone: canonicalZone,
         isProxy: Value(isProxy),
+        isDeleted: const Value(false),
+        updatedAt: Value(now),
       ));
+      await _recordSync('deck_version_item', newDviId, 'INSERT', timestamp: now);
     }
 
     await _syncItemDeckHistory(vaultItemId);
@@ -2086,6 +2700,7 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
       INNER JOIN deck_versions dv ON dv.id = dvi.version_id
       INNER JOIN decks d ON d.id = dv.deck_id
       WHERE dvi.vault_item_id = ? AND dv.is_active = 1 AND dvi.is_proxy = 0
+        AND dvi.is_deleted = 0 AND dv.is_deleted = 0 AND d.is_deleted = 0
       ORDER BY d.is_registered DESC
       LIMIT 1
       ''',
@@ -2095,12 +2710,23 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     
     if (row != null) {
       final itemId = row.data['item_id'] as String;
-      final existing = await (select(deckVersionItems)..where((t) => t.id.equals(itemId))).getSingleOrNull();
+      final existing = await (select(deckVersionItems)..where((t) => t.id.equals(itemId) & t.isDeleted.equals(false))).getSingleOrNull();
       if (existing != null) {
+        final now = DateTime.now();
         if (existing.quantity > 1) {
-          await update(deckVersionItems).replace(existing.copyWith(quantity: existing.quantity - 1));
+          await update(deckVersionItems).replace(existing.copyWith(
+            quantity: existing.quantity - 1,
+            updatedAt: Value(now),
+          ));
+          await _recordSync('deck_version_item', existing.id, 'UPDATE', timestamp: now);
         } else {
-          await delete(deckVersionItems).delete(existing);
+          await (update(deckVersionItems)..where((t) => t.id.equals(existing.id))).write(
+            DeckVersionItemsCompanion(
+              isDeleted: const Value(true),
+              updatedAt: Value(now),
+            ),
+          );
+          await _recordSync('deck_version_item', existing.id, 'DELETE', timestamp: now);
         }
       }
     }
@@ -2110,46 +2736,69 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
 
   /// Sets physical registration status of a deck (Draft vs Registered).
   Future<void> setDeckRegistered(String deckId, bool isRegistered) async {
+    final now = DateTime.now();
     await (update(decks)..where((t) => t.id.equals(deckId))).write(DecksCompanion(
       isRegistered: Value(isRegistered),
+      updatedAt: Value(now),
     ));
+    await _recordSync('deck', deckId, 'UPDATE', timestamp: now);
   }
 
   /// Sets competitive status of a deck (Tournament vs Casual).
   Future<void> setDeckCompetitive(String deckId, bool isCompetitive) async {
+    final now = DateTime.now();
     await (update(decks)..where((t) => t.id.equals(deckId))).write(DecksCompanion(
       isCompetitive: Value(isCompetitive),
+      updatedAt: Value(now),
     ));
+    await _recordSync('deck', deckId, 'UPDATE', timestamp: now);
   }
 
   /// Swaps physical printing assigned to a deck version item.
   /// Consolidates duplicate rows if the target printing is already present in the same zone,
   /// and synchronizes dynamicData['deck_history'] for both the former and replacement items.
   Future<void> swapDeckItemPrinting(String dviId, String newVaultItemId) async {
-    final currentDvi = await (select(deckVersionItems)..where((t) => t.id.equals(dviId))).getSingleOrNull();
+    final currentDvi = await (select(deckVersionItems)..where((t) => t.id.equals(dviId) & t.isDeleted.equals(false))).getSingleOrNull();
     if (currentDvi == null) return;
     final oldVaultItemId = currentDvi.vaultItemId;
     if (oldVaultItemId == newVaultItemId) return;
 
+    final now = DateTime.now();
     // Check if target item already exists in the same version, zone, and proxy status
     final existingTarget = await (select(deckVersionItems)
       ..where((t) =>
           t.versionId.equals(currentDvi.versionId) &
           t.vaultItemId.equals(newVaultItemId) &
           t.boardZone.equals(currentDvi.boardZone) &
-          t.isProxy.equals(currentDvi.isProxy)))
+          t.isProxy.equals(currentDvi.isProxy) &
+          t.isDeleted.equals(false)))
       .getSingleOrNull();
 
     if (existingTarget != null) {
-      // Merge quantities and remove the duplicate row
+      // Merge quantities and soft delete the duplicate row
       await (update(deckVersionItems)..where((t) => t.id.equals(existingTarget.id))).write(
-        DeckVersionItemsCompanion(quantity: Value(existingTarget.quantity + currentDvi.quantity)),
+        DeckVersionItemsCompanion(
+          quantity: Value(existingTarget.quantity + currentDvi.quantity),
+          updatedAt: Value(now),
+        ),
       );
-      await (delete(deckVersionItems)..where((t) => t.id.equals(dviId))).go();
+      await _recordSync('deck_version_item', existingTarget.id, 'UPDATE', timestamp: now);
+
+      await (update(deckVersionItems)..where((t) => t.id.equals(dviId))).write(
+        DeckVersionItemsCompanion(
+          isDeleted: const Value(true),
+          updatedAt: Value(now),
+        ),
+      );
+      await _recordSync('deck_version_item', dviId, 'DELETE', timestamp: now);
     } else {
       await (update(deckVersionItems)..where((t) => t.id.equals(dviId))).write(
-        DeckVersionItemsCompanion(vaultItemId: Value(newVaultItemId)),
+        DeckVersionItemsCompanion(
+          vaultItemId: Value(newVaultItemId),
+          updatedAt: Value(now),
+        ),
       );
+      await _recordSync('deck_version_item', dviId, 'UPDATE', timestamp: now);
     }
 
     // Synchronize deck history for both old and new vault items
@@ -2168,7 +2817,7 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     final cleanFirstFace = clean.contains('//') ? clean.split('//').first.trim() : clean;
 
     final items = await (select(vaultItems)
-      ..where((t) => t.quantity.isBiggerThanValue(0))
+      ..where((t) => t.isDeleted.equals(false) & t.quantity.isBiggerThanValue(0))
       ..orderBy([(t) => OrderingTerm(expression: t.setOrSeries, mode: OrderingMode.asc)]))
       .get();
 
@@ -2250,9 +2899,13 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
         WHERE dv.is_active = 1
           AND dvi.is_proxy = 0
           AND d.is_registered = 1
+          AND dvi.is_deleted = 0
+          AND dv.is_deleted = 0
+          AND d.is_deleted = 0
         GROUP BY dvi.vault_item_id
       ) alloc ON alloc.vault_item_id = vi.id
       WHERE vi.quantity > 0
+        AND vi.is_deleted = 0
         $excludeClause
         AND (
           LOWER(vi.name) = ?
@@ -2305,7 +2958,7 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     String? treatment,
     Map<String, dynamic>? extraDynamicData,
   }) async {
-    final existing = await (select(vaultItems)..where((t) => t.id.equals(id))).getSingleOrNull();
+    final existing = await (select(vaultItems)..where((t) => t.id.equals(id) & t.isDeleted.equals(false))).getSingleOrNull();
     if (existing == null) {
       throw StateError('VaultItem with id "$id" not found.');
     }
@@ -2350,15 +3003,18 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
         ? '$setName ($treatment)'
         : setName;
 
+    final now = DateTime.now();
     await (update(vaultItems)..where((t) => t.id.equals(id))).write(
       VaultItemsCompanion(
         setOrSeries: Value(updatedSetOrSeries),
         imageUrl: Value(imageUrl.isNotEmpty ? imageUrl : existing.imageUrl),
         currentMarketPrice: Value(marketPrice > 0 ? marketPrice : existing.currentMarketPrice),
-        lastPriceUpdate: Value(DateTime.now()),
+        lastPriceUpdate: Value(now),
         dynamicData: Value(jsonEncode(data)),
+        updatedAt: Value(now),
       ),
     );
+    await _recordSync('vault_item', id, 'UPDATE', timestamp: now);
 
     return (select(vaultItems)..where((t) => t.id.equals(id))).getSingle();
   }
@@ -2371,15 +3027,16 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
 
     final items = await (select(vaultItems)
       ..where((t) =>
-          t.name.lower().equals(clean) |
+          t.isDeleted.equals(false) &
+          (t.name.lower().equals(clean) |
           t.name.lower().equals(cleanFirstFace) |
-          (t.flavorName.isNotNull() & t.flavorName.lower().equals(clean)))
+          (t.flavorName.isNotNull() & t.flavorName.lower().equals(clean))))
       ..orderBy([(t) => OrderingTerm(expression: t.setOrSeries, mode: OrderingMode.asc)]))
       .get();
 
     if (oracleId != null && oracleId.isNotEmpty) {
       final allMatchingOracle = await (select(vaultItems)
-        ..where((t) => t.dynamicData.like('%"oracle_id":"$oracleId"%'))
+        ..where((t) => t.isDeleted.equals(false) & t.dynamicData.like('%"oracle_id":"$oracleId"%'))
         ..orderBy([(t) => OrderingTerm(expression: t.setOrSeries, mode: OrderingMode.asc)]))
         .get();
       final seenIds = items.map((e) => e.id).toSet();
@@ -2396,7 +3053,7 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
 
   /// Resolves an assembly plan for a deck with physical inventory and binder breakdown.
   Future<DeckAssemblyPlan> getDeckAssemblyPlan(String deckId) async {
-    final deck = await (select(decks)..where((t) => t.id.equals(deckId))).getSingleOrNull();
+    final deck = await (select(decks)..where((t) => t.id.equals(deckId) & t.isDeleted.equals(false))).getSingleOrNull();
     final deckName = deck?.name ?? 'Deck $deckId';
 
     final querySql = '''
@@ -2426,10 +3083,17 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
         WHERE dv2.is_active = 1
           AND dvi2.is_proxy = 0
           AND d2.is_registered = 1
+          AND dvi2.is_deleted = 0
+          AND dv2.is_deleted = 0
+          AND d2.is_deleted = 0
           AND d2.id != ?
         GROUP BY dvi2.vault_item_id
       ) other_alloc ON other_alloc.vault_item_id = dvi.vault_item_id
       WHERE dv.deck_id = ? AND dv.is_active = 1
+        AND dvi.is_deleted = 0
+        AND dv.is_deleted = 0
+        AND vi.is_deleted = 0
+        AND (vb.is_deleted IS NULL OR vb.is_deleted = 0)
     ''';
 
     final rows = await customSelect(
@@ -2504,50 +3168,66 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     required String deckId,
     required List<AssemblyPickItem> items,
   }) async {
+    final now = DateTime.now();
     final version = await (select(deckVersions)
-      ..where((t) => t.deckId.equals(deckId) & t.isActive.equals(true)))
+      ..where((t) => t.deckId.equals(deckId) & t.isActive.equals(true) & t.isDeleted.equals(false)))
       .getSingleOrNull();
 
     if (version != null) {
       for (final item in items) {
         if (item.hasDeficit) {
           final existingDvi = await (select(deckVersionItems)
-            ..where((t) => t.id.equals(item.dviId)))
+            ..where((t) => t.id.equals(item.dviId) & t.isDeleted.equals(false)))
             .getSingleOrNull();
 
           if (existingDvi != null) {
             if (existingDvi.quantity <= item.deficitQuantity) {
               // Full deficit: mark row as proxy
               await (update(deckVersionItems)..where((t) => t.id.equals(existingDvi.id)))
-                  .write(const DeckVersionItemsCompanion(isProxy: Value(true)));
+                  .write(DeckVersionItemsCompanion(
+                    isProxy: const Value(true),
+                    updatedAt: Value(now),
+                  ));
+              await _recordSync('deck_version_item', existingDvi.id, 'UPDATE', timestamp: now);
             } else {
               // Partial deficit: split row
               final physicalQty = existingDvi.quantity - item.deficitQuantity;
               await (update(deckVersionItems)..where((t) => t.id.equals(existingDvi.id)))
-                  .write(DeckVersionItemsCompanion(quantity: Value(physicalQty)));
+                  .write(DeckVersionItemsCompanion(
+                    quantity: Value(physicalQty),
+                    updatedAt: Value(now),
+                  ));
+              await _recordSync('deck_version_item', existingDvi.id, 'UPDATE', timestamp: now);
 
               final existingProxy = await (select(deckVersionItems)
                 ..where((t) =>
                     t.versionId.equals(version.id) &
                     t.vaultItemId.equals(existingDvi.vaultItemId) &
                     t.boardZone.equals(existingDvi.boardZone) &
-                    t.isProxy.equals(true)))
+                    t.isProxy.equals(true) &
+                    t.isDeleted.equals(false)))
                 .getSingleOrNull();
 
               if (existingProxy != null) {
                 await (update(deckVersionItems)..where((t) => t.id.equals(existingProxy.id)))
                     .write(DeckVersionItemsCompanion(
                       quantity: Value(existingProxy.quantity + item.deficitQuantity),
+                      updatedAt: Value(now),
                     ));
+                await _recordSync('deck_version_item', existingProxy.id, 'UPDATE', timestamp: now);
               } else {
+                final proxyDviId = const Uuid().v4();
                 await into(deckVersionItems).insert(DeckVersionItemsCompanion.insert(
-                  id: const Uuid().v4(),
+                  id: proxyDviId,
                   versionId: version.id,
                   vaultItemId: existingDvi.vaultItemId,
                   quantity: Value(item.deficitQuantity),
                   boardZone: existingDvi.boardZone,
                   isProxy: const Value(true),
+                  isDeleted: const Value(false),
+                  updatedAt: Value(now),
                 ));
+                await _recordSync('deck_version_item', proxyDviId, 'INSERT', timestamp: now);
               }
             }
           }
@@ -2565,14 +3245,16 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
         SELECT dv.deck_id, COALESCE(SUM(dvi.quantity), 0) AS total_qty
         FROM deck_version_items dvi
         INNER JOIN deck_versions dv ON dv.id = dvi.version_id
+        INNER JOIN decks d ON d.id = dv.deck_id
         WHERE dvi.vault_item_id = ? AND dv.is_active = 1
+          AND dvi.is_deleted = 0 AND dv.is_deleted = 0 AND d.is_deleted = 0
         GROUP BY dv.deck_id
       ''';
 
       final rows = await customSelect(
         querySql,
         variables: [Variable.withString(vaultItemId)],
-        readsFrom: {deckVersionItems, deckVersions},
+        readsFrom: {deckVersionItems, deckVersions, decks},
       ).get();
 
       final map = <String, int>{};
@@ -2587,7 +3269,7 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     Stream<Map<String, int>> generate() async* {
       yield await fetch();
       final updates = attachedDatabase.tableUpdates(
-        TableUpdateQuery.onAllTables([deckVersionItems, deckVersions]),
+        TableUpdateQuery.onAllTables([deckVersionItems, deckVersions, decks]),
       );
       await for (final _ in updates) {
         yield await fetch();
@@ -2616,12 +3298,13 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
       return;
     }
 
+    final now = DateTime.now();
     var version = await (select(deckVersions)
-          ..where((t) => t.deckId.equals(deckId) & t.isActive.equals(true)))
+          ..where((t) => t.deckId.equals(deckId) & t.isActive.equals(true) & t.isDeleted.equals(false)))
         .getSingleOrNull();
 
     if (version == null) {
-      final existingDeck = await (select(decks)..where((t) => t.id.equals(deckId))).getSingleOrNull();
+      final existingDeck = await (select(decks)..where((t) => t.id.equals(deckId) & t.isDeleted.equals(false))).getSingleOrNull();
       if (existingDeck == null) {
         final mockMatch = MockDeckData.defaultDecks.where((d) => d.id == deckId).firstOrNull;
         final resolvedName = mockMatch?.name ?? 'Deck $deckId';
@@ -2636,8 +3319,11 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
           tcgDomain: Value(resolvedDomain),
           isRegistered: Value(resolvedRegistered),
           isCompetitive: Value(resolvedCompetitive),
-          createdAt: DateTime.now(),
+          createdAt: now,
+          isDeleted: const Value(false),
+          updatedAt: Value(now),
         ));
+        await _recordSync('deck', deckId, 'INSERT', timestamp: now);
       }
       final versionId = const Uuid().v4();
       await into(deckVersions).insert(DeckVersionsCompanion.insert(
@@ -2645,8 +3331,11 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
         deckId: deckId,
         versionNumber: 1,
         isActive: const Value(true),
-        createdAt: DateTime.now(),
+        createdAt: now,
+        isDeleted: const Value(false),
+        updatedAt: Value(now),
       ));
+      await _recordSync('deck_version', versionId, 'INSERT', timestamp: now);
       version = await (select(deckVersions)..where((t) => t.id.equals(versionId))).getSingle();
     }
 
@@ -2656,22 +3345,31 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
           t.versionId.equals(version!.id) &
           t.vaultItemId.equals(vaultItemId) &
           t.boardZone.equals(canonicalZone) &
-          t.isProxy.equals(isProxy)))
+          t.isProxy.equals(isProxy) &
+          t.isDeleted.equals(false)))
       .getSingleOrNull();
 
     if (existing != null) {
       await (update(deckVersionItems)..where((t) => t.id.equals(existing.id))).write(
-        DeckVersionItemsCompanion(quantity: Value(newQuantity)),
+        DeckVersionItemsCompanion(
+          quantity: Value(newQuantity),
+          updatedAt: Value(now),
+        ),
       );
+      await _recordSync('deck_version_item', existing.id, 'UPDATE', timestamp: now);
     } else {
+      final newDviId = const Uuid().v4();
       await into(deckVersionItems).insert(DeckVersionItemsCompanion.insert(
-        id: const Uuid().v4(),
-        versionId: version.id,
+        id: newDviId,
+        versionId: version!.id,
         vaultItemId: vaultItemId,
         quantity: Value(newQuantity),
         boardZone: canonicalZone,
         isProxy: Value(isProxy),
+        isDeleted: const Value(false),
+        updatedAt: Value(now),
       ));
+      await _recordSync('deck_version_item', newDviId, 'INSERT', timestamp: now);
     }
 
     await _syncItemDeckHistory(vaultItemId);
@@ -2686,7 +3384,7 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     bool? isProxy,
   }) async {
     final version = await (select(deckVersions)
-          ..where((t) => t.deckId.equals(deckId) & t.isActive.equals(true)))
+          ..where((t) => t.deckId.equals(deckId) & t.isActive.equals(true) & t.isDeleted.equals(false)))
         .getSingleOrNull();
     if (version == null) return;
 
@@ -2695,7 +3393,8 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
       ..where((t) =>
           t.versionId.equals(version.id) &
           t.vaultItemId.equals(vaultItemId) &
-          t.boardZone.equals(canonicalZone));
+          t.boardZone.equals(canonicalZone) &
+          t.isDeleted.equals(false));
     if (isProxy != null) {
       query.where((t) => t.isProxy.equals(isProxy));
     }
@@ -2703,17 +3402,29 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     final items = await query.get();
     if (items.isEmpty) return;
 
+    final now = DateTime.now();
     int remaining = quantity;
     for (final item in items) {
       if (remaining <= 0) break;
       if (item.quantity > remaining) {
         await (update(deckVersionItems)..where((t) => t.id.equals(item.id))).write(
-          DeckVersionItemsCompanion(quantity: Value(item.quantity - remaining)),
+          DeckVersionItemsCompanion(
+            quantity: Value(item.quantity - remaining),
+            updatedAt: Value(now),
+          ),
         );
+        await _recordSync('deck_version_item', item.id, 'UPDATE', timestamp: now);
         remaining = 0;
       } else {
         remaining -= item.quantity;
-        await (delete(deckVersionItems)..where((t) => t.id.equals(item.id))).go();
+        // Soft delete D6: mark isDeleted = true instead of hard delete
+        await (update(deckVersionItems)..where((t) => t.id.equals(item.id))).write(
+          DeckVersionItemsCompanion(
+            isDeleted: const Value(true),
+            updatedAt: Value(now),
+          ),
+        );
+        await _recordSync('deck_version_item', item.id, 'DELETE', timestamp: now);
       }
     }
 
@@ -2729,6 +3440,7 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
       INNER JOIN deck_versions dv ON dv.id = dvi.version_id
       INNER JOIN decks d ON d.id = dv.deck_id
       WHERE dvi.vault_item_id = ? AND dv.is_active = 1
+        AND dvi.is_deleted = 0 AND dv.is_deleted = 0 AND d.is_deleted = 0
       ''',
       variables: [Variable.withString(vaultItemId)],
       readsFrom: {deckVersionItems, deckVersions, decks},

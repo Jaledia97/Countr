@@ -62,7 +62,7 @@ void main() {
       isGraded: false,
       isAltered: false,
       isMisprint: false,
-      isSigned: false,
+      isSigned: false, isDeleted: false,
       currentMarketPrice: price,
       lastPriceUpdate: DateTime(2023, 5, 10),
       dynamicData: dynamicData ??
@@ -231,17 +231,13 @@ void main() {
 
       // Section 3: Physical Provenance
       expect(find.byKey(const Key('section_physical_provenance')), findsOneWidget);
-      expect(find.byKey(const Key('card_detail_protection_status_dropdown')), findsOneWidget);
-      expect(find.byKey(const Key('card_detail_binder_page_input')), findsOneWidget);
-      expect(find.byKey(const Key('card_detail_binder_slot_input')), findsOneWidget);
-      expect(find.byKey(const Key('card_detail_notes_input')), findsOneWidget);
-      expect(find.byKey(const Key('card_detail_save_notes_button')), findsOneWidget);
+      expect(find.byKey(const Key('card_detail_edit_card_button')), findsOneWidget);
+      expect(find.text('Sleeved'), findsOneWidget);
 
       // Section 4: Acquisition Tracking
       expect(find.byKey(const Key('section_acquisition_tracking')), findsOneWidget);
-      expect(find.byKey(const Key('card_detail_date_obtained_button')), findsOneWidget);
+      expect(find.textContaining('Date Obtained:'), findsOneWidget);
       expect(find.text('Acquired Price'), findsOneWidget);
-      expect(find.byKey(const Key('card_detail_purchase_price_input')), findsOneWidget);
 
       // Section 5: Metadata & Pedigree
       expect(find.byKey(const Key('section_metadata_pedigree')), findsOneWidget);
@@ -251,9 +247,9 @@ void main() {
       expect(find.byKey(const Key('frame_badge_showcase')), findsOneWidget);
       expect(find.byKey(const Key('frame_badge_etched_foil')), findsOneWidget);
 
-      // Section 6: Deck History & Tags
+      // Section 6: Deck History & Assignment Ledger
       expect(find.byKey(const Key('section_deck_history')), findsOneWidget);
-      expect(find.byKey(const Key('button_add_edit_in_decks')), findsOneWidget);
+      expect(find.byKey(const Key('card_history_ledger')), findsOneWidget);
     });
 
     testWidgets('Values tab respects Privacy Mode with LockedValuesView and unlock action', (tester) async {

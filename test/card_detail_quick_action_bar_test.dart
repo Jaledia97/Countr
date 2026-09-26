@@ -35,6 +35,7 @@ void main() {
     bool isAltered = false,
     bool isMisprint = false,
     bool isSigned = false,
+    bool isDeleted = false,
     String dynamicData = '{"deck_history":[]}',
   }) {
     return VaultItem(
@@ -51,6 +52,7 @@ void main() {
       isAltered: isAltered,
       isMisprint: isMisprint,
       isSigned: isSigned,
+      isDeleted: isDeleted,
       currentMarketPrice: currentMarketPrice,
       lastPriceUpdate: DateTime.now(),
       dynamicData: dynamicData,
@@ -73,6 +75,7 @@ void main() {
             isAltered: drift.Value(item.isAltered),
             isMisprint: drift.Value(item.isMisprint),
             isSigned: drift.Value(item.isSigned),
+            isDeleted: drift.Value(item.isDeleted),
             currentMarketPrice: item.currentMarketPrice,
             lastPriceUpdate: item.lastPriceUpdate,
             dynamicData: item.dynamicData,
@@ -128,9 +131,10 @@ void main() {
       // Verify Quick Action Bar exists
       expect(find.byKey(const Key('card_detail_quick_action_bar')), findsOneWidget);
 
-      // Verify all 5 action buttons render
+      // Verify standard actions render in Vault context
       expect(find.byKey(const Key('quick_action_delete')), findsOneWidget);
-      expect(find.byKey(const Key('quick_action_fullscreen')), findsOneWidget);
+      expect(find.byKey(const Key('quick_action_fullscreen')), findsNothing);
+      expect(find.byKey(const Key('card_art_expand_overlay')), findsOneWidget);
       expect(find.byKey(const Key('quick_action_add_to_deck')), findsOneWidget);
       expect(find.byKey(const Key('quick_action_share')), findsOneWidget);
       expect(find.byKey(const Key('quick_action_edit')), findsOneWidget);
@@ -196,8 +200,8 @@ void main() {
       await tester.tap(find.byKey(const Key('open_sheet_button')));
       await tester.pumpAndSettle();
 
-      // Tap Full Screen action
-      await tester.tap(find.byKey(const Key('quick_action_fullscreen')));
+      // Tap Full Screen overlay on card artwork
+      await tester.tap(find.byKey(const Key('card_art_expand_overlay')));
       await tester.pumpAndSettle();
 
       // Verify FullScreenCardViewer is mounted

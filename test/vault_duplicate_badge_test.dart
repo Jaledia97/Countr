@@ -41,7 +41,7 @@ void main() {
       primaryBinderId: null,
       isAltered: false,
       isMisprint: false,
-      isSigned: false,
+      isSigned: false, isDeleted: false,
     );
   }
 

@@ -13,6 +13,7 @@ abstract class AppColors {
 
   // Collector Accents
   static const Color accentAmber = Color(0xFFFF7A00); // Gold / Fire / Rare
+  static const Color accentGold = accentAmber;
   static const Color accentAmberLight = Color(0xFFFF9E40);
   static const Color accentViolet = Color(0xFF7B61FF); // Magic / Mythic
   static const Color accentVioletLight = Color(0xFF9B87FF);

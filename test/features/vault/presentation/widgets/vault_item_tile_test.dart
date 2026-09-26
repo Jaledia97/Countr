@@ -33,7 +33,7 @@ void main() {
       isGraded: isGraded,
       isAltered: false,
       isMisprint: false,
-      isSigned: false,
+      isSigned: false, isDeleted: false,
       personalNotes: null,
       primaryBinderId: null,
       currentMarketPrice: price,

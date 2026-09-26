@@ -58,6 +58,12 @@ class VaultItems extends Table {
   // The Polymorphic Engine (Stringified JSON payload for item-specific attributes)
   TextColumn get dynamicData => text().named('dynamic_data')();
 
+  // Soft Delete & Outbox Sync (v9)
+  BoolColumn get isDeleted =>
+      boolean().named('is_deleted').withDefault(const Constant(false))();
+  DateTimeColumn get updatedAt =>
+      dateTime().named('updated_at').nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }

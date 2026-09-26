@@ -77,7 +77,7 @@ void main() {
       createdAt: DateTime.now(),
       tcgDomain: 'mtg',
       isRegistered: false,
-      isCompetitive: false,
+      isCompetitive: false, isDeleted: false,
     );
 
     return ProviderScope(

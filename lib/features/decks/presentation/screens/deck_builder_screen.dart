@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:countr/core/constants/app_colors.dart';
+import 'package:countr/core/cache/countr_cached_image.dart';
 import 'package:countr/core/database/app_database.dart';
 import 'package:countr/features/decks/presentation/providers/deck_providers.dart';
 import 'package:countr/features/decks/presentation/widgets/proportional_bubble_scrollbar.dart';
@@ -12,7 +13,11 @@ import 'package:countr/features/decks/domain/deck_io_parser.dart';
 import 'package:countr/features/decks/presentation/screens/deck_metadata_screen.dart';
 import 'package:countr/features/symbology/presentation/widgets/mana_cost_bar.dart';
 import 'package:countr/core/state/settings_state.dart';
+import 'package:countr/core/cache/parsed_json_cache.dart';
 import 'package:countr/features/vault/presentation/widgets/card_detail_sheet.dart';
+import 'package:countr/features/vault/presentation/providers/vault_providers.dart';
+import 'package:countr/features/symbology/presentation/widgets/mana_text.dart';
+import 'package:countr/features/decks/presentation/widgets/deck_swap_printing_sheet.dart';
 import 'package:countr/features/decks/domain/models/deck_item_with_card.dart';
 import 'package:countr/features/values/presentation/widgets/locked_values_view.dart';
 import 'package:countr/features/values/presentation/widgets/pareto_distribution_widget.dart';
@@ -117,6 +122,8 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
               purchasePrice: (map['purchase_price'] as num?)?.toDouble(),
               notes: map['notes'] as String?,
               protectionStatus: map['protection_status'] as String? ?? 'Sleeved',
+              isDeleted: map['is_deleted'] == 1 || map['is_deleted'] == true,
+              updatedAt: map['updated_at'] is DateTime ? map['updated_at'] as DateTime : null,
             );
           }).toList();
 
@@ -210,13 +217,15 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
                   right: 4,
                   top: 100,
                   bottom: 24,
-                  child: ProportionalBubbleScrollbar(
-                    sections: sections,
-                    railWidth: 26,
-                    railColor: Colors.black26,
-                    bubbleColor: AppColors.accentCyan,
-                    onSectionTap: (idx) =>
-                        _scrollToSection(idx, sectionOffsets),
+                  child: RepaintBoundary(
+                    child: ProportionalBubbleScrollbar(
+                      sections: sections,
+                      railWidth: 26,
+                      railColor: Colors.black26,
+                      bubbleColor: AppColors.accentCyan,
+                      onSectionTap: (idx) =>
+                          _scrollToSection(idx, sectionOffsets),
+                    ),
                   ),
                 ),
             ],
@@ -846,93 +855,113 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
 
   Widget _buildCardTile(Map<String, dynamic> item, {List<VaultItem>? allDeckCards}) {
     final isPrivacyMode = ref.watch(privacyModeProvider);
-    final isProxy = item['is_proxy'] == 1;
+    final isProxy = item['is_proxy'] == 1 || item['is_proxy'] == true;
     final name = item['name'] as String? ?? 'Unknown Card';
-    final qty = item['deck_quantity'] as int? ?? 1;
+    final qty = item['deck_quantity'] as int? ?? (item['quantity'] as int? ?? 1);
     final price = (item['current_market_price'] as num?)?.toDouble() ?? 0.0;
     final setCode = item['set_or_series'] as String? ?? '';
     final imageUrl = item['image_url'] as String? ?? '';
 
     String? manaCost;
     String? typeLine;
+    String? oracleText;
     final dynStr = item['dynamic_data'] as String?;
     if (dynStr != null && dynStr.isNotEmpty) {
-      try {
-        final data = jsonDecode(dynStr) as Map<String, dynamic>;
+      final data = ParsedJsonCache.parse(dynStr);
+      if (data.isNotEmpty) {
         manaCost = data['mana_cost'] as String?;
         typeLine = data['type_line'] as String?;
-      } catch (_) {}
+        oracleText = data['oracle_text'] as String?;
+        if ((oracleText == null || oracleText.isEmpty) &&
+            data['card_faces'] is List &&
+            (data['card_faces'] as List).isNotEmpty) {
+          final faces = data['card_faces'] as List;
+          final faceTexts = <String>[];
+          for (final f in faces) {
+            if (f is Map && f['oracle_text'] != null) {
+              faceTexts.add(f['oracle_text'].toString());
+            }
+          }
+          if (faceTexts.isNotEmpty) {
+            oracleText = faceTexts.join('\n//\n');
+          }
+        }
+      }
     }
 
-    final subtitleText = [
-      if (setCode.isNotEmpty) setCode.toUpperCase(),
-      if (typeLine != null && typeLine.isNotEmpty) typeLine,
-    ].join(' • ');
+    final subtitleParts = <String>[];
+    if (setCode.isNotEmpty) subtitleParts.add(setCode.toUpperCase());
+    if (typeLine != null && typeLine.isNotEmpty) subtitleParts.add(typeLine);
+    final subtitleText = subtitleParts.join(' • ');
 
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: isProxy
-              ? Colors.redAccent.withValues(alpha: 0.4)
-              : AppColors.surfaceBorderSubtle,
+    void openDetail() {
+      final id = item['id'] as String? ?? 'item-${item.hashCode}';
+      final effectiveDeckCards = allDeckCards ?? [];
+      final targetIndex = effectiveDeckCards.indexWhere((c) => c.id == id);
+      final VaultItem targetItem = targetIndex >= 0
+          ? effectiveDeckCards[targetIndex]
+          : (item is DeckItemWithCard
+              ? item.toVaultItem()
+              : VaultItem(
+                  id: id,
+                  name: item['name'] as String? ?? 'Unknown Card',
+                  setOrSeries: item['set_or_series'] as String? ?? 'MTG',
+                  imageUrl: item['image_url'] as String? ?? '',
+                  quantity: (item['vault_quantity'] as num?)?.toInt() ?? 1,
+                  dynamicData: item['dynamic_data'] as String? ?? '',
+                  collectionType: item['collection_type'] as String? ?? 'mtg',
+                  acquiredPrice: (item['acquired_price'] as num?)?.toDouble() ?? 0.0,
+                  acquiredDate: DateTime.now(),
+                  lastPriceUpdate: DateTime.now(),
+                  currentMarketPrice: (item['current_market_price'] as num?)?.toDouble() ?? 0.0,
+                  isGraded: item['is_graded'] == 1 || item['is_graded'] == true,
+                  condition: item['condition'] as String? ?? 'NM',
+                  isAltered: item['is_altered'] == 1 || item['is_altered'] == true,
+                  isMisprint: item['is_misprint'] == 1 || item['is_misprint'] == true,
+                  isSigned: item['is_signed'] == 1 || item['is_signed'] == true,
+                  dateObtained: item['date_obtained'] is DateTime
+                      ? item['date_obtained'] as DateTime
+                      : null,
+                  purchasePrice: (item['purchase_price'] as num?)?.toDouble(),
+                  notes: item['notes'] as String?,
+                  protectionStatus: item['protection_status'] as String? ?? 'Sleeved',
+                  isDeleted: item['is_deleted'] == 1 || item['is_deleted'] == true,
+                  updatedAt: item['updated_at'] is DateTime ? item['updated_at'] as DateTime : null,
+                ));
+      CardDetailSheet.show(
+        context,
+        targetItem,
+        items: effectiveDeckCards.isNotEmpty ? effectiveDeckCards : [targetItem],
+        initialIndex: targetIndex >= 0 ? targetIndex : 0,
+        deckId: widget.deck.id,
+        deck: widget.deck,
+      );
+    }
+
+    return RepaintBoundary(
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isProxy
+                ? Colors.redAccent.withValues(alpha: 0.4)
+                : AppColors.surfaceBorderSubtle,
+          ),
         ),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(8),
-        onTap: () {
-          final id = item['id'] as String? ?? 'item-${item.hashCode}';
-          final effectiveDeckCards = allDeckCards ?? [];
-          final targetIndex = effectiveDeckCards.indexWhere((c) => c.id == id);
-          final VaultItem targetItem = targetIndex >= 0
-              ? effectiveDeckCards[targetIndex]
-              : (item is DeckItemWithCard
-                  ? item.toVaultItem()
-                  : VaultItem(
-                      id: id,
-                      name: item['name'] as String? ?? 'Unknown Card',
-                      setOrSeries: item['set_or_series'] as String? ?? 'MTG',
-                      imageUrl: item['image_url'] as String? ?? '',
-                      quantity: (item['vault_quantity'] as num?)?.toInt() ?? 1,
-                      dynamicData: item['dynamic_data'] as String? ?? '',
-                      collectionType: item['collection_type'] as String? ?? 'mtg',
-                      acquiredPrice: (item['acquired_price'] as num?)?.toDouble() ?? 0.0,
-                      acquiredDate: DateTime.now(),
-                      lastPriceUpdate: DateTime.now(),
-                      currentMarketPrice: (item['current_market_price'] as num?)?.toDouble() ?? 0.0,
-                      isGraded: item['is_graded'] == 1 || item['is_graded'] == true,
-                      condition: item['condition'] as String? ?? 'NM',
-                      isAltered: item['is_altered'] == 1 || item['is_altered'] == true,
-                      isMisprint: item['is_misprint'] == 1 || item['is_misprint'] == true,
-                      isSigned: item['is_signed'] == 1 || item['is_signed'] == true,
-                      dateObtained: item['date_obtained'] is DateTime
-                          ? item['date_obtained'] as DateTime
-                          : null,
-                      purchasePrice: (item['purchase_price'] as num?)?.toDouble(),
-                      notes: item['notes'] as String?,
-                      protectionStatus: item['protection_status'] as String? ?? 'Sleeved',
-                    ));
-          CardDetailSheet.show(
-            context,
-            targetItem,
-            items: effectiveDeckCards.isNotEmpty ? effectiveDeckCards : [targetItem],
-            initialIndex: targetIndex >= 0 ? targetIndex : 0,
-            deckId: widget.deck.id,
-            deck: widget.deck,
-          );
-        },
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              // 1. Leading thumbnail Stack (fixed 38x50)
-              Stack(
-                alignment: Alignment.center,
-                children: [
-                  Container(
+        child: Theme(
+          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+          child: ExpansionTile(
+            tilePadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+            childrenPadding: EdgeInsets.zero,
+            leading: Stack(
+              alignment: Alignment.center,
+              children: [
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: openDetail,
+                  child: Container(
                     width: 38,
                     height: 50,
                     decoration: BoxDecoration(
@@ -940,17 +969,14 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
                       color: AppColors.surfaceRaised,
                     ),
                     child: imageUrl.isNotEmpty
-                        ? ClipRRect(
+                        ? CountrCachedImage(
+                            imageUrl: imageUrl,
+                            fit: BoxFit.cover,
                             borderRadius: BorderRadius.circular(4),
-                            child: Image.network(
-                              imageUrl,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) =>
-                                  const Icon(
-                                    Icons.image_not_supported,
-                                    size: 18,
-                                    color: Colors.white24,
-                                  ),
+                            errorWidget: const Icon(
+                              Icons.image_not_supported,
+                              size: 18,
+                              color: Colors.white24,
                             ),
                           )
                         : const Icon(
@@ -959,9 +985,11 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
                             color: Colors.white24,
                           ),
                   ),
-                  Positioned(
-                    top: 0,
-                    left: 0,
+                ),
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  child: IgnorePointer(
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 4,
@@ -972,7 +1000,7 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
-                        '$qty',
+                        'x$qty',
                         style: const TextStyle(
                           fontSize: 9,
                           fontWeight: FontWeight.bold,
@@ -981,29 +1009,39 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
                       ),
                     ),
                   ),
-                ],
-              ),
-              const SizedBox(width: 10),
-
-              // 2. Middle Text Block (Flexible Expanded)
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w600,
-                        color: isProxy ? Colors.grey[400] : Colors.white,
-                      ),
+                ),
+              ],
+            ),
+            title: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w600,
+                      color: isProxy ? Colors.grey[400] : Colors.white,
                     ),
-                    if (subtitleText.isNotEmpty) ...[
-                      const SizedBox(height: 3),
-                      Text(
+                  ),
+                ),
+                if (manaCost != null && manaCost.isNotEmpty) ...[
+                  const SizedBox(width: 6),
+                  ManaCostBar(
+                    manaCost: manaCost,
+                    symbolSize: 11.5,
+                  ),
+                ],
+              ],
+            ),
+            subtitle: Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Row(
+                children: [
+                  if (subtitleText.isNotEmpty)
+                    Expanded(
+                      child: Text(
                         subtitleText,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -1012,48 +1050,77 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
                           color: AppColors.textSecondary,
                         ),
                       ),
-                    ],
-                  ],
-                ),
+                    )
+                  else
+                    const Spacer(),
+                  const SizedBox(width: 6),
+                  Text(
+                    isPrivacyMode
+                        ? '****'
+                        : (price > 0 ? '\$${price.toStringAsFixed(2)}' : '—'),
+                    style: const TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.accentEmerald,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 8),
-
-              // 3. Trailing Metrics (Defensively constrained Column)
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 80),
+            ),
+            trailing: const Icon(
+              Icons.expand_more,
+              size: 20,
+              color: AppColors.textSecondary,
+            ),
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 2, 12, 10),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (manaCost != null && manaCost.isNotEmpty) ...[
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 5,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.surfaceRaised,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: ManaCostBar(
-                          manaCost: manaCost,
-                          symbolSize: 11.5,
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                    ],
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        isPrivacyMode
-                            ? '****'
-                            : (price > 0 ? '\$${price.toStringAsFixed(2)}' : '—'),
+                    const Divider(color: AppColors.surfaceBorderSubtle, height: 12),
+                    if (oracleText != null && oracleText.trim().isNotEmpty) ...[
+                      ManaText(
+                        oracleText.trim(),
                         style: const TextStyle(
                           fontSize: 11.5,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.accentEmerald,
+                          color: AppColors.textPrimary,
+                          height: 1.35,
                         ),
+                        symbolSize: 12,
                       ),
+                      const SizedBox(height: 10),
+                    ],
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        _buildQuickActionBtn(
+                          icon: Icons.info_outline,
+                          label: 'Full Details',
+                          onTap: openDetail,
+                        ),
+                        const SizedBox(width: 8),
+                        _buildQuickActionBtn(
+                          icon: Icons.tune,
+                          label: 'Remove / Adjust',
+                          onTap: () => _showQuantityAdjustDialog(item),
+                        ),
+                        const SizedBox(width: 8),
+                        _buildQuickActionBtn(
+                          icon: Icons.swap_horiz,
+                          label: 'Switch',
+                          onTap: () {
+                            DeckSwapPrintingSheet.show(
+                              context,
+                              deckId: widget.deck.id,
+                              deckItem: item,
+                              onSwapped: () {
+                                ref.invalidate(deckItemsProvider(widget.deck.id));
+                              },
+                            );
+                          },
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -1062,6 +1129,154 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildQuickActionBtn({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceRaised,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: AppColors.surfaceBorderSubtle),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 13, color: AppColors.accentCyan),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showQuantityAdjustDialog(Map<String, dynamic> item) {
+    final name = item['name'] as String? ?? 'Card';
+    final currentQty = item['deck_quantity'] as int? ?? (item['quantity'] as int? ?? 1);
+    final vaultItemId = item['vault_item_id'] as String? ?? item['id'] as String?;
+    final boardZone = item['board_zone'] as String? ?? 'Mainboard';
+    final isProxy = item['is_proxy'] == 1 || item['is_proxy'] == true;
+
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.surfaceRaised,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Adjust Quantity: $name',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Current count: $currentQty in $boardZone',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.redAccent,
+                        side: const BorderSide(color: Colors.redAccent),
+                      ),
+                      icon: const Icon(Icons.delete_outline, size: 18),
+                      label: const Text('Remove All'),
+                      onPressed: () async {
+                        Navigator.of(ctx).pop();
+                        if (vaultItemId != null) {
+                          await ref.read(vaultDaoProvider).removeCardFromDeck(
+                                widget.deck.id,
+                                vaultItemId,
+                                quantity: currentQty,
+                                boardZone: boardZone,
+                                isProxy: isProxy,
+                              );
+                          ref.invalidate(deckItemsProvider(widget.deck.id));
+                        }
+                      },
+                    ),
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.white,
+                      ),
+                      icon: const Icon(Icons.remove, size: 18),
+                      label: const Text('-1'),
+                      onPressed: () async {
+                        Navigator.of(ctx).pop();
+                        if (vaultItemId != null) {
+                          await ref.read(vaultDaoProvider).removeCardFromDeck(
+                                widget.deck.id,
+                                vaultItemId,
+                                quantity: 1,
+                                boardZone: boardZone,
+                                isProxy: isProxy,
+                              );
+                          ref.invalidate(deckItemsProvider(widget.deck.id));
+                        }
+                      },
+                    ),
+                    FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.accentCyan,
+                        foregroundColor: Colors.black,
+                      ),
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text('+1'),
+                      onPressed: () async {
+                        Navigator.of(ctx).pop();
+                        if (vaultItemId != null) {
+                          await ref.read(vaultDaoProvider).addCardToDeck(
+                                widget.deck.id,
+                                vaultItemId,
+                                quantity: 1,
+                                boardZone: boardZone,
+                                isProxy: isProxy,
+                              );
+                          ref.invalidate(deckItemsProvider(widget.deck.id));
+                        }
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -1413,18 +1628,14 @@ class _FastDrawSheetState extends State<_FastDrawSheet> {
                                   color: Colors.black26,
                                 ),
                                 child: imageUrl.isNotEmpty
-                                    ? ClipRRect(
+                                    ? CountrCachedImage(
+                                        imageUrl: imageUrl,
+                                        fit: BoxFit.cover,
                                         borderRadius: BorderRadius.circular(4),
-                                        child: Image.network(
-                                          imageUrl,
-                                          fit: BoxFit.cover,
-                                          errorBuilder:
-                                              (context, error, stackTrace) =>
-                                                  const Icon(
-                                                    Icons.style_outlined,
-                                                    size: 16,
-                                                    color: Colors.white24,
-                                                  ),
+                                        errorWidget: const Icon(
+                                          Icons.style_outlined,
+                                          size: 16,
+                                          color: Colors.white24,
                                         ),
                                       )
                                     : const Icon(

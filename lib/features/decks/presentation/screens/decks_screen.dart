@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:countr/core/database/app_database.dart';
+import 'package:countr/features/decks/domain/models/deck_summary.dart';
 import 'package:countr/features/decks/presentation/screens/deck_builder_screen.dart';
 import 'package:countr/features/decks/presentation/providers/deck_providers.dart';
+import 'package:countr/features/decks/presentation/widgets/deck_setup_wizard_modal.dart';
+import 'package:countr/features/decks/presentation/widgets/skeleton_shimmer_box.dart';
+import 'package:countr/features/symbology/presentation/widgets/mana_cost_bar.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_typography.dart';
+import 'package:countr/core/cache/countr_cached_image.dart';
 import 'package:countr/core/state/settings_state.dart';
 
 /// Decks Screen with top-level TCG context dropdown, list filtering, and FAB deck creation.
@@ -26,6 +31,7 @@ class _DecksScreenState extends ConsumerState<DecksScreen> {
       'format': 'MTG Commander',
       'cardCount': '100/100',
       'colors': [Colors.white, Colors.black, Colors.red],
+      'colorIdentity': ['W', 'B', 'R'],
       'winRate': '68%',
       'tcgDomain': 'mtg',
       'isRegistered': true,
@@ -37,6 +43,7 @@ class _DecksScreenState extends ConsumerState<DecksScreen> {
       'format': 'Pokémon Standard',
       'cardCount': '60/60',
       'colors': [Colors.orange, Colors.red],
+      'colorIdentity': <String>[],
       'winRate': '74%',
       'tcgDomain': 'pokemon',
       'isRegistered': true,
@@ -48,6 +55,7 @@ class _DecksScreenState extends ConsumerState<DecksScreen> {
       'format': 'MTG Commander (cEDH)',
       'cardCount': '100/100',
       'colors': [Colors.blue, Colors.black],
+      'colorIdentity': ['U', 'B'],
       'winRate': '82%',
       'tcgDomain': 'mtg',
       'isRegistered': false,
@@ -59,6 +67,7 @@ class _DecksScreenState extends ConsumerState<DecksScreen> {
       'format': 'Disney Lorcana Core',
       'cardCount': '60/60',
       'colors': [Colors.red, Colors.purple],
+      'colorIdentity': <String>[],
       'winRate': '70%',
       'tcgDomain': 'lorcana',
       'isRegistered': false,
@@ -70,6 +79,7 @@ class _DecksScreenState extends ConsumerState<DecksScreen> {
       'format': 'Pokémon Standard',
       'cardCount': '60/60',
       'colors': [Colors.purple, Colors.teal],
+      'colorIdentity': <String>[],
       'winRate': '65%',
       'tcgDomain': 'pokemon',
       'isRegistered': true,
@@ -81,6 +91,7 @@ class _DecksScreenState extends ConsumerState<DecksScreen> {
       'format': 'MTG Modern',
       'cardCount': '75/75',
       'colors': [Colors.green],
+      'colorIdentity': ['G'],
       'winRate': '55%',
       'tcgDomain': 'mtg',
       'isRegistered': false,
@@ -130,6 +141,7 @@ class _DecksScreenState extends ConsumerState<DecksScreen> {
     final String format;
     final String cardCount;
     final List<Color> colors;
+    final List<String> colorIdentity;
 
     switch (activeFilter.toLowerCase()) {
       case 'pokemon':
@@ -137,12 +149,14 @@ class _DecksScreenState extends ConsumerState<DecksScreen> {
         format = 'Pokémon Standard';
         cardCount = '0/60';
         colors = [Colors.orange, Colors.red];
+        colorIdentity = [];
         break;
       case 'lorcana':
         domain = 'lorcana';
         format = 'Disney Lorcana Core';
         cardCount = '0/60';
         colors = [Colors.red, Colors.purple];
+        colorIdentity = [];
         break;
       case 'mtg':
       case 'all':
@@ -151,17 +165,22 @@ class _DecksScreenState extends ConsumerState<DecksScreen> {
         format = 'MTG Commander';
         cardCount = '0/100';
         colors = [AppColors.accentCyan];
+        colorIdentity = ['W', 'B', 'R'];
         break;
     }
+
+    final newId = 'deck-${DateTime.now().millisecondsSinceEpoch}';
+    final newTitle = 'New $format Brew #$_deckCount';
 
     setState(() {
       _deckCount++;
       _mockDecks.insert(0, {
-        'id': 'deck-${DateTime.now().millisecondsSinceEpoch}',
-        'title': 'New $format Brew #$_deckCount',
+        'id': newId,
+        'title': newTitle,
         'format': format,
         'cardCount': cardCount,
         'colors': colors,
+        'colorIdentity': colorIdentity,
         'winRate': '--',
         'tcgDomain': domain,
         'isRegistered': false,
@@ -179,23 +198,178 @@ class _DecksScreenState extends ConsumerState<DecksScreen> {
     );
   }
 
+  Widget _buildCommanderCardArt(DeckSummary deck) {
+    final artUrl = deck.commanderArtCrop ?? deck.commanderImageUrl;
+    if (artUrl != null && artUrl.isNotEmpty) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          width: 44,
+          height: 56,
+          color: AppColors.surfaceRaised,
+          child: CountrCachedImage(
+            imageUrl: artUrl,
+            fit: BoxFit.cover,
+            placeholder: const SkeletonShimmerBox(
+              width: 44,
+              height: 56,
+              animate: false,
+            ),
+            errorWidget: _buildFallbackArt(deck),
+          ),
+        ),
+      );
+    }
+    return _buildFallbackArt(deck);
+  }
+
+  Widget _buildFallbackArt(DeckSummary deck) {
+    return Container(
+      width: 44,
+      height: 56,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        gradient: const LinearGradient(
+          colors: [
+            AppColors.surfaceRaised,
+            AppColors.surfaceHighlight,
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        border: Border.all(
+          color: AppColors.accentViolet.withValues(alpha: 0.5),
+        ),
+      ),
+      child: const Icon(
+        Icons.style_rounded,
+        color: AppColors.accentVioletLight,
+        size: 24,
+      ),
+    );
+  }
+
+  Widget _buildColorPips(DeckSummary deck) {
+    if (deck.colorIdentity.isNotEmpty && deck.tcgDomain == 'mtg') {
+      final manaCost = deck.colorIdentity.map((c) => '{$c}').join('');
+      return Padding(
+        padding: const EdgeInsets.only(top: 4),
+        child: ManaCostBar(
+          manaCost: manaCost,
+          symbolSize: 12,
+          spacing: 2,
+        ),
+      );
+    }
+    return const SizedBox.shrink();
+  }
+
+  Widget _buildAssemblyStatusPill(DeckSummary deck) {
+    final Color badgeColor;
+    final Color textColor;
+    switch (deck.assemblyStatus) {
+      case 'Assembled':
+        badgeColor = AppColors.accentEmerald.withValues(alpha: 0.15);
+        textColor = AppColors.accentEmerald;
+        break;
+      case 'Ready':
+        badgeColor = AppColors.accentCyan.withValues(alpha: 0.15);
+        textColor = AppColors.accentCyan;
+        break;
+      case 'Draft':
+      default:
+        badgeColor = AppColors.surfaceRaised;
+        textColor = AppColors.accentAmber;
+        break;
+    }
+
+    return Container(
+      key: Key('deck_assembly_status_${deck.id}'),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: badgeColor,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: textColor.withValues(alpha: 0.3)),
+      ),
+      child: Text(
+        deck.assemblyStatus,
+        style: TextStyle(
+          color: textColor,
+          fontWeight: FontWeight.w700,
+          fontSize: 9.5,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final activeFilter = ref.watch(activeDeckTcgFilterProvider);
     final isPrivacyMode = ref.watch(privacyModeProvider);
+    final dbSummaries = ref.watch(deckSummariesProvider).value;
+
+    final List<DeckSummary> allSummaries;
+    if (dbSummaries != null && dbSummaries.isNotEmpty) {
+      allSummaries = dbSummaries;
+    } else {
+      allSummaries = _mockDecks.map((m) {
+        final title = m['title'] as String? ?? 'Untitled Deck';
+        final format = m['format'] as String? ?? 'MTG Commander';
+        final domain = m['tcgDomain'] as String? ?? 'mtg';
+        final isReg = m['isRegistered'] as bool? ?? false;
+        final isComp = m['isCompetitive'] as bool? ?? false;
+        final countStr = m['cardCount'] as String? ?? '0/100';
+        final parts = countStr.split('/');
+        final curCount = int.tryParse(parts.first) ?? 0;
+        final targetCount =
+            parts.length > 1 ? (int.tryParse(parts[1]) ?? 60) : 60;
+        final colors = (m['colorIdentity'] as List?)?.cast<String>() ??
+            (domain == 'mtg' ? ['W', 'B', 'R'] : <String>[]);
+
+        return DeckSummary(
+          id: m['id'] as String,
+          name: title,
+          format: format,
+          tcgDomain: domain,
+          isRegistered: isReg,
+          isCompetitive: isComp,
+          createdAt: DateTime.now(),
+          cardCount: curCount,
+          targetCardCount: targetCount,
+          completeness: targetCount > 0 ? curCount / targetCount : 0.0,
+          assemblyStatus: isReg
+              ? 'Assembled'
+              : (curCount >= targetCount && curCount > 0 ? 'Ready' : 'Draft'),
+          colorIdentity: colors,
+          deck: Deck(
+            id: m['id'] as String,
+            name: title,
+            format: format,
+            tcgDomain: domain,
+            isRegistered: isReg,
+            isCompetitive: isComp,
+            createdAt: DateTime.now(),
+            wins: 0,
+            losses: 0,
+            draws: 0,
+            isDeleted: false,
+          ),
+        );
+      }).toList();
+    }
 
     // Filter by TCG domain first
-    final domainDecks = _mockDecks.where((deck) {
+    final domainDecks = allSummaries.where((deck) {
       if (activeFilter == 'all') return true;
-      return deck['tcgDomain'] == activeFilter;
+      return deck.tcgDomain == activeFilter;
     }).toList();
 
     // Filter by Subheader Tab next
     final filteredDecks = domainDecks.where((deck) {
       if (_activeTab == 1) {
-        return deck['isCompetitive'] == true;
+        return deck.isCompetitive == true;
       } else if (_activeTab == 2) {
-        return deck['isRegistered'] == false;
+        return deck.isRegistered == false;
       }
       return true;
     }).toList();
@@ -320,9 +494,13 @@ class _DecksScreenState extends ConsumerState<DecksScreen> {
             },
           ),
           IconButton(
+            key: const Key('deck_setup_wizard_button'),
             icon: const Icon(Icons.add_rounded),
             tooltip: 'New Deck',
-            onPressed: _createNewDeck,
+            onPressed: () => DeckSetupWizardModal.show(
+              context,
+              initialTcgDomain: activeFilter,
+            ),
           ),
         ],
       ),
@@ -400,6 +578,23 @@ class _DecksScreenState extends ConsumerState<DecksScreen> {
                             'Tap "+ New Deck" to create one.',
                             style: AppTypography.caption.copyWith(color: AppColors.textMuted),
                           ),
+                          const SizedBox(height: 16),
+                          ElevatedButton.icon(
+                            key: const Key('decks_empty_wizard_button'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.accentCyan,
+                              foregroundColor: AppColors.textDark,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                            icon: const Icon(Icons.add_rounded, size: 18),
+                            label: const Text('+ New Deck', style: TextStyle(fontWeight: FontWeight.w700)),
+                            onPressed: () => DeckSetupWizardModal.show(
+                              context,
+                              initialTcgDomain: activeFilter,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -409,27 +604,17 @@ class _DecksScreenState extends ConsumerState<DecksScreen> {
                     itemCount: filteredDecks.length,
                     itemBuilder: (context, index) {
                       final deck = filteredDecks[index];
-                      return InkWell(
-                        key: Key('deck_item_${deck['id']}'),
+                      final cardCountDisplay =
+                          '${deck.cardCount}/${deck.targetCardCount}';
+
+                      return RepaintBoundary(
+                        child: InkWell(
+                          key: Key('deck_item_${deck.id}'),
                         onTap: () {
-                          final deckId = deck['id'] as String? ??
-                              DateTime.now().toIso8601String();
-                          final dummyDeck = Deck(
-                            id: deckId,
-                            name: deck['title'] as String,
-                            format: deck['format'] as String,
-                            createdAt: DateTime.now(),
-                            wins: 0,
-                            losses: 0,
-                            draws: 0,
-                            tcgDomain: deck['tcgDomain'] as String? ?? 'mtg',
-                            isRegistered: deck['isRegistered'] as bool? ?? false,
-                            isCompetitive: deck['isCompetitive'] as bool? ?? false,
-                          );
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => DeckBuilderScreen(deck: dummyDeck),
+                              builder: (context) => DeckBuilderScreen(deck: deck.deck),
                             ),
                           );
                         },
@@ -445,53 +630,50 @@ class _DecksScreenState extends ConsumerState<DecksScreen> {
                           ),
                           child: Row(
                             children: [
-                              // Card / Archetype Icon
-                              Container(
-                                width: 44,
-                                height: 56,
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(8),
-                                  gradient: const LinearGradient(
-                                    colors: [
-                                      AppColors.surfaceRaised,
-                                      AppColors.surfaceHighlight,
-                                    ],
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                  ),
-                                  border: Border.all(
-                                    color: AppColors.accentViolet.withValues(alpha: 0.5),
-                                  ),
-                                ),
-                                child: const Icon(
-                                  Icons.style_rounded,
-                                  color: AppColors.accentVioletLight,
-                                  size: 24,
-                                ),
-                              ),
+                              // Commander Card Artwork / Archetype Icon with Skeleton Shimmer
+                              _buildCommanderCardArt(deck),
                               const SizedBox(width: 14),
 
-                              // Title & Subtitle
+                              // Title, Format, Completeness & Inline Color Pips
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(
-                                      deck['title'] as String,
-                                      style: AppTypography.heading2.copyWith(fontSize: 14),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            deck.name,
+                                            style: AppTypography.heading2.copyWith(fontSize: 14),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Flexible(
+                                          child: FittedBox(
+                                            fit: BoxFit.scaleDown,
+                                            child: _buildAssemblyStatusPill(deck),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                     const SizedBox(height: 3),
-                                    Text(
-                                      '${deck['format']} • ${deck['cardCount']}',
-                                      style: AppTypography.caption,
+                                    FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      alignment: Alignment.centerLeft,
+                                      child: Text(
+                                        '${deck.format} • $cardCountDisplay',
+                                        style: AppTypography.caption,
+                                      ),
                                     ),
+                                    _buildColorPips(deck),
                                   ],
                                 ),
                               ),
+                              const SizedBox(width: 10),
 
-                              // Win Rate Pill
+                              // Completeness Percentage or Win Rate Pill
                               Container(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 8,
@@ -505,7 +687,9 @@ class _DecksScreenState extends ConsumerState<DecksScreen> {
                                   ),
                                 ),
                                 child: Text(
-                                  deck['winRate'] as String,
+                                  deck.isRegistered
+                                      ? '100%'
+                                      : '${(deck.completeness * 100).toInt()}%',
                                   style: const TextStyle(
                                     color: AppColors.accentEmerald,
                                     fontWeight: FontWeight.w700,
@@ -516,7 +700,8 @@ class _DecksScreenState extends ConsumerState<DecksScreen> {
                             ],
                           ),
                         ),
-                      );
+                      ),
+                    );
                     },
                   ),
           ),

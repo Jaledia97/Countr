@@ -63,10 +63,26 @@ class MorphingCommandCenter extends ConsumerStatefulWidget {
 }
 
 class _MorphingCommandCenterState extends ConsumerState<MorphingCommandCenter> {
+  late final ScrollController _scrollController;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final activeGame = ref.watch(activeGameContextProvider);
-    final userPersona = ref.watch(userPersonaProvider);
+    final isPrivacyMode = ref.watch(privacyModeProvider);
+    final baseCurrency = ref.watch(baseCurrencyProvider);
+    final streamerSecurityEnabled = ref.watch(streamerSecurityEnabledProvider);
     final size = MediaQuery.of(context).size;
 
     return SafeArea(
@@ -160,6 +176,7 @@ class _MorphingCommandCenterState extends ConsumerState<MorphingCommandCenter> {
                 ],
               ),
               body: ListView(
+                controller: _scrollController,
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 children: [
                   // Active Context Status Indicator
@@ -228,11 +245,12 @@ class _MorphingCommandCenterState extends ConsumerState<MorphingCommandCenter> {
                     ),
                   ),
 
-                  // Global Persona Switcher Toggle
+                  // App Settings Section Card
                   Container(
+                    key: const Key('command_center_app_settings_card'),
                     margin:
                         const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                    padding: const EdgeInsets.all(10),
+                    padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: AppColors.surface,
                       borderRadius: BorderRadius.circular(14),
@@ -241,166 +259,252 @@ class _MorphingCommandCenterState extends ConsumerState<MorphingCommandCenter> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // Header
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: const [
-                                Icon(
-                                  Icons.switch_account_rounded,
-                                  size: 16,
-                                  color: AppColors.accentCyan,
-                                ),
-                                SizedBox(width: 8),
-                                Text(
-                                  'VIEWING PERSONA',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: 0.8,
-                                    color: AppColors.textSecondary,
-                                  ),
-                                ),
-                              ],
+                            const Icon(
+                              Icons.tune_rounded,
+                              size: 16,
+                              color: AppColors.accentCyan,
                             ),
-                            const SizedBox(width: 6),
-                            Flexible(
+                            const SizedBox(width: 8),
+                            const Expanded(
                               child: Text(
-                                userPersona == UserPersona.investor
-                                    ? 'INVESTOR MODE'
-                                    : 'PLAYER MODE',
+                                'APP SETTINGS',
                                 overflow: TextOverflow.ellipsis,
-                                maxLines: 1,
                                 style: TextStyle(
-                                  fontSize: 9.5,
-                                  fontWeight: FontWeight.w700,
-                                  color: userPersona == UserPersona.investor
-                                      ? AppColors.accentEmerald
-                                      : AppColors.accentVioletLight,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0.8,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: isPrivacyMode
+                                    ? AppColors.accentAmber
+                                        .withValues(alpha: 0.2)
+                                    : AppColors.surfaceRaised,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                isPrivacyMode ? 'PRIVACY' : 'STANDARD',
+                                style: TextStyle(
+                                  fontSize: 8.5,
+                                  fontWeight: FontWeight.w800,
+                                  color: isPrivacyMode
+                                      ? AppColors.accentAmber
+                                      : AppColors.textSecondary,
                                   letterSpacing: 0.5,
                                 ),
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 12),
+
+                        // 1. Global Privacy Mode Toggle
                         Container(
-                          height: 42,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 8),
                           decoration: BoxDecoration(
                             color: AppColors.surfaceRaised,
                             borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: AppColors.surfaceBorderSubtle),
+                            border:
+                                Border.all(color: AppColors.surfaceBorderSubtle),
                           ),
                           child: Row(
                             children: [
-                              // Investor Segment
+                              Icon(
+                                isPrivacyMode
+                                    ? Icons.visibility_off
+                                    : Icons.visibility,
+                                size: 20,
+                                color: isPrivacyMode
+                                    ? AppColors.accentAmber
+                                    : AppColors.textSecondary,
+                              ),
+                              const SizedBox(width: 10),
                               Expanded(
-                                child: GestureDetector(
-                                  key: const Key('persona_toggle_investor'),
-                                  onTap: () {
-                                    ref.read(userPersonaProvider.notifier).state =
-                                        UserPersona.investor;
-                                  },
-                                  child: AnimatedContainer(
-                                    duration: const Duration(milliseconds: 200),
-                                    curve: Curves.easeInOut,
-                                    decoration: BoxDecoration(
-                                      color: userPersona == UserPersona.investor
-                                          ? AppColors.accentEmerald
-                                              .withValues(alpha: 0.2)
-                                          : Colors.transparent,
-                                      borderRadius: BorderRadius.circular(9),
-                                      border: userPersona == UserPersona.investor
-                                          ? Border.all(
-                                              color: AppColors.accentEmerald
-                                                  .withValues(alpha: 0.6),
-                                              width: 1.2,
-                                            )
-                                          : null,
-                                    ),
-                                    child: Center(
-                                      child: Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          const Text('💼',
-                                              style: TextStyle(fontSize: 13)),
-                                          const SizedBox(width: 4),
-                                          Text(
-                                            'Investor',
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              fontWeight: userPersona ==
-                                                      UserPersona.investor
-                                                  ? FontWeight.w800
-                                                  : FontWeight.w600,
-                                              color: userPersona ==
-                                                      UserPersona.investor
-                                                  ? Colors.white
-                                                  : AppColors.textSecondary,
-                                            ),
-                                          ),
-                                        ],
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: const [
+                                    Text(
+                                      'Global Privacy Mode',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                        color: Colors.white,
                                       ),
                                     ),
+                                    SizedBox(height: 2),
+                                    Text(
+                                      'Redact values and card prices',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: AppColors.textSecondary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Switch.adaptive(
+                                key: const Key(
+                                    'command_center_privacy_mode_toggle'),
+                                value: isPrivacyMode,
+                                activeTrackColor: AppColors.accentAmber,
+                                onChanged: (val) {
+                                  ref
+                                      .read(privacyModeProvider.notifier)
+                                      .state = val;
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+
+                        // 2. Base Currency Dropdown
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceRaised,
+                            borderRadius: BorderRadius.circular(10),
+                            border:
+                                Border.all(color: AppColors.surfaceBorderSubtle),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.currency_exchange_rounded,
+                                size: 20,
+                                color: AppColors.accentEmerald,
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: const [
+                                    Text(
+                                      'Base Currency',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                    SizedBox(height: 2),
+                                    Text(
+                                      'Normalized valuation engine',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: AppColors.textSecondary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Container(
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 8),
+                                decoration: BoxDecoration(
+                                  color: AppColors.surface,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border:
+                                      Border.all(color: AppColors.surfaceBorder),
+                                ),
+                                child: DropdownButtonHideUnderline(
+                                  child: DropdownButton<AppCurrency>(
+                                    key: const Key(
+                                        'command_center_base_currency_dropdown'),
+                                    value: baseCurrency,
+                                    dropdownColor: AppColors.surfaceRaised,
+                                    icon: const Icon(Icons.arrow_drop_down,
+                                        color: AppColors.accentCyan),
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.white,
+                                    ),
+                                    items: AppCurrency.values.map((currency) {
+                                      return DropdownMenuItem<AppCurrency>(
+                                        value: currency,
+                                        child: Text(
+                                            '${currency.code} (${currency.symbol})'),
+                                      );
+                                    }).toList(),
+                                    onChanged: (newCurrency) {
+                                      if (newCurrency != null) {
+                                        ref
+                                            .read(baseCurrencyProvider.notifier)
+                                            .state = newCurrency;
+                                      }
+                                    },
                                   ),
                                 ),
                               ),
-                              // Player Segment
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+
+                        // 3. Streamer Security Toggle
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceRaised,
+                            borderRadius: BorderRadius.circular(10),
+                            border:
+                                Border.all(color: AppColors.surfaceBorderSubtle),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.security_rounded,
+                                size: 20,
+                                color: AppColors.accentVioletLight,
+                              ),
+                              const SizedBox(width: 10),
                               Expanded(
-                                child: GestureDetector(
-                                  key: const Key('persona_toggle_player'),
-                                  onTap: () {
-                                    ref.read(userPersonaProvider.notifier).state =
-                                        UserPersona.player;
-                                  },
-                                  child: AnimatedContainer(
-                                    duration: const Duration(milliseconds: 200),
-                                    curve: Curves.easeInOut,
-                                    decoration: BoxDecoration(
-                                      color: userPersona == UserPersona.player
-                                          ? AppColors.accentViolet
-                                              .withValues(alpha: 0.25)
-                                          : Colors.transparent,
-                                      borderRadius: BorderRadius.circular(9),
-                                      border: userPersona == UserPersona.player
-                                          ? Border.all(
-                                              color: AppColors.accentViolet
-                                                  .withValues(alpha: 0.7),
-                                              width: 1.2,
-                                            )
-                                          : null,
-                                    ),
-                                    child: Center(
-                                      child: Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          const Text('⚔️',
-                                              style: TextStyle(fontSize: 13)),
-                                          const SizedBox(width: 4),
-                                          Text(
-                                            'Player',
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              fontWeight: userPersona ==
-                                                      UserPersona.player
-                                                  ? FontWeight.w800
-                                                  : FontWeight.w600,
-                                              color: userPersona ==
-                                                      UserPersona.player
-                                                  ? Colors.white
-                                                  : AppColors.textSecondary,
-                                            ),
-                                          ),
-                                        ],
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: const [
+                                    Text(
+                                      'Streamer Security',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                        color: Colors.white,
                                       ),
                                     ),
-                                  ),
+                                    SizedBox(height: 2),
+                                    Text(
+                                      'Auto-enable privacy on background',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: AppColors.textSecondary,
+                                      ),
+                                    ),
+                                  ],
                                 ),
+                              ),
+                              Switch.adaptive(
+                                key: const Key(
+                                    'command_center_streamer_security_toggle'),
+                                value: streamerSecurityEnabled,
+                                activeTrackColor: AppColors.accentVioletLight,
+                                onChanged: (val) {
+                                  ref
+                                      .read(streamerSecurityEnabledProvider
+                                          .notifier)
+                                      .state = val;
+                                },
                               ),
                             ],
                           ),
@@ -473,12 +577,13 @@ class _MorphingCommandCenterState extends ConsumerState<MorphingCommandCenter> {
                             icon: Icons.settings_outlined,
                             label: 'Settings',
                             onTap: () {
-                              Navigator.of(context).pop();
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Opening Countr Settings...'),
-                                ),
-                              );
+                              if (_scrollController.hasClients) {
+                                _scrollController.animateTo(
+                                  0,
+                                  duration: const Duration(milliseconds: 300),
+                                  curve: Curves.easeInOut,
+                                );
+                              }
                             },
                           ),
                         ],

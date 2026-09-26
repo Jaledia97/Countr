@@ -56,7 +56,7 @@ VaultItem createStressItem({
     isGraded: true,
     isAltered: false,
     isMisprint: false,
-    isSigned: false,
+    isSigned: false, isDeleted: false,
     acquiredPrice: acquiredPrice,
     acquiredDate: DateTime(2020, 1, 1),
     currentMarketPrice: currentMarketPrice,

@@ -5,6 +5,7 @@ import 'package:countr/core/constants/app_colors.dart';
 import 'package:countr/core/constants/app_typography.dart';
 import 'package:countr/core/database/app_database.dart';
 import 'package:countr/features/vault/presentation/providers/vault_providers.dart';
+import 'package:countr/core/cache/countr_cached_image.dart';
 
 /// Modal bottom sheet allowing deck builders to reassign the physical printing
 /// (`vault_item_id`) of a deck version item to an alternative copy owned in their Vault.
@@ -500,10 +501,10 @@ class _DeckSwapPrintingSheetState extends ConsumerState<DeckSwapPrintingSheet> {
         borderRadius: BorderRadius.zero, // Strict 0 border radius per R4
       ),
       child: url.isNotEmpty
-          ? Image.network(
-              url,
+          ? CountrCachedImage(
+              imageUrl: url,
               fit: BoxFit.cover,
-              errorBuilder: (_, _, _) => const Icon(
+              errorWidget: const Icon(
                 Icons.style_outlined,
                 color: Colors.white24,
                 size: 20,

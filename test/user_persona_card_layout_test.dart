@@ -31,8 +31,8 @@ void main() {
     });
   });
 
-  group('MorphingCommandCenter Persona Segmented Toggle', () {
-    testWidgets('toggles between Investor and Player modes via touch targets',
+  group('MorphingCommandCenter Settings & Obsolete Persona Removal', () {
+    testWidgets('verifies obsolete persona toggle is removed and App Settings card is rendered',
         (WidgetTester tester) async {
       final container = ProviderContainer();
       addTearDown(container.dispose);
@@ -47,28 +47,19 @@ void main() {
           ),
         ),
       );
-
-      // Verify initial state
-      expect(find.byKey(const Key('persona_toggle_investor')), findsOneWidget);
-      expect(find.byKey(const Key('persona_toggle_player')), findsOneWidget);
-      expect(find.text('INVESTOR MODE'), findsOneWidget);
-      expect(container.read(userPersonaProvider), UserPersona.investor);
-
-      // Tap Player segment
-      await tester.tap(find.byKey(const Key('persona_toggle_player')));
       await tester.pumpAndSettle();
 
-      // Verify Player state
-      expect(container.read(userPersonaProvider), UserPersona.player);
-      expect(find.text('PLAYER MODE'), findsOneWidget);
+      // Verify obsolete persona toggle buttons are removed
+      expect(find.byKey(const Key('persona_toggle_investor')), findsNothing);
+      expect(find.byKey(const Key('persona_toggle_player')), findsNothing);
+      expect(find.text('VIEWING PERSONA'), findsNothing);
 
-      // Tap Investor segment
-      await tester.tap(find.byKey(const Key('persona_toggle_investor')));
-      await tester.pumpAndSettle();
-
-      // Verify Investor state restored
-      expect(container.read(userPersonaProvider), UserPersona.investor);
-      expect(find.text('INVESTOR MODE'), findsOneWidget);
+      // Verify App Settings card is rendered
+      expect(find.byKey(const Key('command_center_app_settings_card')), findsOneWidget);
+      expect(find.text('APP SETTINGS'), findsOneWidget);
+      expect(find.byKey(const Key('command_center_privacy_mode_toggle')), findsOneWidget);
+      expect(find.byKey(const Key('command_center_base_currency_dropdown')), findsOneWidget);
+      expect(find.byKey(const Key('command_center_streamer_security_toggle')), findsOneWidget);
     });
   });
 
@@ -91,7 +82,7 @@ void main() {
         isGraded: false,
         isAltered: false,
         isMisprint: false,
-        isSigned: false,
+        isSigned: false, isDeleted: false,
         currentMarketPrice: 50.0,
         lastPriceUpdate: DateTime(2023, 1, 1),
         dynamicData: jsonEncode({
@@ -118,7 +109,7 @@ void main() {
         isGraded: false,
         isAltered: false,
         isMisprint: false,
-        isSigned: false,
+        isSigned: false, isDeleted: false,
         currentMarketPrice: 120.0,
         lastPriceUpdate: DateTime(2023, 1, 1),
         dynamicData: jsonEncode({
@@ -144,7 +135,7 @@ void main() {
         isGraded: false,
         isAltered: false,
         isMisprint: false,
-        isSigned: false,
+        isSigned: false, isDeleted: false,
         currentMarketPrice: 6.0,
         lastPriceUpdate: DateTime(2023, 1, 1),
         dynamicData: jsonEncode({}),

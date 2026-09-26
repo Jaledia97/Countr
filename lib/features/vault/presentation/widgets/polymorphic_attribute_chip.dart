@@ -1,5 +1,5 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:countr/core/cache/parsed_json_cache.dart';
 import 'package:countr/core/constants/app_colors.dart';
 
 /// Renders game-specific polymorphic dynamic attributes from the stringified
@@ -16,13 +16,7 @@ class PolymorphicAttributeChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Map<String, dynamic> data = {};
-    try {
-      data = jsonDecode(dynamicDataJson) as Map<String, dynamic>;
-    } catch (e, stackTrace) {
-      debugPrint('[PolymorphicAttributeChip] Failed to decode dynamicDataJson: $e\n$stackTrace');
-      data = {};
-    }
+    final data = ParsedJsonCache.parse(dynamicDataJson);
 
     // Switch statement based on collection_type to render polymorphic engine attributes
     switch (collectionType.toLowerCase()) {
@@ -93,7 +87,7 @@ class PolymorphicAttributeChip extends StatelessWidget {
     bool isHighlighted = false,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
         color: accentColor.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(8),

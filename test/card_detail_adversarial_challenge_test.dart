@@ -37,6 +37,7 @@ void main() {
     bool isAltered = false,
     bool isMisprint = false,
     bool isSigned = false,
+    bool isDeleted = false,
     String dynamicData = '{"tags":["Reserved List"],"deck_history":["Commander - Urza"]}',
   }) {
     return VaultItem(
@@ -53,6 +54,7 @@ void main() {
       isAltered: isAltered,
       isMisprint: isMisprint,
       isSigned: isSigned,
+      isDeleted: isDeleted,
       currentMarketPrice: currentMarketPrice,
       lastPriceUpdate: DateTime.now(),
       dynamicData: dynamicData,
@@ -243,7 +245,7 @@ void main() {
       await seedCard(neighborCard);
 
       // Verify both exist initially (target qty 2 + neighbor qty 2 = 4 items)
-      var allItems = await db.vaultDao.select(db.vaultItems).get();
+      var allItems = await (db.vaultDao.select(db.vaultItems)..where((t) => t.isDeleted.equals(false))).get();
       expect(allItems.length, 2);
 
       // Track watchVaultTotals stream
@@ -432,7 +434,7 @@ void main() {
         isGraded: false,
         isAltered: false,
         isMisprint: false,
-        isSigned: false,
+        isSigned: false, isDeleted: false,
       );
       await seedCard(card);
 
@@ -769,27 +771,27 @@ void main() {
       await tester.tap(find.byKey(const Key('open_sheet_btn')));
       await tester.pumpAndSettle();
 
-      // Verify all 5 action buttons render and have non-zero geometry
+      // Verify actions render and have non-zero geometry
       final deleteAction = find.byKey(const Key('quick_action_delete'));
-      final fullscreenAction = find.byKey(const Key('quick_action_fullscreen'));
+      final expandOverlay = find.byKey(const Key('card_art_expand_overlay'));
       final deckAction = find.byKey(const Key('quick_action_add_to_deck'));
       final shareAction = find.byKey(const Key('quick_action_share'));
       final editAction = find.byKey(const Key('quick_action_edit'));
 
       expect(deleteAction, findsOneWidget);
-      expect(fullscreenAction, findsOneWidget);
+      expect(expandOverlay, findsOneWidget);
       expect(deckAction, findsOneWidget);
       expect(shareAction, findsOneWidget);
       expect(editAction, findsOneWidget);
 
       final deleteSize = tester.getSize(deleteAction);
-      final fullscreenSize = tester.getSize(fullscreenAction);
+      final expandSize = tester.getSize(expandOverlay);
       final deckSize = tester.getSize(deckAction);
       final shareSize = tester.getSize(shareAction);
       final editSize = tester.getSize(editAction);
 
       expect(deleteSize.width, greaterThan(30.0));
-      expect(fullscreenSize.width, greaterThan(30.0));
+      expect(expandSize.width, greaterThan(20.0));
       expect(deckSize.width, greaterThan(30.0));
       expect(shareSize.width, greaterThan(30.0));
       expect(editSize.width, greaterThan(30.0));

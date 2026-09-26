@@ -273,4 +273,41 @@ final cardCustomTagsProvider = StreamProvider.family<List<String>, String>((ref,
   }
 });
 
+/// View mode for Binder Detail screen (3x3 Grid vs List)
+enum BinderViewMode {
+  grid3x3,
+  list,
+}
 
+/// Persistent view mode state for BinderDetailScreen
+final binderViewModeProvider = StateProvider<BinderViewMode>((ref) => BinderViewMode.grid3x3);
+
+/// Metadata model for binder extra properties (description, coverArtUrl)
+class BinderMetadata {
+  final String? description;
+  final String? coverArtUrl;
+
+  const BinderMetadata({
+    this.description,
+    this.coverArtUrl,
+  });
+
+  BinderMetadata copyWith({
+    String? description,
+    String? coverArtUrl,
+  }) {
+    return BinderMetadata(
+      description: description ?? this.description,
+      coverArtUrl: coverArtUrl ?? this.coverArtUrl,
+    );
+  }
+}
+
+/// Reactive StateProvider family storing binder extra metadata
+final binderMetadataProvider = StateProvider.family<BinderMetadata, String>((ref, binderId) {
+  final dao = ref.watch(vaultDaoProvider);
+  return BinderMetadata(
+    description: dao.getBinderDescription(binderId),
+    coverArtUrl: dao.getBinderCoverArt(binderId),
+  );
+});

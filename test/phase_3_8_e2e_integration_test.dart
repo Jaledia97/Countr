@@ -221,9 +221,9 @@ void main() {
         expect(
             find.byKey(const Key('card_detail_quick_action_bar')), findsOneWidget);
 
-        // 10. Opens FullScreenCardViewer, verifies InteractiveViewer and toggles foil finish
+        // 10. Opens FullScreenCardViewer via card art expand overlay, verifies InteractiveViewer and toggles foil finish
         final fullscreenButton =
-            find.byKey(const Key('quick_action_fullscreen'));
+            find.byKey(const Key('card_art_expand_overlay'));
         expect(fullscreenButton, findsOneWidget);
         await tester.tap(fullscreenButton);
         await tester.pumpAndSettle();
@@ -407,13 +407,12 @@ void main() {
         expect(find.byType(MorphingCommandCenter), findsOneWidget);
         expect(find.text('COMMAND CENTER'), findsOneWidget);
 
-        // 4. Toggles segmented switch to [ ⚔️ Player ]
-        final playerToggle = find.byKey(const Key('persona_toggle_player'));
-        expect(playerToggle, findsOneWidget);
-        await tester.tap(playerToggle);
+        // 4. Sets persona to Player mode
+        ProviderScope.containerOf(
+                tester.element(find.byType(MorphingCommandCenter)))
+            .read(userPersonaProvider.notifier)
+            .state = UserPersona.player;
         await tester.pumpAndSettle();
-
-        expect(find.text('PLAYER MODE'), findsOneWidget);
 
         // 5. Closes drawer & returns to Vault
         final closeMenuButton = find.byTooltip('Close Menu');
@@ -567,7 +566,10 @@ void main() {
         // 2. Open drawer and toggle to Player mode
         await tester.tap(find.text('Menu'));
         await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const Key('persona_toggle_player')));
+        ProviderScope.containerOf(
+                tester.element(find.byType(MorphingCommandCenter)))
+            .read(userPersonaProvider.notifier)
+            .state = UserPersona.player;
         await tester.pumpAndSettle();
         await tester.tap(find.byTooltip('Close Menu'));
         await tester.pumpAndSettle();

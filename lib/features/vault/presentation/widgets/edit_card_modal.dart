@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:countr/core/constants/app_colors.dart';
@@ -8,7 +9,8 @@ import 'package:countr/features/vault/presentation/providers/vault_providers.dar
 import 'package:countr/features/vault/presentation/widgets/switch_printing_modal.dart';
 
 /// Modal bottom sheet allowing comprehensive edits to a Vault card's
-/// printing variant, custom tags, acquired price, and condition checkboxes.
+/// printing variant, custom tags, acquired price, physical provenance,
+/// acquisition data, and condition checkboxes.
 class EditCardModal extends ConsumerStatefulWidget {
   final VaultItem item;
   final void Function(VaultItem updatedItem)? onSaved;
@@ -32,8 +34,14 @@ class EditCardModal extends ConsumerStatefulWidget {
 
 class _EditCardModalState extends ConsumerState<EditCardModal> {
   late TextEditingController _priceController;
+  late TextEditingController _purchasePriceController;
+  late TextEditingController _binderPageController;
+  late TextEditingController _binderSlotController;
+  late TextEditingController _notesController;
   late TextEditingController _tagInputController;
   late String _selectedCondition;
+  late String _selectedProtectionStatus;
+  DateTime? _dateObtained;
   late bool _isGraded;
   late bool _isAltered;
   late bool _isMisprint;
@@ -43,6 +51,17 @@ class _EditCardModalState extends ConsumerState<EditCardModal> {
   bool _isSaving = false;
 
   static const _conditionGrades = ['NM', 'LP', 'MP', 'HP', 'DMG'];
+
+  static const _protectionStatuses = [
+    'Sleeved',
+    'Double Sleeved',
+    'Perfect Fit',
+    'Penny Sleeve',
+    'Toploader',
+    'Magnetic One-Touch',
+    'Graded Slab',
+    'Raw',
+  ];
 
   static const _variants = [
     'Standard',
@@ -55,14 +74,35 @@ class _EditCardModalState extends ConsumerState<EditCardModal> {
   @override
   void initState() {
     super.initState();
+    final initialAcquired = widget.item.acquiredPrice;
+    final initialPurchase = widget.item.purchasePrice ?? initialAcquired;
+
     _priceController = TextEditingController(
-      text: widget.item.acquiredPrice.toStringAsFixed(2),
+      text: initialAcquired > 0 ? initialAcquired.toStringAsFixed(2) : '',
+    );
+    _purchasePriceController = TextEditingController(
+      text: initialPurchase > 0 ? initialPurchase.toStringAsFixed(2) : '',
+    );
+    _binderPageController = TextEditingController(
+      text: widget.item.binderPage != null ? widget.item.binderPage.toString() : '',
+    );
+    _binderSlotController = TextEditingController(
+      text: widget.item.binderSlot ?? '',
+    );
+    _notesController = TextEditingController(
+      text: widget.item.notes ?? widget.item.personalNotes ?? '',
     );
     _tagInputController = TextEditingController();
 
     _selectedCondition = _conditionGrades.contains(widget.item.condition)
         ? widget.item.condition
         : 'NM';
+
+    _selectedProtectionStatus = _protectionStatuses.contains(widget.item.protectionStatus)
+        ? widget.item.protectionStatus!
+        : 'Sleeved';
+
+    _dateObtained = widget.item.dateObtained ?? widget.item.acquiredDate;
 
     _isGraded = widget.item.isGraded;
     _isAltered = widget.item.isAltered;
@@ -94,8 +134,29 @@ class _EditCardModalState extends ConsumerState<EditCardModal> {
   @override
   void dispose() {
     _priceController.dispose();
+    _purchasePriceController.dispose();
+    _binderPageController.dispose();
+    _binderSlotController.dispose();
+    _notesController.dispose();
     _tagInputController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickDateObtained() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _dateObtained ?? now,
+      firstDate: DateTime(1990),
+      lastDate: now.add(const Duration(days: 365)),
+    );
+    if (picked != null) {
+      setState(() => _dateObtained = picked);
+    }
+  }
+
+  String _formatDate(DateTime dt) {
+    return '${dt.month.toString().padLeft(2, '0')}/${dt.day.toString().padLeft(2, '0')}/${dt.year}';
   }
 
   void _addTag() {
@@ -111,8 +172,26 @@ class _EditCardModalState extends ConsumerState<EditCardModal> {
   Future<void> _saveEdits() async {
     setState(() => _isSaving = true);
     try {
-      final dao = ref.read(vaultDaoProvider);
-      final parsedPrice = double.tryParse(_priceController.text) ?? widget.item.acquiredPrice;
+      double parsedPrice = double.tryParse(_priceController.text) ?? widget.item.acquiredPrice;
+      double parsedPurchasePrice = double.tryParse(_purchasePriceController.text) ?? parsedPrice;
+
+      final initialAcquiredStr = widget.item.acquiredPrice > 0 ? widget.item.acquiredPrice.toStringAsFixed(2) : '';
+      final initialPurchaseStr = (widget.item.purchasePrice ?? widget.item.acquiredPrice) > 0
+          ? (widget.item.purchasePrice ?? widget.item.acquiredPrice).toStringAsFixed(2)
+          : '';
+
+      final priceChanged = _priceController.text.trim() != initialAcquiredStr;
+      final purchaseChanged = _purchasePriceController.text.trim() != initialPurchaseStr;
+
+      if (priceChanged && !purchaseChanged) {
+        parsedPurchasePrice = parsedPrice;
+      } else if (purchaseChanged && !priceChanged) {
+        parsedPrice = parsedPurchasePrice;
+      }
+
+      final parsedBinderPage = int.tryParse(_binderPageController.text.trim());
+      final binderSlot = _binderSlotController.text.trim();
+      final notes = _notesController.text.trim();
 
       String setOrSeries = widget.item.setOrSeries;
       for (final v in _variants) {
@@ -122,9 +201,17 @@ class _EditCardModalState extends ConsumerState<EditCardModal> {
         setOrSeries = '$setOrSeries ($_selectedVariant)';
       }
 
+      final dao = ref.read(vaultDaoProvider);
       await dao.updateItemCardDetails(
         id: widget.item.id,
         acquiredPrice: parsedPrice,
+        purchasePrice: parsedPurchasePrice,
+        dateObtained: _dateObtained,
+        binderPage: parsedBinderPage,
+        binderSlot: binderSlot.isNotEmpty ? binderSlot : null,
+        notes: notes.isNotEmpty ? notes : null,
+        personalNotes: notes.isNotEmpty ? notes : null,
+        protectionStatus: _selectedProtectionStatus,
         condition: _selectedCondition,
         isGraded: _isGraded,
         isAltered: _isAltered,
@@ -137,6 +224,13 @@ class _EditCardModalState extends ConsumerState<EditCardModal> {
       final updated = await dao.getItemById(widget.item.id);
       final fallbackItem = widget.item.copyWith(
         acquiredPrice: parsedPrice,
+        purchasePrice: Value(parsedPurchasePrice),
+        dateObtained: Value(_dateObtained),
+        binderPage: Value(parsedBinderPage),
+        binderSlot: Value(binderSlot.isNotEmpty ? binderSlot : null),
+        notes: Value(notes.isNotEmpty ? notes : null),
+        personalNotes: Value(notes.isNotEmpty ? notes : null),
+        protectionStatus: Value(_selectedProtectionStatus),
         condition: _selectedCondition,
         isGraded: _isGraded,
         isAltered: _isAltered,
@@ -327,6 +421,205 @@ class _EditCardModalState extends ConsumerState<EditCardModal> {
                           borderSide: const BorderSide(color: AppColors.surfaceBorder),
                         ),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      ),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // Section: Acquisition Tracking
+                    _buildSectionTitle('Acquisition Tracking'),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceRaised,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.surfaceBorder),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          OutlinedButton.icon(
+                            key: const Key('edit_card_date_obtained_button'),
+                            icon: const Icon(Icons.calendar_today_outlined, size: 14, color: AppColors.accentCyan),
+                            label: Text(
+                              'Date Obtained: ${_dateObtained != null ? _formatDate(_dateObtained!) : "Not set"}',
+                              style: const TextStyle(fontSize: 12, color: AppColors.accentCyan, fontWeight: FontWeight.w600),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              visualDensity: VisualDensity.compact,
+                              side: const BorderSide(color: AppColors.accentCyan),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            ),
+                            onPressed: _pickDateObtained,
+                          ),
+                          const SizedBox(height: 12),
+                          const Text(
+                            'Purchase Price',
+                            style: TextStyle(color: AppColors.textMuted, fontSize: 11, fontWeight: FontWeight.w600),
+                          ),
+                          const SizedBox(height: 4),
+                          TextFormField(
+                            key: const Key('edit_card_purchase_price_input'),
+                            controller: _purchasePriceController,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+                            decoration: InputDecoration(
+                              prefixIcon: const Padding(
+                                padding: EdgeInsets.only(left: 14, right: 8, top: 13),
+                                child: Text('\$', style: TextStyle(color: AppColors.accentCyan, fontSize: 16, fontWeight: FontWeight.bold)),
+                              ),
+                              hintText: '0.00',
+                              filled: true,
+                              fillColor: AppColors.surface,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(color: AppColors.surfaceBorder),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // Section: Physical Provenance
+                    _buildSectionTitle('Physical Provenance'),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceRaised,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.surfaceBorder),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Protection Status',
+                            style: TextStyle(color: AppColors.textMuted, fontSize: 11, fontWeight: FontWeight.w600),
+                          ),
+                          const SizedBox(height: 6),
+                          DropdownButtonFormField<String>(
+                            key: const Key('edit_card_protection_status_dropdown'),
+                            isExpanded: true,
+                            initialValue: _selectedProtectionStatus,
+                            dropdownColor: AppColors.surfaceRaised,
+                            style: const TextStyle(color: AppColors.textPrimary, fontSize: 13),
+                            decoration: InputDecoration(
+                              isDense: true,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              filled: true,
+                              fillColor: AppColors.surface,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: const BorderSide(color: AppColors.surfaceBorder),
+                              ),
+                            ),
+                            items: _protectionStatuses.map((s) => DropdownMenuItem(
+                              value: s,
+                              child: Text(s),
+                            )).toList(),
+                            onChanged: (val) {
+                              if (val != null) setState(() => _selectedProtectionStatus = val);
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                flex: 1,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Binder Page',
+                                      style: TextStyle(color: AppColors.textMuted, fontSize: 11, fontWeight: FontWeight.w600),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    TextField(
+                                      key: const Key('edit_card_binder_page_input'),
+                                      controller: _binderPageController,
+                                      keyboardType: TextInputType.number,
+                                      style: const TextStyle(color: AppColors.textPrimary, fontSize: 13),
+                                      decoration: InputDecoration(
+                                        hintText: 'Page #',
+                                        hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+                                        isDense: true,
+                                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                        filled: true,
+                                        fillColor: AppColors.surface,
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(8),
+                                          borderSide: const BorderSide(color: AppColors.surfaceBorder),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                flex: 2,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Binder Slot',
+                                      style: TextStyle(color: AppColors.textMuted, fontSize: 11, fontWeight: FontWeight.w600),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    TextField(
+                                      key: const Key('edit_card_binder_slot_input'),
+                                      controller: _binderSlotController,
+                                      style: const TextStyle(color: AppColors.textPrimary, fontSize: 13),
+                                      decoration: InputDecoration(
+                                        hintText: 'Slot (e.g. A3)',
+                                        hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+                                        isDense: true,
+                                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                        filled: true,
+                                        fillColor: AppColors.surface,
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(8),
+                                          borderSide: const BorderSide(color: AppColors.surfaceBorder),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          const Text(
+                            'Personal Notes & Strategy Tips',
+                            style: TextStyle(color: AppColors.textMuted, fontSize: 11, fontWeight: FontWeight.w600),
+                          ),
+                          const SizedBox(height: 4),
+                          TextField(
+                            key: const Key('edit_card_notes_input'),
+                            controller: _notesController,
+                            maxLines: 3,
+                            decoration: InputDecoration(
+                              hintText: 'Enter combos, strategy tips, or personal notes...',
+                              hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+                              isDense: true,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              filled: true,
+                              fillColor: AppColors.surface,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: const BorderSide(color: AppColors.surfaceBorder),
+                              ),
+                            ),
+                            style: const TextStyle(color: AppColors.textPrimary, fontSize: 13),
+                          ),
+                        ],
                       ),
                     ),
 
@@ -556,6 +849,7 @@ class _EditCardModalState extends ConsumerState<EditCardModal> {
                 ),
                 color: AppColors.surface,
                 child: SizedBox(
+                  key: const Key('edit_card_save_button'),
                   width: double.infinity,
                   height: 48,
                   child: ElevatedButton(

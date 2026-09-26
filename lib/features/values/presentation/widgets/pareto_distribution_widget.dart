@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:countr/core/cache/countr_cached_image.dart';
 import 'package:countr/core/constants/app_colors.dart';
 import 'package:countr/core/constants/app_typography.dart';
 import 'package:countr/core/state/settings_state.dart';
@@ -394,10 +395,10 @@ class ParetoDistributionWidget extends ConsumerWidget {
         height: 40,
         color: AppColors.surfaceRaised,
         child: url.isNotEmpty
-            ? Image.network(
-                url,
+            ? CountrCachedImage(
+                imageUrl: url,
                 fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => _buildPlaceholder(),
+                errorWidget: _buildPlaceholder(),
               )
             : _buildPlaceholder(),
       ),

@@ -28,7 +28,7 @@ VaultItem createItem({
     isGraded: false,
     isAltered: false,
     isMisprint: false,
-    isSigned: false,
+    isSigned: false, isDeleted: false,
     acquiredPrice: acquiredPrice,
     acquiredDate: DateTime(2021, 5, 1),
     currentMarketPrice: currentMarketPrice,

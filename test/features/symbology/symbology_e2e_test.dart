@@ -79,7 +79,7 @@ VaultItem createE2ETestCard({
     isGraded: false,
     isAltered: false,
     isMisprint: false,
-    isSigned: false,
+    isSigned: false, isDeleted: false,
     currentMarketPrice: 10.0,
     lastPriceUpdate: DateTime.now(),
     dynamicData: jsonEncode(dataMap),
@@ -118,7 +118,7 @@ Deck createE2ETestDeck({
     createdAt: DateTime.now(),
     tcgDomain: 'mtg',
     isRegistered: false,
-    isCompetitive: false,
+    isCompetitive: false, isDeleted: false,
   );
 }
 

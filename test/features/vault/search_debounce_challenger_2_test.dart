@@ -24,10 +24,16 @@ class DebounceSpyVaultDao extends VaultDao {
     String query, {
     String? collectionType,
     int limit = 50,
+    bool groupByOracleId = false,
   }) async {
     recordedCatalogQueries.add(query);
     recordedQueryTimes.add(DateTime.now());
-    return super.searchCatalogCards(query, collectionType: collectionType, limit: limit);
+    return super.searchCatalogCards(
+      query,
+      collectionType: collectionType,
+      limit: limit,
+      groupByOracleId: groupByOracleId,
+    );
   }
 }
 

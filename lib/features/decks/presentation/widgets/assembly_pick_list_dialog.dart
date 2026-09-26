@@ -7,6 +7,7 @@ import 'package:countr/core/database/app_database.dart';
 import 'package:countr/features/decks/data/mock_deck_data.dart';
 import 'package:countr/features/decks/domain/models/assembly_models.dart';
 import 'package:countr/features/decks/domain/models/board_zone.dart';
+import 'package:countr/core/cache/countr_cached_image.dart';
 import 'package:countr/features/vault/presentation/providers/vault_providers.dart';
 
 /// Modal dialog displaying the physical assembly pick-list for a deck.
@@ -750,10 +751,10 @@ class _AssemblyPickListDialogState extends ConsumerState<AssemblyPickListDialog>
                   borderRadius: BorderRadius.zero,
                 ),
                 child: item.imageUrl != null && item.imageUrl!.isNotEmpty
-                    ? Image.network(
-                        item.imageUrl!,
+                    ? CountrCachedImage(
+                        imageUrl: item.imageUrl!,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) => const Icon(
+                        errorWidget: const Icon(
                           Icons.style_outlined,
                           color: Colors.white24,
                           size: 18,
@@ -890,10 +891,10 @@ class _AssemblyPickListDialogState extends ConsumerState<AssemblyPickListDialog>
                 borderRadius: BorderRadius.zero,
               ),
               child: item.imageUrl != null && item.imageUrl!.isNotEmpty
-                  ? Image.network(
-                      item.imageUrl!,
+                  ? CountrCachedImage(
+                      imageUrl: item.imageUrl!,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => const Icon(
+                      errorWidget: const Icon(
                         Icons.style_outlined,
                         color: Colors.white24,
                         size: 18,

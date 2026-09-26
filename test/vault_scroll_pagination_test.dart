@@ -383,7 +383,7 @@ void main() {
         acquiredDate: DateTime.now(),
         quantity: 1,
         condition: 'NM',
-        isGraded: false, isAltered: false, isMisprint: false, isSigned: false,
+        isGraded: false, isAltered: false, isMisprint: false, isSigned: false, isDeleted: false,
         currentMarketPrice: 25000.0,
         lastPriceUpdate: DateTime.now(),
         dynamicData: '{}',

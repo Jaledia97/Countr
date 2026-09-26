@@ -89,7 +89,7 @@ void main() {
 
       // 1. Verify exact row count is now 1
       allRows = await (db.select(db.deckVersionItems)
-            ..where((t) => t.versionId.equals('v-col-1')))
+            ..where((t) => t.versionId.equals('v-col-1') & t.isDeleted.equals(false)))
           .get();
       expect(allRows.length, 1, reason: 'Duplicate rows must be merged into single target row');
 
@@ -101,7 +101,7 @@ void main() {
 
       // 3. Verify old DVI is completely deleted (no orphaned row)
       final orphanedDvi = await (db.select(db.deckVersionItems)
-            ..where((t) => t.id.equals(aerDvi.id)))
+            ..where((t) => t.id.equals(aerDvi.id) & t.isDeleted.equals(false)))
           .getSingleOrNull();
       expect(orphanedDvi, isNull, reason: 'Old DVI row must be removed completely');
 

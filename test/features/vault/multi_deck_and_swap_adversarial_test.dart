@@ -106,7 +106,7 @@ void main() {
             ..where((t) => t.deckId.equals('deck-alpha') & t.isActive.equals(true)))
           .getSingle();
       final rows = await (db.select(db.deckVersionItems)
-            ..where((t) => t.versionId.equals(activeVersion.id) & t.vaultItemId.equals('item-bolt')))
+            ..where((t) => t.versionId.equals(activeVersion.id) & t.vaultItemId.equals('item-bolt') & t.isDeleted.equals(false)))
           .get();
       expect(rows.isEmpty, isTrue, reason: 'Row must be completely deleted when quantity drops to 0');
 
@@ -163,13 +163,13 @@ void main() {
       // Test extreme: setCardQuantityInDeck to 0 and negative
       await db.vaultDao.setCardQuantityInDeck('deck-rapid', 'item-lotus', 0);
       final afterZero = await (db.select(db.deckVersionItems)
-            ..where((t) => t.versionId.equals(activeVersion.id) & t.vaultItemId.equals('item-lotus')))
+            ..where((t) => t.versionId.equals(activeVersion.id) & t.vaultItemId.equals('item-lotus') & t.isDeleted.equals(false)))
           .get();
       expect(afterZero.isEmpty, isTrue);
 
       await db.vaultDao.setCardQuantityInDeck('deck-rapid', 'item-lotus', -10);
       final afterNegative = await (db.select(db.deckVersionItems)
-            ..where((t) => t.versionId.equals(activeVersion.id) & t.vaultItemId.equals('item-lotus')))
+            ..where((t) => t.versionId.equals(activeVersion.id) & t.vaultItemId.equals('item-lotus') & t.isDeleted.equals(false)))
           .get();
       expect(afterNegative.isEmpty, isTrue);
     });
@@ -367,7 +367,7 @@ void main() {
             ..where((t) => t.deckId.equals('deck-donor') & t.isActive.equals(true)))
           .getSingle();
       final donorItems = await (db.select(db.deckVersionItems)
-            ..where((t) => t.versionId.equals(donorVersion.id) & t.vaultItemId.equals('item-sol-conflict')))
+            ..where((t) => t.versionId.equals(donorVersion.id) & t.vaultItemId.equals('item-sol-conflict') & t.isDeleted.equals(false)))
           .get();
       expect(donorItems.isEmpty, isTrue, reason: 'Physical copy must be removed from donor deck');
 
@@ -950,7 +950,7 @@ void main() {
       }
 
       // Check total items count in vault_items table - must remain strictly 1!
-      final allItems = await db.select(db.vaultItems).get();
+      final allItems = await (db.select(db.vaultItems)..where((t) => t.isDeleted.equals(false))).get();
       expect(allItems.length, 1, reason: 'In-place switch must not create duplicate vault items');
     });
 

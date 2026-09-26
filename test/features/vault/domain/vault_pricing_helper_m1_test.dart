@@ -248,7 +248,7 @@ void main() {
           isGraded: false,
           isAltered: false,
           isMisprint: false,
-          isSigned: false,
+          isSigned: false, isDeleted: false,
           acquiredPrice: 40000.0,
           acquiredDate: DateTime.now(),
           currentMarketPrice: 50000.0,

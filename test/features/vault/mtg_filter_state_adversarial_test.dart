@@ -14,6 +14,7 @@ VaultItem createCard({
   bool isAltered = false,
   bool isMisprint = false,
   bool isSigned = false,
+  bool isDeleted = false,
   Map<String, dynamic>? dynamicData,
   String? rawDynamicData,
 }) {
@@ -32,6 +33,7 @@ VaultItem createCard({
     isAltered: isAltered,
     isMisprint: isMisprint,
     isSigned: isSigned,
+    isDeleted: isDeleted,
     personalNotes: null,
     primaryBinderId: null,
     currentMarketPrice: 10.0,
@@ -1175,7 +1177,7 @@ void main() {
         isGraded: true,
         isAltered: false,
         isMisprint: true,
-        isSigned: false,
+        isSigned: false, isDeleted: false,
       );
 
       expect(const MtgFilterState(isGraded: true).matches(customCard), isTrue);

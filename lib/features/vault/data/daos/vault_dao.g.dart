@@ -12,6 +12,7 @@ mixin _$VaultDaoMixin on DatabaseAccessor<AppDatabase> {
       attachedDatabase.deckVersionItems;
   $DeckMatchupsTable get deckMatchups => attachedDatabase.deckMatchups;
   $DeckSynergiesTable get deckSynergies => attachedDatabase.deckSynergies;
+  $SyncQueueTable get syncQueue => attachedDatabase.syncQueue;
   VaultDaoManager get managers => VaultDaoManager(this);
 }
 
@@ -35,4 +36,6 @@ class VaultDaoManager {
       $$DeckMatchupsTableTableManager(_db.attachedDatabase, _db.deckMatchups);
   $$DeckSynergiesTableTableManager get deckSynergies =>
       $$DeckSynergiesTableTableManager(_db.attachedDatabase, _db.deckSynergies);
+  $$SyncQueueTableTableManager get syncQueue =>
+      $$SyncQueueTableTableManager(_db.attachedDatabase, _db.syncQueue);
 }

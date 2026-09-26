@@ -135,7 +135,8 @@ void main() {
       final inboxAfterDelete = await (dao.select(dao.vaultItems)
             ..where((t) =>
                 t.primaryBinderId.equals('INBOX') &
-                t.quantity.isBiggerThanValue(0)))
+                t.quantity.isBiggerThanValue(0) &
+                t.isDeleted.equals(false)))
           .get();
       expect(inboxAfterDelete.any((c) => c.id == 'c-junk'), isFalse);
 
@@ -363,7 +364,8 @@ void main() {
       final remaining = await (dao.select(dao.vaultItems)
             ..where((t) =>
                 t.primaryBinderId.equals('INBOX') &
-                t.quantity.isBiggerThanValue(0)))
+                t.quantity.isBiggerThanValue(0) &
+                t.isDeleted.equals(false)))
           .get();
       expect(remaining.length, equals(2));
       expect(remaining.every((c) => c.collectionType == 'mtg'), isTrue);

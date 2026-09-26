@@ -59,7 +59,7 @@ void main() {
       isGraded: false,
       isAltered: false,
       isMisprint: false,
-      isSigned: false,
+      isSigned: false, isDeleted: false,
       currentMarketPrice: 25.0,
       lastPriceUpdate: DateTime.now(),
       dynamicData: jsonEncode(dataMap),

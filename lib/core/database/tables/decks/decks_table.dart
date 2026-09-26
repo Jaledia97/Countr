@@ -15,6 +15,12 @@ class Decks extends Table {
   TextColumn get tcgDomain => text().withDefault(const Constant('mtg'))();
   BoolColumn get isRegistered => boolean().withDefault(const Constant(false))();
   BoolColumn get isCompetitive => boolean().withDefault(const Constant(false))();
+  
+  // Soft Delete & Outbox Sync (v9)
+  BoolColumn get isDeleted =>
+      boolean().named('is_deleted').withDefault(const Constant(false))();
+  DateTimeColumn get updatedAt =>
+      dateTime().named('updated_at').nullable()();
 
   @override
   Set<Column> get primaryKey => {id};

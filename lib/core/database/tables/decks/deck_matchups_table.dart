@@ -10,6 +10,12 @@ class DeckMatchups extends Table {
   TextColumn get swapInItemIds => text().nullable()(); // JSON list
   TextColumn get swapOutItemIds => text().nullable()(); // JSON list
   
+  // Soft Delete & Outbox Sync (v9)
+  BoolColumn get isDeleted =>
+      boolean().named('is_deleted').withDefault(const Constant(false))();
+  DateTimeColumn get updatedAt =>
+      dateTime().named('updated_at').nullable()();
+  
   @override
   Set<Column> get primaryKey => {id};
 }

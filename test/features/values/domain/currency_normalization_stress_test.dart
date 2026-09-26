@@ -579,7 +579,7 @@ void main() {
         isGraded: false,
         isAltered: false,
         isMisprint: false,
-        isSigned: false,
+        isSigned: false, isDeleted: false,
         currentMarketPrice: 650.0,
         lastPriceUpdate: DateTime.now(),
         dynamicData: '{}',

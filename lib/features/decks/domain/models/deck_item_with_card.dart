@@ -17,6 +17,7 @@ class DeckItemWithCard extends MapView<String, dynamic> {
   final String versionId;
   final String vaultItemId;
   final int deckQuantity;
+  int get quantity => deckQuantity;
   final String boardZone;
   final bool isProxy;
 
@@ -217,6 +218,8 @@ class DeckItemWithCard extends MapView<String, dynamic> {
       currentMarketPrice: currentMarketPrice,
       lastPriceUpdate: DateTime.now(),
       dynamicData: dynamicData ?? '{}',
+      isDeleted: this['is_deleted'] == 1 || this['is_deleted'] == true,
+      updatedAt: this['updated_at'] != null ? DateTime.tryParse(this['updated_at'].toString()) : null,
     );
   }
 }
