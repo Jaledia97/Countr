@@ -610,7 +610,13 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(tester.takeException(), isNull);
-      expect(find.text('100.0% Bling'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(BottomSheet),
+          matching: find.text('100.0% Bling'),
+        ),
+        findsOneWidget,
+      );
 
       await tester.tap(find.byIcon(Icons.close).last);
       await tester.pumpAndSettle();

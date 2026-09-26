@@ -468,11 +468,13 @@ class _VariantPriceChartState extends ConsumerState<VariantPriceChart> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     // 2. Set Code badge & Collector number
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Flexible(
-                          child: Container(
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
                             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                             decoration: BoxDecoration(
                               color: AppColors.surface,
@@ -483,35 +485,26 @@ class _VariantPriceChartState extends ConsumerState<VariantPriceChart> {
                                     : AppColors.surfaceBorderSubtle,
                               ),
                             ),
-                            child: FittedBox(
-                              fit: BoxFit.scaleDown,
-                              child: Text(
-                                variant.setCode.toUpperCase(),
-                                style: const TextStyle(
-                                  fontSize: 9.5,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppColors.accentCyan,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        Flexible(
-                          child: FittedBox(
-                            fit: BoxFit.scaleDown,
-                            alignment: Alignment.centerRight,
                             child: Text(
-                              '#${variant.collectorNumber}',
+                              variant.setCode.toUpperCase(),
                               style: const TextStyle(
                                 fontSize: 9.5,
-                                color: AppColors.textMuted,
-                                fontWeight: FontWeight.w600,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.accentCyan,
                               ),
                             ),
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 4),
+                          Text(
+                            '#${variant.collectorNumber}',
+                            style: const TextStyle(
+                              fontSize: 9.5,
+                              color: AppColors.textMuted,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
 
                     // 3. Finish / treatment pill

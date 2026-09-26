@@ -207,6 +207,7 @@ void main() {
       draws: 0,
       isCompetitive: false,
       isRegistered: false,
+      isAssembled: false,
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
       isDeleted: false,

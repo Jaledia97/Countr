@@ -14,10 +14,12 @@ import 'package:countr/features/vault/presentation/widgets/card_detail_sheet.dar
 import 'package:countr/features/vault/presentation/widgets/manual_add_bottom_sheet.dart';
 import 'package:countr/features/vault/presentation/widgets/vault_import_bottom_sheet.dart';
 import 'package:countr/features/vault/domain/vault_pricing_helper.dart';
+import 'package:countr/features/vault/domain/vault_variant_helper.dart';
 import 'package:countr/features/vault/presentation/widgets/vault_item_card.dart';
 import 'package:countr/features/vault/presentation/widgets/vault_item_tile.dart';
 import 'package:countr/features/vault/presentation/widgets/mtg_filter_sheet.dart';
 import 'package:countr/features/vault/presentation/providers/mtg_filter_state.dart';
+import 'package:countr/features/symbology/presentation/widgets/mana_symbol_icon.dart';
 
 /// Vault Screen (Safe / Collection Inventory).
 /// Phase 2 & 3: Infinitely scalable, offline-first local database using Drift
@@ -58,12 +60,13 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
     }
   }
 
-  final List<String> _filters = [
+  static const List<String> _polymorphicFilters = [
     'Owned',
     'Catalog (Ref)',
     'Graded Slabs',
     'Raw Singles',
     'Comics',
+    'Sports Cards',
     'High P/L',
   ];
 
@@ -244,6 +247,9 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
             ),
             onSelected: (String selected) {
               ref.read(activeGameContextProvider.notifier).state = selected;
+              setState(() {
+                _selectedFilterIndex = ref.read(vaultShowCatalogProvider) ? 1 : 0;
+              });
               ScaffoldMessenger.of(context).hideCurrentSnackBar();
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
@@ -503,7 +509,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
         child: Row(
           children: [
             // View Toggle: [ Singles ] | [ Binders ] & Layout Switcher
-            Flexible(
+            Expanded(
               child: FittedBox(
                 fit: BoxFit.scaleDown,
                 alignment: Alignment.centerLeft,
@@ -805,19 +811,35 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
   }
 
   Widget _buildCategoryFilterChips() {
+    final activeGame = ref.watch(activeGameContextProvider);
+    final isMtg = activeGame.toLowerCase().contains('magic') || activeGame.toLowerCase() == 'mtg';
+    final showCatalog = ref.watch(vaultShowCatalogProvider);
+
+    if (isMtg) {
+      return _buildMtgCategoryFilterChips(showCatalog);
+    } else {
+      return _buildPolymorphicCategoryFilterChips(showCatalog);
+    }
+  }
+
+  Widget _buildPolymorphicCategoryFilterChips(bool showCatalog) {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
-        children: List.generate(_filters.length, (index) {
-          final isSelected = _selectedFilterIndex == index;
+        children: List.generate(_polymorphicFilters.length, (index) {
+          final filterName = _polymorphicFilters[index];
+          final isSelected = (index == 0 && !showCatalog && _selectedFilterIndex == 0) ||
+              (index == 1 && showCatalog && _selectedFilterIndex == 1) ||
+              (index >= 2 && _selectedFilterIndex == index);
+
           return Padding(
             padding: const EdgeInsets.only(right: 8),
             child: FilterChip(
               key: Key(
-                'vault_filter_chip_${_filters[index].toLowerCase().replaceAll(' ', '_')}',
+                'vault_filter_chip_${filterName.toLowerCase().replaceAll(' ', '_')}',
               ),
               selected: isSelected,
-              label: Text(_filters[index]),
+              label: Text(filterName),
               onSelected: (selected) {
                 setState(() {
                   _selectedFilterIndex = index;
@@ -845,6 +867,202 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
             ),
           );
         }),
+      ),
+    );
+  }
+
+  Widget _buildMtgCategoryFilterChips(bool showCatalog) {
+    final mtgFilter = ref.watch(mtgFilterProvider);
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          // 1. Owned Chip
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: FilterChip(
+              key: const Key('vault_filter_chip_owned'),
+              selected: !showCatalog,
+              label: const Text('Owned'),
+              onSelected: (_) {
+                setState(() {
+                  _selectedFilterIndex = 0;
+                  ref.read(vaultShowCatalogProvider.notifier).state = false;
+                });
+              },
+              labelStyle: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+                color: !showCatalog ? AppColors.accentCyan : AppColors.textSecondary,
+              ),
+              backgroundColor: AppColors.surface,
+              selectedColor: AppColors.accentCyan.withValues(alpha: 0.15),
+              side: BorderSide(
+                color: !showCatalog ? AppColors.accentCyan : AppColors.surfaceBorder,
+              ),
+            ),
+          ),
+
+          // 2. Catalog (Ref) Chip
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: FilterChip(
+              key: const Key('vault_filter_chip_catalog_(ref)'),
+              selected: showCatalog,
+              label: const Text('Catalog (Ref)'),
+              onSelected: (_) {
+                setState(() {
+                  _selectedFilterIndex = 1;
+                  ref.read(vaultShowCatalogProvider.notifier).state = true;
+                });
+              },
+              labelStyle: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+                color: showCatalog ? AppColors.accentCyan : AppColors.textSecondary,
+              ),
+              backgroundColor: AppColors.surface,
+              selectedColor: AppColors.accentCyan.withValues(alpha: 0.15),
+              side: BorderSide(
+                color: showCatalog ? AppColors.accentCyan : AppColors.surfaceBorder,
+              ),
+            ),
+          ),
+
+          // 3. Colors Dropdown Pill
+          _buildMtgPill(
+            key: const Key('vault_filter_chip_colors'),
+            label: mtgFilter.colors.isEmpty
+                ? 'Colors ▾'
+                : 'Colors (${mtgFilter.colors.join()})',
+            isActive: mtgFilter.colors.isNotEmpty,
+            onTap: () => _showColorsFilterModal(context),
+            onClear: () => ref.read(mtgFilterProvider.notifier).update((s) => s.copyWith(colors: const {})),
+          ),
+
+          // 4. Mana Value Dropdown Pill
+          _buildMtgPill(
+            key: const Key('vault_filter_chip_mana_value'),
+            label: (mtgFilter.cmcRange.start == 0 && mtgFilter.cmcRange.end >= 16)
+                ? 'Mana Value ▾'
+                : 'CMC ${mtgFilter.cmcRange.start.toInt()}-${mtgFilter.cmcRange.end.toInt() >= 16 ? '16+' : mtgFilter.cmcRange.end.toInt()}',
+            isActive: mtgFilter.cmcRange.start > 0 || mtgFilter.cmcRange.end < 16,
+            onTap: () => _showManaValueFilterModal(context),
+            onClear: () => ref.read(mtgFilterProvider.notifier).setCmcRange(const RangeValues(0, 16)),
+          ),
+
+          // 5. Card Types Dropdown Pill
+          _buildMtgPill(
+            key: const Key('vault_filter_chip_card_types'),
+            label: mtgFilter.typeLine.trim().isEmpty
+                ? 'Card Types ▾'
+                : 'Type: ${mtgFilter.typeLine}',
+            isActive: mtgFilter.typeLine.trim().isNotEmpty,
+            onTap: () => _showCardTypesFilterModal(context),
+            onClear: () => ref.read(mtgFilterProvider.notifier).setTypeLine(''),
+          ),
+
+          // 6. Formats Dropdown Pill
+          _buildMtgPill(
+            key: const Key('vault_filter_chip_formats'),
+            label: mtgFilter.formats.isEmpty
+                ? 'Formats ▾'
+                : 'Format: ${mtgFilter.formats.first}',
+            isActive: mtgFilter.formats.isNotEmpty,
+            onTap: () => _showFormatsFilterModal(context),
+            onClear: () => ref.read(mtgFilterProvider.notifier).setFormats(const {}),
+          ),
+
+          // 7. Rarity Dropdown Pill
+          _buildMtgPill(
+            key: const Key('vault_filter_chip_rarity'),
+            label: mtgFilter.rarities.isEmpty
+                ? 'Rarity ▾'
+                : 'Rarity (${mtgFilter.rarities.length})',
+            isActive: mtgFilter.rarities.isNotEmpty,
+            onTap: () => _showRarityFilterModal(context),
+            onClear: () => ref.read(mtgFilterProvider.notifier).update((s) => s.copyWith(rarities: const {})),
+          ),
+
+          // 8. Sets Dropdown Pill
+          _buildMtgPill(
+            key: const Key('vault_filter_chip_sets'),
+            label: mtgFilter.setCode.trim().isEmpty
+                ? 'Sets ▾'
+                : 'Set: ${mtgFilter.setCode.toUpperCase()}',
+            isActive: mtgFilter.setCode.trim().isNotEmpty,
+            onTap: () => _showSetsFilterModal(context),
+            onClear: () => ref.read(mtgFilterProvider.notifier).setSetCode(''),
+          ),
+
+          // 9. Foils Dropdown Pill
+          _buildMtgPill(
+            key: const Key('vault_filter_chip_foils'),
+            label: mtgFilter.finishes.isEmpty
+                ? 'Foils ▾'
+                : 'Foils (${mtgFilter.finishes.join(', ')})',
+            isActive: mtgFilter.finishes.isNotEmpty,
+            onTap: () => _showFoilsFilterModal(context),
+            onClear: () => ref.read(mtgFilterProvider.notifier).update((s) => s.copyWith(finishes: const {})),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMtgPill({
+    required Key key,
+    required String label,
+    required bool isActive,
+    required VoidCallback onTap,
+    required VoidCallback onClear,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: InkWell(
+        key: key,
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: isActive ? AppColors.accentCyan.withValues(alpha: 0.15) : AppColors.surface,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isActive ? AppColors.accentCyan : AppColors.surfaceBorder,
+              width: isActive ? 1.5 : 1.0,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w600,
+                  color: isActive ? AppColors.accentCyan : AppColors.textSecondary,
+                ),
+              ),
+              if (isActive) ...[
+                const SizedBox(width: 4),
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: onClear,
+                  child: const Padding(
+                    padding: EdgeInsets.all(2.0),
+                    child: Icon(
+                      Icons.close_rounded,
+                      size: 14,
+                      color: AppColors.accentCyan,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -1065,22 +1283,24 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
             item.dynamicData.toLowerCase().contains(query);
       }).toList();
 
-      // Apply quick filter chips
-      if (_selectedFilterIndex == 2) {
-        filtered = filtered.where((i) => i.isGraded).toList();
-      } else if (_selectedFilterIndex == 3) {
-        filtered = filtered.where((i) => !i.isGraded).toList();
-      } else if (_selectedFilterIndex == 4) {
-        filtered = filtered
-            .where((i) => i.collectionType == 'comic')
-            .toList();
-      } else if (_selectedFilterIndex == 5) {
-        filtered = filtered
-            .where((i) => i.currentMarketPrice > i.acquiredPrice)
-            .toList();
+      // Apply polymorphic quick filter chips when NOT in MTG
+      final isMtg = activeGame.toLowerCase().contains('magic') || activeGame.toLowerCase() == 'mtg';
+      if (!isMtg) {
+        if (_selectedFilterIndex == 2) {
+          filtered = filtered.where((i) => i.isGraded).toList();
+        } else if (_selectedFilterIndex == 3) {
+          filtered = filtered.where((i) => !i.isGraded).toList();
+        } else if (_selectedFilterIndex == 4) {
+          filtered = filtered.where((i) => i.collectionType == 'comic').toList();
+        } else if (_selectedFilterIndex == 5) {
+          filtered = filtered.where((i) => i.collectionType == 'sports_card').toList();
+        } else if (_selectedFilterIndex == 6) {
+          filtered = filtered.where((i) => i.currentMarketPrice > i.acquiredPrice).toList();
+        }
       }
 
       if (filtered.isEmpty) {
+        final isCatalog = ref.watch(vaultShowCatalogProvider) || _selectedFilterIndex == 1;
         return SliverPadding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           sliver: SliverToBoxAdapter(
@@ -1101,14 +1321,14 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    _selectedFilterIndex == 1
+                    isCatalog
                         ? 'No catalog cards found'
                         : 'No owned items in $activeGame',
                     style: AppTypography.heading2,
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    _selectedFilterIndex == 1
+                    isCatalog
                         ? 'Hydrate the MTG dictionary or modify your search filter.'
                         : 'Tap below to seed initial mock ledger records or hydrate catalog.',
                     style: AppTypography.caption,
@@ -1154,6 +1374,8 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
       }
 
       final cardLayout = ref.watch(cardDisplayLayoutProvider);
+      final variantResult = VaultVariantHelper.groupVaultItemsByVariant(filtered);
+      final multiVariantKeys = variantResult.multiVariantCardKeys;
 
       if (cardLayout == CardDisplayLayout.grid) {
         final screenWidth = MediaQuery.of(context).size.width;
@@ -1171,9 +1393,14 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
             ),
             delegate: SliverChildBuilderDelegate(
               (context, index) {
+                final item = filtered[index];
+                final abstractKey = VaultVariantHelper.resolveAbstractCardKey(item);
+                final hasMultipleVariants = multiVariantKeys.contains(abstractKey);
+
                 return RepaintBoundary(
                   child: VaultItemTile(
-                    item: filtered[index],
+                    item: item,
+                    hasMultipleVariants: hasMultipleVariants,
                     onTap: () => _openCardDetail(filtered, index),
                   ),
                 );
@@ -1190,10 +1417,15 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
           key: const PageStorageKey<String>('vault_cards_sliver_list'),
           itemCount: filtered.length,
           itemBuilder: (context, index) {
+            final item = filtered[index];
+            final abstractKey = VaultVariantHelper.resolveAbstractCardKey(item);
+            final hasMultipleVariants = multiVariantKeys.contains(abstractKey);
+
             return RepaintBoundary(
               child: VaultItemCard(
-                item: filtered[index],
+                item: item,
                 initiallyExpanded: false,
+                hasMultipleVariants: hasMultipleVariants,
                 onTap: () => _openCardDetail(filtered, index),
               ),
             );
@@ -1319,6 +1551,538 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
     );
   }
 
+  Future<void> _showQuickFilterModal({
+    required BuildContext context,
+    required String title,
+    required Widget Function(BuildContext ctx, StateSetter setModalState) contentBuilder,
+    required VoidCallback onClear,
+  }) {
+    return showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setModalState) {
+            return Container(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+                left: 16,
+                right: 16,
+                top: 12,
+              ),
+              decoration: const BoxDecoration(
+                color: AppColors.surfaceRaised,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                border: Border(
+                  top: BorderSide(color: AppColors.surfaceBorder),
+                  left: BorderSide(color: AppColors.surfaceBorder),
+                  right: BorderSide(color: AppColors.surfaceBorder),
+                ),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 36,
+                      height: 4,
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: AppColors.textMuted.withValues(alpha: 0.4),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      Row(
+                        children: [
+                          TextButton(
+                            onPressed: () {
+                              onClear();
+                              setModalState(() {});
+                            },
+                            child: const Text(
+                              'Clear',
+                              style: TextStyle(
+                                color: AppColors.accentRose,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.of(ctx).pop(),
+                            child: const Text(
+                              'Done',
+                              style: TextStyle(
+                                color: AppColors.accentCyan,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const Divider(color: AppColors.surfaceBorder),
+                  const SizedBox(height: 8),
+                  contentBuilder(ctx, setModalState),
+                  const SizedBox(height: 12),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showColorsFilterModal(BuildContext context) {
+    _showQuickFilterModal(
+      context: context,
+      title: 'Colors & Identity',
+      onClear: () {
+        ref.read(mtgFilterProvider.notifier).update((s) => s.copyWith(colors: const {}));
+      },
+      contentBuilder: (ctx, setModalState) {
+        final mtgFilter = ref.watch(mtgFilterProvider);
+        const manaColors = [
+          {'symbol': 'W', 'name': 'White', 'bg': Color(0xFFFFFDE7)},
+          {'symbol': 'U', 'name': 'Blue', 'bg': Color(0xFF0E68AB)},
+          {'symbol': 'B', 'name': 'Black', 'bg': Color(0xFF211E1D)},
+          {'symbol': 'R', 'name': 'Red', 'bg': Color(0xFFD3202A)},
+          {'symbol': 'G', 'name': 'Green', 'bg': Color(0xFF00733E)},
+          {'symbol': 'C', 'name': 'Colorless', 'bg': Color(0xFF9E9895)},
+        ];
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: manaColors.map((c) {
+                final symbol = c['symbol'] as String;
+                final isSelected = mtgFilter.colors.contains(symbol);
+                return Tooltip(
+                  message: c['name'] as String,
+                  child: InkWell(
+                    key: Key('quick_filter_color_$symbol'),
+                    borderRadius: BorderRadius.circular(24),
+                    onTap: () {
+                      ref.read(mtgFilterProvider.notifier).toggleColor(symbol);
+                      setModalState(() {});
+                    },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: c['bg'] as Color,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: isSelected ? AppColors.accentCyan : Colors.transparent,
+                          width: isSelected ? 3 : 1,
+                        ),
+                        boxShadow: isSelected
+                            ? [
+                                BoxShadow(
+                                  color: AppColors.accentCyan.withValues(alpha: 0.5),
+                                  blurRadius: 8,
+                                  spreadRadius: 1,
+                                )
+                              ]
+                            : [
+                                const BoxShadow(
+                                  color: Colors.black26,
+                                  blurRadius: 3,
+                                  offset: Offset(0, 2),
+                                )
+                              ],
+                      ),
+                      child: Center(
+                        child: ManaSymbolIcon(
+                          symbolCode: symbol,
+                          size: 26,
+                          circular: true,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 16),
+            const Text('Match Mode', style: AppTypography.caption),
+            const SizedBox(height: 6),
+            SegmentedButton<ColorMatchMode>(
+              showSelectedIcon: false,
+              style: SegmentedButton.styleFrom(
+                backgroundColor: AppColors.surface,
+                selectedBackgroundColor: AppColors.accentCyan.withValues(alpha: 0.2),
+                selectedForegroundColor: AppColors.accentCyan,
+                foregroundColor: AppColors.textSecondary,
+                visualDensity: VisualDensity.compact,
+              ),
+              segments: const [
+                ButtonSegment(value: ColorMatchMode.including, label: Text('Including', style: TextStyle(fontSize: 11))),
+                ButtonSegment(value: ColorMatchMode.exactly, label: Text('Exactly', style: TextStyle(fontSize: 11))),
+                ButtonSegment(value: ColorMatchMode.atMost, label: Text('At most', style: TextStyle(fontSize: 11))),
+                ButtonSegment(value: ColorMatchMode.commander, label: Text('Commander', style: TextStyle(fontSize: 11))),
+              ],
+              selected: {mtgFilter.colorMatchMode},
+              onSelectionChanged: (sel) {
+                ref.read(mtgFilterProvider.notifier).setColorMatchMode(sel.first);
+                setModalState(() {});
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showManaValueFilterModal(BuildContext context) {
+    _showQuickFilterModal(
+      context: context,
+      title: 'Mana Value (CMC)',
+      onClear: () {
+        ref.read(mtgFilterProvider.notifier).setCmcRange(const RangeValues(0, 16));
+      },
+      contentBuilder: (ctx, setModalState) {
+        final mtgFilter = ref.watch(mtgFilterProvider);
+        final cmc = mtgFilter.cmcRange;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Range', style: AppTypography.caption),
+                Text(
+                  '${cmc.start.toInt()} to ${cmc.end.toInt() >= 16 ? '16+' : cmc.end.toInt()}',
+                  style: const TextStyle(
+                    color: AppColors.accentCyan,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
+            RangeSlider(
+              key: const Key('quick_filter_cmc_slider'),
+              values: cmc,
+              min: 0,
+              max: 16,
+              divisions: 16,
+              activeColor: AppColors.accentCyan,
+              inactiveColor: AppColors.surfaceBorder,
+              labels: RangeLabels(
+                '${cmc.start.toInt()}',
+                '${cmc.end.toInt() >= 16 ? '16+' : cmc.end.toInt()}',
+              ),
+              onChanged: (val) {
+                ref.read(mtgFilterProvider.notifier).setCmcRange(val);
+                setModalState(() {});
+              },
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                ...List.generate(7, (i) {
+                  final isSelected = cmc.start.toInt() == i && cmc.end.toInt() == i;
+                  return ChoiceChip(
+                    label: Text('$i'),
+                    selected: isSelected,
+                    onSelected: (sel) {
+                      ref.read(mtgFilterProvider.notifier).setCmcRange(
+                        sel ? RangeValues(i.toDouble(), i.toDouble()) : const RangeValues(0, 16),
+                      );
+                      setModalState(() {});
+                    },
+                    selectedColor: AppColors.accentCyan.withValues(alpha: 0.2),
+                    labelStyle: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: isSelected ? AppColors.accentCyan : AppColors.textSecondary,
+                    ),
+                  );
+                }),
+                ChoiceChip(
+                  label: const Text('7+'),
+                  selected: cmc.start.toInt() >= 7 && cmc.end.toInt() >= 16,
+                  onSelected: (sel) {
+                    ref.read(mtgFilterProvider.notifier).setCmcRange(
+                      sel ? const RangeValues(7, 16) : const RangeValues(0, 16),
+                    );
+                    setModalState(() {});
+                  },
+                  selectedColor: AppColors.accentCyan.withValues(alpha: 0.2),
+                  labelStyle: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: (cmc.start.toInt() >= 7 && cmc.end.toInt() >= 16)
+                        ? AppColors.accentCyan
+                        : AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showCardTypesFilterModal(BuildContext context) {
+    _showQuickFilterModal(
+      context: context,
+      title: 'Card Types',
+      onClear: () {
+        ref.read(mtgFilterProvider.notifier).setTypeLine('');
+      },
+      contentBuilder: (ctx, setModalState) {
+        final mtgFilter = ref.watch(mtgFilterProvider);
+        const types = [
+          'Creature',
+          'Instant',
+          'Sorcery',
+          'Artifact',
+          'Enchantment',
+          'Planeswalker',
+          'Land',
+          'Battle',
+        ];
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: types.map((t) {
+                final isSelected = mtgFilter.typeLine.toLowerCase().contains(t.toLowerCase());
+                return FilterChip(
+                  label: Text(t),
+                  selected: isSelected,
+                  onSelected: (sel) {
+                    ref.read(mtgFilterProvider.notifier).setTypeLine(sel ? t : '');
+                    setModalState(() {});
+                  },
+                  backgroundColor: AppColors.surface,
+                  selectedColor: AppColors.accentCyan.withValues(alpha: 0.15),
+                  side: BorderSide(
+                    color: isSelected ? AppColors.accentCyan : AppColors.surfaceBorder,
+                  ),
+                  labelStyle: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w600,
+                    color: isSelected ? AppColors.accentCyan : AppColors.textSecondary,
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showFormatsFilterModal(BuildContext context) {
+    _showQuickFilterModal(
+      context: context,
+      title: 'Format Legality',
+      onClear: () {
+        ref.read(mtgFilterProvider.notifier).setFormats(const {});
+      },
+      contentBuilder: (ctx, setModalState) {
+        final mtgFilter = ref.watch(mtgFilterProvider);
+        const formats = [
+          'Commander',
+          'Modern',
+          'Standard',
+          'Pioneer',
+          'Legacy',
+          'Vintage',
+          'Pauper',
+        ];
+
+        return Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: formats.map((fmt) {
+            final isSelected = mtgFilter.formats.contains(fmt.toLowerCase());
+            return FilterChip(
+              label: Text(fmt),
+              selected: isSelected,
+              onSelected: (_) {
+                ref.read(mtgFilterProvider.notifier).toggleFormat(fmt.toLowerCase());
+                setModalState(() {});
+              },
+              backgroundColor: AppColors.surface,
+              selectedColor: AppColors.accentCyan.withValues(alpha: 0.15),
+              side: BorderSide(
+                color: isSelected ? AppColors.accentCyan : AppColors.surfaceBorder,
+              ),
+              labelStyle: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+                color: isSelected ? AppColors.accentCyan : AppColors.textSecondary,
+              ),
+            );
+          }).toList(),
+        );
+      },
+    );
+  }
+
+  void _showRarityFilterModal(BuildContext context) {
+    _showQuickFilterModal(
+      context: context,
+      title: 'Card Rarity',
+      onClear: () {
+        ref.read(mtgFilterProvider.notifier).update((s) => s.copyWith(rarities: const {}));
+      },
+      contentBuilder: (ctx, setModalState) {
+        final mtgFilter = ref.watch(mtgFilterProvider);
+        const rarities = [
+          'Common',
+          'Uncommon',
+          'Rare',
+          'Mythic',
+          'Special',
+          'Bonus',
+        ];
+
+        return Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: rarities.map((r) {
+            final isSelected = mtgFilter.rarities.contains(r.toLowerCase());
+            return FilterChip(
+              label: Text(r),
+              selected: isSelected,
+              onSelected: (_) {
+                ref.read(mtgFilterProvider.notifier).toggleRarity(r.toLowerCase());
+                setModalState(() {});
+              },
+              backgroundColor: AppColors.surface,
+              selectedColor: AppColors.accentCyan.withValues(alpha: 0.15),
+              side: BorderSide(
+                color: isSelected ? AppColors.accentCyan : AppColors.surfaceBorder,
+              ),
+              labelStyle: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+                color: isSelected ? AppColors.accentCyan : AppColors.textSecondary,
+              ),
+            );
+          }).toList(),
+        );
+      },
+    );
+  }
+
+  void _showSetsFilterModal(BuildContext context) {
+    _showQuickFilterModal(
+      context: context,
+      title: 'Filter by Set',
+      onClear: () {
+        ref.read(mtgFilterProvider.notifier).setSetCode('');
+      },
+      contentBuilder: (ctx, setModalState) {
+        final mtgFilter = ref.watch(mtgFilterProvider);
+        const popularSets = ['MH3', 'OTJ', 'BLB', 'DSK', 'FDN', 'SLD'];
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: popularSets.map((s) {
+                final isSelected = mtgFilter.setCode.toUpperCase() == s;
+                return FilterChip(
+                  label: Text(s),
+                  selected: isSelected,
+                  onSelected: (sel) {
+                    ref.read(mtgFilterProvider.notifier).setSetCode(sel ? s : '');
+                    setModalState(() {});
+                  },
+                  backgroundColor: AppColors.surface,
+                  selectedColor: AppColors.accentCyan.withValues(alpha: 0.15),
+                  side: BorderSide(
+                    color: isSelected ? AppColors.accentCyan : AppColors.surfaceBorder,
+                  ),
+                  labelStyle: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w600,
+                    color: isSelected ? AppColors.accentCyan : AppColors.textSecondary,
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showFoilsFilterModal(BuildContext context) {
+    _showQuickFilterModal(
+      context: context,
+      title: 'Treatments & Finishes',
+      onClear: () {
+        ref.read(mtgFilterProvider.notifier).update((s) => s.copyWith(finishes: const {}));
+      },
+      contentBuilder: (ctx, setModalState) {
+        final mtgFilter = ref.watch(mtgFilterProvider);
+        const finishes = ['Nonfoil', 'Foil', 'Etched'];
+
+        return Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: finishes.map((f) {
+            final isSelected = mtgFilter.finishes.contains(f.toLowerCase());
+            return FilterChip(
+              label: Text(f),
+              selected: isSelected,
+              onSelected: (_) {
+                ref.read(mtgFilterProvider.notifier).toggleFinish(f.toLowerCase());
+                setModalState(() {});
+              },
+              backgroundColor: AppColors.surface,
+              selectedColor: AppColors.accentCyan.withValues(alpha: 0.15),
+              side: BorderSide(
+                color: isSelected ? AppColors.accentCyan : AppColors.surfaceBorder,
+              ),
+              labelStyle: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+                color: isSelected ? AppColors.accentCyan : AppColors.textSecondary,
+              ),
+            );
+          }).toList(),
+        );
+      },
+    );
+  }
+
   Widget _buildPortfolioSummaryCard(
     VaultPortfolioSummary summary, {
     List<VaultItem> allVaultCards = const [],
@@ -1435,47 +2199,45 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
             ),
           ),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              Flexible(
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    'Total Tracked Items: $totalCount',
-                    style: AppTypography.bodySecondary,
-                    overflow: TextOverflow.ellipsis,
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Total Tracked Items: $totalCount',
+                  style: AppTypography.bodySecondary,
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton.icon(
+                  key: const Key('vault_import_button'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.accentCyan,
+                    foregroundColor: AppColors.textDark,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    minimumSize: Size.zero,
                   ),
+                  icon: const Icon(Icons.file_download_outlined, size: 16),
+                  label: const Text('Import +',
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+                  onPressed: () {
+                    VaultImportBottomSheet.show(context);
+                  },
                 ),
-              ),
-              const Spacer(),
-              ElevatedButton.icon(
-                key: const Key('vault_import_button'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.accentCyan,
-                  foregroundColor: AppColors.textDark,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  minimumSize: Size.zero,
+                const SizedBox(width: 6),
+                IconButton(
+                  key: const Key('vault_add_item_button'),
+                  icon: const Icon(Icons.add, size: 18, color: AppColors.accentCyan),
+                  tooltip: 'Add Single Item',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                  onPressed: () {
+                    ManualAddBottomSheet.show(context);
+                  },
                 ),
-                icon: const Icon(Icons.file_download_outlined, size: 16),
-                label: const Text('Import +',
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
-                onPressed: () {
-                  VaultImportBottomSheet.show(context);
-                },
-              ),
-              const SizedBox(width: 6),
-              IconButton(
-                key: const Key('vault_add_item_button'),
-                icon: const Icon(Icons.add, size: 18, color: AppColors.accentCyan),
-                tooltip: 'Add Single Item',
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                onPressed: () {
-                  ManualAddBottomSheet.show(context);
-                },
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),

@@ -134,6 +134,9 @@ void main() {
   Widget createSubject({required Deck deck, required List<Map<String, dynamic>> items}) {
     return ProviderScope(
       overrides: [
+        deckProvider(deck.id).overrideWith(
+          (ref) => Stream.value(deck),
+        ),
         deckItemsProvider(deck.id).overrideWith(
           (ref) => Stream.value(items),
         ),

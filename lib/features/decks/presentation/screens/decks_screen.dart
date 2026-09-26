@@ -347,6 +347,7 @@ class _DecksScreenState extends ConsumerState<DecksScreen> {
             format: format,
             tcgDomain: domain,
             isRegistered: isReg,
+            isAssembled: isReg,
             isCompetitive: isComp,
             createdAt: DateTime.now(),
             wins: 0,

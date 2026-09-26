@@ -8,6 +8,7 @@ import 'package:countr/core/database/app_database.dart';
 import 'package:countr/core/state/app_state.dart';
 import 'package:countr/features/symbology/presentation/widgets/mana_cost_bar.dart';
 import 'package:countr/features/symbology/presentation/widgets/mana_text.dart';
+import 'package:countr/features/vault/domain/models/card_availability.dart';
 import 'package:countr/features/vault/domain/mtg_keyword_glossary.dart';
 import 'package:countr/features/vault/domain/vault_pricing_helper.dart';
 import 'package:countr/features/vault/presentation/providers/vault_providers.dart';
@@ -22,6 +23,7 @@ class VaultItemCard extends StatefulWidget {
   final VoidCallback? onTap;
   final bool? isPrivacyMode;
   final bool? initiallyExpanded;
+  final bool hasMultipleVariants;
 
   const VaultItemCard({
     super.key,
@@ -30,6 +32,7 @@ class VaultItemCard extends StatefulWidget {
     this.onTap,
     this.isPrivacyMode,
     this.initiallyExpanded,
+    this.hasMultipleVariants = false,
   });
 
   @override
@@ -360,6 +363,7 @@ class _VaultItemCardState extends State<VaultItemCard> {
             ],
           ),
           OptionalDeckBadges(item: item),
+          OptionalCardAvailabilityBreakdown(item: item),
         ],
       ),
     );
@@ -372,9 +376,11 @@ class _VaultItemCardState extends State<VaultItemCard> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
       children: [
-        if (item.quantity > 1) ...[
+        if (item.quantity > 1 || (widget.hasMultipleVariants && item.quantity == 1)) ...[
           Container(
-            key: Key('vault_item_duplicate_badge_${item.id}'),
+            key: item.quantity > 1
+                ? Key('vault_item_duplicate_badge_${item.id}')
+                : Key('vault_item_variant_badge_${item.id}'),
             margin: const EdgeInsets.only(right: 6),
             padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
             decoration: BoxDecoration(
@@ -1189,3 +1195,92 @@ class OptionalDeckBadges extends StatelessWidget {
     );
   }
 }
+
+class OptionalCardAvailabilityBreakdown extends StatelessWidget {
+  final VaultItem item;
+  const OptionalCardAvailabilityBreakdown({super.key, required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    if (item.quantity <= 0) return const SizedBox.shrink();
+
+    bool hasProviderScope = false;
+    context.visitAncestorElements((element) {
+      final typeStr = element.widget.runtimeType.toString();
+      if (typeStr == 'ProviderScope' || typeStr == 'UncontrolledProviderScope') {
+        hasProviderScope = true;
+        return false;
+      }
+      return true;
+    });
+
+    if (!hasProviderScope) {
+      return _buildPill(item.quantity, item.quantity, 0);
+    }
+
+    return Consumer(
+      builder: (context, ref, _) {
+        final availabilityMap = ref.watch(allCardAvailabilityProvider).valueOrNull;
+        final availability = availabilityMap?[item.id] ??
+            CardAvailability(
+              owned: item.quantity,
+              available: item.quantity,
+              inDeck: 0,
+            );
+
+        return _buildPill(
+          availability.owned,
+          availability.available,
+          availability.inDeck,
+        );
+      },
+    );
+  }
+
+  Widget _buildPill(int owned, int available, int inDeck) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Container(
+        key: Key('vault_item_availability_${item.id}'),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceRaised,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: AppColors.surfaceBorderSubtle, width: 0.6),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Owned: $owned',
+              style: const TextStyle(
+                fontSize: 9.5,
+                fontWeight: FontWeight.w700,
+                color: AppColors.accentCyan,
+              ),
+            ),
+            const Text('  |  ', style: TextStyle(fontSize: 9, color: AppColors.textMuted)),
+            Text(
+              'Available: $available',
+              style: const TextStyle(
+                fontSize: 9.5,
+                fontWeight: FontWeight.w700,
+                color: AppColors.accentEmerald,
+              ),
+            ),
+            const Text('  |  ', style: TextStyle(fontSize: 9, color: AppColors.textMuted)),
+            Text(
+              'In Deck: $inDeck',
+              style: TextStyle(
+                fontSize: 9.5,
+                fontWeight: FontWeight.w700,
+                color: inDeck > 0 ? AppColors.accentVioletLight : AppColors.textMuted,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+

@@ -485,7 +485,7 @@ void main() {
               collectionType: 'mtg',
               name: 'Ring',
               setOrSeries: 'LEA',
-              imageUrl: 'https://cards.scryfall.io/large/front/7/8/78038b95-30f2-4e4b-972f-04cfa65c275a.jpg',
+              imageUrl: 'https://cards.scryfall.io/large/front/d/5/d5806e68-1054-458e-866d-1f2470f682b2.jpg?1790212038',
               acquiredPrice: 0.5,
               acquiredDate: DateTime.now(),
               quantity: const Value(0),

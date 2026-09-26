@@ -15,6 +15,8 @@ class Decks extends Table {
   TextColumn get tcgDomain => text().withDefault(const Constant('mtg'))();
   BoolColumn get isRegistered => boolean().withDefault(const Constant(false))();
   BoolColumn get isCompetitive => boolean().withDefault(const Constant(false))();
+  BoolColumn get isAssembled =>
+      boolean().named('is_assembled').withDefault(const Constant(false))();
   
   // Soft Delete & Outbox Sync (v9)
   BoolColumn get isDeleted =>

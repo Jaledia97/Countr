@@ -207,6 +207,7 @@ VaultItemsCompanion mapScryfallCardToCompanion(Map<String, dynamic> card) {
   final dynamicData = jsonEncode({
     'layout': card['layout'] ?? '',
     'mana_cost': card['mana_cost'] ?? '',
+    if (card['cmc'] != null) 'cmc': card['cmc'],
     'type_line': card['type_line'] ?? '',
     'oracle_text': oracleText,
     'rarity': card['rarity'] ?? '',

@@ -287,7 +287,10 @@ void main() {
 
       // 4. Test Unregistering Deck: sets isRegistered to false, releasing physical lock
       await (db.update(db.decks)..where((t) => t.id.equals(deckId))).write(
-        const DecksCompanion(isRegistered: drift.Value(false)),
+        const DecksCompanion(
+          isRegistered: drift.Value(false),
+          isAssembled: drift.Value(false),
+        ),
       );
       final unlockedForce = await db.vaultDao.getAvailableQuantity('item-force-of-will');
       expect(unlockedForce, equals(1));

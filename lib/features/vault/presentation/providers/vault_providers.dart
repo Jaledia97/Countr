@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:countr/core/database/app_database.dart';
 import 'package:countr/core/state/app_state.dart';
 import 'package:countr/features/vault/data/daos/vault_dao.dart';
+import 'package:countr/features/vault/domain/models/card_availability.dart';
 import 'package:countr/features/vault/domain/models/vault_totals.dart';
+import 'package:countr/features/vault/domain/vault_variant_helper.dart';
 import 'package:countr/features/vault/presentation/providers/mtg_filter_state.dart';
 
 /// Database singleton provider
@@ -60,7 +62,7 @@ final vaultItemsStreamProvider = StreamProvider<List<VaultItem>>((ref) {
     searchQuery: searchQuery.isNotEmpty ? searchQuery : null,
     mtgFilter: (mtgFilter != null && mtgFilter.isActive) ? mtgFilter : null,
     limit: paginationLimit,
-  );
+  ).map((items) => VaultVariantHelper.groupVaultItemsByVariant(items).items);
 });
 
 /// Model holding calculated portfolio ledger financial summaries
@@ -246,6 +248,32 @@ final cardActiveDecksProvider = StreamProvider.family<List<String>, String>((ref
 
 /// Backward-compatible alias for cardActiveDecksProvider.
 final vaultItemAssignedDecksProvider = cardActiveDecksProvider;
+
+/// Reactive StreamProvider fetching card availability breakdown across all vault cards.
+final allCardAvailabilityProvider =
+    StreamProvider<Map<String, CardAvailability>>((ref) {
+  final dao = ref.watch(vaultDaoProvider);
+  return dao.watchAllCardAvailability();
+});
+
+/// Reactive StreamProvider fetching availability for a single card by its ID.
+final cardAvailabilityProvider =
+    StreamProvider.family<CardAvailability, String>((ref, id) {
+  final asyncMap = ref.watch(allCardAvailabilityProvider);
+  return asyncMap.when(
+    data: (map) => Stream.value(
+      map[id] ?? const CardAvailability(owned: 0, available: 0, inDeck: 0),
+    ),
+    loading: () => const Stream.empty(),
+    error: (err, stack) => Stream.error(err, stack),
+  );
+});
+
+/// Provider for checking if a given card has multiple variants in the Vault
+final vaultVariantMetadataProvider = Provider<ConsolidatedVariantResult>((ref) {
+  final asyncItems = ref.watch(vaultItemsStreamProvider);
+  return VaultVariantHelper.groupVaultItemsByVariant(asyncItems.asData?.value ?? const []);
+});
 
 /// Reactive StreamProvider for custom user tags on a VaultItem, parsed from vaultItemProvider.
 final cardCustomTagsProvider = StreamProvider.family<List<String>, String>((ref, vaultItemId) async* {

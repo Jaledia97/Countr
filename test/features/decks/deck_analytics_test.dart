@@ -16,9 +16,8 @@ void main() {
       expect(asyncAnalytics.hasValue, isTrue);
 
       final analytics = asyncAnalytics.value!;
-      expect(analytics.manaCurve.isNotEmpty, isTrue);
-      // Lands at CMC 0
-      expect(analytics.manaCurve[0], equals(35));
+      // Lands excluded from spell curve (Edgar Markov has 35 lands, 0 non-land 0-cost spells)
+      expect(analytics.manaCurve[0] ?? 0, equals(0));
       // Non-land spells distributed across 1 to 9
       expect(analytics.manaCurve[1], greaterThan(0));
       expect(analytics.manaCurve[2], greaterThan(0));
@@ -176,6 +175,77 @@ void main() {
       expect(analytics.colorDevotion.isEmpty, isTrue);
       expect(analytics.colorProduction.isEmpty, isTrue);
       expect(analytics.blingPercentage, equals(0.0));
+    });
+
+    test('Preserves 0-cost non-land spells (Lotus Petal, Pact of Negation, Memnite) in bucket 0 while excluding lands', () {
+      final items = [
+        // 0-cost Artifact non-land (Lotus Petal)
+        {
+          'deck_quantity': 1,
+          'is_graded': 0,
+          'dynamic_data': jsonEncode({
+            'name': 'Lotus Petal',
+            'type_line': 'Artifact',
+            'cmc': 0,
+            'mana_cost': '{0}',
+            'finishes': ['nonfoil'],
+          }),
+        },
+        // 0-cost Instant non-land (Pact of Negation)
+        {
+          'deck_quantity': 1,
+          'is_graded': 0,
+          'dynamic_data': jsonEncode({
+            'name': 'Pact of Negation',
+            'type_line': 'Instant',
+            'cmc': 0,
+            'mana_cost': '{0}',
+            'finishes': ['nonfoil'],
+          }),
+        },
+        // 0-cost Creature non-land (Memnite)
+        {
+          'deck_quantity': 1,
+          'is_graded': 0,
+          'dynamic_data': jsonEncode({
+            'name': 'Memnite',
+            'type_line': 'Artifact Creature — Construct',
+            'cmc': 0,
+            'mana_cost': '{0}',
+            'finishes': ['nonfoil'],
+          }),
+        },
+        // Land (should be excluded from spell curve)
+        {
+          'deck_quantity': 4,
+          'is_graded': 0,
+          'dynamic_data': jsonEncode({
+            'name': 'Swamp',
+            'type_line': 'Basic Land — Swamp',
+            'cmc': 0,
+            'mana_cost': '',
+            'finishes': ['nonfoil'],
+          }),
+        },
+        // 1-cost spell
+        {
+          'deck_quantity': 2,
+          'is_graded': 0,
+          'dynamic_data': jsonEncode({
+            'name': 'Vampire Lacerator',
+            'type_line': 'Creature — Vampire',
+            'cmc': 1,
+            'mana_cost': '{B}',
+            'finishes': ['nonfoil'],
+          }),
+        },
+      ];
+
+      final analytics = MockDeckData.computeAnalyticsFromItems(items);
+      // Bucket 0 must contain exactly the 3 non-land spells (Lotus Petal, Pact of Negation, Memnite)
+      expect(analytics.manaCurve[0], equals(3));
+      // Bucket 1 has 2 spells
+      expect(analytics.manaCurve[1], equals(2));
     });
   });
 }

@@ -6,20 +6,25 @@ import 'package:countr/core/constants/app_typography.dart';
 import 'package:countr/core/state/settings_state.dart';
 import 'package:countr/features/decks/domain/models/deck_item_with_card.dart';
 import 'package:countr/features/values/domain/services/pareto_distribution_calculator.dart';
+import 'package:countr/features/values/presentation/widgets/value_concentration_pie_chart.dart';
 import 'package:countr/features/vault/domain/vault_pricing_helper.dart';
 
-/// Presentation widget displaying Pareto value concentration analytics ("Heavy Hitters").
+/// Presentation widget displaying Pareto value concentration analytics ("Heavy Hitters")
+/// with an interactive custom canvas Donut Chart and bi-directional list synchronization.
 ///
 /// Features:
 /// - Adaptive headline banner: "The top 5 cards represent X% of this deck's total value."
-/// - Adaptive grammar for small collections (0, 1, 2, 3, 4 cards).
-/// - Ranked micro-list of top 3-5 cards with tier-colored badges (#1 Gold, #2 Cyan, #3 Violet, #4/#5 Neutral).
+/// - Interactive CustomPainter Donut Chart (ValueConcentrationPieChart) with polar hit-testing.
+/// - 6.0px exploded slice offset along the bisecting angle for selected card.
+/// - Center hole overlay badge showing card name, price, and percentage share.
+/// - Bi-directional synchronization: tapping slice highlights & scrolls micro-list; tapping row highlights chart slice.
+/// - Ranked micro-list of top 3-5 cards with tier-colored badges (#1 Amber, #2 Cyan, #3 Violet, #4 Emerald, #5 Rose).
 /// - 40x40 art crop thumbnail with resilient fallback.
 /// - Metadata row (Name, Set, Quantity) and formatted valuation with percentage share.
 /// - Proportional visual horizontal contribution bar.
 /// - Zero RenderFlex overflows on 320x568 at 2.0x font scaling via Expanded, Flexible, and FittedBox.
 /// - Full privacy mode masking ('****' for all prices, percentages, and headline numbers).
-class ParetoDistributionWidget extends ConsumerWidget {
+class ParetoDistributionWidget extends ConsumerStatefulWidget {
   final ParetoDistributionResult? result;
   final double? deckTotalValue;
   final double? topKConcentrationPercentage;
@@ -38,11 +43,48 @@ class ParetoDistributionWidget extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final bool activePrivacy = isPrivacyMode ?? ref.watch(privacyModeProvider);
-    final AppCurrency activeCurrency = currency ?? ref.watch(baseCurrencyProvider);
+  ConsumerState<ParetoDistributionWidget> createState() => _ParetoDistributionWidgetState();
+}
+
+class _ParetoDistributionWidgetState extends ConsumerState<ParetoDistributionWidget> {
+  int? _selectedIndex;
+  final Map<int, GlobalKey> _rowKeys = {};
+
+  void _onSliceSelected(int? index, ParetoDistributionResult resolvedResult) {
+    setState(() {
+      _selectedIndex = index;
+    });
+
+    if (index != null && index < resolvedResult.topCards.length) {
+      final key = _rowKeys[index];
+      if (key?.currentContext != null) {
+        Scrollable.ensureVisible(
+          key!.currentContext!,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+          alignment: 0.5,
+        );
+      }
+    }
+  }
+
+  void _onCardRowTapped(int index) {
+    setState(() {
+      if (_selectedIndex == index) {
+        _selectedIndex = null; // Toggle off
+      } else {
+        _selectedIndex = index;
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bool activePrivacy = widget.isPrivacyMode ?? ref.watch(privacyModeProvider);
+    final AppCurrency activeCurrency = widget.currency ?? ref.watch(baseCurrencyProvider);
 
     final resolvedResult = _resolveResult(activeCurrency);
+    final slices = _buildSlices(resolvedResult);
 
     return Container(
       key: const Key('pareto_distribution_widget'),
@@ -91,12 +133,27 @@ class ParetoDistributionWidget extends ConsumerWidget {
           // Adaptive Headline Banner
           _buildHeadlineBanner(resolvedResult, activePrivacy),
 
-          if (resolvedResult.topCards.isNotEmpty) ...[
-            const SizedBox(height: 14),
+          if (resolvedResult.topCards.isNotEmpty && resolvedResult.totalDeckValue > 0) ...[
+            const SizedBox(height: 16),
+
+            // Interactive Custom Canvas Donut Chart
+            ValueConcentrationPieChart(
+              slices: slices,
+              totalDeckValue: resolvedResult.totalDeckValue,
+              topK: resolvedResult.topK,
+              concentrationPercentage: resolvedResult.concentrationPercentage,
+              selectedIndex: _selectedIndex,
+              onSliceSelected: (idx) => _onSliceSelected(idx, resolvedResult),
+              isPrivacyMode: activePrivacy,
+              currency: activeCurrency,
+              size: 180.0,
+            ),
+
+            const SizedBox(height: 16),
             const Divider(color: AppColors.surfaceBorderSubtle, height: 1),
             const SizedBox(height: 12),
 
-            // Ranked Micro-List
+            // Ranked Micro-List with Bi-directional Tap & Highlight
             ListView.separated(
               key: const Key('pareto_micro_list'),
               shrinkWrap: true,
@@ -105,7 +162,44 @@ class ParetoDistributionWidget extends ConsumerWidget {
               separatorBuilder: (_, _) => const SizedBox(height: 10),
               itemBuilder: (context, index) {
                 final card = resolvedResult.topCards[index];
-                return _buildParetoRow(context, card, activePrivacy, activeCurrency);
+                _rowKeys[index] ??= GlobalKey();
+
+                return _buildParetoRow(
+                  context,
+                  index,
+                  card,
+                  activePrivacy,
+                  activeCurrency,
+                  isSelected: _selectedIndex == index,
+                  rowKey: _rowKeys[index]!,
+                );
+              },
+            ),
+          ] else if (resolvedResult.topCards.isNotEmpty) ...[
+            // When total deck value is 0 or negative but cards exist
+            const SizedBox(height: 14),
+            const Divider(color: AppColors.surfaceBorderSubtle, height: 1),
+            const SizedBox(height: 12),
+
+            ListView.separated(
+              key: const Key('pareto_micro_list'),
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: resolvedResult.topCards.length,
+              separatorBuilder: (_, _) => const SizedBox(height: 10),
+              itemBuilder: (context, index) {
+                final card = resolvedResult.topCards[index];
+                _rowKeys[index] ??= GlobalKey();
+
+                return _buildParetoRow(
+                  context,
+                  index,
+                  card,
+                  activePrivacy,
+                  activeCurrency,
+                  isSelected: _selectedIndex == index,
+                  rowKey: _rowKeys[index]!,
+                );
               },
             ),
           ] else ...[
@@ -125,14 +219,52 @@ class ParetoDistributionWidget extends ConsumerWidget {
     );
   }
 
-  ParetoDistributionResult _resolveResult(AppCurrency activeCurrency) {
-    if (result != null) {
-      return result!;
+  List<PieSliceData> _buildSlices(ParetoDistributionResult res) {
+    final slices = <PieSliceData>[];
+    double topCardsSum = 0.0;
+
+    for (final card in res.topCards) {
+      topCardsSum += card.lineValue;
+      slices.add(
+        PieSliceData(
+          rank: card.rank,
+          id: card.id,
+          name: card.name,
+          value: card.lineValue,
+          percentage: card.percentageShare,
+          color: _getTierColor(card.rank),
+          item: card,
+        ),
+      );
     }
 
-    if (topCards != null) {
+    final remainingValue = res.totalDeckValue - topCardsSum;
+    if (remainingValue > 0.01 && res.totalDeckValue > 0) {
+      final remainingPct = (remainingValue / res.totalDeckValue) * 100.0;
+      slices.add(
+        PieSliceData(
+          rank: null,
+          id: 'remaining_others',
+          name: 'Other Cards',
+          value: remainingValue,
+          percentage: remainingPct,
+          color: const Color(0xFF334155),
+          item: null,
+        ),
+      );
+    }
+
+    return slices;
+  }
+
+  ParetoDistributionResult _resolveResult(AppCurrency activeCurrency) {
+    if (widget.result != null) {
+      return widget.result!;
+    }
+
+    if (widget.topCards != null) {
       final inputCards = <ParetoCardInput>[];
-      for (final raw in topCards!) {
+      for (final raw in widget.topCards!) {
         if (raw is ParetoItem) {
           inputCards.add(
             ParetoCardInput(
@@ -161,11 +293,11 @@ class ParetoDistributionWidget extends ConsumerWidget {
       );
 
       // If explicit concentration percentage or deck total was supplied, respect it
-      if (topKConcentrationPercentage != null || deckTotalValue != null) {
+      if (widget.topKConcentrationPercentage != null || widget.deckTotalValue != null) {
         return ParetoDistributionResult(
-          totalDeckValue: deckTotalValue ?? computed.totalDeckValue,
+          totalDeckValue: widget.deckTotalValue ?? computed.totalDeckValue,
           topCardsValue: computed.topCardsValue,
-          concentrationPercentage: topKConcentrationPercentage ?? computed.concentrationPercentage,
+          concentrationPercentage: widget.topKConcentrationPercentage ?? computed.concentrationPercentage,
           totalUniqueCards: computed.totalUniqueCards,
           totalCardCount: computed.totalCardCount,
           topK: computed.topK,
@@ -222,10 +354,13 @@ class ParetoDistributionWidget extends ConsumerWidget {
 
   Widget _buildParetoRow(
     BuildContext context,
+    int index,
     ParetoItem card,
     bool isPrivacyMode,
-    AppCurrency activeCurrency,
-  ) {
+    AppCurrency activeCurrency, {
+    required bool isSelected,
+    required Key rowKey,
+  }) {
     final tierColor = _getTierColor(card.rank);
     final formattedPrice = VaultPricingHelper.formatAmount(
       card.lineValue,
@@ -235,127 +370,147 @@ class ParetoDistributionWidget extends ConsumerWidget {
     );
     final formattedShare = isPrivacyMode ? '****' : '${card.percentageShare.toStringAsFixed(1)}%';
 
-    return Container(
-      key: Key('pareto_row_${card.rank}'),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceHighlight.withValues(alpha: 0.6),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.surfaceBorderSubtle),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              // 1. Tier Rank Badge
-              _buildRankBadge(card.rank, tierColor),
+    return InkWell(
+      onTap: () => _onCardRowTapped(index),
+      borderRadius: BorderRadius.circular(10),
+      child: AnimatedContainer(
+        key: Key('pareto_row_${card.rank}'),
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? tierColor.withValues(alpha: 0.14)
+              : AppColors.surfaceHighlight.withValues(alpha: 0.6),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isSelected ? tierColor : AppColors.surfaceBorderSubtle,
+            width: isSelected ? 1.5 : 1.0,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: tierColor.withValues(alpha: 0.25),
+                    blurRadius: 8,
+                    spreadRadius: 1,
+                  ),
+                ]
+              : null,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              key: rowKey,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // 1. Tier Rank Badge
+                _buildRankBadge(card.rank, tierColor),
 
-              const SizedBox(width: 8),
+                const SizedBox(width: 8),
 
-              // 2. 40x40 Art Crop Thumbnail
-              _buildThumbnail(card),
+                // 2. 40x40 Art Crop Thumbnail
+                _buildThumbnail(card),
 
-              const SizedBox(width: 10),
+                const SizedBox(width: 10),
 
-              // 3. Card Metadata (Name & Subtitle)
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      card.name,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimary,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      card.subtitle,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: AppColors.textSecondary,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(width: 8),
-
-              // 4. Valuation and Share
-              Flexible(
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerRight,
+                // 3. Card Metadata (Name & Subtitle)
+                Expanded(
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        formattedPrice,
+                        card.name,
                         style: const TextStyle(
                           fontSize: 13,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.accentAmber,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        '($formattedShare)',
-                        style: TextStyle(
+                        card.subtitle,
+                        style: const TextStyle(
                           fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: tierColor,
+                          color: AppColors.textSecondary,
+                          fontWeight: FontWeight.w500,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),
                 ),
-              ),
-            ],
-          ),
 
-          const SizedBox(height: 8),
+                const SizedBox(width: 8),
 
-          // 5. Proportional Visual Weight Bar
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final double barRatio = isPrivacyMode
-                  ? 0.0
-                  : card.weightRatio.clamp(0.0, 1.0);
-
-              return Container(
-                height: 4,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceBorderSubtle,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-                child: FractionallySizedBox(
-                  alignment: Alignment.centerLeft,
-                  widthFactor: barRatio,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: tierColor,
-                      borderRadius: BorderRadius.circular(2),
+                // 4. Valuation and Share
+                Flexible(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerRight,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          formattedPrice,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.accentAmber,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '($formattedShare)',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: tierColor,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
-              );
-            },
-          ),
-        ],
+              ],
+            ),
+
+            const SizedBox(height: 8),
+
+            // 5. Proportional Visual Weight Bar
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final double barRatio = isPrivacyMode
+                    ? 0.0
+                    : card.weightRatio.clamp(0.0, 1.0);
+
+                return Container(
+                  height: 4,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceBorderSubtle,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                  child: FractionallySizedBox(
+                    alignment: Alignment.centerLeft,
+                    widthFactor: barRatio,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: tierColor,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -426,8 +581,12 @@ class ParetoDistributionWidget extends ConsumerWidget {
         return AppColors.accentCyan; // Cyan / #2
       case 3:
         return AppColors.accentViolet; // Violet / #3
+      case 4:
+        return AppColors.accentEmerald; // Emerald / #4
+      case 5:
+        return AppColors.accentRose; // Rose / #5
       default:
-        return AppColors.textSecondary; // Secondary / #4-#5
+        return const Color(0xFF334155); // Slate / Others
     }
   }
 }

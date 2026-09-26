@@ -77,6 +77,7 @@ void main() {
       createdAt: DateTime.now(),
       tcgDomain: 'mtg',
       isRegistered: false,
+      isAssembled: false,
       isCompetitive: false, isDeleted: false,
     );
 

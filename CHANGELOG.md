@@ -1,3 +1,40 @@
+## [0.4.6.1] - 2026-09-26
+
+### Phase 4.6 Patch: UI Stability, Inventory Grouping, Deck Boards & Analytics Overhaul
+
+#### Added & Improved
+- **Vault Inventory Grouping & Availability Engine**:
+  - **Strict Variant Grouping**: Grouped Vault cards strictly by unique printing and finish `(scryfall_id, finish)` using `VaultVariantHelper`, separating standard from showcase/full art printings with distinct quantity badges.
+  - **Consolidated Ownership & Availability**: Eliminated card duplication caused by deck assignments. Single consolidated records display live breakdowns (`Owned: X | Available: Y | In Deck: Z`) via `CardAvailability`.
+  - **Assembled Deck Badge Gating**: Cards in the Vault display deck assignment badges if and only if their assigned deck is actively marked as Assembled (`is_assembled == 1` / `is_registered == 1`).
+  - **The One Ring Card Art**: Fixed CDN 404 seed and fallback resolution URLs for *The One Ring* (LTR 246) with authentic Scryfall card art.
+
+- **Deck Builder, Boards & Format Legality**:
+  - **Assembly Status Switch**: Added interactive header toggle in `DeckBuilderScreen` to register decks as Assembled or Disassembled, updating state and SQLite.
+  - **Deck Thumbnail Picker (`DeckThumbnailPickerModal`)**: Custom cover art selection from cards within the deck or by searching the catalog.
+  - **Atomic Board Movement**: Transactional board movement across Mainboard, Sideboard, and Maybeboard in `VaultDao.moveDeckItemBoard` within an atomic SQLite transaction, with a contextual "Move To" sheet in `CardDetailSheet`.
+  - **Format Legality Engine (`LegalityEnforcer`)**: Cross-references Scryfall format legality with visual warning indicators (`BANNED`, `RESTRICTED`, `NOT LEGAL`).
+  - **Scrollbar Auto-Hide Animation**: Refined `ProportionalBubbleScrollbar` with synchronized `ScrollController` tracking, 1,500ms inactivity auto-hide, and smooth 300ms fade transitions.
+
+- **Deck Analytics & MTG Symbology**:
+  - **Inline Deck Analytics (`InlineDeckAnalyticsCard`)**: Embedded visual Mana Curve, Color Devotion bars, and Bling Ratio directly within the scrollable `DeckBuilderScreen`.
+  - **Interactive Value Concentration (`ValueConcentrationPieChart`)**: Interactive custom canvas Donut/Pie Chart with polar gesture hit-testing, dynamic slice explosions, and center callout badges.
+  - **Mana Curve CMC Engine**: Calibrated converted mana cost calculation across split, hybrid, twobrid `{2/W} = 2.0`, and 0-cost spells in `ScryfallParser` and `deck_providers.dart`.
+  - **Official MTG SVG Symbology**: Replaced placeholder icons in color pickers and filter dialogs with authentic Magic: The Gathering SVG mana icons via `ManaSymbolIcon`.
+
+- **UI Stability & Presentation Polish**:
+  - **Card Details Scroll Crash**: Eliminated the red screen crash caused by `PageStorageBucket` type casting collision (`double` vs `bool?`) and decoupled multi-view scroll position conflicts.
+  - **SliverAppBar Collision Prevention**: Enforced dynamic title margin, fade interpolation, and truncation during scroll collapse in `DeckBuilderScreen` to prevent overlapping the back button.
+  - **Context-Aware Vault Filters**: Dynamic pill filters in `VaultScreen` strictly scope to the active collection domain (MTG), preventing cross-category comic or sports pills from leaking.
+  - **Accessibility Layout Hardening**: Verified zero `RenderFlex` overflows across extreme viewports (down to 280x600) and text scaling factors up to 2.5x.
+
+#### Verification & Quality
+- **Test Suite**: 215/215 tests passing in `test/e2e_phase46/`; 1,760/1,760 tests passing across the repository (100% pass rate).
+- **Static Analysis**: `dart analyze --fatal-infos` verified with 0 errors, 0 warnings, and 0 infos.
+- **Audit Verification**: Passed independent multi-phase Victory Audit (`VICTORY CONFIRMED`).
+
+---
+
 ## [0.4.6] - 2026-09-26
 
 ### Phase 4.5 & 4.6 Master Patch: Offline-First Hardening & Complete UI/UX Overhaul

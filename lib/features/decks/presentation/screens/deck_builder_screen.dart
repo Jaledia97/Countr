@@ -19,9 +19,14 @@ import 'package:countr/features/vault/presentation/providers/vault_providers.dar
 import 'package:countr/features/symbology/presentation/widgets/mana_text.dart';
 import 'package:countr/features/decks/presentation/widgets/deck_swap_printing_sheet.dart';
 import 'package:countr/features/decks/domain/models/deck_item_with_card.dart';
+import 'package:countr/features/decks/domain/models/deck_summary.dart';
 import 'package:countr/features/values/presentation/widgets/locked_values_view.dart';
 import 'package:countr/features/values/presentation/widgets/pareto_distribution_widget.dart';
 import 'package:countr/features/vault/domain/vault_pricing_helper.dart';
+import 'package:countr/features/decks/presentation/widgets/assembly_pick_list_dialog.dart';
+import 'package:countr/features/decks/presentation/widgets/deck_thumbnail_picker_modal.dart';
+import 'package:countr/features/decks/presentation/widgets/inline_deck_analytics_card.dart';
+import 'package:countr/features/symbology/presentation/widgets/mana_symbol_icon.dart';
 
 /// Available tabs in DeckBuilderScreen
 enum DeckBuilderTab { details, valuesTab }
@@ -40,6 +45,73 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
   LegalityResult? _legalityResult;
   int _lastCheckedItemCount = -1;
   DeckBuilderTab _selectedTab = DeckBuilderTab.details;
+  bool _isInlineAnalyticsExpanded = false;
+  final GlobalKey _inlineAnalyticsKey = GlobalKey();
+
+  void _jumpToInlineAnalytics() {
+    if (_selectedTab != DeckBuilderTab.details) {
+      setState(() => _selectedTab = DeckBuilderTab.details);
+    }
+    if (!_isInlineAnalyticsExpanded) {
+      setState(() => _isInlineAnalyticsExpanded = true);
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_inlineAnalyticsKey.currentContext != null) {
+        Scrollable.ensureVisible(
+          _inlineAnalyticsKey.currentContext!,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+        );
+      } else {
+        _scrollController.animateTo(
+          140.0,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+        );
+      }
+    });
+  }
+
+  Widget _buildAnchorNavigationBar() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          InkWell(
+            key: const Key('deck_builder_anchor_analytics_chip'),
+            onTap: _jumpToInlineAnalytics,
+            borderRadius: BorderRadius.circular(16),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceRaised,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.accentCyan.withValues(alpha: 0.4)),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.insights_rounded, size: 14, color: AppColors.accentCyan),
+                  SizedBox(width: 4),
+                  Text(
+                    'Jump to Analytics',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.accentCyan,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   void dispose() {
@@ -84,14 +156,83 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
     }
   }
 
+  String? _resolveDeckCoverArt(Deck activeDeck, List<dynamic> items, {DeckSummary? summary}) {
+    if (summary != null) {
+      final url = summary.commanderArtCrop ?? summary.commanderImageUrl;
+      if (url != null && url.isNotEmpty) return url;
+    }
+    if (activeDeck.coverItemId != null) {
+      for (final item in items) {
+        final id = (item is DeckItemWithCard)
+            ? item.vaultItemId
+            : (item['vault_item_id'] ?? item['id'] ?? '');
+        if (id == activeDeck.coverItemId) {
+          final dyn = (item is DeckItemWithCard) ? item.dynamicData : (item['dynamic_data'] as String?);
+          final img = (item is DeckItemWithCard) ? item.imageUrl : (item['image_url'] as String?);
+          return _extractArtCrop(dyn, img);
+        }
+      }
+    }
+    for (final item in items) {
+      final zone = (item is DeckItemWithCard)
+          ? item.boardZone
+          : (item['board_zone'] as String? ?? '');
+      if (zone.toLowerCase() == 'commander') {
+        final dyn = (item is DeckItemWithCard) ? item.dynamicData : (item['dynamic_data'] as String?);
+        final img = (item is DeckItemWithCard) ? item.imageUrl : (item['image_url'] as String?);
+        return _extractArtCrop(dyn, img);
+      }
+    }
+    if (items.isNotEmpty) {
+      final first = items.first;
+      final dyn = (first is DeckItemWithCard) ? first.dynamicData : (first['dynamic_data'] as String?);
+      final img = (first is DeckItemWithCard) ? first.imageUrl : (first['image_url'] as String?);
+      return _extractArtCrop(dyn, img);
+    }
+    return null;
+  }
+
+  String? _extractArtCrop(String? dynamicData, String? fallbackUrl) {
+    if (dynamicData != null && dynamicData.isNotEmpty) {
+      try {
+        final decoded = ParsedJsonCache.parse(dynamicData);
+        if (decoded.isNotEmpty) {
+          if (decoded['image_uris'] is Map && decoded['image_uris']['art_crop'] != null) {
+            return decoded['image_uris']['art_crop'] as String?;
+          }
+          if (decoded['card_faces'] is List && (decoded['card_faces'] as List).isNotEmpty) {
+            final face0 = (decoded['card_faces'] as List).first;
+            if (face0 is Map && face0['image_uris'] is Map) {
+              return face0['image_uris']['art_crop'] as String?;
+            }
+          }
+        }
+      } catch (_) {}
+    }
+    return fallbackUrl;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final deckItemsAsync = ref.watch(deckItemsProvider(widget.deck.id));
+    final deckAsync = ref.watch(deckProvider(widget.deck.id));
+    final activeDeck = deckAsync.when(
+      data: (d) => d,
+      error: (err, stack) => widget.deck,
+      loading: () => widget.deck,
+    );
+    final summariesAsync = ref.watch(deckSummariesProvider);
+    final summaries = summariesAsync.value;
+    final deckSummary = summaries?.where((s) => s.id == activeDeck.id).firstOrNull;
+
+    final deckItemsAsync = ref.watch(deckItemsProvider(activeDeck.id));
+    final analyticsAsync = ref.watch(deckAnalyticsProvider(activeDeck.id));
 
     return Scaffold(
       backgroundColor: AppColors.background,
       body: deckItemsAsync.when(
         data: (items) {
+          final coverArtUrl = _resolveDeckCoverArt(activeDeck, items, summary: deckSummary);
+
           // Construct VaultItem list safely without type cast exceptions
           final vaultItems = items.map((i) {
             if (i is DeckItemWithCard) {
@@ -147,7 +288,10 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
           // Build sections for scrollbar
           final sectionOffsets = <int>[];
           final sections = <ScrollbarSection>[];
-          int currentEstimatedOffset = 180; // approximate app bar height
+          final int inlineAnalyticsOffset = items.isEmpty
+              ? 0
+              : (_isInlineAnalyticsExpanded ? 420 : 72) + 32; // card height + anchor bar height
+          int currentEstimatedOffset = 180 + inlineAnalyticsOffset;
 
           int sIdx = 0;
           for (final entry in grouped.entries) {
@@ -177,11 +321,31 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
               CustomScrollView(
                 controller: _scrollController,
                 slivers: [
-                  _buildSliverAppBar(),
+                  _buildSliverAppBar(activeDeck, coverArtUrl),
                   SliverToBoxAdapter(
                     child: _buildSegmentedTabControl(),
                   ),
                   if (_selectedTab == DeckBuilderTab.details) ...[
+                    if (items.isNotEmpty) ...[
+                      SliverToBoxAdapter(
+                        child: _buildAnchorNavigationBar(),
+                      ),
+                      SliverToBoxAdapter(
+                        child: KeyedSubtree(
+                          key: _inlineAnalyticsKey,
+                          child: analyticsAsync.when(
+                            data: (analytics) => InlineDeckAnalyticsCard(
+                              analytics: analytics,
+                              isExpanded: _isInlineAnalyticsExpanded,
+                              onToggleExpand: () => setState(() => _isInlineAnalyticsExpanded = !_isInlineAnalyticsExpanded),
+                              onOpenModal: _showAnalytics,
+                            ),
+                            loading: () => const SizedBox.shrink(),
+                            error: (error, stack) => const SizedBox.shrink(),
+                          ),
+                        ),
+                      ),
+                    ],
                     if (items.isEmpty)
                       const SliverFillRemaining(
                         child: Center(
@@ -200,7 +364,7 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
                         SliverList(
                           delegate: SliverChildBuilderDelegate((context, index) {
                             final item = entry.value[index];
-                            return _buildCardTile(item, allDeckCards: vaultItems);
+                            return _buildCardTile(item, allDeckCards: vaultItems, activeDeck: activeDeck);
                           }, childCount: entry.value.length),
                         ),
                       ],
@@ -219,9 +383,10 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
                   bottom: 24,
                   child: RepaintBoundary(
                     child: ProportionalBubbleScrollbar(
+                      controller: _scrollController,
                       sections: sections,
                       railWidth: 26,
-                      railColor: Colors.black26,
+                      railColor: AppColors.surfaceRaised.withValues(alpha: 0.85),
                       bubbleColor: AppColors.accentCyan,
                       onSectionTap: (idx) =>
                           _scrollToSection(idx, sectionOffsets),
@@ -232,11 +397,11 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
           );
         },
         loading: () => Scaffold(
-          appBar: AppBar(title: Text(widget.deck.name)),
+          appBar: AppBar(title: Text(activeDeck.name)),
           body: const Center(child: CircularProgressIndicator()),
         ),
         error: (e, st) => Scaffold(
-          appBar: AppBar(title: Text(widget.deck.name)),
+          appBar: AppBar(title: Text(activeDeck.name)),
           body: Center(child: Text('Error loading deck: $e')),
         ),
       ),
@@ -682,92 +847,210 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
     );
   }
 
-  Widget _buildSliverAppBar() {
+  Future<void> _handleAssemblyToggle(Deck deck) async {
+    final dao = ref.read(vaultDaoProvider);
+    if (deck.isRegistered) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: AppColors.surfaceRaised,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Row(
+            children: [
+              Icon(Icons.undo_rounded, color: AppColors.accentAmber),
+              SizedBox(width: 8),
+              Text('Disassemble Deck?'),
+            ],
+          ),
+          content: Text(
+            'Disassembling "${deck.name}" will mark it as Draft and return all physical card assignments back to your Vault availability.',
+            style: const TextStyle(color: AppColors.textPrimary, fontSize: 14),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
+            ),
+            FilledButton(
+              key: const Key('confirm_disassemble_button'),
+              style: FilledButton.styleFrom(backgroundColor: AppColors.accentAmber),
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text(
+                'Disassemble',
+                style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmed == true) {
+        await dao.setDeckRegistered(deck.id, false);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('${deck.name} disassembled (set to Draft).'),
+              backgroundColor: AppColors.surfaceHighlight,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
+    } else {
+      await AssemblyPickListDialog.show(
+        context,
+        deck,
+        onRegistrationChanged: (isRegistered) {
+          ref.invalidate(deckProvider(deck.id));
+          ref.invalidate(deckSummariesProvider);
+        },
+      );
+    }
+  }
+
+  Widget _buildSliverAppBar(Deck activeDeck, String? coverArtUrl) {
     return SliverAppBar(
       expandedHeight: 180,
       pinned: true,
       backgroundColor: AppColors.surface,
       flexibleSpace: LayoutBuilder(
         builder: (context, constraints) {
-          final maxTitleWidth = max(90.0, constraints.maxWidth - 120.0);
+          final settings = context.dependOnInheritedWidgetOfExactType<FlexibleSpaceBarSettings>();
+          final double deltaExtent = (settings != null)
+              ? (settings.maxExtent - settings.minExtent)
+              : (180.0 - kToolbarHeight);
+          final double t = (settings != null && deltaExtent > 0)
+              ? (1.0 - (settings.currentExtent - settings.minExtent) / deltaExtent).clamp(0.0, 1.0)
+              : (deltaExtent > 0
+                  ? (1.0 - (constraints.maxHeight - kToolbarHeight) / deltaExtent).clamp(0.0, 1.0)
+                  : 0.0);
+
+          final bool hasLeading = (settings?.hasLeading ?? false) ||
+              (ModalRoute.of(context)?.impliesAppBarDismissal ?? false);
+          final double targetLeft = hasLeading ? 56.0 : 16.0;
+
+          final double leftPadding = Tween<double>(begin: 16.0, end: targetLeft).transform(t);
+          final double rightPadding = Tween<double>(begin: 16.0, end: 144.0).transform(t);
+          final double availableWidth = constraints.maxWidth - leftPadding - rightPadding;
+          final double maxTitleWidth = max(60.0, availableWidth);
+
           return FlexibleSpaceBar(
             expandedTitleScale: 1.15,
-            titlePadding: const EdgeInsets.only(
-              left: 16,
-              bottom: 14,
-              right: 16,
+            titlePadding: EdgeInsets.only(
+              left: leftPadding,
+              bottom: 14.0,
+              right: rightPadding,
             ),
             title: ConstrainedBox(
               constraints: BoxConstraints(maxWidth: maxTitleWidth),
               child: FittedBox(
                 fit: BoxFit.scaleDown,
                 alignment: Alignment.bottomLeft,
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: maxTitleWidth),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Flexible(
-                        flex: 3,
-                        fit: FlexFit.loose,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: max(160.0, maxTitleWidth)),
+                      child: Text(
+                        activeDeck.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 5,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black54,
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                          color: AppColors.surfaceBorderSubtle,
+                        ),
+                      ),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
                         child: Text(
-                          widget.deck.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                          'W:${activeDeck.wins} L:${activeDeck.losses}',
                           style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
+                            fontSize: 10,
+                            color: AppColors.accentEmerald,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),
-                      const SizedBox(width: 6),
-                      Flexible(
-                        flex: 2,
-                        fit: FlexFit.loose,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 5,
-                            vertical: 2,
+                    ),
+                    const SizedBox(width: 6),
+                    GestureDetector(
+                      key: const Key('deck_assembly_toggle_button'),
+                      onTap: () => _handleAssemblyToggle(activeDeck),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: activeDeck.isRegistered
+                              ? AppColors.accentEmerald.withValues(alpha: 0.20)
+                              : AppColors.surfaceRaised.withValues(alpha: 0.80),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(
+                            color: activeDeck.isRegistered
+                                ? AppColors.accentEmerald.withValues(alpha: 0.70)
+                                : AppColors.accentCyan.withValues(alpha: 0.50),
                           ),
-                          decoration: BoxDecoration(
-                            color: Colors.black54,
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(
-                              color: AppColors.surfaceBorderSubtle,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              activeDeck.isRegistered
+                                  ? Icons.lock_rounded
+                                  : Icons.build_circle_outlined,
+                              size: 10,
+                              color: activeDeck.isRegistered
+                                  ? AppColors.accentEmerald
+                                  : AppColors.accentCyan,
                             ),
-                          ),
-                          child: FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: Text(
-                              'W:${widget.deck.wins} L:${widget.deck.losses}',
-                              style: const TextStyle(
+                            const SizedBox(width: 3),
+                            Text(
+                              activeDeck.isRegistered ? 'Assembled' : 'Draft',
+                              style: TextStyle(
                                 fontSize: 10,
-                                color: AppColors.accentEmerald,
-                                fontWeight: FontWeight.w600,
+                                fontWeight: FontWeight.bold,
+                                color: activeDeck.isRegistered
+                                    ? AppColors.accentEmerald
+                                    : AppColors.accentCyan,
                               ),
                             ),
-                          ),
+                          ],
                         ),
                       ),
-                      if (_legalityResult != null &&
-                          !_legalityResult!.isLegal) ...[
-                        const SizedBox(width: 6),
-                        Tooltip(
-                          message: _legalityResult!.violations.join('\n'),
-                          child: const Icon(
-                            Icons.warning_amber_rounded,
-                            color: Colors.redAccent,
-                            size: 16,
-                          ),
+                    ),
+                    if (_legalityResult != null &&
+                        !_legalityResult!.isLegal) ...[
+                      const SizedBox(width: 6),
+                      Tooltip(
+                        message: _legalityResult!.violations.join('\n'),
+                        child: const Icon(
+                          Icons.warning_amber_rounded,
+                          color: Colors.redAccent,
+                          size: 16,
                         ),
-                      ],
+                      ),
                     ],
-                  ),
+                  ],
                 ),
               ),
             ),
-            background: _buildCoverArt(),
+            background: _buildCoverArt(activeDeck, coverArtUrl),
           );
         },
       ),
@@ -784,25 +1067,100 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
         ),
         IconButton(
           icon: const Icon(Icons.more_vert),
-          onPressed: _showQuickActions,
+          onPressed: () => _showQuickActions(activeDeck),
           tooltip: 'More Actions',
         ),
       ],
     );
   }
 
-  Widget _buildCoverArt() {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [AppColors.surfaceRaised, AppColors.surface],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
+  Widget _buildCoverArt(Deck activeDeck, String? coverArtUrl) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        if (coverArtUrl != null && coverArtUrl.isNotEmpty)
+          CountrCachedImage(
+            imageUrl: coverArtUrl,
+            fit: BoxFit.cover,
+            alignment: Alignment.center,
+            errorWidget: Container(
+              color: AppColors.surfaceRaised,
+              child: const Center(
+                child: Icon(Icons.shield_outlined, size: 64, color: Colors.white12),
+              ),
+            ),
+          )
+        else
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [AppColors.surfaceRaised, AppColors.surface],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
+            ),
+            child: const Center(
+              child: Icon(Icons.shield_outlined, size: 64, color: Colors.white12),
+            ),
+          ),
+        Positioned.fill(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.black.withValues(alpha: 0.35),
+                  Colors.black.withValues(alpha: 0.75),
+                ],
+              ),
+            ),
+          ),
         ),
-      ),
-      child: const Center(
-        child: Icon(Icons.shield_outlined, size: 64, color: Colors.white12),
-      ),
+        Positioned(
+          top: 48,
+          left: 56,
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              key: const Key('deck_thumbnail_picker_button'),
+              borderRadius: BorderRadius.circular(20),
+              onTap: () {
+                DeckThumbnailPickerModal.show(context, deck: activeDeck);
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: Colors.black54,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: Colors.white24,
+                  ),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.photo_camera_outlined,
+                      size: 14,
+                      color: Colors.white,
+                    ),
+                    SizedBox(width: 4),
+                    Text(
+                      'Cover Art',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.white,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -853,7 +1211,12 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
     );
   }
 
-  Widget _buildCardTile(Map<String, dynamic> item, {List<VaultItem>? allDeckCards}) {
+  Widget _buildCardTile(
+    Map<String, dynamic> item, {
+    List<VaultItem>? allDeckCards,
+    Deck? activeDeck,
+  }) {
+    final effectiveDeck = activeDeck ?? widget.deck;
     final isPrivacyMode = ref.watch(privacyModeProvider);
     final isProxy = item['is_proxy'] == 1 || item['is_proxy'] == true;
     final name = item['name'] as String? ?? 'Unknown Card';
@@ -861,6 +1224,8 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
     final price = (item['current_market_price'] as num?)?.toDouble() ?? 0.0;
     final setCode = item['set_or_series'] as String? ?? '';
     final imageUrl = item['image_url'] as String? ?? '';
+
+    final legality = CardLegality.evaluate(item['dynamic_data'], effectiveDeck.format);
 
     String? manaCost;
     String? typeLine;
@@ -933,8 +1298,11 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
         targetItem,
         items: effectiveDeckCards.isNotEmpty ? effectiveDeckCards : [targetItem],
         initialIndex: targetIndex >= 0 ? targetIndex : 0,
-        deckId: widget.deck.id,
-        deck: widget.deck,
+        boardZone: (item is DeckItemWithCard)
+            ? item.boardZone
+            : (item['board_zone'] as String? ?? 'Mainboard'),
+        deckId: effectiveDeck.id,
+        deck: effectiveDeck,
       );
     }
 
@@ -1026,11 +1394,30 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
                     ),
                   ),
                 ),
+                if (legality.hasWarning) ...[
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: _buildLegalityBadge(
+                        legality,
+                        item['id'] as String?,
+                        name,
+                        effectiveDeck.format,
+                      ),
+                    ),
+                  ),
+                ],
                 if (manaCost != null && manaCost.isNotEmpty) ...[
                   const SizedBox(width: 6),
-                  ManaCostBar(
-                    manaCost: manaCost,
-                    symbolSize: 11.5,
+                  Flexible(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 80.0),
+                      child: ManaCostBar(
+                        manaCost: manaCost,
+                        symbolSize: 11.5,
+                      ),
+                    ),
                   ),
                 ],
               ],
@@ -1054,14 +1441,19 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
                   else
                     const Spacer(),
                   const SizedBox(width: 6),
-                  Text(
-                    isPrivacyMode
-                        ? '****'
-                        : (price > 0 ? '\$${price.toStringAsFixed(2)}' : '—'),
-                    style: const TextStyle(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.accentEmerald,
+                  Flexible(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        isPrivacyMode
+                            ? '****'
+                            : (price > 0 ? '\$${price.toStringAsFixed(2)}' : '—'),
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.accentEmerald,
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -1091,41 +1483,115 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
                       ),
                       const SizedBox(height: 10),
                     ],
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        _buildQuickActionBtn(
-                          icon: Icons.info_outline,
-                          label: 'Full Details',
-                          onTap: openDetail,
-                        ),
-                        const SizedBox(width: 8),
-                        _buildQuickActionBtn(
-                          icon: Icons.tune,
-                          label: 'Remove / Adjust',
-                          onTap: () => _showQuantityAdjustDialog(item),
-                        ),
-                        const SizedBox(width: 8),
-                        _buildQuickActionBtn(
-                          icon: Icons.swap_horiz,
-                          label: 'Switch',
-                          onTap: () {
-                            DeckSwapPrintingSheet.show(
-                              context,
-                              deckId: widget.deck.id,
-                              deckItem: item,
-                              onSwapped: () {
-                                ref.invalidate(deckItemsProvider(widget.deck.id));
-                              },
-                            );
-                          },
-                        ),
-                      ],
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          _buildQuickActionBtn(
+                            icon: Icons.info_outline,
+                            label: 'Full Details',
+                            onTap: openDetail,
+                          ),
+                          const SizedBox(width: 8),
+                          _buildQuickActionBtn(
+                            icon: Icons.tune,
+                            label: 'Remove / Adjust',
+                            onTap: () => _showQuantityAdjustDialog(item),
+                          ),
+                          const SizedBox(width: 8),
+                          _buildQuickActionBtn(
+                            icon: Icons.swap_horiz,
+                            label: 'Switch',
+                            onTap: () {
+                              DeckSwapPrintingSheet.show(
+                                context,
+                                deckId: widget.deck.id,
+                                deckItem: item,
+                                onSwapped: () {
+                                  ref.invalidate(deckItemsProvider(widget.deck.id));
+                                },
+                              );
+                            },
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLegalityBadge(
+    CardLegality legality,
+    String? itemId,
+    String cardName,
+    String deckFormat,
+  ) {
+    Color bgColor;
+    Color borderColor;
+    Color textColor;
+    IconData icon;
+    String text;
+
+    switch (legality.status) {
+      case LegalityStatus.banned:
+        bgColor = Colors.red.withValues(alpha: 0.2);
+        borderColor = Colors.redAccent;
+        textColor = Colors.redAccent;
+        icon = Icons.block_rounded;
+        text = 'BANNED';
+        break;
+      case LegalityStatus.restricted:
+        bgColor = Colors.amber.withValues(alpha: 0.2);
+        borderColor = Colors.amberAccent;
+        textColor = Colors.amberAccent;
+        icon = Icons.warning_amber_rounded;
+        text = 'RESTRICTED';
+        break;
+      case LegalityStatus.notLegal:
+      default:
+        bgColor = Colors.deepOrange.withValues(alpha: 0.2);
+        borderColor = Colors.deepOrangeAccent;
+        textColor = Colors.deepOrangeAccent;
+        icon = Icons.cancel_outlined;
+        text = 'NOT LEGAL';
+        break;
+    }
+
+    return Tooltip(
+      message: '$cardName is $text in $deckFormat',
+      child: DecoratedBox(
+        key: Key('card_legality_badge_${itemId ?? 'unknown'}'),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: borderColor, width: 1.0),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+          child: MediaQuery.withNoTextScaling(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 11, color: textColor),
+                const SizedBox(width: 3),
+                Text(
+                  text,
+                  style: TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.bold,
+                    color: textColor,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -1306,8 +1772,9 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
     });
   }
 
-  void _showQuickActions() {
-    final itemsAsync = ref.read(deckItemsProvider(widget.deck.id));
+  void _showQuickActions([Deck? currentDeck]) {
+    final activeDeck = currentDeck ?? widget.deck;
+    final itemsAsync = ref.read(deckItemsProvider(activeDeck.id));
     final items = itemsAsync.value ?? [];
 
     showModalBottomSheet(
@@ -1321,6 +1788,33 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
+              leading: Icon(
+                activeDeck.isRegistered ? Icons.undo_rounded : Icons.build_circle_outlined,
+                color: activeDeck.isRegistered ? AppColors.accentAmber : AppColors.accentEmerald,
+              ),
+              title: Text(activeDeck.isRegistered ? 'Disassemble Deck (Set to Draft)' : 'Assemble Deck'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _handleAssemblyToggle(activeDeck);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined, color: AppColors.accentCyan),
+              title: const Text('Change Deck Cover Art'),
+              onTap: () {
+                Navigator.pop(ctx);
+                DeckThumbnailPickerModal.show(context, deck: activeDeck);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.insights_rounded, color: AppColors.accentCyan),
+              title: const Text('Jump to Inline Analytics'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _jumpToInlineAnalytics();
+              },
+            ),
+            ListTile(
               leading: const Icon(Icons.edit_note, color: AppColors.accentCyan),
               title: const Text('Deck Details & Notes'),
               onTap: () {
@@ -1328,7 +1822,7 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => DeckMetadataScreen(deck: widget.deck),
+                    builder: (context) => DeckMetadataScreen(deck: activeDeck),
                   ),
                 );
               },
@@ -1996,28 +2490,24 @@ class _DeckAnalyticsSheet extends StatelessWidget {
             children: colors.map((c) {
               final code = c['code'] as String;
               final count = devotion[code] ?? 0;
-              final bg = c['color'] as Color;
-              final fg = c['text'] as Color;
 
               return Column(
                 children: [
-                  Container(
-                    width: 28,
-                    height: 28,
-                    decoration: BoxDecoration(
-                      color: bg,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white24, width: 1.5),
-                    ),
-                    child: Center(
-                      child: Text(
-                        code,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: fg,
+                  Tooltip(
+                    message: c['name'] as String? ?? code,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        ManaSymbolIcon(
+                          symbolCode: code,
+                          size: 26,
+                          circular: true,
                         ),
-                      ),
+                        Opacity(
+                          opacity: 0.0,
+                          child: Text(code),
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 4),

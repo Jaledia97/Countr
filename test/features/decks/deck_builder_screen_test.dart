@@ -54,6 +54,62 @@ void main() {
       expect(find.byType(ProportionalBubbleScrollbar), findsOneWidget);
     });
 
+    group('Feature 15 Empirical Challenge: SliverAppBar Collapse Bounds', () {
+      final testWidths = [320.0, 360.0, 400.0, 414.0];
+
+      for (final width in testWidths) {
+        testWidgets('Title bounds never overlap x < 56.0 or x > width - 144.0 when collapsed (w=${width.toInt()})', (tester) async {
+          tester.view.physicalSize = Size(width, 800);
+          tester.view.devicePixelRatio = 1.0;
+          addTearDown(() => tester.view.resetPhysicalSize());
+
+          // Pushed route scenario where leading back button exists (hasLeading = true)
+          await tester.pumpWidget(
+            ProviderScope(
+              overrides: [
+                deckItemsProvider(testDeck.id).overrideWith(
+                  (ref) => Stream.value(MockDeckData.getDeckItems(testDeck.id)),
+                ),
+              ],
+              child: MaterialApp(
+                home: Navigator(
+                  onGenerateRoute: (settings) => MaterialPageRoute(
+                    builder: (_) => DeckBuilderScreen(deck: testDeck),
+                  ),
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+
+          final scrollableFinder = find.byType(CustomScrollView);
+          expect(scrollableFinder, findsOneWidget);
+
+          // Scroll to collapse the SliverAppBar completely
+          await tester.drag(scrollableFinder, const Offset(0, -300));
+          await tester.pumpAndSettle();
+
+          final titleTextFinder = find.text(testDeck.name);
+          expect(titleTextFinder, findsOneWidget);
+
+          final Rect titleRect = tester.getRect(titleTextFinder);
+
+          // Assert that title bounds never overlap x < 56.0 or x > constraints.maxWidth - 144.0
+          expect(
+            titleRect.left,
+            greaterThanOrEqualTo(56.0 - 0.01),
+            reason: 'Collapsed title left edge (${titleRect.left}) must not overlap leading back button (x < 56.0) on w=$width',
+          );
+          expect(
+            titleRect.right,
+            lessThanOrEqualTo(width - 144.0 + 0.01),
+            reason: 'Collapsed title right edge (${titleRect.right}) must not overlap trailing action buttons (x > ${width - 144.0}) on w=$width',
+          );
+          expect(tester.takeException(), isNull);
+        });
+      }
+    });
+
     testWidgets('Fast-Draw 7 Playtester opens, displays 7 cards, hand stats, and reshuffles on Mulligan', (tester) async {
       tester.view.physicalSize = const Size(400, 800);
       tester.view.devicePixelRatio = 1.0;

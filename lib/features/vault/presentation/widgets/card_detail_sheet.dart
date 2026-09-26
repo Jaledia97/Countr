@@ -51,6 +51,7 @@ class CardDetailSheet extends ConsumerStatefulWidget {
   final Deck? deck;
   final String? binderId;
   final VaultBinder? binder;
+  final String? boardZone;
 
   const CardDetailSheet({
     super.key,
@@ -63,6 +64,7 @@ class CardDetailSheet extends ConsumerStatefulWidget {
     this.deck,
     this.binderId,
     this.binder,
+    this.boardZone,
   }) : assert(item != null || (items != null && items.length > 0),
             'Either item or a non-empty items list must be provided.');
 
@@ -78,6 +80,7 @@ class CardDetailSheet extends ConsumerStatefulWidget {
     Deck? deck,
     String? binderId,
     VaultBinder? binder,
+    String? boardZone,
   }) {
     final effectiveItems = items ?? [item];
     final effectiveIndex = initialIndex ?? (items != null ? items.indexOf(item) : 0);
@@ -98,6 +101,7 @@ class CardDetailSheet extends ConsumerStatefulWidget {
         deck: deck,
         binderId: binderId,
         binder: binder,
+        boardZone: boardZone,
       ),
     );
   }
@@ -127,6 +131,8 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
 
   List<ScryfallRuling> _cachedRulings = [];
   bool _isLoadingRulings = false;
+  late final TextEditingController _notesController;
+  bool _isSavingNotes = false;
 
   @override
   void initState() {
@@ -145,6 +151,7 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
     _currentItem = _items.isNotEmpty ? _items[_currentIndex] : widget.item!;
     _pageController = PageController(initialPage: _currentIndex);
     _deckTagController = TextEditingController();
+    _notesController = TextEditingController(text: _currentItem.personalNotes ?? _currentItem.notes ?? '');
     _flipController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 400),
@@ -165,6 +172,7 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
   void dispose() {
     _pageController.dispose();
     _deckTagController.dispose();
+    _notesController.dispose();
     _flipController.dispose();
     _activeSheetScrollController = null;
     super.dispose();
@@ -196,6 +204,7 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
       _currentItem = widget.item!;
     }
     _deckTagController.clear();
+    _notesController.text = _currentItem.personalNotes ?? _currentItem.notes ?? '';
     _previewCandidate = null;
     _isFlipped = false;
     _flipController.reset();
@@ -211,6 +220,7 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
       _currentIndex = index;
       _currentItem = _items[_currentIndex];
       _deckTagController.clear();
+      _notesController.text = _currentItem.personalNotes ?? _currentItem.notes ?? '';
       _previewCandidate = null;
       _isFlipped = false;
       _flipController.reset();
@@ -222,14 +232,48 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         if (_activeSheetScrollController != null &&
-            _activeSheetScrollController!.hasClients &&
-            _activeSheetScrollController!.offset > 0) {
-          _activeSheetScrollController!.jumpTo(0.0);
+            _activeSheetScrollController!.hasClients) {
+          for (final pos in _activeSheetScrollController!.positions) {
+            if (pos.hasPixels && pos.pixels > 0) {
+              pos.jumpTo(0.0);
+            }
+          }
         }
         _fetchAndCacheRulings();
         _healMissingMultiFaceData();
       }
     });
+  }
+
+  Future<void> _saveNotes() async {
+    setState(() => _isSavingNotes = true);
+    final dao = ref.read(vaultDaoProvider);
+    final text = _notesController.text.trim();
+    await dao.updateItemCardDetails(
+      id: _currentItem.id,
+      notes: text,
+      personalNotes: text,
+    );
+
+    if (mounted) {
+      setState(() {
+        _isSavingNotes = false;
+        _currentItem = _currentItem.copyWith(
+          notes: Value(text.isNotEmpty ? text : null),
+          personalNotes: Value(text.isNotEmpty ? text : null),
+        );
+        if (_currentIndex < _items.length) {
+          _items[_currentIndex] = _currentItem;
+        }
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Card notes saved'),
+          behavior: SnackBarBehavior.floating,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   void _parseDynamicData() {
@@ -1079,7 +1123,7 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
                   pct,
                   isProfit,
                   isCurrent,
-                  activeScrollController,
+                  null, // Isolate valuesTab from DraggableScrollableSheet controller
                 ),
         ),
       ],
@@ -1537,25 +1581,51 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    _buildMetricBox('Owned Copies', '${item.quantity}x', AppColors.textPrimary),
-                    const SizedBox(width: 8),
-                    _buildMetricBox('Condition', item.condition, AppColors.accentCyan),
-                    const SizedBox(width: 8),
-                    _buildMetricBox(
-                      'Language',
-                      (itemData['lang'] ?? itemData['language'] ?? 'EN').toString().toUpperCase(),
-                      AppColors.accentEmerald,
-                    ),
-                    const SizedBox(width: 8),
-                    _buildMetricBox(
-                      'Treatment',
-                      _extractTreatment(item, itemData),
-                      AppColors.accentVioletLight,
-                    ),
-                  ],
-                ),
+                if (MediaQuery.sizeOf(context).width < 360) ...[
+                  Row(
+                    children: [
+                      _buildMetricBox('Owned Copies', '${item.quantity}x', AppColors.textPrimary),
+                      const SizedBox(width: 8),
+                      _buildMetricBox('Condition', item.condition, AppColors.accentCyan),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      _buildMetricBox(
+                        'Language',
+                        (itemData['lang'] ?? itemData['language'] ?? 'EN').toString().toUpperCase(),
+                        AppColors.accentEmerald,
+                      ),
+                      const SizedBox(width: 8),
+                      _buildMetricBox(
+                        'Treatment',
+                        _extractTreatment(item, itemData),
+                        AppColors.accentVioletLight,
+                      ),
+                    ],
+                  ),
+                ] else ...[
+                  Row(
+                    children: [
+                      _buildMetricBox('Owned Copies', '${item.quantity}x', AppColors.textPrimary),
+                      const SizedBox(width: 8),
+                      _buildMetricBox('Condition', item.condition, AppColors.accentCyan),
+                      const SizedBox(width: 8),
+                      _buildMetricBox(
+                        'Language',
+                        (itemData['lang'] ?? itemData['language'] ?? 'EN').toString().toUpperCase(),
+                        AppColors.accentEmerald,
+                      ),
+                      const SizedBox(width: 8),
+                      _buildMetricBox(
+                        'Treatment',
+                        _extractTreatment(item, itemData),
+                        AppColors.accentVioletLight,
+                      ),
+                    ],
+                  ),
+                ],
                 const SizedBox(height: 10),
                 Row(
                   children: [
@@ -1627,15 +1697,22 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            _buildSectionHeader(Icons.inventory_2_outlined, 'Physical Provenance'),
-            TextButton.icon(
-              key: const Key('card_detail_edit_card_button'),
-              icon: const Icon(Icons.edit_note_rounded, size: 16, color: AppColors.accentCyan),
-              label: const Text(
-                'Edit Card',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.accentCyan),
+            Expanded(
+              child: _buildSectionHeader(Icons.inventory_2_outlined, 'Physical Provenance'),
+            ),
+            Flexible(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: TextButton.icon(
+                  key: const Key('card_detail_edit_card_button'),
+                  icon: const Icon(Icons.edit_note_rounded, size: 16, color: AppColors.accentCyan),
+                  label: const Text(
+                    'Edit Card',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.accentCyan),
+                  ),
+                  onPressed: _openEditModal,
+                ),
               ),
-              onPressed: _openEditModal,
             ),
           ],
         ),
@@ -1709,36 +1786,82 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
                 ],
               ),
               const SizedBox(height: 12),
-              const Text(
-                'Personal Notes & Strategy Tips',
-                style: TextStyle(color: AppColors.textMuted, fontSize: 11, fontWeight: FontWeight.w600),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Personal Notes & Strategy Tips',
+                      style: TextStyle(color: AppColors.textMuted, fontSize: 11, fontWeight: FontWeight.w600),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (isCurrent)
+                    Flexible(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: TextButton.icon(
+                          key: const Key('card_detail_save_notes_button'),
+                          icon: _isSavingNotes
+                              ? const SizedBox(
+                                  width: 12,
+                                  height: 12,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.accentCyan),
+                                )
+                              : const Icon(Icons.save_rounded, size: 14, color: AppColors.accentCyan),
+                          label: const Text('Save Notes', style: TextStyle(color: AppColors.accentCyan, fontSize: 12)),
+                          onPressed: _isSavingNotes ? null : _saveNotes,
+                        ),
+                      ),
+                    ),
+                ],
               ),
               const SizedBox(height: 4),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppColors.surfaceBorder),
-                ),
-                child: Text(
-                  (item.notes?.isNotEmpty == true)
-                      ? item.notes!
-                      : ((item.personalNotes?.isNotEmpty == true)
-                          ? item.personalNotes!
-                          : 'No personal notes recorded.'),
-                  style: TextStyle(
-                    color: (item.notes?.isNotEmpty == true || item.personalNotes?.isNotEmpty == true)
-                        ? AppColors.textPrimary
-                        : AppColors.textMuted,
-                    fontSize: 12.5,
-                    fontStyle: (item.notes?.isNotEmpty == true || item.personalNotes?.isNotEmpty == true)
-                        ? FontStyle.normal
-                        : FontStyle.italic,
-                  ),
-                ),
-              ),
+              isCurrent
+                  ? Container(
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AppColors.surfaceBorder),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      child: TextField(
+                        key: const Key('card_detail_notes_input'),
+                        controller: _notesController,
+                        maxLines: 3,
+                        decoration: const InputDecoration(
+                          hintText: 'Enter combos, strategy tips, or personal notes...',
+                          hintStyle: TextStyle(color: AppColors.textMuted, fontSize: 12.5),
+                          border: InputBorder.none,
+                        ),
+                        style: const TextStyle(color: AppColors.textPrimary, fontSize: 12.5),
+                      ),
+                    )
+                  : Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AppColors.surfaceBorder),
+                      ),
+                      child: Text(
+                        (item.notes?.isNotEmpty == true)
+                            ? item.notes!
+                            : ((item.personalNotes?.isNotEmpty == true)
+                                ? item.personalNotes!
+                                : 'No personal notes recorded.'),
+                        style: TextStyle(
+                          color: (item.notes?.isNotEmpty == true || item.personalNotes?.isNotEmpty == true)
+                              ? AppColors.textPrimary
+                              : AppColors.textMuted,
+                          fontSize: 12.5,
+                          fontStyle: (item.notes?.isNotEmpty == true || item.personalNotes?.isNotEmpty == true)
+                              ? FontStyle.normal
+                              : FontStyle.italic,
+                        ),
+                      ),
+                    ),
             ],
           ),
         ),
@@ -1762,9 +1885,12 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
                 children: [
                   const Icon(Icons.calendar_today_outlined, size: 14, color: AppColors.accentCyan),
                   const SizedBox(width: 8),
-                  Text(
-                    'Date Obtained: ${_formatDate(item.dateObtained ?? item.acquiredDate)}',
-                    style: const TextStyle(fontSize: 12.5, color: AppColors.textPrimary, fontWeight: FontWeight.w500),
+                  Expanded(
+                    child: Text(
+                      'Date Obtained: ${_formatDate(item.dateObtained ?? item.acquiredDate)}',
+                      style: const TextStyle(fontSize: 12.5, color: AppColors.textPrimary, fontWeight: FontWeight.w500),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 ],
               ),
@@ -2686,6 +2812,10 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
 
   Widget _buildFormatLegalities() {
     final formats = ['Standard', 'Pioneer', 'Modern', 'Legacy', 'Vintage', 'Commander', 'Pauper'];
+    final legalities = _dynamicData['legalities'] is Map
+        ? (_dynamicData['legalities'] as Map<String, dynamic>)
+        : const <String, dynamic>{};
+
     return Column(
       key: const Key('section_format_legalities'),
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2696,17 +2826,35 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
           spacing: 6,
           runSpacing: 6,
           children: formats.map((f) {
+            final rawStatus = legalities[f.toLowerCase()]?.toString().toLowerCase();
+            final Color color;
+            final String statusLabel;
+
+            if (rawStatus == 'legal') {
+              color = AppColors.accentEmerald;
+              statusLabel = 'Legal';
+            } else if (rawStatus == 'banned') {
+              color = Colors.redAccent;
+              statusLabel = 'Banned';
+            } else if (rawStatus == 'restricted') {
+              color = Colors.amberAccent;
+              statusLabel = 'Restricted';
+            } else {
+              color = AppColors.textSecondary;
+              statusLabel = 'Not Legal';
+            }
+
             return Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: AppColors.accentEmerald.withValues(alpha: 0.12),
+                color: color.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: AppColors.accentEmerald.withValues(alpha: 0.35)),
+                border: Border.all(color: color.withValues(alpha: 0.35)),
               ),
               child: Text(
-                '$f: Legal',
-                style: const TextStyle(
-                  color: AppColors.accentEmerald,
+                '$f: $statusLabel',
+                style: TextStyle(
+                  color: color,
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
                 ),
@@ -3065,61 +3213,64 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
               if (rulings.isNotEmpty) ...[
                 Theme(
                   data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-                  child: ExpansionTile(
-                    key: const Key('card_detail_rulings_accordion'),
-                    initiallyExpanded: true,
-                    tilePadding: EdgeInsets.zero,
-                    childrenPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.gavel_rounded, size: 16, color: AppColors.accentAmber),
-                    title: Text(
-                      'Official Rulings (${rulings.length})',
-                      style: const TextStyle(
-                        color: AppColors.textPrimary,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 12.5,
+                  child: PageStorage(
+                    bucket: PageStorageBucket(),
+                    child: ExpansionTile(
+                      key: const Key('card_detail_rulings_accordion'),
+                      initiallyExpanded: true,
+                      tilePadding: EdgeInsets.zero,
+                      childrenPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.gavel_rounded, size: 16, color: AppColors.accentAmber),
+                      title: Text(
+                        'Official Rulings (${rulings.length})',
+                        style: const TextStyle(
+                          color: AppColors.textPrimary,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12.5,
+                        ),
                       ),
-                    ),
-                    children: [
-                      const SizedBox(height: 6),
-                      for (int i = 0; i < rulings.length; i++) ...[
-                        if (i > 0)
-                          const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 8),
-                            child: Divider(height: 1, color: AppColors.surfaceBorderSubtle),
-                          ),
-                        if (rulings[i].publishedAt.isNotEmpty) ...[
-                          Row(
-                            children: [
-                              const Icon(Icons.calendar_today_outlined, size: 11, color: AppColors.textMuted),
-                              const SizedBox(width: 4),
-                              Flexible(
-                                child: FittedBox(
-                                  fit: BoxFit.scaleDown,
-                                  alignment: Alignment.centerLeft,
-                                  child: Text(
-                                    rulings[i].publishedAt,
-                                    style: const TextStyle(
-                                      color: AppColors.textMuted,
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 11,
+                      children: [
+                        const SizedBox(height: 6),
+                        for (int i = 0; i < rulings.length; i++) ...[
+                          if (i > 0)
+                            const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 8),
+                              child: Divider(height: 1, color: AppColors.surfaceBorderSubtle),
+                            ),
+                          if (rulings[i].publishedAt.isNotEmpty) ...[
+                            Row(
+                              children: [
+                                const Icon(Icons.calendar_today_outlined, size: 11, color: AppColors.textMuted),
+                                const SizedBox(width: 4),
+                                Flexible(
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    alignment: Alignment.centerLeft,
+                                    child: Text(
+                                      rulings[i].publishedAt,
+                                      style: const TextStyle(
+                                        color: AppColors.textMuted,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 11,
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
+                            const SizedBox(height: 3),
+                          ],
+                          ManaText(
+                            rulings[i].comment,
+                            style: const TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 12.5,
+                              height: 1.4,
+                            ),
                           ),
-                          const SizedBox(height: 3),
                         ],
-                        ManaText(
-                          rulings[i].comment,
-                          style: const TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 12.5,
-                            height: 1.4,
-                          ),
-                        ),
                       ],
-                    ],
+                    ),
                   ),
                 ),
               ],
@@ -3141,6 +3292,15 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
     final actions = <Widget>[];
 
     if (isDeckContext) {
+      actions.add(
+        _buildQuickActionButton(
+          key: const Key('quick_action_move_board'),
+          icon: Icons.swap_horiz_rounded,
+          label: 'Move To',
+          color: AppColors.accentCyan,
+          onTap: _showMoveBoardModal,
+        ),
+      );
       actions.add(
         _buildQuickActionButton(
           key: const Key('quick_action_remove_from_deck'),
@@ -3171,17 +3331,16 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
           ),
         );
       }
+      actions.add(
+        _buildQuickActionButton(
+          key: const Key('quick_action_add_to_deck'),
+          icon: Icons.playlist_add_rounded,
+          label: 'Add to Deck',
+          color: AppColors.accentVioletLight,
+          onTap: _showAddToDeckDialog,
+        ),
+      );
     }
-
-    actions.add(
-      _buildQuickActionButton(
-        key: const Key('quick_action_add_to_deck'),
-        icon: Icons.playlist_add_rounded,
-        label: 'Add to Deck',
-        color: AppColors.accentVioletLight,
-        onTap: _showAddToDeckDialog,
-      ),
-    );
 
     actions.add(
       _buildQuickActionButton(
@@ -3276,6 +3435,180 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
         );
       }
     }
+  }
+
+  Future<void> _showMoveBoardModal() async {
+    final targetDeckId = widget.deckId ?? widget.deck?.id;
+    if (targetDeckId == null) return;
+
+    final dao = ref.read(vaultDaoProvider);
+    final deckItems = await dao.getDeckItems(targetDeckId);
+    final currentDeckItem = deckItems
+        .where((i) => i.vaultItemId == _currentItem.id || i.id == _currentItem.id)
+        .firstOrNull;
+    final currentZone = currentDeckItem?.boardZone ?? widget.boardZone ?? 'Mainboard';
+    final currentQty = currentDeckItem?.quantity ?? 1;
+
+    if (!mounted) return;
+
+    final boards = const [
+      (zone: 'Mainboard', label: 'Mainboard', icon: Icons.view_agenda_outlined),
+      (zone: 'Sideboard', label: 'Sideboard', icon: Icons.splitscreen_outlined),
+      (zone: 'Maybeboard', label: 'Maybeboard', icon: Icons.help_outline_rounded),
+      (zone: 'Commander', label: 'Commander', icon: Icons.shield_outlined),
+    ];
+
+    int selectedQuantity = currentQty;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetCtx) {
+        return StatefulBuilder(
+          builder: (modalCtx, setModalState) {
+            return SafeArea(
+              key: const Key('move_board_modal'),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.swap_horiz_rounded, color: AppColors.accentCyan),
+                          const SizedBox(width: 8),
+                          const Text('Move to Board', style: AppTypography.heading2),
+                          const Spacer(),
+                          IconButton(
+                            icon: const Icon(Icons.close, color: AppColors.textMuted),
+                            onPressed: () => Navigator.of(sheetCtx).pop(),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                      child: Text(
+                        'Current: $currentZone (${currentQty > 1 ? "$currentQty copies" : "1 copy"})',
+                        style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                      ),
+                    ),
+                    if (currentQty > 1) ...[
+                      const Divider(color: AppColors.surfaceBorderSubtle),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                        child: Row(
+                          children: [
+                            const Text(
+                              'Quantity to move:',
+                              style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                            ),
+                            const Spacer(),
+                            IconButton(
+                              key: const Key('move_qty_decrement'),
+                              icon: const Icon(Icons.remove_circle_outline, size: 20, color: AppColors.textSecondary),
+                              onPressed: selectedQuantity > 1
+                                  ? () => setModalState(() => selectedQuantity--)
+                                  : null,
+                            ),
+                            Text(
+                              '$selectedQuantity / $currentQty',
+                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                            ),
+                            IconButton(
+                              key: const Key('move_qty_increment'),
+                              icon: const Icon(Icons.add_circle_outline, size: 20, color: AppColors.textSecondary),
+                              onPressed: selectedQuantity < currentQty
+                                  ? () => setModalState(() => selectedQuantity++)
+                                  : null,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    const Divider(color: AppColors.surfaceBorder),
+                    ...boards.map((b) {
+                      final isCurrent = b.zone.toLowerCase() == currentZone.toLowerCase();
+                      return ListTile(
+                        key: Key('move_to_board_${b.zone.toLowerCase()}'),
+                        leading: Icon(
+                          b.icon,
+                          color: isCurrent ? AppColors.accentCyan : AppColors.textSecondary,
+                        ),
+                        title: Text(
+                          b.label,
+                          style: TextStyle(
+                            color: isCurrent ? AppColors.accentCyan : Colors.white,
+                            fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
+                          ),
+                        ),
+                        trailing: isCurrent
+                            ? Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: AppColors.accentCyan.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: AppColors.accentCyan.withValues(alpha: 0.4)),
+                                ),
+                                child: const Text(
+                                  'CURRENT',
+                                  style: TextStyle(
+                                    color: AppColors.accentCyan,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              )
+                            : const Icon(Icons.chevron_right, color: AppColors.textMuted),
+                        enabled: !isCurrent,
+                        onTap: isCurrent
+                            ? null
+                            : () async {
+                                try {
+                                  await dao.moveDeckItemBoard(
+                                    targetDeckId,
+                                    _currentItem.id,
+                                    b.zone,
+                                    selectedQuantity,
+                                    currentZone,
+                                  );
+                                  ref.invalidate(deckItemsProvider(targetDeckId));
+                                  if (sheetCtx.mounted) Navigator.of(sheetCtx).pop();
+                                  if (mounted) {
+                                    final qtySuffix = selectedQuantity > 1 ? ' (x$selectedQuantity)' : '';
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          'Moved ${_currentItem.name}$qtySuffix to ${b.label}',
+                                        ),
+                                      ),
+                                    );
+                                    Navigator.of(context).pop();
+                                  }
+                                } catch (e) {
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text('Failed to move: $e')),
+                                    );
+                                  }
+                                }
+                              },
+                      );
+                    }),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   Future<void> _showMoveBinderModal() async {

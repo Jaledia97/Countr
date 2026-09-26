@@ -33,6 +33,9 @@ void main() {
   }) {
     return ProviderScope(
       overrides: [
+        deckProvider(deck.id).overrideWith(
+          (ref) => Stream.value(deck),
+        ),
         deckItemsProvider(deck.id).overrideWith(
           (ref) => Stream.value(mockItems),
         ),

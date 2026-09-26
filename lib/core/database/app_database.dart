@@ -261,6 +261,14 @@ class AppDatabase extends _$AppDatabase {
                 'ALTER TABLE "decks" ADD COLUMN "is_competitive" INTEGER NOT NULL DEFAULT 0;',
               );
             }
+            if (!deckColumnNames.contains('is_assembled')) {
+              await customStatement(
+                'ALTER TABLE "decks" ADD COLUMN "is_assembled" INTEGER NOT NULL DEFAULT 0;',
+              );
+              await customStatement(
+                'UPDATE "decks" SET "is_assembled" = "is_registered";',
+              );
+            }
           }
         } catch (error, stackTrace) {
           debugPrint('[AppDatabase.beforeOpen] decks schema verification warning: $error\n$stackTrace');
@@ -446,6 +454,32 @@ class AppDatabase extends _$AppDatabase {
         } catch (error, stackTrace) {
           debugPrint('[AppDatabase.beforeOpen] Initial database seeding warning: $error\n$stackTrace');
           // Fallback gracefully; seeding can also be triggered manually
+        }
+
+        // Defensive runtime backfill for The One Ring art and Scryfall metadata:
+        // Automatically patch legacy databases where The One Ring has the 404 image URL
+        // or is missing scryfall_id.
+        try {
+          await customStatement('''
+            UPDATE "vault_items"
+            SET "image_url" = 'https://cards.scryfall.io/large/front/d/5/d5806e68-1054-458e-866d-1f2470f682b2.jpg?1790212038'
+            WHERE ("id" = 'item-mtg-one-ring' OR "image_url" LIKE '%78038b95%');
+          ''');
+
+          await customStatement('''
+            UPDATE "vault_items"
+            SET "dynamic_data" = json_set(
+              CASE WHEN json_valid("dynamic_data") = 1 THEN "dynamic_data" ELSE '{}' END,
+              '\$.scryfall_id', 'd5806e68-1054-458e-866d-1f2470f682b2',
+              '\$.oracle_id', '3aa83ed2-f48b-4ce6-a614-2c54ddf50538',
+              '\$.image_uris', json('{"small":"https://cards.scryfall.io/small/front/d/5/d5806e68-1054-458e-866d-1f2470f682b2.jpg?1790212038","normal":"https://cards.scryfall.io/normal/front/d/5/d5806e68-1054-458e-866d-1f2470f682b2.jpg?1790212038","large":"https://cards.scryfall.io/large/front/d/5/d5806e68-1054-458e-866d-1f2470f682b2.jpg?1790212038","art_crop":"https://cards.scryfall.io/art_crop/front/d/5/d5806e68-1054-458e-866d-1f2470f682b2.jpg?1790212038"}'),
+              '\$.finish', 'foil'
+            )
+            WHERE ("id" = 'item-mtg-one-ring' OR "image_url" LIKE '%d5806e68%')
+              AND ("dynamic_data" NOT LIKE '%"scryfall_id"%' OR json_extract("dynamic_data", '\$.scryfall_id') IS NULL);
+          ''');
+        } catch (error, stackTrace) {
+          debugPrint('[AppDatabase.beforeOpen] The One Ring art backfill warning: $error\n$stackTrace');
         }
       },
     );

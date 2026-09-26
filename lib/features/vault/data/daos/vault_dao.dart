@@ -13,6 +13,8 @@ import 'package:countr/features/scanner/domain/ocr_heuristic_matcher.dart';
 import 'package:countr/features/decks/domain/models/deck_item_with_card.dart';
 import 'package:countr/features/decks/domain/models/deck_summary.dart';
 import 'package:countr/features/vault/domain/models/vault_totals.dart';
+import 'package:countr/features/vault/domain/models/card_availability.dart';
+import 'package:countr/features/vault/domain/vault_variant_helper.dart';
 import 'package:countr/features/vault/presentation/providers/mtg_filter_state.dart';
 
 import 'package:countr/core/database/tables/decks/decks_table.dart';
@@ -934,7 +936,7 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
           name: 'The One Ring (Serialized #007/100)',
           setOrSeries: 'The Lord of the Rings: Tales of Middle-earth',
           imageUrl:
-              'https://cards.scryfall.io/large/front/7/8/78038b95-30f2-4e4b-972f-04cfa65c275a.jpg',
+              'https://cards.scryfall.io/large/front/d/5/d5806e68-1054-458e-866d-1f2470f682b2.jpg?1790212038',
           acquiredPrice: 15.00,
           acquiredDate: now.subtract(const Duration(days: 45)),
           quantity: const Value(1),
@@ -945,8 +947,12 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
           currentMarketPrice: 45.50,
           lastPriceUpdate: now,
           dynamicData: jsonEncode({
+            'scryfall_id': 'd5806e68-1054-458e-866d-1f2470f682b2',
+            'id': 'd5806e68-1054-458e-866d-1f2470f682b2',
+            'oracle_id': '3aa83ed2-f48b-4ce6-a614-2c54ddf50538',
             'mana': '{4}',
             'mana_cost': '{4}',
+            'cmc': 4.0,
             'type': 'Legendary Artifact',
             'type_line': 'Legendary Artifact',
             'oracle_text':
@@ -959,6 +965,18 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
             'artist': 'Tania Sanchez-Fortun',
             'flavor_text':
                 'One Ring to rule them all, One Ring to find them, One Ring to bring them all and in the darkness bind them.',
+            'image_uris': {
+              'small':
+                  'https://cards.scryfall.io/small/front/d/5/d5806e68-1054-458e-866d-1f2470f682b2.jpg?1790212038',
+              'normal':
+                  'https://cards.scryfall.io/normal/front/d/5/d5806e68-1054-458e-866d-1f2470f682b2.jpg?1790212038',
+              'large':
+                  'https://cards.scryfall.io/large/front/d/5/d5806e68-1054-458e-866d-1f2470f682b2.jpg?1790212038',
+              'art_crop':
+                  'https://cards.scryfall.io/art_crop/front/d/5/d5806e68-1054-458e-866d-1f2470f682b2.jpg?1790212038',
+            },
+            'finishes': ['nonfoil', 'foil'],
+            'finish': 'foil',
             'rulings':
                 "Protection from everything means that you can't be targeted by anything, damaged by anything, enchanted/equipped by anything, or blocked by anything.",
             'legalities': {
@@ -2199,7 +2217,7 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
         INNER JOIN decks d ON d.id = dv.deck_id
         WHERE dv.is_active = 1
           AND dvi.is_proxy = 0
-          AND d.is_registered = 1
+          AND (d.is_assembled = 1 OR d.is_registered = 1)
           AND dvi.is_deleted = 0
           AND dv.is_deleted = 0
           AND d.is_deleted = 0
@@ -2231,7 +2249,7 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
         INNER JOIN decks d ON d.id = dv.deck_id
         WHERE dv.is_active = 1
           AND dvi.is_proxy = 0
-          AND d.is_registered = 1
+          AND (d.is_assembled = 1 OR d.is_registered = 1)
           AND dvi.is_deleted = 0
           AND dv.is_deleted = 0
           AND d.is_deleted = 0
@@ -2251,10 +2269,10 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
   }
 
   /// Lists all active decks where a vault item is currently assigned.
-  /// If [onlyRegistered] is true, only decks that lock physical inventory (d.is_registered == 1) are returned.
+  /// If [onlyRegistered] is true, only decks that lock physical inventory (d.is_assembled == 1 || d.is_registered == 1) are returned.
   Future<List<String>> getDecksUsingItem(String vaultItemId, {bool onlyRegistered = true}) async {
     final whereClause = onlyRegistered
-        ? 'WHERE dvi.vault_item_id = ? AND dv.is_active = 1 AND dvi.is_proxy = 0 AND d.is_registered = 1 AND dvi.is_deleted = 0 AND dv.is_deleted = 0 AND d.is_deleted = 0'
+        ? 'WHERE dvi.vault_item_id = ? AND dv.is_active = 1 AND dvi.is_proxy = 0 AND (d.is_assembled = 1 OR d.is_registered = 1) AND dvi.is_deleted = 0 AND dv.is_deleted = 0 AND d.is_deleted = 0'
         : 'WHERE dvi.vault_item_id = ? AND dv.is_active = 1 AND dvi.is_proxy = 0 AND dvi.is_deleted = 0 AND dv.is_deleted = 0 AND d.is_deleted = 0';
 
     final querySql = '''
@@ -2285,11 +2303,13 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
         d.is_registered AS is_registered,
         d.is_competitive AS is_competitive,
         d.created_at AS created_at,
+        d.cover_item_id AS cover_item_id,
+        d.cover_crop_rect AS cover_crop_rect,
         dv.id AS active_version_id,
-        vi.id AS commander_card_id,
-        vi.name AS commander_name,
-        vi.image_url AS commander_image_url,
-        vi.dynamic_data AS commander_dynamic_data,
+        COALESCE(cover_vi.id, vi.id) AS commander_card_id,
+        COALESCE(cover_vi.name, vi.name) AS commander_name,
+        COALESCE(cover_vi.image_url, vi.image_url) AS commander_image_url,
+        COALESCE(cover_vi.dynamic_data, vi.dynamic_data) AS commander_dynamic_data,
         (SELECT COALESCE(SUM(dvi_count.quantity), 0) 
          FROM deck_version_items dvi_count 
          WHERE dvi_count.version_id = dv.id 
@@ -2306,6 +2326,9 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
       LEFT JOIN vault_items vi 
         ON vi.id = dvi.vault_item_id 
        AND (vi.is_deleted IS NULL OR vi.is_deleted = 0)
+      LEFT JOIN vault_items cover_vi 
+        ON cover_vi.id = d.cover_item_id 
+       AND (cover_vi.is_deleted IS NULL OR cover_vi.is_deleted = 0)
       WHERE (d.is_deleted IS NULL OR d.is_deleted = 0)
       GROUP BY d.id
       ORDER BY d.created_at DESC;
@@ -2324,6 +2347,8 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
           isRegistered: row.read<bool?>('is_registered') ?? false,
           isCompetitive: row.read<bool?>('is_competitive') ?? false,
           createdAt: row.read<DateTime>('created_at'),
+          coverItemId: row.read<String?>('cover_item_id'),
+          coverCropRect: row.read<String?>('cover_crop_rect'),
           activeVersionId: row.read<String?>('active_version_id'),
           commanderCardId: row.read<String?>('commander_card_id'),
           commanderName: row.read<String?>('commander_name'),
@@ -2346,11 +2371,13 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
         d.is_registered AS is_registered,
         d.is_competitive AS is_competitive,
         d.created_at AS created_at,
+        d.cover_item_id AS cover_item_id,
+        d.cover_crop_rect AS cover_crop_rect,
         dv.id AS active_version_id,
-        vi.id AS commander_card_id,
-        vi.name AS commander_name,
-        vi.image_url AS commander_image_url,
-        vi.dynamic_data AS commander_dynamic_data,
+        COALESCE(cover_vi.id, vi.id) AS commander_card_id,
+        COALESCE(cover_vi.name, vi.name) AS commander_name,
+        COALESCE(cover_vi.image_url, vi.image_url) AS commander_image_url,
+        COALESCE(cover_vi.dynamic_data, vi.dynamic_data) AS commander_dynamic_data,
         (SELECT COALESCE(SUM(dvi_count.quantity), 0) 
          FROM deck_version_items dvi_count 
          WHERE dvi_count.version_id = dv.id 
@@ -2367,6 +2394,9 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
       LEFT JOIN vault_items vi 
         ON vi.id = dvi.vault_item_id 
        AND (vi.is_deleted IS NULL OR vi.is_deleted = 0)
+      LEFT JOIN vault_items cover_vi 
+        ON cover_vi.id = d.cover_item_id 
+       AND (cover_vi.is_deleted IS NULL OR cover_vi.is_deleted = 0)
       WHERE (d.is_deleted IS NULL OR d.is_deleted = 0)
       GROUP BY d.id
       ORDER BY d.created_at DESC;
@@ -2386,6 +2416,8 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
         isRegistered: row.read<bool?>('is_registered') ?? false,
         isCompetitive: row.read<bool?>('is_competitive') ?? false,
         createdAt: row.read<DateTime>('created_at'),
+        coverItemId: row.read<String?>('cover_item_id'),
+        coverCropRect: row.read<String?>('cover_crop_rect'),
         activeVersionId: row.read<String?>('active_version_id'),
         commanderCardId: row.read<String?>('commander_card_id'),
         commanderName: row.read<String?>('commander_name'),
@@ -2480,6 +2512,7 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
       INNER JOIN deck_versions dv ON dv.id = dvi.version_id
       INNER JOIN decks d ON d.id = dv.deck_id
       WHERE dvi.vault_item_id = ? AND dv.is_active = 1 AND dvi.is_proxy = 0
+        AND (d.is_assembled = 1 OR d.is_registered = 1)
         AND dvi.is_deleted = 0 AND dv.is_deleted = 0 AND d.is_deleted = 0
     ''';
 
@@ -2492,6 +2525,10 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     });
   }
 
+  /// Alias for watchItemActiveDecks matching tier1_feature_coverage_test naming contract.
+  Stream<List<String>> watchCardActiveDecks(String vaultItemId) =>
+      watchItemActiveDecks(vaultItemId);
+
   /// Streams all active decks grouped by vault item id: `Map<String, List<String>>`
   Stream<Map<String, List<String>>> watchAllCardActiveDecks() {
     final querySql = '''
@@ -2500,6 +2537,7 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
       INNER JOIN deck_versions dv ON dv.id = dvi.version_id
       INNER JOIN decks d ON d.id = dv.deck_id
       WHERE dv.is_active = 1 AND dvi.is_proxy = 0
+        AND (d.is_assembled = 1 OR d.is_registered = 1)
         AND dvi.is_deleted = 0 AND dv.is_deleted = 0 AND d.is_deleted = 0
     ''';
 
@@ -2512,6 +2550,54 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
         final itemId = r.read<String>('vault_item_id');
         final deckName = r.read<String>('name');
         map.putIfAbsent(itemId, () => []).add(deckName);
+      }
+      return map;
+    });
+  }
+
+  /// Streams reactive availability breakdown for all physical VaultItems.
+  /// 
+  /// Invariant: Owned = Available + In Deck.
+  /// Only active versions of ASSEMBLED / REGISTERED decks lock physical stock.
+  Stream<Map<String, CardAvailability>> watchAllCardAvailability() {
+    const querySql = '''
+      SELECT 
+        vi.id AS vault_item_id,
+        vi.quantity AS owned_quantity,
+        COALESCE(alloc.total_allocated, 0) AS in_deck_quantity,
+        MAX(0, vi.quantity - COALESCE(alloc.total_allocated, 0)) AS available_quantity
+      FROM vault_items vi
+      LEFT JOIN (
+        SELECT dvi.vault_item_id, SUM(dvi.quantity) AS total_allocated
+        FROM deck_version_items dvi
+        INNER JOIN deck_versions dv ON dv.id = dvi.version_id
+        INNER JOIN decks d ON d.id = dv.deck_id
+        WHERE dv.is_active = 1
+          AND dvi.is_proxy = 0
+          AND (d.is_assembled = 1 OR d.is_registered = 1)
+          AND dvi.is_deleted = 0
+          AND dv.is_deleted = 0
+          AND d.is_deleted = 0
+        GROUP BY dvi.vault_item_id
+      ) alloc ON alloc.vault_item_id = vi.id
+      WHERE vi.is_deleted = 0;
+    ''';
+
+    return customSelect(
+      querySql,
+      readsFrom: {vaultItems, deckVersionItems, deckVersions, decks},
+    ).watch().map((rows) {
+      final map = <String, CardAvailability>{};
+      for (final row in rows) {
+        final id = row.read<String>('vault_item_id');
+        final owned = row.read<int>('owned_quantity');
+        final inDeck = row.read<int>('in_deck_quantity');
+        final avail = row.read<int>('available_quantity');
+        map[id] = CardAvailability(
+          owned: owned,
+          available: avail,
+          inDeck: inDeck,
+        );
       }
       return map;
     });
@@ -2678,17 +2764,52 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     final lower = zone.trim().toLowerCase();
     switch (lower) {
       case 'commander':
+      case 'command':
+      case 'cmd':
         return 'Commander';
       case 'sideboard':
+      case 'side':
+      case 'sb':
         return 'Sideboard';
       case 'maybeboard':
+      case 'maybe':
+      case 'mb':
         return 'Maybeboard';
       case 'companion':
+      case 'comp':
         return 'Companion';
       case 'mainboard':
+      case 'main':
+      case 'deck':
+      case 'primary':
       default:
         return 'Mainboard';
     }
+  }
+
+  Set<String> _getBoardZoneAliases(String zone) {
+    final canonical = _normalizeBoardZone(zone);
+    final rawLower = zone.trim().toLowerCase();
+    final Set<String> aliases = {rawLower, canonical.toLowerCase()};
+    switch (canonical) {
+      case 'Commander':
+        aliases.addAll(const ['commander', 'command', 'cmd']);
+        break;
+      case 'Sideboard':
+        aliases.addAll(const ['sideboard', 'side', 'sb']);
+        break;
+      case 'Maybeboard':
+        aliases.addAll(const ['maybeboard', 'maybe', 'mb']);
+        break;
+      case 'Companion':
+        aliases.addAll(const ['companion', 'comp']);
+        break;
+      case 'Mainboard':
+      default:
+        aliases.addAll(const ['mainboard', 'main', 'deck', 'primary']);
+        break;
+    }
+    return aliases;
   }
 
   /// Moves a physical card from an active deck to targetDeckId, prioritizing registered decks.
@@ -2739,9 +2860,253 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     final now = DateTime.now();
     await (update(decks)..where((t) => t.id.equals(deckId))).write(DecksCompanion(
       isRegistered: Value(isRegistered),
+      isAssembled: Value(isRegistered),
       updatedAt: Value(now),
     ));
     await _recordSync('deck', deckId, 'UPDATE', timestamp: now);
+  }
+
+  /// Sets physical assembly status of a deck (Assembled vs Disassembled).
+  Future<void> setDeckAssembled(String deckId, bool isAssembled) async {
+    await setDeckRegistered(deckId, isAssembled);
+  }
+
+  /// Updates the custom cover image and optional crop rect for a deck.
+  /// Logs an UPDATE operation to SyncQueue for cloud sync.
+  Future<void> updateDeckCover(
+    String deckId,
+    String? coverItemId, {
+    String? coverCropRect,
+  }) async {
+    final now = DateTime.now();
+    await (update(decks)..where((t) => t.id.equals(deckId))).write(
+      DecksCompanion(
+        coverItemId: Value(coverItemId),
+        coverCropRect: Value(coverCropRect),
+        updatedAt: Value(now),
+      ),
+    );
+    await _recordSync('deck', deckId, 'UPDATE', timestamp: now);
+  }
+
+  /// Atomically moves card(s) between boards in an active deck version.
+  ///
+  /// Guarantees strict transactional isolation against TOCTOU concurrency races
+  /// by performing candidate resolution, source quantity reads, target consolidation,
+  /// and updates inside a single serialized SQLite transaction.
+  Future<void> moveDeckItemBoard(
+    String deckId,
+    String itemId,
+    String targetBoard, [
+    int quantity = 1,
+    String? sourceBoard,
+  ]) async {
+    final version = await (select(deckVersions)
+          ..where((t) =>
+              t.deckId.equals(deckId) &
+              t.isActive.equals(true) &
+              t.isDeleted.equals(false)))
+        .getSingleOrNull();
+    if (version == null) return;
+
+    final canonicalTarget = _normalizeBoardZone(targetBoard);
+    String? affectedVaultItemId;
+
+    await transaction(() async {
+      // 1. Query candidate items INSIDE the transaction to eliminate TOCTOU stale reads
+      final query = select(deckVersionItems)
+        ..where((t) =>
+            t.versionId.equals(version.id) &
+            t.isDeleted.equals(false) &
+            (t.id.equals(itemId) | t.vaultItemId.equals(itemId)));
+
+      final candidates = await query.get();
+      if (candidates.isEmpty) return;
+
+      // 2. Resolve sourceItem with alias and casing resilience
+      final canonicalSource = (sourceBoard != null && sourceBoard.trim().isNotEmpty)
+          ? _normalizeBoardZone(sourceBoard)
+          : null;
+
+      final sourceItem = candidates.where((i) => i.id == itemId).firstOrNull ??
+          (canonicalSource != null
+              ? candidates.where((i) {
+                  final z = _normalizeBoardZone(i.boardZone);
+                  return z.toLowerCase() == canonicalSource.toLowerCase() ||
+                      i.boardZone.trim().toLowerCase() == sourceBoard!.trim().toLowerCase();
+                }).firstOrNull
+              : null) ??
+          candidates.where((i) => _normalizeBoardZone(i.boardZone) != canonicalTarget).firstOrNull ??
+          candidates.first;
+
+      // 3. No-op if already on target board
+      if (_normalizeBoardZone(sourceItem.boardZone) == canonicalTarget) return;
+
+      // 4. Calculate move quantity based on the fresh, transactional quantity
+      final now = DateTime.now();
+      final moveQty = quantity <= 0
+          ? sourceItem.quantity
+          : math.min(quantity, sourceItem.quantity);
+      if (moveQty <= 0) return;
+
+      affectedVaultItemId = sourceItem.vaultItemId;
+
+      // 5. Look up existing target row with case-insensitive and alias-tolerant zone matching
+      final targetAliases = _getBoardZoneAliases(canonicalTarget);
+      final existingTargets = await (select(deckVersionItems)
+            ..where((t) {
+              Expression<bool> zoneMatch = t.boardZone.lower().equals(canonicalTarget.toLowerCase());
+              for (final alias in targetAliases) {
+                zoneMatch = zoneMatch | t.boardZone.lower().equals(alias.toLowerCase());
+              }
+              return t.versionId.equals(version.id) &
+                  t.vaultItemId.equals(sourceItem.vaultItemId) &
+                  zoneMatch &
+                  t.isProxy.equals(sourceItem.isProxy) &
+                  t.isDeleted.equals(false);
+            }))
+          .get();
+      final existingTarget = existingTargets.firstOrNull;
+
+      if (existingTarget != null) {
+        // Target row exists: increment target quantity and canonicalize zone
+        await (update(deckVersionItems)..where((t) => t.id.equals(existingTarget.id)))
+            .write(DeckVersionItemsCompanion(
+          quantity: Value(existingTarget.quantity + moveQty),
+          boardZone: Value(canonicalTarget),
+          updatedAt: Value(now),
+        ));
+        await _recordSync('deck_version_item', existingTarget.id, 'UPDATE', timestamp: now);
+
+        if (sourceItem.quantity > moveQty) {
+          // Decrement source item and canonicalize zone
+          await (update(deckVersionItems)..where((t) => t.id.equals(sourceItem.id)))
+              .write(DeckVersionItemsCompanion(
+            quantity: Value(sourceItem.quantity - moveQty),
+            boardZone: Value(_normalizeBoardZone(sourceItem.boardZone)),
+            updatedAt: Value(now),
+          ));
+          await _recordSync('deck_version_item', sourceItem.id, 'UPDATE', timestamp: now);
+        } else {
+          // Source item exhausted: soft-delete
+          await (update(deckVersionItems)..where((t) => t.id.equals(sourceItem.id)))
+              .write(DeckVersionItemsCompanion(
+            isDeleted: const Value(true),
+            updatedAt: Value(now),
+          ));
+          await _recordSync('deck_version_item', sourceItem.id, 'DELETE', timestamp: now);
+        }
+      } else {
+        if (sourceItem.quantity == moveQty) {
+          // Move entire row by updating boardZone to canonicalTarget
+          await (update(deckVersionItems)..where((t) => t.id.equals(sourceItem.id)))
+              .write(DeckVersionItemsCompanion(
+            boardZone: Value(canonicalTarget),
+            updatedAt: Value(now),
+          ));
+          await _recordSync('deck_version_item', sourceItem.id, 'UPDATE', timestamp: now);
+        } else {
+          // Partial move: decrement source row and insert new row in canonicalTarget
+          await (update(deckVersionItems)..where((t) => t.id.equals(sourceItem.id)))
+              .write(DeckVersionItemsCompanion(
+            quantity: Value(sourceItem.quantity - moveQty),
+            boardZone: Value(_normalizeBoardZone(sourceItem.boardZone)),
+            updatedAt: Value(now),
+          ));
+          await _recordSync('deck_version_item', sourceItem.id, 'UPDATE', timestamp: now);
+
+          final newDviId = const Uuid().v4();
+          await into(deckVersionItems).insert(DeckVersionItemsCompanion.insert(
+            id: newDviId,
+            versionId: version.id,
+            vaultItemId: sourceItem.vaultItemId,
+            quantity: Value(moveQty),
+            boardZone: canonicalTarget,
+            isProxy: Value(sourceItem.isProxy),
+            isDeleted: const Value(false),
+            updatedAt: Value(now),
+          ));
+          await _recordSync('deck_version_item', newDviId, 'INSERT', timestamp: now);
+        }
+      }
+    });
+
+    if (affectedVaultItemId != null) {
+      await _syncItemDeckHistory(affectedVaultItemId!);
+    }
+  }
+
+  /// Idempotently consolidates duplicate VaultItem records sharing the exact same
+  /// variant key (scryfall_id, finish).
+  ///
+  /// Remaps all assigned deck_version_items to the surviving primary record,
+  /// aggregates owned quantity into the primary record, and soft-deletes duplicates
+  /// with outbox entries in SyncQueue.
+  Future<int> consolidateDuplicateVaultItems() async {
+    final activeItems = await (select(vaultItems)
+          ..where((t) => t.isDeleted.equals(false)))
+        .get();
+
+    // Group items by (scryfall_id, finish)
+    final grouped = <String, List<VaultItem>>{};
+    for (final item in activeItems) {
+      final key = VaultVariantHelper.computeVariantKey(item);
+      grouped.putIfAbsent(key, () => []).add(item);
+    }
+
+    int consolidatedRows = 0;
+    final now = DateTime.now();
+
+    await transaction(() async {
+      for (final entry in grouped.entries) {
+        final items = entry.value;
+        if (items.length <= 1) continue;
+
+        // Deterministic primary selection: prefer records with non-empty primaryBinderId,
+        // or earliest acquiredDate.
+        items.sort((a, b) {
+          if (a.primaryBinderId != null && b.primaryBinderId == null) return -1;
+          if (a.primaryBinderId == null && b.primaryBinderId != null) return 1;
+          return a.acquiredDate.compareTo(b.acquiredDate);
+        });
+
+        final primary = items.first;
+        final duplicates = items.sublist(1);
+        final totalQuantity = items.fold<int>(0, (sum, i) => sum + i.quantity);
+
+        for (final dup in duplicates) {
+          // Remap deck_version_items
+          await (update(deckVersionItems)
+                ..where((t) => t.vaultItemId.equals(dup.id) & t.isDeleted.equals(false)))
+              .write(DeckVersionItemsCompanion(
+            vaultItemId: Value(primary.id),
+            updatedAt: Value(now),
+          ));
+
+          // Soft delete duplicate vault item
+          await (update(vaultItems)..where((t) => t.id.equals(dup.id))).write(
+            VaultItemsCompanion(
+              isDeleted: const Value(true),
+              updatedAt: Value(now),
+            ),
+          );
+          await _recordSync('vault_item', dup.id, 'DELETE', timestamp: now);
+        }
+
+        // Update primary item total quantity
+        await (update(vaultItems)..where((t) => t.id.equals(primary.id))).write(
+          VaultItemsCompanion(
+            quantity: Value(totalQuantity),
+            updatedAt: Value(now),
+          ),
+        );
+        await _recordSync('vault_item', primary.id, 'UPDATE', timestamp: now);
+
+        consolidatedRows += duplicates.length;
+      }
+    });
+
+    return consolidatedRows;
   }
 
   /// Sets competitive status of a deck (Tournament vs Casual).

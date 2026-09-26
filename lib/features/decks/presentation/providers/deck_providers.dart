@@ -10,6 +10,7 @@ import 'package:countr/features/decks/domain/models/deck_summary.dart';
 import 'package:countr/features/values/domain/models/deck_financial_summary.dart';
 import 'package:countr/features/values/domain/services/deck_values_calculator.dart';
 import 'package:countr/features/values/domain/services/pareto_distribution_calculator.dart';
+import 'package:countr/features/symbology/data/scryfall_symbol_catalog.dart';
 
 /// Active TCG domain filter for DecksScreen and new deck creation.
 /// Values: 'all', 'mtg', 'pokemon', 'lorcana'. Defaults to 'all'.
@@ -35,14 +36,9 @@ final cardDeckAllocationsProvider =
   return dao.watchCardDeckAllocations(vaultItemId);
 });
 
-final deckProvider = StreamProvider.family<Deck, String>((ref, id) async* {
+final deckProvider = StreamProvider.family<Deck, String>((ref, id) {
   final dao = ref.watch(vaultDaoProvider);
-  try {
-    yield* dao.watchDeck(id);
-  } catch (error, stackTrace) {
-    debugPrint('[deckProvider] Error watching deck $id: $error\n$stackTrace');
-    rethrow;
-  }
+  return dao.watchDeck(id);
 });
 
 final deckItemsProvider =
@@ -176,18 +172,21 @@ final deckAnalyticsProvider =
             }
           }
 
-          // Mana Curve (cmc)
-          final cmcNum = data['cmc'] as num?;
-          if (cmcNum != null) {
-            final cmc = cmcNum.toInt();
-            manaCurve[cmc] = (manaCurve[cmc] ?? 0) + qty;
+          // Mana Curve (cmc):
+          // Under MTG deckbuilding conventions, Lands do not cost mana and are
+          // excluded from the spell mana curve. Non-land 0-cost cards (e.g. Lotus Petal,
+          // Pact of Negation, Memnite, Mox Amber) are accurately counted in bucket 0.
+          if (!ScryfallSymbolCatalog.isLandCard(data)) {
+            final cardCmc = ScryfallSymbolCatalog.resolveCardCmc(data);
+            final bucket = cardCmc.round();
+            manaCurve[bucket] = (manaCurve[bucket] ?? 0) + qty;
           }
 
           // Helper to parse mana cost string into devotion
           void parseManaCost(String cost) {
             final matches = RegExp(r'\{([^}]+)\}').allMatches(cost);
             for (final match in matches) {
-              final sym = match.group(1)!;
+              final sym = match.group(1)!.toUpperCase();
               if (sym.contains('/')) {
                 final parts = sym.split('/');
                 for (final part in parts) {
@@ -204,13 +203,13 @@ final deckAnalyticsProvider =
           }
 
           // Color Devotion (mana_cost parsing, DFCs/adventures via card_faces)
-          final manaCost = data['mana_cost'] as String?;
+          final manaCost = data['mana_cost']?.toString();
           if (manaCost != null && manaCost.isNotEmpty) {
             parseManaCost(manaCost);
           } else if (data['card_faces'] is List) {
             for (final face in (data['card_faces'] as List)) {
-              if (face is Map<String, dynamic> && face['mana_cost'] is String) {
-                parseManaCost(face['mana_cost'] as String);
+              if (face is Map && face['mana_cost'] != null) {
+                parseManaCost(face['mana_cost'].toString());
               }
             }
           }

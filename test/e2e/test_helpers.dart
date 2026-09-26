@@ -65,7 +65,7 @@ VaultItem createTestCard({
       ? '{"collector_number":"$collectorNumber"}'
       : dynamicData;
 
-  String defaultImage = imageUrl ?? 'https://cards.scryfall.io/large/front/7/8/78038b95-30f2-4e4b-972f-04cfa65c275a.jpg';
+  String defaultImage = imageUrl ?? 'https://cards.scryfall.io/large/front/d/5/d5806e68-1054-458e-866d-1f2470f682b2.jpg?1790212038';
   if (imageUrl == null && collectionType != 'mtg') {
     defaultImage = 'https://example.com/cards/$id.jpg';
   }

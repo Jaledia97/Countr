@@ -2083,6 +2083,21 @@ class $DecksTable extends Decks with TableInfo<$DecksTable, Deck> {
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _isAssembledMeta = const VerificationMeta(
+    'isAssembled',
+  );
+  @override
+  late final GeneratedColumn<bool> isAssembled = GeneratedColumn<bool>(
+    'is_assembled',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_assembled" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   static const VerificationMeta _isDeletedMeta = const VerificationMeta(
     'isDeleted',
   );
@@ -2124,6 +2139,7 @@ class $DecksTable extends Decks with TableInfo<$DecksTable, Deck> {
     tcgDomain,
     isRegistered,
     isCompetitive,
+    isAssembled,
     isDeleted,
     updatedAt,
   ];
@@ -2237,6 +2253,15 @@ class $DecksTable extends Decks with TableInfo<$DecksTable, Deck> {
         ),
       );
     }
+    if (data.containsKey('is_assembled')) {
+      context.handle(
+        _isAssembledMeta,
+        isAssembled.isAcceptableOrUnknown(
+          data['is_assembled']!,
+          _isAssembledMeta,
+        ),
+      );
+    }
     if (data.containsKey('is_deleted')) {
       context.handle(
         _isDeletedMeta,
@@ -2310,6 +2335,10 @@ class $DecksTable extends Decks with TableInfo<$DecksTable, Deck> {
         DriftSqlType.bool,
         data['${effectivePrefix}is_competitive'],
       )!,
+      isAssembled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_assembled'],
+      )!,
       isDeleted: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}is_deleted'],
@@ -2341,6 +2370,7 @@ class Deck extends DataClass implements Insertable<Deck> {
   final String tcgDomain;
   final bool isRegistered;
   final bool isCompetitive;
+  final bool isAssembled;
   final bool isDeleted;
   final DateTime? updatedAt;
   const Deck({
@@ -2357,6 +2387,7 @@ class Deck extends DataClass implements Insertable<Deck> {
     required this.tcgDomain,
     required this.isRegistered,
     required this.isCompetitive,
+    required this.isAssembled,
     required this.isDeleted,
     this.updatedAt,
   });
@@ -2382,6 +2413,7 @@ class Deck extends DataClass implements Insertable<Deck> {
     map['tcg_domain'] = Variable<String>(tcgDomain);
     map['is_registered'] = Variable<bool>(isRegistered);
     map['is_competitive'] = Variable<bool>(isCompetitive);
+    map['is_assembled'] = Variable<bool>(isAssembled);
     map['is_deleted'] = Variable<bool>(isDeleted);
     if (!nullToAbsent || updatedAt != null) {
       map['updated_at'] = Variable<DateTime>(updatedAt);
@@ -2410,6 +2442,7 @@ class Deck extends DataClass implements Insertable<Deck> {
       tcgDomain: Value(tcgDomain),
       isRegistered: Value(isRegistered),
       isCompetitive: Value(isCompetitive),
+      isAssembled: Value(isAssembled),
       isDeleted: Value(isDeleted),
       updatedAt: updatedAt == null && nullToAbsent
           ? const Value.absent()
@@ -2436,6 +2469,7 @@ class Deck extends DataClass implements Insertable<Deck> {
       tcgDomain: serializer.fromJson<String>(json['tcgDomain']),
       isRegistered: serializer.fromJson<bool>(json['isRegistered']),
       isCompetitive: serializer.fromJson<bool>(json['isCompetitive']),
+      isAssembled: serializer.fromJson<bool>(json['isAssembled']),
       isDeleted: serializer.fromJson<bool>(json['isDeleted']),
       updatedAt: serializer.fromJson<DateTime?>(json['updatedAt']),
     );
@@ -2457,6 +2491,7 @@ class Deck extends DataClass implements Insertable<Deck> {
       'tcgDomain': serializer.toJson<String>(tcgDomain),
       'isRegistered': serializer.toJson<bool>(isRegistered),
       'isCompetitive': serializer.toJson<bool>(isCompetitive),
+      'isAssembled': serializer.toJson<bool>(isAssembled),
       'isDeleted': serializer.toJson<bool>(isDeleted),
       'updatedAt': serializer.toJson<DateTime?>(updatedAt),
     };
@@ -2476,6 +2511,7 @@ class Deck extends DataClass implements Insertable<Deck> {
     String? tcgDomain,
     bool? isRegistered,
     bool? isCompetitive,
+    bool? isAssembled,
     bool? isDeleted,
     Value<DateTime?> updatedAt = const Value.absent(),
   }) => Deck(
@@ -2494,6 +2530,7 @@ class Deck extends DataClass implements Insertable<Deck> {
     tcgDomain: tcgDomain ?? this.tcgDomain,
     isRegistered: isRegistered ?? this.isRegistered,
     isCompetitive: isCompetitive ?? this.isCompetitive,
+    isAssembled: isAssembled ?? this.isAssembled,
     isDeleted: isDeleted ?? this.isDeleted,
     updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
   );
@@ -2522,6 +2559,9 @@ class Deck extends DataClass implements Insertable<Deck> {
       isCompetitive: data.isCompetitive.present
           ? data.isCompetitive.value
           : this.isCompetitive,
+      isAssembled: data.isAssembled.present
+          ? data.isAssembled.value
+          : this.isAssembled,
       isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
@@ -2543,6 +2583,7 @@ class Deck extends DataClass implements Insertable<Deck> {
           ..write('tcgDomain: $tcgDomain, ')
           ..write('isRegistered: $isRegistered, ')
           ..write('isCompetitive: $isCompetitive, ')
+          ..write('isAssembled: $isAssembled, ')
           ..write('isDeleted: $isDeleted, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
@@ -2564,6 +2605,7 @@ class Deck extends DataClass implements Insertable<Deck> {
     tcgDomain,
     isRegistered,
     isCompetitive,
+    isAssembled,
     isDeleted,
     updatedAt,
   );
@@ -2584,6 +2626,7 @@ class Deck extends DataClass implements Insertable<Deck> {
           other.tcgDomain == this.tcgDomain &&
           other.isRegistered == this.isRegistered &&
           other.isCompetitive == this.isCompetitive &&
+          other.isAssembled == this.isAssembled &&
           other.isDeleted == this.isDeleted &&
           other.updatedAt == this.updatedAt);
 }
@@ -2602,6 +2645,7 @@ class DecksCompanion extends UpdateCompanion<Deck> {
   final Value<String> tcgDomain;
   final Value<bool> isRegistered;
   final Value<bool> isCompetitive;
+  final Value<bool> isAssembled;
   final Value<bool> isDeleted;
   final Value<DateTime?> updatedAt;
   final Value<int> rowid;
@@ -2619,6 +2663,7 @@ class DecksCompanion extends UpdateCompanion<Deck> {
     this.tcgDomain = const Value.absent(),
     this.isRegistered = const Value.absent(),
     this.isCompetitive = const Value.absent(),
+    this.isAssembled = const Value.absent(),
     this.isDeleted = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -2637,6 +2682,7 @@ class DecksCompanion extends UpdateCompanion<Deck> {
     this.tcgDomain = const Value.absent(),
     this.isRegistered = const Value.absent(),
     this.isCompetitive = const Value.absent(),
+    this.isAssembled = const Value.absent(),
     this.isDeleted = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -2658,6 +2704,7 @@ class DecksCompanion extends UpdateCompanion<Deck> {
     Expression<String>? tcgDomain,
     Expression<bool>? isRegistered,
     Expression<bool>? isCompetitive,
+    Expression<bool>? isAssembled,
     Expression<bool>? isDeleted,
     Expression<DateTime>? updatedAt,
     Expression<int>? rowid,
@@ -2676,6 +2723,7 @@ class DecksCompanion extends UpdateCompanion<Deck> {
       if (tcgDomain != null) 'tcg_domain': tcgDomain,
       if (isRegistered != null) 'is_registered': isRegistered,
       if (isCompetitive != null) 'is_competitive': isCompetitive,
+      if (isAssembled != null) 'is_assembled': isAssembled,
       if (isDeleted != null) 'is_deleted': isDeleted,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (rowid != null) 'rowid': rowid,
@@ -2696,6 +2744,7 @@ class DecksCompanion extends UpdateCompanion<Deck> {
     Value<String>? tcgDomain,
     Value<bool>? isRegistered,
     Value<bool>? isCompetitive,
+    Value<bool>? isAssembled,
     Value<bool>? isDeleted,
     Value<DateTime?>? updatedAt,
     Value<int>? rowid,
@@ -2714,6 +2763,7 @@ class DecksCompanion extends UpdateCompanion<Deck> {
       tcgDomain: tcgDomain ?? this.tcgDomain,
       isRegistered: isRegistered ?? this.isRegistered,
       isCompetitive: isCompetitive ?? this.isCompetitive,
+      isAssembled: isAssembled ?? this.isAssembled,
       isDeleted: isDeleted ?? this.isDeleted,
       updatedAt: updatedAt ?? this.updatedAt,
       rowid: rowid ?? this.rowid,
@@ -2762,6 +2812,9 @@ class DecksCompanion extends UpdateCompanion<Deck> {
     if (isCompetitive.present) {
       map['is_competitive'] = Variable<bool>(isCompetitive.value);
     }
+    if (isAssembled.present) {
+      map['is_assembled'] = Variable<bool>(isAssembled.value);
+    }
     if (isDeleted.present) {
       map['is_deleted'] = Variable<bool>(isDeleted.value);
     }
@@ -2790,6 +2843,7 @@ class DecksCompanion extends UpdateCompanion<Deck> {
           ..write('tcgDomain: $tcgDomain, ')
           ..write('isRegistered: $isRegistered, ')
           ..write('isCompetitive: $isCompetitive, ')
+          ..write('isAssembled: $isAssembled, ')
           ..write('isDeleted: $isDeleted, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('rowid: $rowid')
@@ -6464,6 +6518,7 @@ typedef $$DecksTableCreateCompanionBuilder =
       Value<String> tcgDomain,
       Value<bool> isRegistered,
       Value<bool> isCompetitive,
+      Value<bool> isAssembled,
       Value<bool> isDeleted,
       Value<DateTime?> updatedAt,
       Value<int> rowid,
@@ -6483,6 +6538,7 @@ typedef $$DecksTableUpdateCompanionBuilder =
       Value<String> tcgDomain,
       Value<bool> isRegistered,
       Value<bool> isCompetitive,
+      Value<bool> isAssembled,
       Value<bool> isDeleted,
       Value<DateTime?> updatedAt,
       Value<int> rowid,
@@ -6617,6 +6673,11 @@ class $$DecksTableFilterComposer extends Composer<_$AppDatabase, $DecksTable> {
 
   ColumnFilters<bool> get isCompetitive => $composableBuilder(
     column: $table.isCompetitive,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isAssembled => $composableBuilder(
+    column: $table.isAssembled,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -6780,6 +6841,11 @@ class $$DecksTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get isAssembled => $composableBuilder(
+    column: $table.isAssembled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get isDeleted => $composableBuilder(
     column: $table.isDeleted,
     builder: (column) => ColumnOrderings(column),
@@ -6846,6 +6912,11 @@ class $$DecksTableAnnotationComposer
 
   GeneratedColumn<bool> get isCompetitive => $composableBuilder(
     column: $table.isCompetitive,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isAssembled => $composableBuilder(
+    column: $table.isAssembled,
     builder: (column) => column,
   );
 
@@ -6976,6 +7047,7 @@ class $$DecksTableTableManager
                 Value<String> tcgDomain = const Value.absent(),
                 Value<bool> isRegistered = const Value.absent(),
                 Value<bool> isCompetitive = const Value.absent(),
+                Value<bool> isAssembled = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
                 Value<DateTime?> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -6993,6 +7065,7 @@ class $$DecksTableTableManager
                 tcgDomain: tcgDomain,
                 isRegistered: isRegistered,
                 isCompetitive: isCompetitive,
+                isAssembled: isAssembled,
                 isDeleted: isDeleted,
                 updatedAt: updatedAt,
                 rowid: rowid,
@@ -7012,6 +7085,7 @@ class $$DecksTableTableManager
                 Value<String> tcgDomain = const Value.absent(),
                 Value<bool> isRegistered = const Value.absent(),
                 Value<bool> isCompetitive = const Value.absent(),
+                Value<bool> isAssembled = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
                 Value<DateTime?> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -7029,6 +7103,7 @@ class $$DecksTableTableManager
                 tcgDomain: tcgDomain,
                 isRegistered: isRegistered,
                 isCompetitive: isCompetitive,
+                isAssembled: isAssembled,
                 isDeleted: isDeleted,
                 updatedAt: updatedAt,
                 rowid: rowid,

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:countr/core/database/app_database.dart';
 import 'package:countr/features/decks/presentation/providers/deck_providers.dart';
+import 'package:countr/features/symbology/data/scryfall_symbol_catalog.dart';
 
 /// Comprehensive mock data repository for collectible decks, version histories,
 /// matchups, and Scryfall dynamic data dictionaries.
@@ -20,6 +21,7 @@ class MockDeckData {
       draws: 0,
       tcgDomain: 'mtg',
       isRegistered: true,
+      isAssembled: true,
       isCompetitive: false,
       isDeleted: false,
       createdAt: DateTime.now(),
@@ -33,6 +35,7 @@ class MockDeckData {
       draws: 1,
       tcgDomain: 'pokemon',
       isRegistered: true,
+      isAssembled: true,
       isCompetitive: true,
       isDeleted: false,
       createdAt: DateTime.now(),
@@ -46,6 +49,7 @@ class MockDeckData {
       draws: 2,
       tcgDomain: 'mtg',
       isRegistered: false,
+      isAssembled: false,
       isCompetitive: true,
       isDeleted: false,
       createdAt: DateTime.now(),
@@ -59,6 +63,7 @@ class MockDeckData {
       draws: 0,
       tcgDomain: 'lorcana',
       isRegistered: false,
+      isAssembled: false,
       isCompetitive: false,
       isDeleted: false,
       createdAt: DateTime.now(),
@@ -194,18 +199,21 @@ class MockDeckData {
             }
           }
 
-          // Mana Curve (CMC)
-          final cmcNum = data['cmc'] as num?;
-          if (cmcNum != null) {
-            final cmc = cmcNum.toInt();
-            manaCurve[cmc] = (manaCurve[cmc] ?? 0) + qty;
+          // Mana Curve (cmc):
+          // Under MTG deckbuilding conventions, Lands do not cost mana and are
+          // excluded from the spell mana curve. Non-land 0-cost cards (e.g. Lotus Petal,
+          // Pact of Negation, Memnite, Mox Amber) are accurately counted in bucket 0.
+          if (!ScryfallSymbolCatalog.isLandCard(data)) {
+            final cardCmc = ScryfallSymbolCatalog.resolveCardCmc(data);
+            final bucket = cardCmc.round();
+            manaCurve[bucket] = (manaCurve[bucket] ?? 0) + qty;
           }
 
           // Color Devotion (mana_cost & card_faces)
           void parseManaCost(String cost) {
             final matches = RegExp(r'\{([^}]+)\}').allMatches(cost);
             for (final match in matches) {
-              final sym = match.group(1)!;
+              final sym = match.group(1)!.toUpperCase();
               if (sym.contains('/')) {
                 final parts = sym.split('/');
                 for (final part in parts) {
@@ -221,13 +229,13 @@ class MockDeckData {
             }
           }
 
-          final manaCost = data['mana_cost'] as String?;
+          final manaCost = data['mana_cost']?.toString();
           if (manaCost != null && manaCost.isNotEmpty) {
             parseManaCost(manaCost);
           } else if (data['card_faces'] is List) {
             for (final face in (data['card_faces'] as List)) {
-              if (face is Map<String, dynamic> && face['mana_cost'] is String) {
-                parseManaCost(face['mana_cost'] as String);
+              if (face is Map && face['mana_cost'] != null) {
+                parseManaCost(face['mana_cost'].toString());
               }
             }
           }

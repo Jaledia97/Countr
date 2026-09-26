@@ -14,6 +14,8 @@ class DeckSummary {
   final bool isRegistered;
   final bool isCompetitive;
   final DateTime createdAt;
+  final String? coverItemId;
+  final String? coverCropRect;
   final String? activeVersionId;
   final String? commanderCardId;
   final String? commanderName;
@@ -35,6 +37,8 @@ class DeckSummary {
     required this.isRegistered,
     required this.isCompetitive,
     required this.createdAt,
+    this.coverItemId,
+    this.coverCropRect,
     this.activeVersionId,
     this.commanderCardId,
     this.commanderName,
@@ -57,6 +61,8 @@ class DeckSummary {
     required bool isRegistered,
     required bool isCompetitive,
     required DateTime createdAt,
+    String? coverItemId,
+    String? coverCropRect,
     String? activeVersionId,
     String? commanderCardId,
     String? commanderName,
@@ -104,7 +110,10 @@ class DeckSummary {
       format: format,
       tcgDomain: tcgDomain,
       isRegistered: isRegistered,
+      isAssembled: isRegistered,
       isCompetitive: isCompetitive,
+      coverItemId: coverItemId,
+      coverCropRect: coverCropRect,
       createdAt: createdAt,
       wins: 0,
       losses: 0,
@@ -120,6 +129,8 @@ class DeckSummary {
       isRegistered: isRegistered,
       isCompetitive: isCompetitive,
       createdAt: createdAt,
+      coverItemId: coverItemId,
+      coverCropRect: coverCropRect,
       activeVersionId: activeVersionId,
       commanderCardId: commanderCardId,
       commanderName: commanderName,

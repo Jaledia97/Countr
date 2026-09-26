@@ -5,6 +5,7 @@ import 'package:countr/core/database/app_database.dart';
 import 'package:countr/core/state/settings_state.dart';
 import 'package:countr/features/vault/domain/vault_pricing_helper.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:countr/features/vault/domain/models/card_availability.dart';
 import 'package:countr/features/vault/presentation/providers/vault_providers.dart';
 import 'package:countr/core/cache/countr_cached_image.dart';
 import 'card_detail_sheet.dart';
@@ -15,12 +16,14 @@ class VaultItemTile extends StatelessWidget {
   final VaultItem item;
   final VoidCallback? onTap;
   final bool? isPrivacyMode;
+  final bool hasMultipleVariants;
 
   const VaultItemTile({
     super.key,
     required this.item,
     this.onTap,
     this.isPrivacyMode,
+    this.hasMultipleVariants = false,
   });
 
   @override
@@ -141,9 +144,11 @@ class VaultItemTile extends StatelessWidget {
                     top: 6,
                     right: 6,
                     child: isOwned
-                        ? (item.quantity > 1
+                        ? (item.quantity > 1 || hasMultipleVariants
                             ? Container(
-                                key: Key('vault_tile_duplicate_badge_${item.id}'),
+                                key: item.quantity > 1
+                                    ? Key('vault_tile_duplicate_badge_${item.id}')
+                                    : Key('vault_tile_variant_badge_${item.id}'),
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
@@ -163,6 +168,7 @@ class VaultItemTile extends StatelessWidget {
                                 ),
                                 child: Text(
                                   '${item.quantity}x',
+                                  key: Key('vault_tile_quantity_badge_${item.id}'),
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.w800,
@@ -270,6 +276,8 @@ class VaultItemTile extends StatelessWidget {
                   const SizedBox(height: 2),
                   // Deck Badges
                   _OptionalTileDeckBadges(item: item),
+                  // Availability Breakdown
+                  _OptionalTileAvailabilityBreakdown(item: item),
                 ],
               ),
             ),
@@ -380,3 +388,96 @@ class _OptionalTileDeckBadges extends StatelessWidget {
     );
   }
 }
+
+class _OptionalTileAvailabilityBreakdown extends StatelessWidget {
+  final VaultItem item;
+  const _OptionalTileAvailabilityBreakdown({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    if (item.quantity <= 0) return const SizedBox.shrink();
+
+    bool hasProviderScope = false;
+    context.visitAncestorElements((element) {
+      final typeStr = element.widget.runtimeType.toString();
+      if (typeStr == 'ProviderScope' || typeStr == 'UncontrolledProviderScope') {
+        hasProviderScope = true;
+        return false;
+      }
+      return true;
+    });
+
+    if (!hasProviderScope) {
+      return _buildStaticBreakdown(item.quantity, item.quantity, 0);
+    }
+
+    return Consumer(
+      builder: (context, ref, _) {
+        final availabilityMap = ref.watch(allCardAvailabilityProvider).valueOrNull;
+        final availability = availabilityMap?[item.id] ??
+            CardAvailability(
+              owned: item.quantity,
+              available: item.quantity,
+              inDeck: 0,
+            );
+
+        return _buildStaticBreakdown(
+          availability.owned,
+          availability.available,
+          availability.inDeck,
+        );
+      },
+    );
+  }
+
+  Widget _buildStaticBreakdown(int owned, int available, int inDeck) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 3),
+      child: Container(
+        key: Key('vault_tile_availability_${item.id}'),
+        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceRaised,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: AppColors.surfaceBorderSubtle, width: 0.5),
+        ),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Owned: $owned',
+                style: const TextStyle(
+                  fontSize: 8.5,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.accentCyan,
+                ),
+              ),
+              const Text(' | ', style: TextStyle(fontSize: 8.5, color: AppColors.textMuted)),
+              Text(
+                'Available: $available',
+                style: const TextStyle(
+                  fontSize: 8.5,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.accentEmerald,
+                ),
+              ),
+              const Text(' | ', style: TextStyle(fontSize: 8.5, color: AppColors.textMuted)),
+              Text(
+                'In Deck: $inDeck',
+                style: TextStyle(
+                  fontSize: 8.5,
+                  fontWeight: FontWeight.w700,
+                  color: inDeck > 0 ? AppColors.accentVioletLight : AppColors.textMuted,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+

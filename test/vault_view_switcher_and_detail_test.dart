@@ -28,7 +28,7 @@ void main() {
             name: 'The One Ring',
             setOrSeries: 'Tales of Middle-earth',
             imageUrl:
-                'https://cards.scryfall.io/large/front/7/8/78038b95-30f2-4e4b-972f-04cfa65c275a.jpg',
+                'https://cards.scryfall.io/large/front/d/5/d5806e68-1054-458e-866d-1f2470f682b2.jpg?1790212038',
             acquiredPrice: 45.0,
             acquiredDate: DateTime(2023, 6, 23),
             quantity: const drift.Value(1),
@@ -170,7 +170,7 @@ void main() {
       expect(find.textContaining('Commander: Legal'), findsOneWidget);
 
       // Deck tags and notes
-      expect(find.text('No deck history recorded yet.'), findsOneWidget);
+      expect(find.text('No deck assignment history recorded yet.'), findsOneWidget);
       expect(find.text('Pulled from gift bundle.'), findsOneWidget);
 
       await tester.pumpWidget(const SizedBox());

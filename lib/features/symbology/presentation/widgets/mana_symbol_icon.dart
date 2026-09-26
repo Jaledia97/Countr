@@ -42,14 +42,16 @@ class ManaSymbolIcon extends StatelessWidget {
 
   const ManaSymbolIcon({
     super.key,
-    required this.symbolCode,
+    String? symbolCode,
+    String? symbol,
     this.size = 16.0,
     String? assetPath,
     this.padding,
     this.semanticLabel,
     this.circular = true,
     this.fallbackBuilder,
-  }) : _assetPath = assetPath;
+  })  : symbolCode = symbolCode ?? symbol ?? '',
+        _assetPath = assetPath;
 
   @override
   Widget build(BuildContext context) {

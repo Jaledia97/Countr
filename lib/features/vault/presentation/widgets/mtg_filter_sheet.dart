@@ -4,6 +4,7 @@ import 'package:countr/core/constants/app_colors.dart';
 import 'package:countr/core/constants/app_typography.dart';
 import 'package:countr/core/database/app_database.dart';
 import 'package:countr/features/vault/presentation/providers/mtg_filter_state.dart';
+import 'package:countr/features/symbology/presentation/widgets/mana_symbol_icon.dart';
 
 /// ManaBox-style modal bottom sheet filter screen for Magic: The Gathering.
 /// Provides dual-tab navigation ([ General ] and [ Collection ]) covering all Scryfall filter dimensions.
@@ -1193,13 +1194,10 @@ class _MtgFilterSheetState extends State<MtgFilterSheet>
                   ],
           ),
           child: Center(
-            child: Text(
-              symbol,
-              style: TextStyle(
-                color: textColor,
-                fontWeight: FontWeight.w900,
-                fontSize: 16,
-              ),
+            child: ManaSymbolIcon(
+              symbolCode: symbol,
+              size: 26,
+              circular: true,
             ),
           ),
         ),

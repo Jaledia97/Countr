@@ -78,8 +78,10 @@ void main() {
       // CardDetailSheet is not open yet
       expect(find.byType(CardDetailSheet), findsNothing);
 
-      // Tap on the card tile
+      // Tap on the card tile to expand, then tap Full Details
       await tester.tap(cardFinder);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Full Details'));
       await tester.pumpAndSettle();
 
       // CardDetailSheet should now be presented

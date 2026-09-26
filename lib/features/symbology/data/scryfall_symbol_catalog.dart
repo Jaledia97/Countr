@@ -995,20 +995,129 @@ abstract final class ScryfallSymbolCatalog {
   /// ```dart
   /// calculateManaValue("{2}{U}{B}") // => 4.0
   /// calculateManaValue("{W/U}{G}")   // => 2.0
+  /// calculateManaValue("{2/W}{2/U}") // => 4.0 (MTG CR 202.3e)
+  /// calculateManaValue("{1}{R} // {1}{U}") // => 4.0 (MTG CR 709.4)
   /// ```
-  /// Returns `null` if any symbol has null mana value (e.g. `{∞}`) or if cost is invalid.
-  static double? calculateManaValue(String manaCost) {
+  /// Returns [fallbackCmc] (or `null`) if any symbol has null mana value (e.g. `{∞}`) or if cost is invalid.
+  static double? calculateManaValue(
+    String? manaCost, {
+    double? fallbackCmc,
+  }) {
+    if (manaCost == null || manaCost.isEmpty) {
+      return fallbackCmc ?? 0.0;
+    }
+    if (manaCost.trim().isEmpty) {
+      return fallbackCmc;
+    }
+
     final tokens = extractSymbols(manaCost, validate: false);
-    if (tokens.isEmpty) return 0.0;
+    if (tokens.isEmpty) return fallbackCmc ?? 0.0;
 
     double total = 0.0;
     for (final token in tokens) {
       final symbol = findBySymbol(token);
       if (symbol == null || symbol.manaValue == null) {
-        return null;
+        return fallbackCmc;
       }
       total += symbol.manaValue!;
     }
     return total;
+  }
+
+  /// Resolves the canonical Converted Mana Cost (Mana Value) for a card from its
+  /// dynamic data payload according to MTG Comprehensive Rules:
+  /// - Safely handles num or string `cmc` field.
+  /// - Under MTG CR 709.4, split and aftermath cards have a mana value equal to the
+  ///   sum of both faces in deck/hand.
+  /// - Under MTG CR 716.4, adventure cards take the CMC of the main permanent face.
+  /// - Under MTG CR 712.8a, MDFCs and transform cards take the CMC of the front face.
+  /// - Under MTG CR 202.3e, twobrid symbols `{2/W}` evaluate to 2.0.
+  /// - Falls back to parsing `mana_cost` via [calculateManaValue] when `cmc` is missing.
+  static double resolveCardCmc(Map<String, dynamic> data) {
+    final rawCmc = data['cmc'];
+    double? directCmc;
+    if (rawCmc is num) {
+      directCmc = rawCmc.toDouble();
+    } else if (rawCmc != null) {
+      directCmc = double.tryParse(rawCmc.toString().trim());
+    }
+
+    final layout = data['layout']?.toString().toLowerCase() ?? '';
+
+    // Split and aftermath cards (CR 709.4)
+    if (layout == 'split' || layout == 'aftermath') {
+      if (directCmc != null && directCmc > 0) {
+        return directCmc;
+      }
+      if (data['card_faces'] is List) {
+        final faces = data['card_faces'] as List;
+        double sum = 0.0;
+        bool foundFace = false;
+        for (final face in faces) {
+          if (face is Map) {
+            final faceCost = face['mana_cost']?.toString();
+            final faceCmc = (face['cmc'] is num)
+                ? (face['cmc'] as num).toDouble()
+                : double.tryParse(face['cmc']?.toString() ?? '');
+            final val = calculateManaValue(faceCost, fallbackCmc: faceCmc);
+            if (val != null) {
+              sum += val;
+              foundFace = true;
+            }
+          }
+        }
+        if (foundFace) return sum;
+      }
+    }
+
+    // Direct CMC from JSON
+    if (directCmc != null) {
+      return directCmc;
+    }
+
+    // card_faces fallback (MDFC, Transform, Adventure, Flip)
+    if (data['card_faces'] is List) {
+      final faces = data['card_faces'] as List;
+      if (faces.isNotEmpty && faces[0] is Map) {
+        final face0 = faces[0] as Map;
+        final faceCost = face0['mana_cost']?.toString();
+        final faceCmc = (face0['cmc'] is num)
+            ? (face0['cmc'] as num).toDouble()
+            : double.tryParse(face0['cmc']?.toString() ?? '');
+        final val = calculateManaValue(faceCost, fallbackCmc: faceCmc);
+        if (val != null) return val;
+      }
+    }
+
+    // Top-level mana_cost fallback (handles combined "{1}{R} // {1}{U}" strings)
+    final manaCost = data['mana_cost']?.toString() ?? '';
+    if (manaCost.isNotEmpty) {
+      final val = calculateManaValue(manaCost);
+      if (val != null) return val;
+    }
+
+    return 0.0;
+  }
+
+  /// Determines whether a card is considered a Land in deck/library under MTG rules.
+  /// - For MDFCs (e.g. `Sea Gate Restoration // Sea Gate, Reborn`), only front face
+  ///   characteristics apply in the library (CR 712.8a). If the front face is a non-land,
+  ///   the card is NOT treated as a land in deck analytics.
+  /// - If the front face is a land (e.g. `Barkchannel Pathway`), it IS a land.
+  /// - For single-faced cards, inspects `type_line` for `"Land"`.
+  static bool isLandCard(Map<String, dynamic> data) {
+    if (data['card_faces'] is List) {
+      final faces = data['card_faces'] as List;
+      final layout = data['layout']?.toString().toLowerCase() ?? '';
+      if ((layout == 'modal_dfc' || layout == 'transform') && faces.isNotEmpty) {
+        final face0 = faces[0];
+        if (face0 is Map && face0['type_line'] != null) {
+          return face0['type_line'].toString().toLowerCase().contains('land');
+        }
+      }
+    }
+
+    final typeLine = data['type_line']?.toString().toLowerCase() ?? '';
+    return typeLine.contains('land');
   }
 }

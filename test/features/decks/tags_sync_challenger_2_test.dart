@@ -74,18 +74,24 @@ void main() {
         name: 'Mono Red Aggro',
         format: 'Modern',
         createdAt: now,
+        isRegistered: const drift.Value(true),
+        isAssembled: const drift.Value(true),
       ));
       await db.into(db.decks).insert(DecksCompanion.insert(
         id: 'deck-murktide',
         name: 'Izzet Murktide',
         format: 'Modern',
         createdAt: now,
+        isRegistered: const drift.Value(true),
+        isAssembled: const drift.Value(true),
       ));
       await db.into(db.decks).insert(DecksCompanion.insert(
         id: 'deck-cube',
         name: 'Vintage Cube',
         format: 'Cube',
         createdAt: now,
+        isRegistered: const drift.Value(true),
+        isAssembled: const drift.Value(true),
       ));
 
       // Concurrently execute tag updates and deck allocations
@@ -144,6 +150,8 @@ void main() {
           id: 'stress-deck-$i',
           name: 'Tournament Deck #$i',
           format: 'Legacy',
+          isRegistered: const drift.Value(true),
+          isAssembled: const drift.Value(true),
           createdAt: now,
         ));
       }
@@ -205,6 +213,8 @@ void main() {
         id: 'deck-urza-collision',
         name: 'Commander - Urza', // Identical string as a user tag
         format: 'Commander',
+        isRegistered: const drift.Value(true),
+        isAssembled: const drift.Value(true),
         createdAt: now,
       ));
 
@@ -256,6 +266,8 @@ void main() {
         name: 'Grixis Control',
         format: 'Legacy',
         createdAt: now,
+        isRegistered: const drift.Value(true),
+        isAssembled: const drift.Value(true),
       ));
 
       // Pump CardDetailSheet with the initial card
@@ -349,6 +361,8 @@ void main() {
         name: 'Miracles Legacy',
         format: 'Legacy',
         createdAt: now,
+        isRegistered: const drift.Value(true),
+        isAssembled: const drift.Value(true),
       ));
       await db.vaultDao.setCardQuantityInDeck('deck-miracles', 'sheet-empty-note-card', 4);
 
@@ -415,12 +429,16 @@ void main() {
         name: 'Commander Deck Alpha',
         format: 'Commander',
         createdAt: now,
+        isRegistered: const drift.Value(true),
+        isAssembled: const drift.Value(true),
       ));
       await db.into(db.decks).insert(DecksCompanion.insert(
         id: 'deck-beta',
         name: 'Commander Deck Beta',
         format: 'Commander',
         createdAt: now,
+        isRegistered: const drift.Value(true),
+        isAssembled: const drift.Value(true),
       ));
 
       final container = ProviderContainer(
@@ -466,6 +484,8 @@ void main() {
         name: 'Proxy Testing Deck',
         format: 'Commander',
         createdAt: now,
+        isRegistered: const drift.Value(true),
+        isAssembled: const drift.Value(true),
       ));
       await db.vaultDao.setCardQuantityInDeck('deck-proxy-gamma', 'stream-test-card', 1, isProxy: true);
       await Future.delayed(const Duration(milliseconds: 50));
@@ -583,6 +603,8 @@ void main() {
         name: 'Prison Legacy',
         format: 'Legacy',
         createdAt: now,
+        isRegistered: const drift.Value(true),
+        isAssembled: const drift.Value(true),
       ));
 
       final container = ProviderContainer(

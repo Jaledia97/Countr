@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:countr/core/database/app_database.dart';
+import 'package:countr/features/symbology/data/scryfall_symbol_catalog.dart';
 
 /// Supported color match modes for Magic: The Gathering filtering.
 enum ColorMatchMode {
@@ -155,6 +156,9 @@ class MtgFilterState {
   final String setOperator; // '=', '!='
   final Set<String> rarities; // 'common', 'uncommon', 'rare', 'mythic', 'special', 'bonus'
 
+  // Formats
+  final Set<String> formats; // 'commander', 'modern', 'standard', 'pioneer', 'legacy', 'vintage', 'pauper'
+
   // Stats
   final List<MtgStatFilter> statFilters;
 
@@ -188,6 +192,7 @@ class MtgFilterState {
     this.setCode = '',
     this.setOperator = '=',
     this.rarities = const {},
+    this.formats = const {},
     this.layouts = const {},
     this.finishes = const {},
     this.conditions = const {},
@@ -223,6 +228,7 @@ class MtgFilterState {
     if (manaCost.trim().isNotEmpty) count++;
     if (setCode.trim().isNotEmpty) count++;
     if (rarities.isNotEmpty) count++;
+    if (formats.isNotEmpty) count++;
     if (layouts.isNotEmpty) count++;
     if (finishes.isNotEmpty) count++;
     if (conditions.isNotEmpty) count++;
@@ -242,6 +248,9 @@ class MtgFilterState {
   /// Resets all filter fields back to default state.
   MtgFilterState reset() => const MtgFilterState();
 
+  /// Clears all active filters (alias for [reset]).
+  MtgFilterState clear() => const MtgFilterState();
+
   /// Creates a copy of this state with specified fields updated.
   /// Supports both raw boolean values (`isPromo: true`) and closures (`isPromo: () => true`).
   MtgFilterState copyWith({
@@ -256,6 +265,7 @@ class MtgFilterState {
     String? setCode,
     String? setOperator,
     Set<String>? rarities,
+    Set<String>? formats,
     Set<String>? layouts,
     Set<String>? finishes,
     Set<String>? conditions,
@@ -283,6 +293,7 @@ class MtgFilterState {
       setCode: setCode ?? this.setCode,
       setOperator: setOperator ?? this.setOperator,
       rarities: rarities ?? this.rarities,
+      formats: formats ?? this.formats,
       layouts: layouts ?? this.layouts,
       finishes: finishes ?? this.finishes,
       conditions: conditions ?? this.conditions,
@@ -341,6 +352,21 @@ class MtgFilterState {
     if (rarities.isNotEmpty) {
       final cardRarity = (dyn['rarity']?.toString() ?? '').toLowerCase();
       if (!rarities.map((r) => r.toLowerCase()).contains(cardRarity)) {
+        return false;
+      }
+    }
+
+    // 4b. Formats filter (evaluates dynamicData['legalities'])
+    if (formats.isNotEmpty) {
+      if (dyn['legalities'] is Map) {
+        final legalities = dyn['legalities'] as Map<String, dynamic>;
+        final allLegal = formats.every((fmt) {
+          final fmtKey = fmt.toLowerCase().trim();
+          final status = legalities[fmtKey]?.toString().toLowerCase();
+          return status == 'legal' || status == 'restricted';
+        });
+        if (!allLegal) return false;
+      } else {
         return false;
       }
     }
@@ -458,8 +484,7 @@ class MtgFilterState {
     }
 
     // 11. CMC (Mana Value) range filter
-    final cmcVal = double.tryParse(dyn['cmc']?.toString() ?? '') ??
-        _inferCmcFromManaCost(dyn, item);
+    final cmcVal = ScryfallSymbolCatalog.resolveCardCmc(dyn);
     if (cmcVal < cmcRange.start || cmcVal > cmcRange.end) {
       return false;
     }
@@ -686,31 +711,6 @@ class MtgFilterState {
     return cardColors.where((c) => c != 'C').length;
   }
 
-  static double _inferCmcFromManaCost(
-      Map<String, dynamic> dyn, VaultItem item) {
-    String cost = dyn['mana_cost']?.toString() ?? '';
-    if (cost.isEmpty &&
-        dyn['card_faces'] is List &&
-        (dyn['card_faces'] as List).isNotEmpty) {
-      final face0 = (dyn['card_faces'] as List)[0];
-      if (face0 is Map && face0['mana_cost'] != null) {
-        cost = face0['mana_cost'].toString();
-      }
-    }
-    if (cost.isEmpty) return 0.0;
-    double cmc = 0.0;
-    final matches = RegExp(r'\{([^}]+)\}').allMatches(cost);
-    for (final m in matches) {
-      final val = m.group(1) ?? '';
-      final numVal = double.tryParse(val);
-      if (numVal != null) {
-        cmc += numVal;
-      } else if (val != 'X' && val != 'Y' && val != 'Z') {
-        cmc += 1.0;
-      }
-    }
-    return cmc;
-  }
 
   static bool setEquals<T>(Set<T>? a, Set<T>? b) {
     if (a == null) return b == null;
@@ -784,6 +784,7 @@ class MtgFilterState {
           setCode == other.setCode &&
           setOperator == other.setOperator &&
           setEquals(rarities, other.rarities) &&
+          setEquals(formats, other.formats) &&
           setEquals(layouts, other.layouts) &&
           setEquals(finishes, other.finishes) &&
           setEquals(conditions, other.conditions) &&
@@ -811,6 +812,7 @@ class MtgFilterState {
         setCode,
         setOperator,
         Object.hashAll(rarities),
+        Object.hashAll(formats),
         Object.hashAll(layouts),
         Object.hashAll(finishes),
         Object.hashAll(conditions),
@@ -856,6 +858,9 @@ class MtgFilterNotifier extends StateNotifier<MtgFilterState> {
 
   /// Resets all filter criteria back to empty/default.
   void reset() => state = const MtgFilterState();
+
+  /// Clears all active filters (alias for [reset]).
+  void clear() => reset();
 
   /// Toggles a mana color symbol ('W', 'U', 'B', 'R', 'G', 'C').
   void toggleColor(String color) {
@@ -927,6 +932,22 @@ class MtgFilterNotifier extends StateNotifier<MtgFilterState> {
       updated.add(rarity);
     }
     state = state.copyWith(rarities: updated);
+  }
+
+  /// Sets format legality filter.
+  void setFormats(Set<String> formats) {
+    state = state.copyWith(formats: formats);
+  }
+
+  /// Toggles a format selection.
+  void toggleFormat(String format) {
+    final updated = Set<String>.from(state.formats);
+    if (updated.contains(format)) {
+      updated.remove(format);
+    } else {
+      updated.add(format);
+    }
+    state = state.copyWith(formats: updated);
   }
 
   /// Toggles a layout pill selection.

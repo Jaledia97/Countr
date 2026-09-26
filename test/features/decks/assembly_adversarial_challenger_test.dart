@@ -92,7 +92,7 @@ void main() {
         name: plan.deckName,
         format: 'Commander',
         wins: 0, losses: 0, draws: 0, createdAt: DateTime.now(),
-        tcgDomain: 'mtg', isRegistered: false, isCompetitive: false, isDeleted: false,
+        tcgDomain: 'mtg', isRegistered: false, isAssembled: false, isCompetitive: false, isDeleted: false,
       );
 
       await tester.pumpWidget(createTestWidget(
@@ -152,7 +152,7 @@ void main() {
         name: plan.deckName,
         format: 'Commander',
         wins: 0, losses: 0, draws: 0, createdAt: DateTime.now(),
-        tcgDomain: 'mtg', isRegistered: false, isCompetitive: false, isDeleted: false,
+        tcgDomain: 'mtg', isRegistered: false, isAssembled: false, isCompetitive: false, isDeleted: false,
       );
 
       await tester.pumpWidget(createTestWidget(
@@ -221,7 +221,7 @@ void main() {
         name: plan.deckName,
         format: 'Commander',
         wins: 0, losses: 0, draws: 0, createdAt: DateTime.now(),
-        tcgDomain: 'mtg', isRegistered: false, isCompetitive: false, isDeleted: false,
+        tcgDomain: 'mtg', isRegistered: false, isAssembled: false, isCompetitive: false, isDeleted: false,
       );
 
       await tester.pumpWidget(createTestWidget(
@@ -282,7 +282,7 @@ void main() {
         name: plan.deckName,
         format: 'Commander',
         wins: 0, losses: 0, draws: 0, createdAt: DateTime.now(),
-        tcgDomain: 'mtg', isRegistered: false, isCompetitive: false, isDeleted: false,
+        tcgDomain: 'mtg', isRegistered: false, isAssembled: false, isCompetitive: false, isDeleted: false,
       );
 
       await tester.pumpWidget(createTestWidget(
@@ -378,7 +378,7 @@ void main() {
         name: plan.deckName,
         format: 'Commander',
         wins: 0, losses: 0, draws: 0, createdAt: DateTime.now(),
-        tcgDomain: 'mtg', isRegistered: false, isCompetitive: false, isDeleted: false,
+        tcgDomain: 'mtg', isRegistered: false, isAssembled: false, isCompetitive: false, isDeleted: false,
       );
 
       await tester.pumpWidget(createTestWidget(
@@ -451,7 +451,7 @@ void main() {
         name: plan.deckName,
         format: 'Commander',
         wins: 0, losses: 0, draws: 0, createdAt: DateTime.now(),
-        tcgDomain: 'mtg', isRegistered: false, isCompetitive: false, isDeleted: false,
+        tcgDomain: 'mtg', isRegistered: false, isAssembled: false, isCompetitive: false, isDeleted: false,
       );
 
       bool registeredWithProxies = false;
