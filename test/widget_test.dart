@@ -214,7 +214,7 @@ void main() {
       expect(find.text('Total Tracked Items: 1'), findsOneWidget);
 
       // Verify Add Item button is present and clickable without dummy state
-      await tester.tap(find.text('Add Item'));
+      await tester.tap(find.byKey(const Key('vault_add_item_button')));
       await tester.pumpAndSettle();
       expect(find.text('Total Tracked Items: 1'), findsOneWidget);
 

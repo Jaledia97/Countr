@@ -1,3 +1,45 @@
+## [0.4.7] - 2026-09-27
+
+### Phase 4.7: "Variant 1" Lifetap-Style MTG Companion Life Counter
+
+#### Added & Improved
+- **R1: Deck-to-UI Integration & Player Profiles**:
+  - **Pre-Game Deck Selection**: Linked player seating directly to user vault profiles and decks, enabling quick pre-game commander selection (`PregameSetupSheet`).
+  - **Dynamic Commander Backgrounds**: Automatically extracts the chosen deck's Commander `art_crop` (or custom cover image) and renders it as a high-resolution backdrop with dark vignette gradient overlays (`CommanderArtBackdrop`).
+  - **Art Customization & Override**: Integrated Scryfall art catalog search and custom image override modal (`ArtOverrideSheet`) per quadrant.
+
+- **R2: Dynamic Pod Layouts & Local Offline P2P Mesh Sync**:
+  - **Geometric Pod Layouts**: Built responsive orientation-aware seating engines for 1v1 (split horizontal), 3-player, 4-player (2x2), 5-player, and 6-player (2x3) grids with 180° inverted rotation for opposing players (`PodLayoutEngine`, `PodScaffoldWidget`).
+  - **Local Offline P2P Synchronization**: Built pure `dart:io` WebSocket transport (port 40407) and UDP broadcast beacon discovery (port 40408) for zero-configuration offline multiplayer sync over local Wi-Fi or hotspots (`WebSocketP2pTransport`, `UdpBeaconDiscovery`). Includes 4-character room codes and QR pairing fallbacks (`PodConnectionFallback`).
+  - **Adaptive Real Estate**: Form-factor responsiveness displaying persistent tool rails on tablets ($\ge 600$dp) and gesture-driven swipe/pull-out drawers on phones (`ToolDrawerOrRail`).
+
+- **R3: Drift Database Auto-Save & State Recovery**:
+  - **Schema Migration (v9 $\rightarrow$ v10)**: Upgraded SQLite schema to version 10 with new tables (`match_sessions`, `match_players`, `match_events`), index optimization, and full backward compatibility.
+  - **Continuous Event Logging**: All life increments, counter changes, and commander damage transactions write to SQLite immediately via FIFO queue in `MatchDao` and `MatchSessionRepository`.
+  - **Crash & Lifecycle State Recovery**: Relaunching the app detects active match sessions and presents a recovery modal (`SessionRecoveryDialog`) offering "Continue Match" or "Start New Game" with reversible undo support.
+
+- **R4: Core Mechanics, Commander Damage & Secondary Counters**:
+  - **Oversized Hitboxes**: Massive plus and minus hitboxes with single-tap adjustments and hold-to-accelerate rapid stepping.
+  - **Commander Damage Matrix**: Dedicated tracker attributing damage received per opposing commander with their respective art crops and visual 21-point lethal threshold warnings (`CommanderDamageMatrixSheet`).
+  - **Secondary Counters**: Comprehensive tracker bar for Poison/Infect (10-point lethal alert), Energy, Experience, Commander Tax, exclusive Monarch & Initiative token claiming, and synchronized Day/Night cycling (`SecondaryCountersBar`).
+
+- **R5: Utility Hub, Polyhedral Randomizers & Lobby Reset**:
+  - **3D Physics Randomizers**: Animated 3D Coin Flip with Matrix4 perspective flips, and polyhedral dice rollers for D4, D6, D8, D10, D12, D20, and D100 with rolling history (`RandomizerHubModal`).
+  - **Player Selection Utilities**: "Choose Random Player" and "Choose Random Opponent" with decelerating roulette animation and quadrant spotlight flashes (`PlayerRouletteOverlay`).
+  - **Starting Life Formats & Reset**: Presets for Standard (20), Commander (40), Brawl (30), Two-Headed Giant (30), and custom numeric inputs. Global "Reset Game" confirmation dialog resets life and counters while preserving seating, deck assignments, and lobby.
+
+- **R6: Floating Mana Pool & Storm Drawers**:
+  - **Floating Mana Drawer**: Dedicated slide-out drawer on each quadrant displaying official Magic: The Gathering WUBRGC mana pips via `ManaSymbolIcon` (`FloatingManaDrawerWidget`).
+  - **Storm Tracking & Instant Clear**: Integrated Storm counter and one-tap "Clear Pool" button that zeroes out floating mana and storm count with full undo support.
+
+- **R7: Architectural Non-Regression & Quality Assurance**:
+  - **Strict Turn Logic Omission**: Verified 100% passive companion utility with complete absence of active turn timers, chess clocks, or turn-passing buttons in production code (`turn_logic_omission_audit_test.dart`).
+  - **Test Suite**: 74/74 E2E contracts passing; 715+ core, widget, and adversarial stress tests passing repository-wide.
+  - **Static Analysis**: `dart analyze --fatal-infos` verified with 0 errors, 0 warnings, and 0 infos.
+  - **Independent Audit**: Passed independent Post-Victory Audit (`VICTORY CONFIRMED`).
+
+---
+
 ## [0.4.6.1] - 2026-09-26
 
 ### Phase 4.6 Patch: UI Stability, Inventory Grouping, Deck Boards & Analytics Overhaul

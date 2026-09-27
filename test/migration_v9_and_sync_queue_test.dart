@@ -132,8 +132,8 @@ void main() {
       // 2. Open AppDatabase triggers onUpgrade from 8 to 9
       final db = AppDatabase(rawDb);
 
-      // Verify schema version is now 9
-      expect(db.schemaVersion, equals(9));
+      // Verify schema version is at least 9 (upgraded to 10 in v10)
+      expect(db.schemaVersion, greaterThanOrEqualTo(9));
 
       // Verify sync_queue table exists and can be queried
       final syncEntries = await db.vaultDao.getPendingSyncEntries();

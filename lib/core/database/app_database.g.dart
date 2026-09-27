@@ -5285,6 +5285,3124 @@ class SyncQueueCompanion extends UpdateCompanion<SyncQueueEntry> {
   }
 }
 
+class $MatchSessionsTable extends MatchSessions
+    with TableInfo<$MatchSessionsTable, MatchSession> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $MatchSessionsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('MTG Match'),
+  );
+  static const VerificationMeta _formatMeta = const VerificationMeta('format');
+  @override
+  late final GeneratedColumn<String> format = GeneratedColumn<String>(
+    'format',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('Commander'),
+  );
+  static const VerificationMeta _startingLifeMeta = const VerificationMeta(
+    'startingLife',
+  );
+  @override
+  late final GeneratedColumn<int> startingLife = GeneratedColumn<int>(
+    'starting_life',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(40),
+  );
+  static const VerificationMeta _playerCountMeta = const VerificationMeta(
+    'playerCount',
+  );
+  @override
+  late final GeneratedColumn<int> playerCount = GeneratedColumn<int>(
+    'player_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(4),
+  );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('active'),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _endedAtMeta = const VerificationMeta(
+    'endedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> endedAt = GeneratedColumn<DateTime>(
+    'ended_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _isP2pHostMeta = const VerificationMeta(
+    'isP2pHost',
+  );
+  @override
+  late final GeneratedColumn<bool> isP2pHost = GeneratedColumn<bool>(
+    'is_p2p_host',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_p2p_host" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _p2pSessionCodeMeta = const VerificationMeta(
+    'p2pSessionCode',
+  );
+  @override
+  late final GeneratedColumn<String> p2pSessionCode = GeneratedColumn<String>(
+    'p2p_session_code',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _settingsJsonMeta = const VerificationMeta(
+    'settingsJson',
+  );
+  @override
+  late final GeneratedColumn<String> settingsJson = GeneratedColumn<String>(
+    'settings_json',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _isDeletedMeta = const VerificationMeta(
+    'isDeleted',
+  );
+  @override
+  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
+    'is_deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    name,
+    format,
+    startingLife,
+    playerCount,
+    status,
+    createdAt,
+    endedAt,
+    isP2pHost,
+    p2pSessionCode,
+    settingsJson,
+    isDeleted,
+    updatedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'match_sessions';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<MatchSession> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    }
+    if (data.containsKey('format')) {
+      context.handle(
+        _formatMeta,
+        format.isAcceptableOrUnknown(data['format']!, _formatMeta),
+      );
+    }
+    if (data.containsKey('starting_life')) {
+      context.handle(
+        _startingLifeMeta,
+        startingLife.isAcceptableOrUnknown(
+          data['starting_life']!,
+          _startingLifeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('player_count')) {
+      context.handle(
+        _playerCountMeta,
+        playerCount.isAcceptableOrUnknown(
+          data['player_count']!,
+          _playerCountMeta,
+        ),
+      );
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('ended_at')) {
+      context.handle(
+        _endedAtMeta,
+        endedAt.isAcceptableOrUnknown(data['ended_at']!, _endedAtMeta),
+      );
+    }
+    if (data.containsKey('is_p2p_host')) {
+      context.handle(
+        _isP2pHostMeta,
+        isP2pHost.isAcceptableOrUnknown(data['is_p2p_host']!, _isP2pHostMeta),
+      );
+    }
+    if (data.containsKey('p2p_session_code')) {
+      context.handle(
+        _p2pSessionCodeMeta,
+        p2pSessionCode.isAcceptableOrUnknown(
+          data['p2p_session_code']!,
+          _p2pSessionCodeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('settings_json')) {
+      context.handle(
+        _settingsJsonMeta,
+        settingsJson.isAcceptableOrUnknown(
+          data['settings_json']!,
+          _settingsJsonMeta,
+        ),
+      );
+    }
+    if (data.containsKey('is_deleted')) {
+      context.handle(
+        _isDeletedMeta,
+        isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  MatchSession map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return MatchSession(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      format: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}format'],
+      )!,
+      startingLife: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}starting_life'],
+      )!,
+      playerCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}player_count'],
+      )!,
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      endedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}ended_at'],
+      ),
+      isP2pHost: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_p2p_host'],
+      )!,
+      p2pSessionCode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}p2p_session_code'],
+      ),
+      settingsJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}settings_json'],
+      ),
+      isDeleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_deleted'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      ),
+    );
+  }
+
+  @override
+  $MatchSessionsTable createAlias(String alias) {
+    return $MatchSessionsTable(attachedDatabase, alias);
+  }
+}
+
+class MatchSession extends DataClass implements Insertable<MatchSession> {
+  /// Unique session identifier (UUID v4)
+  final String id;
+
+  /// Human-readable match name (e.g. "Commander Night - Pod 1")
+  final String name;
+
+  /// Match format (e.g. 'Commander', 'Standard', 'Brawl', 'Draft', 'Modern', 'Two-Headed Giant', 'Custom')
+  final String format;
+
+  /// Starting life total per player (e.g. 40 for Commander, 20 for Standard, 30 for Brawl)
+  final int startingLife;
+
+  /// Total number of player seats configured for this session (1..6)
+  final int playerCount;
+
+  /// Lifecycle status: 'active', 'completed', 'abandoned'
+  final String status;
+
+  /// Timestamp when match was created
+  final DateTime createdAt;
+
+  /// Timestamp when match ended or was abandoned
+  final DateTime? endedAt;
+
+  /// True if this device is the P2P host authority for this match
+  final bool isP2pHost;
+
+  /// 5-character alphanumeric room code for P2P mesh discovery and direct connect
+  final String? p2pSessionCode;
+
+  /// Arbitrary JSON configuration payload for extensible session settings
+  final String? settingsJson;
+
+  /// Soft deletion flag for offline-first data retention
+  final bool isDeleted;
+
+  /// Timestamp of last modification for sync conflict resolution
+  final DateTime? updatedAt;
+  const MatchSession({
+    required this.id,
+    required this.name,
+    required this.format,
+    required this.startingLife,
+    required this.playerCount,
+    required this.status,
+    required this.createdAt,
+    this.endedAt,
+    required this.isP2pHost,
+    this.p2pSessionCode,
+    this.settingsJson,
+    required this.isDeleted,
+    this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['name'] = Variable<String>(name);
+    map['format'] = Variable<String>(format);
+    map['starting_life'] = Variable<int>(startingLife);
+    map['player_count'] = Variable<int>(playerCount);
+    map['status'] = Variable<String>(status);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    if (!nullToAbsent || endedAt != null) {
+      map['ended_at'] = Variable<DateTime>(endedAt);
+    }
+    map['is_p2p_host'] = Variable<bool>(isP2pHost);
+    if (!nullToAbsent || p2pSessionCode != null) {
+      map['p2p_session_code'] = Variable<String>(p2pSessionCode);
+    }
+    if (!nullToAbsent || settingsJson != null) {
+      map['settings_json'] = Variable<String>(settingsJson);
+    }
+    map['is_deleted'] = Variable<bool>(isDeleted);
+    if (!nullToAbsent || updatedAt != null) {
+      map['updated_at'] = Variable<DateTime>(updatedAt);
+    }
+    return map;
+  }
+
+  MatchSessionsCompanion toCompanion(bool nullToAbsent) {
+    return MatchSessionsCompanion(
+      id: Value(id),
+      name: Value(name),
+      format: Value(format),
+      startingLife: Value(startingLife),
+      playerCount: Value(playerCount),
+      status: Value(status),
+      createdAt: Value(createdAt),
+      endedAt: endedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(endedAt),
+      isP2pHost: Value(isP2pHost),
+      p2pSessionCode: p2pSessionCode == null && nullToAbsent
+          ? const Value.absent()
+          : Value(p2pSessionCode),
+      settingsJson: settingsJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(settingsJson),
+      isDeleted: Value(isDeleted),
+      updatedAt: updatedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(updatedAt),
+    );
+  }
+
+  factory MatchSession.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return MatchSession(
+      id: serializer.fromJson<String>(json['id']),
+      name: serializer.fromJson<String>(json['name']),
+      format: serializer.fromJson<String>(json['format']),
+      startingLife: serializer.fromJson<int>(json['startingLife']),
+      playerCount: serializer.fromJson<int>(json['playerCount']),
+      status: serializer.fromJson<String>(json['status']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      endedAt: serializer.fromJson<DateTime?>(json['endedAt']),
+      isP2pHost: serializer.fromJson<bool>(json['isP2pHost']),
+      p2pSessionCode: serializer.fromJson<String?>(json['p2pSessionCode']),
+      settingsJson: serializer.fromJson<String?>(json['settingsJson']),
+      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+      updatedAt: serializer.fromJson<DateTime?>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'name': serializer.toJson<String>(name),
+      'format': serializer.toJson<String>(format),
+      'startingLife': serializer.toJson<int>(startingLife),
+      'playerCount': serializer.toJson<int>(playerCount),
+      'status': serializer.toJson<String>(status),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'endedAt': serializer.toJson<DateTime?>(endedAt),
+      'isP2pHost': serializer.toJson<bool>(isP2pHost),
+      'p2pSessionCode': serializer.toJson<String?>(p2pSessionCode),
+      'settingsJson': serializer.toJson<String?>(settingsJson),
+      'isDeleted': serializer.toJson<bool>(isDeleted),
+      'updatedAt': serializer.toJson<DateTime?>(updatedAt),
+    };
+  }
+
+  MatchSession copyWith({
+    String? id,
+    String? name,
+    String? format,
+    int? startingLife,
+    int? playerCount,
+    String? status,
+    DateTime? createdAt,
+    Value<DateTime?> endedAt = const Value.absent(),
+    bool? isP2pHost,
+    Value<String?> p2pSessionCode = const Value.absent(),
+    Value<String?> settingsJson = const Value.absent(),
+    bool? isDeleted,
+    Value<DateTime?> updatedAt = const Value.absent(),
+  }) => MatchSession(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    format: format ?? this.format,
+    startingLife: startingLife ?? this.startingLife,
+    playerCount: playerCount ?? this.playerCount,
+    status: status ?? this.status,
+    createdAt: createdAt ?? this.createdAt,
+    endedAt: endedAt.present ? endedAt.value : this.endedAt,
+    isP2pHost: isP2pHost ?? this.isP2pHost,
+    p2pSessionCode: p2pSessionCode.present
+        ? p2pSessionCode.value
+        : this.p2pSessionCode,
+    settingsJson: settingsJson.present ? settingsJson.value : this.settingsJson,
+    isDeleted: isDeleted ?? this.isDeleted,
+    updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
+  );
+  MatchSession copyWithCompanion(MatchSessionsCompanion data) {
+    return MatchSession(
+      id: data.id.present ? data.id.value : this.id,
+      name: data.name.present ? data.name.value : this.name,
+      format: data.format.present ? data.format.value : this.format,
+      startingLife: data.startingLife.present
+          ? data.startingLife.value
+          : this.startingLife,
+      playerCount: data.playerCount.present
+          ? data.playerCount.value
+          : this.playerCount,
+      status: data.status.present ? data.status.value : this.status,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      endedAt: data.endedAt.present ? data.endedAt.value : this.endedAt,
+      isP2pHost: data.isP2pHost.present ? data.isP2pHost.value : this.isP2pHost,
+      p2pSessionCode: data.p2pSessionCode.present
+          ? data.p2pSessionCode.value
+          : this.p2pSessionCode,
+      settingsJson: data.settingsJson.present
+          ? data.settingsJson.value
+          : this.settingsJson,
+      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('MatchSession(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('format: $format, ')
+          ..write('startingLife: $startingLife, ')
+          ..write('playerCount: $playerCount, ')
+          ..write('status: $status, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('endedAt: $endedAt, ')
+          ..write('isP2pHost: $isP2pHost, ')
+          ..write('p2pSessionCode: $p2pSessionCode, ')
+          ..write('settingsJson: $settingsJson, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    name,
+    format,
+    startingLife,
+    playerCount,
+    status,
+    createdAt,
+    endedAt,
+    isP2pHost,
+    p2pSessionCode,
+    settingsJson,
+    isDeleted,
+    updatedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is MatchSession &&
+          other.id == this.id &&
+          other.name == this.name &&
+          other.format == this.format &&
+          other.startingLife == this.startingLife &&
+          other.playerCount == this.playerCount &&
+          other.status == this.status &&
+          other.createdAt == this.createdAt &&
+          other.endedAt == this.endedAt &&
+          other.isP2pHost == this.isP2pHost &&
+          other.p2pSessionCode == this.p2pSessionCode &&
+          other.settingsJson == this.settingsJson &&
+          other.isDeleted == this.isDeleted &&
+          other.updatedAt == this.updatedAt);
+}
+
+class MatchSessionsCompanion extends UpdateCompanion<MatchSession> {
+  final Value<String> id;
+  final Value<String> name;
+  final Value<String> format;
+  final Value<int> startingLife;
+  final Value<int> playerCount;
+  final Value<String> status;
+  final Value<DateTime> createdAt;
+  final Value<DateTime?> endedAt;
+  final Value<bool> isP2pHost;
+  final Value<String?> p2pSessionCode;
+  final Value<String?> settingsJson;
+  final Value<bool> isDeleted;
+  final Value<DateTime?> updatedAt;
+  final Value<int> rowid;
+  const MatchSessionsCompanion({
+    this.id = const Value.absent(),
+    this.name = const Value.absent(),
+    this.format = const Value.absent(),
+    this.startingLife = const Value.absent(),
+    this.playerCount = const Value.absent(),
+    this.status = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.endedAt = const Value.absent(),
+    this.isP2pHost = const Value.absent(),
+    this.p2pSessionCode = const Value.absent(),
+    this.settingsJson = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  MatchSessionsCompanion.insert({
+    required String id,
+    this.name = const Value.absent(),
+    this.format = const Value.absent(),
+    this.startingLife = const Value.absent(),
+    this.playerCount = const Value.absent(),
+    this.status = const Value.absent(),
+    required DateTime createdAt,
+    this.endedAt = const Value.absent(),
+    this.isP2pHost = const Value.absent(),
+    this.p2pSessionCode = const Value.absent(),
+    this.settingsJson = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       createdAt = Value(createdAt);
+  static Insertable<MatchSession> custom({
+    Expression<String>? id,
+    Expression<String>? name,
+    Expression<String>? format,
+    Expression<int>? startingLife,
+    Expression<int>? playerCount,
+    Expression<String>? status,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? endedAt,
+    Expression<bool>? isP2pHost,
+    Expression<String>? p2pSessionCode,
+    Expression<String>? settingsJson,
+    Expression<bool>? isDeleted,
+    Expression<DateTime>? updatedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (name != null) 'name': name,
+      if (format != null) 'format': format,
+      if (startingLife != null) 'starting_life': startingLife,
+      if (playerCount != null) 'player_count': playerCount,
+      if (status != null) 'status': status,
+      if (createdAt != null) 'created_at': createdAt,
+      if (endedAt != null) 'ended_at': endedAt,
+      if (isP2pHost != null) 'is_p2p_host': isP2pHost,
+      if (p2pSessionCode != null) 'p2p_session_code': p2pSessionCode,
+      if (settingsJson != null) 'settings_json': settingsJson,
+      if (isDeleted != null) 'is_deleted': isDeleted,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  MatchSessionsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? name,
+    Value<String>? format,
+    Value<int>? startingLife,
+    Value<int>? playerCount,
+    Value<String>? status,
+    Value<DateTime>? createdAt,
+    Value<DateTime?>? endedAt,
+    Value<bool>? isP2pHost,
+    Value<String?>? p2pSessionCode,
+    Value<String?>? settingsJson,
+    Value<bool>? isDeleted,
+    Value<DateTime?>? updatedAt,
+    Value<int>? rowid,
+  }) {
+    return MatchSessionsCompanion(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      format: format ?? this.format,
+      startingLife: startingLife ?? this.startingLife,
+      playerCount: playerCount ?? this.playerCount,
+      status: status ?? this.status,
+      createdAt: createdAt ?? this.createdAt,
+      endedAt: endedAt ?? this.endedAt,
+      isP2pHost: isP2pHost ?? this.isP2pHost,
+      p2pSessionCode: p2pSessionCode ?? this.p2pSessionCode,
+      settingsJson: settingsJson ?? this.settingsJson,
+      isDeleted: isDeleted ?? this.isDeleted,
+      updatedAt: updatedAt ?? this.updatedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (format.present) {
+      map['format'] = Variable<String>(format.value);
+    }
+    if (startingLife.present) {
+      map['starting_life'] = Variable<int>(startingLife.value);
+    }
+    if (playerCount.present) {
+      map['player_count'] = Variable<int>(playerCount.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (endedAt.present) {
+      map['ended_at'] = Variable<DateTime>(endedAt.value);
+    }
+    if (isP2pHost.present) {
+      map['is_p2p_host'] = Variable<bool>(isP2pHost.value);
+    }
+    if (p2pSessionCode.present) {
+      map['p2p_session_code'] = Variable<String>(p2pSessionCode.value);
+    }
+    if (settingsJson.present) {
+      map['settings_json'] = Variable<String>(settingsJson.value);
+    }
+    if (isDeleted.present) {
+      map['is_deleted'] = Variable<bool>(isDeleted.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('MatchSessionsCompanion(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('format: $format, ')
+          ..write('startingLife: $startingLife, ')
+          ..write('playerCount: $playerCount, ')
+          ..write('status: $status, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('endedAt: $endedAt, ')
+          ..write('isP2pHost: $isP2pHost, ')
+          ..write('p2pSessionCode: $p2pSessionCode, ')
+          ..write('settingsJson: $settingsJson, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $MatchPlayersTable extends MatchPlayers
+    with TableInfo<$MatchPlayersTable, MatchPlayer> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $MatchPlayersTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sessionIdMeta = const VerificationMeta(
+    'sessionId',
+  );
+  @override
+  late final GeneratedColumn<String> sessionId = GeneratedColumn<String>(
+    'session_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES match_sessions (id)',
+    ),
+  );
+  static const VerificationMeta _seatOrderMeta = const VerificationMeta(
+    'seatOrder',
+  );
+  @override
+  late final GeneratedColumn<int> seatOrder = GeneratedColumn<int>(
+    'seat_order',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _playerNameMeta = const VerificationMeta(
+    'playerName',
+  );
+  @override
+  late final GeneratedColumn<String> playerName = GeneratedColumn<String>(
+    'player_name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _deckIdMeta = const VerificationMeta('deckId');
+  @override
+  late final GeneratedColumn<String> deckId = GeneratedColumn<String>(
+    'deck_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES decks (id)',
+    ),
+  );
+  static const VerificationMeta _commanderCardIdMeta = const VerificationMeta(
+    'commanderCardId',
+  );
+  @override
+  late final GeneratedColumn<String> commanderCardId = GeneratedColumn<String>(
+    'commander_card_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES vault_items (id)',
+    ),
+  );
+  static const VerificationMeta _commanderNameMeta = const VerificationMeta(
+    'commanderName',
+  );
+  @override
+  late final GeneratedColumn<String> commanderName = GeneratedColumn<String>(
+    'commander_name',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _artCropUrlMeta = const VerificationMeta(
+    'artCropUrl',
+  );
+  @override
+  late final GeneratedColumn<String> artCropUrl = GeneratedColumn<String>(
+    'art_crop_url',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _colorThemeMeta = const VerificationMeta(
+    'colorTheme',
+  );
+  @override
+  late final GeneratedColumn<String> colorTheme = GeneratedColumn<String>(
+    'color_theme',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _currentLifeMeta = const VerificationMeta(
+    'currentLife',
+  );
+  @override
+  late final GeneratedColumn<int> currentLife = GeneratedColumn<int>(
+    'current_life',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(40),
+  );
+  static const VerificationMeta _poisonMeta = const VerificationMeta('poison');
+  @override
+  late final GeneratedColumn<int> poison = GeneratedColumn<int>(
+    'poison',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _energyMeta = const VerificationMeta('energy');
+  @override
+  late final GeneratedColumn<int> energy = GeneratedColumn<int>(
+    'energy',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _experienceMeta = const VerificationMeta(
+    'experience',
+  );
+  @override
+  late final GeneratedColumn<int> experience = GeneratedColumn<int>(
+    'experience',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _commanderTaxMeta = const VerificationMeta(
+    'commanderTax',
+  );
+  @override
+  late final GeneratedColumn<int> commanderTax = GeneratedColumn<int>(
+    'commander_tax',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _isMonarchMeta = const VerificationMeta(
+    'isMonarch',
+  );
+  @override
+  late final GeneratedColumn<bool> isMonarch = GeneratedColumn<bool>(
+    'is_monarch',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_monarch" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _hasInitiativeMeta = const VerificationMeta(
+    'hasInitiative',
+  );
+  @override
+  late final GeneratedColumn<bool> hasInitiative = GeneratedColumn<bool>(
+    'has_initiative',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("has_initiative" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _isEliminatedMeta = const VerificationMeta(
+    'isEliminated',
+  );
+  @override
+  late final GeneratedColumn<bool> isEliminated = GeneratedColumn<bool>(
+    'is_eliminated',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_eliminated" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _eliminatedAtMeta = const VerificationMeta(
+    'eliminatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> eliminatedAt = GeneratedColumn<DateTime>(
+    'eliminated_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _isLocalDeviceMeta = const VerificationMeta(
+    'isLocalDevice',
+  );
+  @override
+  late final GeneratedColumn<bool> isLocalDevice = GeneratedColumn<bool>(
+    'is_local_device',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_local_device" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _peerDeviceIdMeta = const VerificationMeta(
+    'peerDeviceId',
+  );
+  @override
+  late final GeneratedColumn<String> peerDeviceId = GeneratedColumn<String>(
+    'peer_device_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _commanderDamageJsonMeta =
+      const VerificationMeta('commanderDamageJson');
+  @override
+  late final GeneratedColumn<String> commanderDamageJson =
+      GeneratedColumn<String>(
+        'commander_damage_json',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _floatingManaJsonMeta = const VerificationMeta(
+    'floatingManaJson',
+  );
+  @override
+  late final GeneratedColumn<String> floatingManaJson = GeneratedColumn<String>(
+    'floating_mana_json',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _stormCountMeta = const VerificationMeta(
+    'stormCount',
+  );
+  @override
+  late final GeneratedColumn<int> stormCount = GeneratedColumn<int>(
+    'storm_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _countersJsonMeta = const VerificationMeta(
+    'countersJson',
+  );
+  @override
+  late final GeneratedColumn<String> countersJson = GeneratedColumn<String>(
+    'counters_json',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _isDeletedMeta = const VerificationMeta(
+    'isDeleted',
+  );
+  @override
+  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
+    'is_deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    sessionId,
+    seatOrder,
+    playerName,
+    deckId,
+    commanderCardId,
+    commanderName,
+    artCropUrl,
+    colorTheme,
+    currentLife,
+    poison,
+    energy,
+    experience,
+    commanderTax,
+    isMonarch,
+    hasInitiative,
+    isEliminated,
+    eliminatedAt,
+    isLocalDevice,
+    peerDeviceId,
+    commanderDamageJson,
+    floatingManaJson,
+    stormCount,
+    countersJson,
+    isDeleted,
+    updatedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'match_players';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<MatchPlayer> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('session_id')) {
+      context.handle(
+        _sessionIdMeta,
+        sessionId.isAcceptableOrUnknown(data['session_id']!, _sessionIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_sessionIdMeta);
+    }
+    if (data.containsKey('seat_order')) {
+      context.handle(
+        _seatOrderMeta,
+        seatOrder.isAcceptableOrUnknown(data['seat_order']!, _seatOrderMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_seatOrderMeta);
+    }
+    if (data.containsKey('player_name')) {
+      context.handle(
+        _playerNameMeta,
+        playerName.isAcceptableOrUnknown(data['player_name']!, _playerNameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_playerNameMeta);
+    }
+    if (data.containsKey('deck_id')) {
+      context.handle(
+        _deckIdMeta,
+        deckId.isAcceptableOrUnknown(data['deck_id']!, _deckIdMeta),
+      );
+    }
+    if (data.containsKey('commander_card_id')) {
+      context.handle(
+        _commanderCardIdMeta,
+        commanderCardId.isAcceptableOrUnknown(
+          data['commander_card_id']!,
+          _commanderCardIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('commander_name')) {
+      context.handle(
+        _commanderNameMeta,
+        commanderName.isAcceptableOrUnknown(
+          data['commander_name']!,
+          _commanderNameMeta,
+        ),
+      );
+    }
+    if (data.containsKey('art_crop_url')) {
+      context.handle(
+        _artCropUrlMeta,
+        artCropUrl.isAcceptableOrUnknown(
+          data['art_crop_url']!,
+          _artCropUrlMeta,
+        ),
+      );
+    }
+    if (data.containsKey('color_theme')) {
+      context.handle(
+        _colorThemeMeta,
+        colorTheme.isAcceptableOrUnknown(data['color_theme']!, _colorThemeMeta),
+      );
+    }
+    if (data.containsKey('current_life')) {
+      context.handle(
+        _currentLifeMeta,
+        currentLife.isAcceptableOrUnknown(
+          data['current_life']!,
+          _currentLifeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('poison')) {
+      context.handle(
+        _poisonMeta,
+        poison.isAcceptableOrUnknown(data['poison']!, _poisonMeta),
+      );
+    }
+    if (data.containsKey('energy')) {
+      context.handle(
+        _energyMeta,
+        energy.isAcceptableOrUnknown(data['energy']!, _energyMeta),
+      );
+    }
+    if (data.containsKey('experience')) {
+      context.handle(
+        _experienceMeta,
+        experience.isAcceptableOrUnknown(data['experience']!, _experienceMeta),
+      );
+    }
+    if (data.containsKey('commander_tax')) {
+      context.handle(
+        _commanderTaxMeta,
+        commanderTax.isAcceptableOrUnknown(
+          data['commander_tax']!,
+          _commanderTaxMeta,
+        ),
+      );
+    }
+    if (data.containsKey('is_monarch')) {
+      context.handle(
+        _isMonarchMeta,
+        isMonarch.isAcceptableOrUnknown(data['is_monarch']!, _isMonarchMeta),
+      );
+    }
+    if (data.containsKey('has_initiative')) {
+      context.handle(
+        _hasInitiativeMeta,
+        hasInitiative.isAcceptableOrUnknown(
+          data['has_initiative']!,
+          _hasInitiativeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('is_eliminated')) {
+      context.handle(
+        _isEliminatedMeta,
+        isEliminated.isAcceptableOrUnknown(
+          data['is_eliminated']!,
+          _isEliminatedMeta,
+        ),
+      );
+    }
+    if (data.containsKey('eliminated_at')) {
+      context.handle(
+        _eliminatedAtMeta,
+        eliminatedAt.isAcceptableOrUnknown(
+          data['eliminated_at']!,
+          _eliminatedAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('is_local_device')) {
+      context.handle(
+        _isLocalDeviceMeta,
+        isLocalDevice.isAcceptableOrUnknown(
+          data['is_local_device']!,
+          _isLocalDeviceMeta,
+        ),
+      );
+    }
+    if (data.containsKey('peer_device_id')) {
+      context.handle(
+        _peerDeviceIdMeta,
+        peerDeviceId.isAcceptableOrUnknown(
+          data['peer_device_id']!,
+          _peerDeviceIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('commander_damage_json')) {
+      context.handle(
+        _commanderDamageJsonMeta,
+        commanderDamageJson.isAcceptableOrUnknown(
+          data['commander_damage_json']!,
+          _commanderDamageJsonMeta,
+        ),
+      );
+    }
+    if (data.containsKey('floating_mana_json')) {
+      context.handle(
+        _floatingManaJsonMeta,
+        floatingManaJson.isAcceptableOrUnknown(
+          data['floating_mana_json']!,
+          _floatingManaJsonMeta,
+        ),
+      );
+    }
+    if (data.containsKey('storm_count')) {
+      context.handle(
+        _stormCountMeta,
+        stormCount.isAcceptableOrUnknown(data['storm_count']!, _stormCountMeta),
+      );
+    }
+    if (data.containsKey('counters_json')) {
+      context.handle(
+        _countersJsonMeta,
+        countersJson.isAcceptableOrUnknown(
+          data['counters_json']!,
+          _countersJsonMeta,
+        ),
+      );
+    }
+    if (data.containsKey('is_deleted')) {
+      context.handle(
+        _isDeletedMeta,
+        isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  MatchPlayer map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return MatchPlayer(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      sessionId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}session_id'],
+      )!,
+      seatOrder: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}seat_order'],
+      )!,
+      playerName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}player_name'],
+      )!,
+      deckId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}deck_id'],
+      ),
+      commanderCardId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}commander_card_id'],
+      ),
+      commanderName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}commander_name'],
+      ),
+      artCropUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}art_crop_url'],
+      ),
+      colorTheme: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}color_theme'],
+      ),
+      currentLife: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}current_life'],
+      )!,
+      poison: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}poison'],
+      )!,
+      energy: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}energy'],
+      )!,
+      experience: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}experience'],
+      )!,
+      commanderTax: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}commander_tax'],
+      )!,
+      isMonarch: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_monarch'],
+      )!,
+      hasInitiative: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}has_initiative'],
+      )!,
+      isEliminated: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_eliminated'],
+      )!,
+      eliminatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}eliminated_at'],
+      ),
+      isLocalDevice: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_local_device'],
+      )!,
+      peerDeviceId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}peer_device_id'],
+      ),
+      commanderDamageJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}commander_damage_json'],
+      ),
+      floatingManaJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}floating_mana_json'],
+      ),
+      stormCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}storm_count'],
+      )!,
+      countersJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}counters_json'],
+      ),
+      isDeleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_deleted'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      ),
+    );
+  }
+
+  @override
+  $MatchPlayersTable createAlias(String alias) {
+    return $MatchPlayersTable(attachedDatabase, alias);
+  }
+}
+
+class MatchPlayer extends DataClass implements Insertable<MatchPlayer> {
+  /// Unique player seat identifier (UUID v4)
+  final String id;
+
+  /// Foreign key referencing parent match session
+  final String sessionId;
+
+  /// 0-indexed seating order in pod grid (0..playerCount - 1)
+  final int seatOrder;
+
+  /// Display name of the player
+  final String playerName;
+
+  /// Optional foreign key to a local constructed deck from Vault
+  final String? deckId;
+
+  /// Optional foreign key to commander card in VaultItems
+  final String? commanderCardId;
+
+  /// Commander card name (e.g. "Atraxa, Praetors' Voice")
+  final String? commanderName;
+
+  /// High-resolution art crop URL for dynamic quadrant background
+  final String? artCropUrl;
+
+  /// Primary color theme / MTG color identity string (e.g. "WUBG")
+  final String? colorTheme;
+
+  /// Current life total
+  final int currentLife;
+
+  /// Poison counters (10 = lethal defeat in standard/commander rules)
+  final int poison;
+
+  /// Energy counters ({E})
+  final int energy;
+
+  /// Experience counters (XP)
+  final int experience;
+
+  /// Additional commander tax in generic mana (+2 per previous cast)
+  final int commanderTax;
+
+  /// True if this player is currently the Monarch
+  final bool isMonarch;
+
+  /// True if this player currently holds the Initiative
+  final bool hasInitiative;
+
+  /// True if this player has been eliminated from the match
+  final bool isEliminated;
+
+  /// Timestamp when player was eliminated (or null if still active)
+  final DateTime? eliminatedAt;
+
+  /// True if this player is running on the local device; false if connected via P2P
+  final bool isLocalDevice;
+
+  /// Network peer device identifier if connected via P2P
+  final String? peerDeviceId;
+
+  /// JSON map of commander damage taken from opponents: `{"opponentPlayerId": 14}`
+  final String? commanderDamageJson;
+
+  /// JSON map of floating mana per color: `{"W":0,"U":1,"B":0,"R":2,"G":0,"C":0}`
+  final String? floatingManaJson;
+
+  /// Storm count for current phase/turn
+  final int stormCount;
+
+  /// Arbitrary JSON map for secondary or custom counters
+  final String? countersJson;
+
+  /// Soft deletion flag for offline-first data retention
+  final bool isDeleted;
+
+  /// Timestamp of last modification for sync conflict resolution
+  final DateTime? updatedAt;
+  const MatchPlayer({
+    required this.id,
+    required this.sessionId,
+    required this.seatOrder,
+    required this.playerName,
+    this.deckId,
+    this.commanderCardId,
+    this.commanderName,
+    this.artCropUrl,
+    this.colorTheme,
+    required this.currentLife,
+    required this.poison,
+    required this.energy,
+    required this.experience,
+    required this.commanderTax,
+    required this.isMonarch,
+    required this.hasInitiative,
+    required this.isEliminated,
+    this.eliminatedAt,
+    required this.isLocalDevice,
+    this.peerDeviceId,
+    this.commanderDamageJson,
+    this.floatingManaJson,
+    required this.stormCount,
+    this.countersJson,
+    required this.isDeleted,
+    this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['session_id'] = Variable<String>(sessionId);
+    map['seat_order'] = Variable<int>(seatOrder);
+    map['player_name'] = Variable<String>(playerName);
+    if (!nullToAbsent || deckId != null) {
+      map['deck_id'] = Variable<String>(deckId);
+    }
+    if (!nullToAbsent || commanderCardId != null) {
+      map['commander_card_id'] = Variable<String>(commanderCardId);
+    }
+    if (!nullToAbsent || commanderName != null) {
+      map['commander_name'] = Variable<String>(commanderName);
+    }
+    if (!nullToAbsent || artCropUrl != null) {
+      map['art_crop_url'] = Variable<String>(artCropUrl);
+    }
+    if (!nullToAbsent || colorTheme != null) {
+      map['color_theme'] = Variable<String>(colorTheme);
+    }
+    map['current_life'] = Variable<int>(currentLife);
+    map['poison'] = Variable<int>(poison);
+    map['energy'] = Variable<int>(energy);
+    map['experience'] = Variable<int>(experience);
+    map['commander_tax'] = Variable<int>(commanderTax);
+    map['is_monarch'] = Variable<bool>(isMonarch);
+    map['has_initiative'] = Variable<bool>(hasInitiative);
+    map['is_eliminated'] = Variable<bool>(isEliminated);
+    if (!nullToAbsent || eliminatedAt != null) {
+      map['eliminated_at'] = Variable<DateTime>(eliminatedAt);
+    }
+    map['is_local_device'] = Variable<bool>(isLocalDevice);
+    if (!nullToAbsent || peerDeviceId != null) {
+      map['peer_device_id'] = Variable<String>(peerDeviceId);
+    }
+    if (!nullToAbsent || commanderDamageJson != null) {
+      map['commander_damage_json'] = Variable<String>(commanderDamageJson);
+    }
+    if (!nullToAbsent || floatingManaJson != null) {
+      map['floating_mana_json'] = Variable<String>(floatingManaJson);
+    }
+    map['storm_count'] = Variable<int>(stormCount);
+    if (!nullToAbsent || countersJson != null) {
+      map['counters_json'] = Variable<String>(countersJson);
+    }
+    map['is_deleted'] = Variable<bool>(isDeleted);
+    if (!nullToAbsent || updatedAt != null) {
+      map['updated_at'] = Variable<DateTime>(updatedAt);
+    }
+    return map;
+  }
+
+  MatchPlayersCompanion toCompanion(bool nullToAbsent) {
+    return MatchPlayersCompanion(
+      id: Value(id),
+      sessionId: Value(sessionId),
+      seatOrder: Value(seatOrder),
+      playerName: Value(playerName),
+      deckId: deckId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deckId),
+      commanderCardId: commanderCardId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(commanderCardId),
+      commanderName: commanderName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(commanderName),
+      artCropUrl: artCropUrl == null && nullToAbsent
+          ? const Value.absent()
+          : Value(artCropUrl),
+      colorTheme: colorTheme == null && nullToAbsent
+          ? const Value.absent()
+          : Value(colorTheme),
+      currentLife: Value(currentLife),
+      poison: Value(poison),
+      energy: Value(energy),
+      experience: Value(experience),
+      commanderTax: Value(commanderTax),
+      isMonarch: Value(isMonarch),
+      hasInitiative: Value(hasInitiative),
+      isEliminated: Value(isEliminated),
+      eliminatedAt: eliminatedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(eliminatedAt),
+      isLocalDevice: Value(isLocalDevice),
+      peerDeviceId: peerDeviceId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(peerDeviceId),
+      commanderDamageJson: commanderDamageJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(commanderDamageJson),
+      floatingManaJson: floatingManaJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(floatingManaJson),
+      stormCount: Value(stormCount),
+      countersJson: countersJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(countersJson),
+      isDeleted: Value(isDeleted),
+      updatedAt: updatedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(updatedAt),
+    );
+  }
+
+  factory MatchPlayer.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return MatchPlayer(
+      id: serializer.fromJson<String>(json['id']),
+      sessionId: serializer.fromJson<String>(json['sessionId']),
+      seatOrder: serializer.fromJson<int>(json['seatOrder']),
+      playerName: serializer.fromJson<String>(json['playerName']),
+      deckId: serializer.fromJson<String?>(json['deckId']),
+      commanderCardId: serializer.fromJson<String?>(json['commanderCardId']),
+      commanderName: serializer.fromJson<String?>(json['commanderName']),
+      artCropUrl: serializer.fromJson<String?>(json['artCropUrl']),
+      colorTheme: serializer.fromJson<String?>(json['colorTheme']),
+      currentLife: serializer.fromJson<int>(json['currentLife']),
+      poison: serializer.fromJson<int>(json['poison']),
+      energy: serializer.fromJson<int>(json['energy']),
+      experience: serializer.fromJson<int>(json['experience']),
+      commanderTax: serializer.fromJson<int>(json['commanderTax']),
+      isMonarch: serializer.fromJson<bool>(json['isMonarch']),
+      hasInitiative: serializer.fromJson<bool>(json['hasInitiative']),
+      isEliminated: serializer.fromJson<bool>(json['isEliminated']),
+      eliminatedAt: serializer.fromJson<DateTime?>(json['eliminatedAt']),
+      isLocalDevice: serializer.fromJson<bool>(json['isLocalDevice']),
+      peerDeviceId: serializer.fromJson<String?>(json['peerDeviceId']),
+      commanderDamageJson: serializer.fromJson<String?>(
+        json['commanderDamageJson'],
+      ),
+      floatingManaJson: serializer.fromJson<String?>(json['floatingManaJson']),
+      stormCount: serializer.fromJson<int>(json['stormCount']),
+      countersJson: serializer.fromJson<String?>(json['countersJson']),
+      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+      updatedAt: serializer.fromJson<DateTime?>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'sessionId': serializer.toJson<String>(sessionId),
+      'seatOrder': serializer.toJson<int>(seatOrder),
+      'playerName': serializer.toJson<String>(playerName),
+      'deckId': serializer.toJson<String?>(deckId),
+      'commanderCardId': serializer.toJson<String?>(commanderCardId),
+      'commanderName': serializer.toJson<String?>(commanderName),
+      'artCropUrl': serializer.toJson<String?>(artCropUrl),
+      'colorTheme': serializer.toJson<String?>(colorTheme),
+      'currentLife': serializer.toJson<int>(currentLife),
+      'poison': serializer.toJson<int>(poison),
+      'energy': serializer.toJson<int>(energy),
+      'experience': serializer.toJson<int>(experience),
+      'commanderTax': serializer.toJson<int>(commanderTax),
+      'isMonarch': serializer.toJson<bool>(isMonarch),
+      'hasInitiative': serializer.toJson<bool>(hasInitiative),
+      'isEliminated': serializer.toJson<bool>(isEliminated),
+      'eliminatedAt': serializer.toJson<DateTime?>(eliminatedAt),
+      'isLocalDevice': serializer.toJson<bool>(isLocalDevice),
+      'peerDeviceId': serializer.toJson<String?>(peerDeviceId),
+      'commanderDamageJson': serializer.toJson<String?>(commanderDamageJson),
+      'floatingManaJson': serializer.toJson<String?>(floatingManaJson),
+      'stormCount': serializer.toJson<int>(stormCount),
+      'countersJson': serializer.toJson<String?>(countersJson),
+      'isDeleted': serializer.toJson<bool>(isDeleted),
+      'updatedAt': serializer.toJson<DateTime?>(updatedAt),
+    };
+  }
+
+  MatchPlayer copyWith({
+    String? id,
+    String? sessionId,
+    int? seatOrder,
+    String? playerName,
+    Value<String?> deckId = const Value.absent(),
+    Value<String?> commanderCardId = const Value.absent(),
+    Value<String?> commanderName = const Value.absent(),
+    Value<String?> artCropUrl = const Value.absent(),
+    Value<String?> colorTheme = const Value.absent(),
+    int? currentLife,
+    int? poison,
+    int? energy,
+    int? experience,
+    int? commanderTax,
+    bool? isMonarch,
+    bool? hasInitiative,
+    bool? isEliminated,
+    Value<DateTime?> eliminatedAt = const Value.absent(),
+    bool? isLocalDevice,
+    Value<String?> peerDeviceId = const Value.absent(),
+    Value<String?> commanderDamageJson = const Value.absent(),
+    Value<String?> floatingManaJson = const Value.absent(),
+    int? stormCount,
+    Value<String?> countersJson = const Value.absent(),
+    bool? isDeleted,
+    Value<DateTime?> updatedAt = const Value.absent(),
+  }) => MatchPlayer(
+    id: id ?? this.id,
+    sessionId: sessionId ?? this.sessionId,
+    seatOrder: seatOrder ?? this.seatOrder,
+    playerName: playerName ?? this.playerName,
+    deckId: deckId.present ? deckId.value : this.deckId,
+    commanderCardId: commanderCardId.present
+        ? commanderCardId.value
+        : this.commanderCardId,
+    commanderName: commanderName.present
+        ? commanderName.value
+        : this.commanderName,
+    artCropUrl: artCropUrl.present ? artCropUrl.value : this.artCropUrl,
+    colorTheme: colorTheme.present ? colorTheme.value : this.colorTheme,
+    currentLife: currentLife ?? this.currentLife,
+    poison: poison ?? this.poison,
+    energy: energy ?? this.energy,
+    experience: experience ?? this.experience,
+    commanderTax: commanderTax ?? this.commanderTax,
+    isMonarch: isMonarch ?? this.isMonarch,
+    hasInitiative: hasInitiative ?? this.hasInitiative,
+    isEliminated: isEliminated ?? this.isEliminated,
+    eliminatedAt: eliminatedAt.present ? eliminatedAt.value : this.eliminatedAt,
+    isLocalDevice: isLocalDevice ?? this.isLocalDevice,
+    peerDeviceId: peerDeviceId.present ? peerDeviceId.value : this.peerDeviceId,
+    commanderDamageJson: commanderDamageJson.present
+        ? commanderDamageJson.value
+        : this.commanderDamageJson,
+    floatingManaJson: floatingManaJson.present
+        ? floatingManaJson.value
+        : this.floatingManaJson,
+    stormCount: stormCount ?? this.stormCount,
+    countersJson: countersJson.present ? countersJson.value : this.countersJson,
+    isDeleted: isDeleted ?? this.isDeleted,
+    updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
+  );
+  MatchPlayer copyWithCompanion(MatchPlayersCompanion data) {
+    return MatchPlayer(
+      id: data.id.present ? data.id.value : this.id,
+      sessionId: data.sessionId.present ? data.sessionId.value : this.sessionId,
+      seatOrder: data.seatOrder.present ? data.seatOrder.value : this.seatOrder,
+      playerName: data.playerName.present
+          ? data.playerName.value
+          : this.playerName,
+      deckId: data.deckId.present ? data.deckId.value : this.deckId,
+      commanderCardId: data.commanderCardId.present
+          ? data.commanderCardId.value
+          : this.commanderCardId,
+      commanderName: data.commanderName.present
+          ? data.commanderName.value
+          : this.commanderName,
+      artCropUrl: data.artCropUrl.present
+          ? data.artCropUrl.value
+          : this.artCropUrl,
+      colorTheme: data.colorTheme.present
+          ? data.colorTheme.value
+          : this.colorTheme,
+      currentLife: data.currentLife.present
+          ? data.currentLife.value
+          : this.currentLife,
+      poison: data.poison.present ? data.poison.value : this.poison,
+      energy: data.energy.present ? data.energy.value : this.energy,
+      experience: data.experience.present
+          ? data.experience.value
+          : this.experience,
+      commanderTax: data.commanderTax.present
+          ? data.commanderTax.value
+          : this.commanderTax,
+      isMonarch: data.isMonarch.present ? data.isMonarch.value : this.isMonarch,
+      hasInitiative: data.hasInitiative.present
+          ? data.hasInitiative.value
+          : this.hasInitiative,
+      isEliminated: data.isEliminated.present
+          ? data.isEliminated.value
+          : this.isEliminated,
+      eliminatedAt: data.eliminatedAt.present
+          ? data.eliminatedAt.value
+          : this.eliminatedAt,
+      isLocalDevice: data.isLocalDevice.present
+          ? data.isLocalDevice.value
+          : this.isLocalDevice,
+      peerDeviceId: data.peerDeviceId.present
+          ? data.peerDeviceId.value
+          : this.peerDeviceId,
+      commanderDamageJson: data.commanderDamageJson.present
+          ? data.commanderDamageJson.value
+          : this.commanderDamageJson,
+      floatingManaJson: data.floatingManaJson.present
+          ? data.floatingManaJson.value
+          : this.floatingManaJson,
+      stormCount: data.stormCount.present
+          ? data.stormCount.value
+          : this.stormCount,
+      countersJson: data.countersJson.present
+          ? data.countersJson.value
+          : this.countersJson,
+      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('MatchPlayer(')
+          ..write('id: $id, ')
+          ..write('sessionId: $sessionId, ')
+          ..write('seatOrder: $seatOrder, ')
+          ..write('playerName: $playerName, ')
+          ..write('deckId: $deckId, ')
+          ..write('commanderCardId: $commanderCardId, ')
+          ..write('commanderName: $commanderName, ')
+          ..write('artCropUrl: $artCropUrl, ')
+          ..write('colorTheme: $colorTheme, ')
+          ..write('currentLife: $currentLife, ')
+          ..write('poison: $poison, ')
+          ..write('energy: $energy, ')
+          ..write('experience: $experience, ')
+          ..write('commanderTax: $commanderTax, ')
+          ..write('isMonarch: $isMonarch, ')
+          ..write('hasInitiative: $hasInitiative, ')
+          ..write('isEliminated: $isEliminated, ')
+          ..write('eliminatedAt: $eliminatedAt, ')
+          ..write('isLocalDevice: $isLocalDevice, ')
+          ..write('peerDeviceId: $peerDeviceId, ')
+          ..write('commanderDamageJson: $commanderDamageJson, ')
+          ..write('floatingManaJson: $floatingManaJson, ')
+          ..write('stormCount: $stormCount, ')
+          ..write('countersJson: $countersJson, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hashAll([
+    id,
+    sessionId,
+    seatOrder,
+    playerName,
+    deckId,
+    commanderCardId,
+    commanderName,
+    artCropUrl,
+    colorTheme,
+    currentLife,
+    poison,
+    energy,
+    experience,
+    commanderTax,
+    isMonarch,
+    hasInitiative,
+    isEliminated,
+    eliminatedAt,
+    isLocalDevice,
+    peerDeviceId,
+    commanderDamageJson,
+    floatingManaJson,
+    stormCount,
+    countersJson,
+    isDeleted,
+    updatedAt,
+  ]);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is MatchPlayer &&
+          other.id == this.id &&
+          other.sessionId == this.sessionId &&
+          other.seatOrder == this.seatOrder &&
+          other.playerName == this.playerName &&
+          other.deckId == this.deckId &&
+          other.commanderCardId == this.commanderCardId &&
+          other.commanderName == this.commanderName &&
+          other.artCropUrl == this.artCropUrl &&
+          other.colorTheme == this.colorTheme &&
+          other.currentLife == this.currentLife &&
+          other.poison == this.poison &&
+          other.energy == this.energy &&
+          other.experience == this.experience &&
+          other.commanderTax == this.commanderTax &&
+          other.isMonarch == this.isMonarch &&
+          other.hasInitiative == this.hasInitiative &&
+          other.isEliminated == this.isEliminated &&
+          other.eliminatedAt == this.eliminatedAt &&
+          other.isLocalDevice == this.isLocalDevice &&
+          other.peerDeviceId == this.peerDeviceId &&
+          other.commanderDamageJson == this.commanderDamageJson &&
+          other.floatingManaJson == this.floatingManaJson &&
+          other.stormCount == this.stormCount &&
+          other.countersJson == this.countersJson &&
+          other.isDeleted == this.isDeleted &&
+          other.updatedAt == this.updatedAt);
+}
+
+class MatchPlayersCompanion extends UpdateCompanion<MatchPlayer> {
+  final Value<String> id;
+  final Value<String> sessionId;
+  final Value<int> seatOrder;
+  final Value<String> playerName;
+  final Value<String?> deckId;
+  final Value<String?> commanderCardId;
+  final Value<String?> commanderName;
+  final Value<String?> artCropUrl;
+  final Value<String?> colorTheme;
+  final Value<int> currentLife;
+  final Value<int> poison;
+  final Value<int> energy;
+  final Value<int> experience;
+  final Value<int> commanderTax;
+  final Value<bool> isMonarch;
+  final Value<bool> hasInitiative;
+  final Value<bool> isEliminated;
+  final Value<DateTime?> eliminatedAt;
+  final Value<bool> isLocalDevice;
+  final Value<String?> peerDeviceId;
+  final Value<String?> commanderDamageJson;
+  final Value<String?> floatingManaJson;
+  final Value<int> stormCount;
+  final Value<String?> countersJson;
+  final Value<bool> isDeleted;
+  final Value<DateTime?> updatedAt;
+  final Value<int> rowid;
+  const MatchPlayersCompanion({
+    this.id = const Value.absent(),
+    this.sessionId = const Value.absent(),
+    this.seatOrder = const Value.absent(),
+    this.playerName = const Value.absent(),
+    this.deckId = const Value.absent(),
+    this.commanderCardId = const Value.absent(),
+    this.commanderName = const Value.absent(),
+    this.artCropUrl = const Value.absent(),
+    this.colorTheme = const Value.absent(),
+    this.currentLife = const Value.absent(),
+    this.poison = const Value.absent(),
+    this.energy = const Value.absent(),
+    this.experience = const Value.absent(),
+    this.commanderTax = const Value.absent(),
+    this.isMonarch = const Value.absent(),
+    this.hasInitiative = const Value.absent(),
+    this.isEliminated = const Value.absent(),
+    this.eliminatedAt = const Value.absent(),
+    this.isLocalDevice = const Value.absent(),
+    this.peerDeviceId = const Value.absent(),
+    this.commanderDamageJson = const Value.absent(),
+    this.floatingManaJson = const Value.absent(),
+    this.stormCount = const Value.absent(),
+    this.countersJson = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  MatchPlayersCompanion.insert({
+    required String id,
+    required String sessionId,
+    required int seatOrder,
+    required String playerName,
+    this.deckId = const Value.absent(),
+    this.commanderCardId = const Value.absent(),
+    this.commanderName = const Value.absent(),
+    this.artCropUrl = const Value.absent(),
+    this.colorTheme = const Value.absent(),
+    this.currentLife = const Value.absent(),
+    this.poison = const Value.absent(),
+    this.energy = const Value.absent(),
+    this.experience = const Value.absent(),
+    this.commanderTax = const Value.absent(),
+    this.isMonarch = const Value.absent(),
+    this.hasInitiative = const Value.absent(),
+    this.isEliminated = const Value.absent(),
+    this.eliminatedAt = const Value.absent(),
+    this.isLocalDevice = const Value.absent(),
+    this.peerDeviceId = const Value.absent(),
+    this.commanderDamageJson = const Value.absent(),
+    this.floatingManaJson = const Value.absent(),
+    this.stormCount = const Value.absent(),
+    this.countersJson = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       sessionId = Value(sessionId),
+       seatOrder = Value(seatOrder),
+       playerName = Value(playerName);
+  static Insertable<MatchPlayer> custom({
+    Expression<String>? id,
+    Expression<String>? sessionId,
+    Expression<int>? seatOrder,
+    Expression<String>? playerName,
+    Expression<String>? deckId,
+    Expression<String>? commanderCardId,
+    Expression<String>? commanderName,
+    Expression<String>? artCropUrl,
+    Expression<String>? colorTheme,
+    Expression<int>? currentLife,
+    Expression<int>? poison,
+    Expression<int>? energy,
+    Expression<int>? experience,
+    Expression<int>? commanderTax,
+    Expression<bool>? isMonarch,
+    Expression<bool>? hasInitiative,
+    Expression<bool>? isEliminated,
+    Expression<DateTime>? eliminatedAt,
+    Expression<bool>? isLocalDevice,
+    Expression<String>? peerDeviceId,
+    Expression<String>? commanderDamageJson,
+    Expression<String>? floatingManaJson,
+    Expression<int>? stormCount,
+    Expression<String>? countersJson,
+    Expression<bool>? isDeleted,
+    Expression<DateTime>? updatedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (sessionId != null) 'session_id': sessionId,
+      if (seatOrder != null) 'seat_order': seatOrder,
+      if (playerName != null) 'player_name': playerName,
+      if (deckId != null) 'deck_id': deckId,
+      if (commanderCardId != null) 'commander_card_id': commanderCardId,
+      if (commanderName != null) 'commander_name': commanderName,
+      if (artCropUrl != null) 'art_crop_url': artCropUrl,
+      if (colorTheme != null) 'color_theme': colorTheme,
+      if (currentLife != null) 'current_life': currentLife,
+      if (poison != null) 'poison': poison,
+      if (energy != null) 'energy': energy,
+      if (experience != null) 'experience': experience,
+      if (commanderTax != null) 'commander_tax': commanderTax,
+      if (isMonarch != null) 'is_monarch': isMonarch,
+      if (hasInitiative != null) 'has_initiative': hasInitiative,
+      if (isEliminated != null) 'is_eliminated': isEliminated,
+      if (eliminatedAt != null) 'eliminated_at': eliminatedAt,
+      if (isLocalDevice != null) 'is_local_device': isLocalDevice,
+      if (peerDeviceId != null) 'peer_device_id': peerDeviceId,
+      if (commanderDamageJson != null)
+        'commander_damage_json': commanderDamageJson,
+      if (floatingManaJson != null) 'floating_mana_json': floatingManaJson,
+      if (stormCount != null) 'storm_count': stormCount,
+      if (countersJson != null) 'counters_json': countersJson,
+      if (isDeleted != null) 'is_deleted': isDeleted,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  MatchPlayersCompanion copyWith({
+    Value<String>? id,
+    Value<String>? sessionId,
+    Value<int>? seatOrder,
+    Value<String>? playerName,
+    Value<String?>? deckId,
+    Value<String?>? commanderCardId,
+    Value<String?>? commanderName,
+    Value<String?>? artCropUrl,
+    Value<String?>? colorTheme,
+    Value<int>? currentLife,
+    Value<int>? poison,
+    Value<int>? energy,
+    Value<int>? experience,
+    Value<int>? commanderTax,
+    Value<bool>? isMonarch,
+    Value<bool>? hasInitiative,
+    Value<bool>? isEliminated,
+    Value<DateTime?>? eliminatedAt,
+    Value<bool>? isLocalDevice,
+    Value<String?>? peerDeviceId,
+    Value<String?>? commanderDamageJson,
+    Value<String?>? floatingManaJson,
+    Value<int>? stormCount,
+    Value<String?>? countersJson,
+    Value<bool>? isDeleted,
+    Value<DateTime?>? updatedAt,
+    Value<int>? rowid,
+  }) {
+    return MatchPlayersCompanion(
+      id: id ?? this.id,
+      sessionId: sessionId ?? this.sessionId,
+      seatOrder: seatOrder ?? this.seatOrder,
+      playerName: playerName ?? this.playerName,
+      deckId: deckId ?? this.deckId,
+      commanderCardId: commanderCardId ?? this.commanderCardId,
+      commanderName: commanderName ?? this.commanderName,
+      artCropUrl: artCropUrl ?? this.artCropUrl,
+      colorTheme: colorTheme ?? this.colorTheme,
+      currentLife: currentLife ?? this.currentLife,
+      poison: poison ?? this.poison,
+      energy: energy ?? this.energy,
+      experience: experience ?? this.experience,
+      commanderTax: commanderTax ?? this.commanderTax,
+      isMonarch: isMonarch ?? this.isMonarch,
+      hasInitiative: hasInitiative ?? this.hasInitiative,
+      isEliminated: isEliminated ?? this.isEliminated,
+      eliminatedAt: eliminatedAt ?? this.eliminatedAt,
+      isLocalDevice: isLocalDevice ?? this.isLocalDevice,
+      peerDeviceId: peerDeviceId ?? this.peerDeviceId,
+      commanderDamageJson: commanderDamageJson ?? this.commanderDamageJson,
+      floatingManaJson: floatingManaJson ?? this.floatingManaJson,
+      stormCount: stormCount ?? this.stormCount,
+      countersJson: countersJson ?? this.countersJson,
+      isDeleted: isDeleted ?? this.isDeleted,
+      updatedAt: updatedAt ?? this.updatedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (sessionId.present) {
+      map['session_id'] = Variable<String>(sessionId.value);
+    }
+    if (seatOrder.present) {
+      map['seat_order'] = Variable<int>(seatOrder.value);
+    }
+    if (playerName.present) {
+      map['player_name'] = Variable<String>(playerName.value);
+    }
+    if (deckId.present) {
+      map['deck_id'] = Variable<String>(deckId.value);
+    }
+    if (commanderCardId.present) {
+      map['commander_card_id'] = Variable<String>(commanderCardId.value);
+    }
+    if (commanderName.present) {
+      map['commander_name'] = Variable<String>(commanderName.value);
+    }
+    if (artCropUrl.present) {
+      map['art_crop_url'] = Variable<String>(artCropUrl.value);
+    }
+    if (colorTheme.present) {
+      map['color_theme'] = Variable<String>(colorTheme.value);
+    }
+    if (currentLife.present) {
+      map['current_life'] = Variable<int>(currentLife.value);
+    }
+    if (poison.present) {
+      map['poison'] = Variable<int>(poison.value);
+    }
+    if (energy.present) {
+      map['energy'] = Variable<int>(energy.value);
+    }
+    if (experience.present) {
+      map['experience'] = Variable<int>(experience.value);
+    }
+    if (commanderTax.present) {
+      map['commander_tax'] = Variable<int>(commanderTax.value);
+    }
+    if (isMonarch.present) {
+      map['is_monarch'] = Variable<bool>(isMonarch.value);
+    }
+    if (hasInitiative.present) {
+      map['has_initiative'] = Variable<bool>(hasInitiative.value);
+    }
+    if (isEliminated.present) {
+      map['is_eliminated'] = Variable<bool>(isEliminated.value);
+    }
+    if (eliminatedAt.present) {
+      map['eliminated_at'] = Variable<DateTime>(eliminatedAt.value);
+    }
+    if (isLocalDevice.present) {
+      map['is_local_device'] = Variable<bool>(isLocalDevice.value);
+    }
+    if (peerDeviceId.present) {
+      map['peer_device_id'] = Variable<String>(peerDeviceId.value);
+    }
+    if (commanderDamageJson.present) {
+      map['commander_damage_json'] = Variable<String>(
+        commanderDamageJson.value,
+      );
+    }
+    if (floatingManaJson.present) {
+      map['floating_mana_json'] = Variable<String>(floatingManaJson.value);
+    }
+    if (stormCount.present) {
+      map['storm_count'] = Variable<int>(stormCount.value);
+    }
+    if (countersJson.present) {
+      map['counters_json'] = Variable<String>(countersJson.value);
+    }
+    if (isDeleted.present) {
+      map['is_deleted'] = Variable<bool>(isDeleted.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('MatchPlayersCompanion(')
+          ..write('id: $id, ')
+          ..write('sessionId: $sessionId, ')
+          ..write('seatOrder: $seatOrder, ')
+          ..write('playerName: $playerName, ')
+          ..write('deckId: $deckId, ')
+          ..write('commanderCardId: $commanderCardId, ')
+          ..write('commanderName: $commanderName, ')
+          ..write('artCropUrl: $artCropUrl, ')
+          ..write('colorTheme: $colorTheme, ')
+          ..write('currentLife: $currentLife, ')
+          ..write('poison: $poison, ')
+          ..write('energy: $energy, ')
+          ..write('experience: $experience, ')
+          ..write('commanderTax: $commanderTax, ')
+          ..write('isMonarch: $isMonarch, ')
+          ..write('hasInitiative: $hasInitiative, ')
+          ..write('isEliminated: $isEliminated, ')
+          ..write('eliminatedAt: $eliminatedAt, ')
+          ..write('isLocalDevice: $isLocalDevice, ')
+          ..write('peerDeviceId: $peerDeviceId, ')
+          ..write('commanderDamageJson: $commanderDamageJson, ')
+          ..write('floatingManaJson: $floatingManaJson, ')
+          ..write('stormCount: $stormCount, ')
+          ..write('countersJson: $countersJson, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $MatchEventsTable extends MatchEvents
+    with TableInfo<$MatchEventsTable, MatchEvent> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $MatchEventsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sessionIdMeta = const VerificationMeta(
+    'sessionId',
+  );
+  @override
+  late final GeneratedColumn<String> sessionId = GeneratedColumn<String>(
+    'session_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES match_sessions (id)',
+    ),
+  );
+  static const VerificationMeta _playerIdMeta = const VerificationMeta(
+    'playerId',
+  );
+  @override
+  late final GeneratedColumn<String> playerId = GeneratedColumn<String>(
+    'player_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sourcePlayerIdMeta = const VerificationMeta(
+    'sourcePlayerId',
+  );
+  @override
+  late final GeneratedColumn<String> sourcePlayerId = GeneratedColumn<String>(
+    'source_player_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _eventTypeMeta = const VerificationMeta(
+    'eventType',
+  );
+  @override
+  late final GeneratedColumn<String> eventType = GeneratedColumn<String>(
+    'event_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _deltaMeta = const VerificationMeta('delta');
+  @override
+  late final GeneratedColumn<int> delta = GeneratedColumn<int>(
+    'delta',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _valueMeta = const VerificationMeta('value');
+  @override
+  late final GeneratedColumn<int> value = GeneratedColumn<int>(
+    'value',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _sequenceNumberMeta = const VerificationMeta(
+    'sequenceNumber',
+  );
+  @override
+  late final GeneratedColumn<int> sequenceNumber = GeneratedColumn<int>(
+    'sequence_number',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _payloadJsonMeta = const VerificationMeta(
+    'payloadJson',
+  );
+  @override
+  late final GeneratedColumn<String> payloadJson = GeneratedColumn<String>(
+    'payload_json',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _timestampMeta = const VerificationMeta(
+    'timestamp',
+  );
+  @override
+  late final GeneratedColumn<DateTime> timestamp = GeneratedColumn<DateTime>(
+    'timestamp',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _isUndoneMeta = const VerificationMeta(
+    'isUndone',
+  );
+  @override
+  late final GeneratedColumn<bool> isUndone = GeneratedColumn<bool>(
+    'is_undone',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_undone" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _isDeletedMeta = const VerificationMeta(
+    'isDeleted',
+  );
+  @override
+  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
+    'is_deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    sessionId,
+    playerId,
+    sourcePlayerId,
+    eventType,
+    delta,
+    value,
+    sequenceNumber,
+    payloadJson,
+    timestamp,
+    isUndone,
+    isDeleted,
+    updatedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'match_events';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<MatchEvent> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('session_id')) {
+      context.handle(
+        _sessionIdMeta,
+        sessionId.isAcceptableOrUnknown(data['session_id']!, _sessionIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_sessionIdMeta);
+    }
+    if (data.containsKey('player_id')) {
+      context.handle(
+        _playerIdMeta,
+        playerId.isAcceptableOrUnknown(data['player_id']!, _playerIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_playerIdMeta);
+    }
+    if (data.containsKey('source_player_id')) {
+      context.handle(
+        _sourcePlayerIdMeta,
+        sourcePlayerId.isAcceptableOrUnknown(
+          data['source_player_id']!,
+          _sourcePlayerIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('event_type')) {
+      context.handle(
+        _eventTypeMeta,
+        eventType.isAcceptableOrUnknown(data['event_type']!, _eventTypeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_eventTypeMeta);
+    }
+    if (data.containsKey('delta')) {
+      context.handle(
+        _deltaMeta,
+        delta.isAcceptableOrUnknown(data['delta']!, _deltaMeta),
+      );
+    }
+    if (data.containsKey('value')) {
+      context.handle(
+        _valueMeta,
+        value.isAcceptableOrUnknown(data['value']!, _valueMeta),
+      );
+    }
+    if (data.containsKey('sequence_number')) {
+      context.handle(
+        _sequenceNumberMeta,
+        sequenceNumber.isAcceptableOrUnknown(
+          data['sequence_number']!,
+          _sequenceNumberMeta,
+        ),
+      );
+    }
+    if (data.containsKey('payload_json')) {
+      context.handle(
+        _payloadJsonMeta,
+        payloadJson.isAcceptableOrUnknown(
+          data['payload_json']!,
+          _payloadJsonMeta,
+        ),
+      );
+    }
+    if (data.containsKey('timestamp')) {
+      context.handle(
+        _timestampMeta,
+        timestamp.isAcceptableOrUnknown(data['timestamp']!, _timestampMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_timestampMeta);
+    }
+    if (data.containsKey('is_undone')) {
+      context.handle(
+        _isUndoneMeta,
+        isUndone.isAcceptableOrUnknown(data['is_undone']!, _isUndoneMeta),
+      );
+    }
+    if (data.containsKey('is_deleted')) {
+      context.handle(
+        _isDeletedMeta,
+        isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  MatchEvent map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return MatchEvent(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      sessionId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}session_id'],
+      )!,
+      playerId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}player_id'],
+      )!,
+      sourcePlayerId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source_player_id'],
+      ),
+      eventType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}event_type'],
+      )!,
+      delta: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}delta'],
+      )!,
+      value: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}value'],
+      )!,
+      sequenceNumber: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}sequence_number'],
+      )!,
+      payloadJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}payload_json'],
+      ),
+      timestamp: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}timestamp'],
+      )!,
+      isUndone: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_undone'],
+      )!,
+      isDeleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_deleted'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      ),
+    );
+  }
+
+  @override
+  $MatchEventsTable createAlias(String alias) {
+    return $MatchEventsTable(attachedDatabase, alias);
+  }
+}
+
+class MatchEvent extends DataClass implements Insertable<MatchEvent> {
+  /// Unique event identifier (UUID v4)
+  final String id;
+
+  /// Foreign key referencing parent match session
+  final String sessionId;
+
+  /// Target player receiving the adjustment (or session/table identifier for global events)
+  final String playerId;
+
+  /// Source player inflicting damage or causing the effect (e.g. opposing commander damage dealer)
+  final String? sourcePlayerId;
+
+  /// Event type identifier:
+  /// - 'session_created'
+  /// - 'life_delta'
+  /// - 'commander_damage'
+  /// - 'poison'
+  /// - 'energy'
+  /// - 'experience'
+  /// - 'commander_tax'
+  /// - 'monarch'
+  /// - 'initiative'
+  /// - 'day_night'
+  /// - 'mana_change'
+  /// - 'mana_clear'
+  /// - 'storm'
+  /// - 'dice_roll'
+  /// - 'coin_flip'
+  /// - 'reset'
+  /// - 'undo'
+  final String eventType;
+
+  /// Integer delta for this event (e.g. +3, -5, +1 poison)
+  final int delta;
+
+  /// Resulting or absolute value after applying the delta
+  final int value;
+
+  /// Monotonically increasing sequence number assigned by host authority for P2P ordering
+  final int sequenceNumber;
+
+  /// Extended payload for structured details (e.g. dice roll sides/results, mana color, coin result)
+  final String? payloadJson;
+
+  /// Timestamp when event occurred
+  final DateTime timestamp;
+
+  /// True if this event was undone by the player
+  final bool isUndone;
+
+  /// Soft deletion flag for offline-first data retention
+  final bool isDeleted;
+
+  /// Timestamp of last modification for sync conflict resolution
+  final DateTime? updatedAt;
+  const MatchEvent({
+    required this.id,
+    required this.sessionId,
+    required this.playerId,
+    this.sourcePlayerId,
+    required this.eventType,
+    required this.delta,
+    required this.value,
+    required this.sequenceNumber,
+    this.payloadJson,
+    required this.timestamp,
+    required this.isUndone,
+    required this.isDeleted,
+    this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['session_id'] = Variable<String>(sessionId);
+    map['player_id'] = Variable<String>(playerId);
+    if (!nullToAbsent || sourcePlayerId != null) {
+      map['source_player_id'] = Variable<String>(sourcePlayerId);
+    }
+    map['event_type'] = Variable<String>(eventType);
+    map['delta'] = Variable<int>(delta);
+    map['value'] = Variable<int>(value);
+    map['sequence_number'] = Variable<int>(sequenceNumber);
+    if (!nullToAbsent || payloadJson != null) {
+      map['payload_json'] = Variable<String>(payloadJson);
+    }
+    map['timestamp'] = Variable<DateTime>(timestamp);
+    map['is_undone'] = Variable<bool>(isUndone);
+    map['is_deleted'] = Variable<bool>(isDeleted);
+    if (!nullToAbsent || updatedAt != null) {
+      map['updated_at'] = Variable<DateTime>(updatedAt);
+    }
+    return map;
+  }
+
+  MatchEventsCompanion toCompanion(bool nullToAbsent) {
+    return MatchEventsCompanion(
+      id: Value(id),
+      sessionId: Value(sessionId),
+      playerId: Value(playerId),
+      sourcePlayerId: sourcePlayerId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(sourcePlayerId),
+      eventType: Value(eventType),
+      delta: Value(delta),
+      value: Value(value),
+      sequenceNumber: Value(sequenceNumber),
+      payloadJson: payloadJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(payloadJson),
+      timestamp: Value(timestamp),
+      isUndone: Value(isUndone),
+      isDeleted: Value(isDeleted),
+      updatedAt: updatedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(updatedAt),
+    );
+  }
+
+  factory MatchEvent.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return MatchEvent(
+      id: serializer.fromJson<String>(json['id']),
+      sessionId: serializer.fromJson<String>(json['sessionId']),
+      playerId: serializer.fromJson<String>(json['playerId']),
+      sourcePlayerId: serializer.fromJson<String?>(json['sourcePlayerId']),
+      eventType: serializer.fromJson<String>(json['eventType']),
+      delta: serializer.fromJson<int>(json['delta']),
+      value: serializer.fromJson<int>(json['value']),
+      sequenceNumber: serializer.fromJson<int>(json['sequenceNumber']),
+      payloadJson: serializer.fromJson<String?>(json['payloadJson']),
+      timestamp: serializer.fromJson<DateTime>(json['timestamp']),
+      isUndone: serializer.fromJson<bool>(json['isUndone']),
+      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+      updatedAt: serializer.fromJson<DateTime?>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'sessionId': serializer.toJson<String>(sessionId),
+      'playerId': serializer.toJson<String>(playerId),
+      'sourcePlayerId': serializer.toJson<String?>(sourcePlayerId),
+      'eventType': serializer.toJson<String>(eventType),
+      'delta': serializer.toJson<int>(delta),
+      'value': serializer.toJson<int>(value),
+      'sequenceNumber': serializer.toJson<int>(sequenceNumber),
+      'payloadJson': serializer.toJson<String?>(payloadJson),
+      'timestamp': serializer.toJson<DateTime>(timestamp),
+      'isUndone': serializer.toJson<bool>(isUndone),
+      'isDeleted': serializer.toJson<bool>(isDeleted),
+      'updatedAt': serializer.toJson<DateTime?>(updatedAt),
+    };
+  }
+
+  MatchEvent copyWith({
+    String? id,
+    String? sessionId,
+    String? playerId,
+    Value<String?> sourcePlayerId = const Value.absent(),
+    String? eventType,
+    int? delta,
+    int? value,
+    int? sequenceNumber,
+    Value<String?> payloadJson = const Value.absent(),
+    DateTime? timestamp,
+    bool? isUndone,
+    bool? isDeleted,
+    Value<DateTime?> updatedAt = const Value.absent(),
+  }) => MatchEvent(
+    id: id ?? this.id,
+    sessionId: sessionId ?? this.sessionId,
+    playerId: playerId ?? this.playerId,
+    sourcePlayerId: sourcePlayerId.present
+        ? sourcePlayerId.value
+        : this.sourcePlayerId,
+    eventType: eventType ?? this.eventType,
+    delta: delta ?? this.delta,
+    value: value ?? this.value,
+    sequenceNumber: sequenceNumber ?? this.sequenceNumber,
+    payloadJson: payloadJson.present ? payloadJson.value : this.payloadJson,
+    timestamp: timestamp ?? this.timestamp,
+    isUndone: isUndone ?? this.isUndone,
+    isDeleted: isDeleted ?? this.isDeleted,
+    updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
+  );
+  MatchEvent copyWithCompanion(MatchEventsCompanion data) {
+    return MatchEvent(
+      id: data.id.present ? data.id.value : this.id,
+      sessionId: data.sessionId.present ? data.sessionId.value : this.sessionId,
+      playerId: data.playerId.present ? data.playerId.value : this.playerId,
+      sourcePlayerId: data.sourcePlayerId.present
+          ? data.sourcePlayerId.value
+          : this.sourcePlayerId,
+      eventType: data.eventType.present ? data.eventType.value : this.eventType,
+      delta: data.delta.present ? data.delta.value : this.delta,
+      value: data.value.present ? data.value.value : this.value,
+      sequenceNumber: data.sequenceNumber.present
+          ? data.sequenceNumber.value
+          : this.sequenceNumber,
+      payloadJson: data.payloadJson.present
+          ? data.payloadJson.value
+          : this.payloadJson,
+      timestamp: data.timestamp.present ? data.timestamp.value : this.timestamp,
+      isUndone: data.isUndone.present ? data.isUndone.value : this.isUndone,
+      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('MatchEvent(')
+          ..write('id: $id, ')
+          ..write('sessionId: $sessionId, ')
+          ..write('playerId: $playerId, ')
+          ..write('sourcePlayerId: $sourcePlayerId, ')
+          ..write('eventType: $eventType, ')
+          ..write('delta: $delta, ')
+          ..write('value: $value, ')
+          ..write('sequenceNumber: $sequenceNumber, ')
+          ..write('payloadJson: $payloadJson, ')
+          ..write('timestamp: $timestamp, ')
+          ..write('isUndone: $isUndone, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    sessionId,
+    playerId,
+    sourcePlayerId,
+    eventType,
+    delta,
+    value,
+    sequenceNumber,
+    payloadJson,
+    timestamp,
+    isUndone,
+    isDeleted,
+    updatedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is MatchEvent &&
+          other.id == this.id &&
+          other.sessionId == this.sessionId &&
+          other.playerId == this.playerId &&
+          other.sourcePlayerId == this.sourcePlayerId &&
+          other.eventType == this.eventType &&
+          other.delta == this.delta &&
+          other.value == this.value &&
+          other.sequenceNumber == this.sequenceNumber &&
+          other.payloadJson == this.payloadJson &&
+          other.timestamp == this.timestamp &&
+          other.isUndone == this.isUndone &&
+          other.isDeleted == this.isDeleted &&
+          other.updatedAt == this.updatedAt);
+}
+
+class MatchEventsCompanion extends UpdateCompanion<MatchEvent> {
+  final Value<String> id;
+  final Value<String> sessionId;
+  final Value<String> playerId;
+  final Value<String?> sourcePlayerId;
+  final Value<String> eventType;
+  final Value<int> delta;
+  final Value<int> value;
+  final Value<int> sequenceNumber;
+  final Value<String?> payloadJson;
+  final Value<DateTime> timestamp;
+  final Value<bool> isUndone;
+  final Value<bool> isDeleted;
+  final Value<DateTime?> updatedAt;
+  final Value<int> rowid;
+  const MatchEventsCompanion({
+    this.id = const Value.absent(),
+    this.sessionId = const Value.absent(),
+    this.playerId = const Value.absent(),
+    this.sourcePlayerId = const Value.absent(),
+    this.eventType = const Value.absent(),
+    this.delta = const Value.absent(),
+    this.value = const Value.absent(),
+    this.sequenceNumber = const Value.absent(),
+    this.payloadJson = const Value.absent(),
+    this.timestamp = const Value.absent(),
+    this.isUndone = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  MatchEventsCompanion.insert({
+    required String id,
+    required String sessionId,
+    required String playerId,
+    this.sourcePlayerId = const Value.absent(),
+    required String eventType,
+    this.delta = const Value.absent(),
+    this.value = const Value.absent(),
+    this.sequenceNumber = const Value.absent(),
+    this.payloadJson = const Value.absent(),
+    required DateTime timestamp,
+    this.isUndone = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       sessionId = Value(sessionId),
+       playerId = Value(playerId),
+       eventType = Value(eventType),
+       timestamp = Value(timestamp);
+  static Insertable<MatchEvent> custom({
+    Expression<String>? id,
+    Expression<String>? sessionId,
+    Expression<String>? playerId,
+    Expression<String>? sourcePlayerId,
+    Expression<String>? eventType,
+    Expression<int>? delta,
+    Expression<int>? value,
+    Expression<int>? sequenceNumber,
+    Expression<String>? payloadJson,
+    Expression<DateTime>? timestamp,
+    Expression<bool>? isUndone,
+    Expression<bool>? isDeleted,
+    Expression<DateTime>? updatedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (sessionId != null) 'session_id': sessionId,
+      if (playerId != null) 'player_id': playerId,
+      if (sourcePlayerId != null) 'source_player_id': sourcePlayerId,
+      if (eventType != null) 'event_type': eventType,
+      if (delta != null) 'delta': delta,
+      if (value != null) 'value': value,
+      if (sequenceNumber != null) 'sequence_number': sequenceNumber,
+      if (payloadJson != null) 'payload_json': payloadJson,
+      if (timestamp != null) 'timestamp': timestamp,
+      if (isUndone != null) 'is_undone': isUndone,
+      if (isDeleted != null) 'is_deleted': isDeleted,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  MatchEventsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? sessionId,
+    Value<String>? playerId,
+    Value<String?>? sourcePlayerId,
+    Value<String>? eventType,
+    Value<int>? delta,
+    Value<int>? value,
+    Value<int>? sequenceNumber,
+    Value<String?>? payloadJson,
+    Value<DateTime>? timestamp,
+    Value<bool>? isUndone,
+    Value<bool>? isDeleted,
+    Value<DateTime?>? updatedAt,
+    Value<int>? rowid,
+  }) {
+    return MatchEventsCompanion(
+      id: id ?? this.id,
+      sessionId: sessionId ?? this.sessionId,
+      playerId: playerId ?? this.playerId,
+      sourcePlayerId: sourcePlayerId ?? this.sourcePlayerId,
+      eventType: eventType ?? this.eventType,
+      delta: delta ?? this.delta,
+      value: value ?? this.value,
+      sequenceNumber: sequenceNumber ?? this.sequenceNumber,
+      payloadJson: payloadJson ?? this.payloadJson,
+      timestamp: timestamp ?? this.timestamp,
+      isUndone: isUndone ?? this.isUndone,
+      isDeleted: isDeleted ?? this.isDeleted,
+      updatedAt: updatedAt ?? this.updatedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (sessionId.present) {
+      map['session_id'] = Variable<String>(sessionId.value);
+    }
+    if (playerId.present) {
+      map['player_id'] = Variable<String>(playerId.value);
+    }
+    if (sourcePlayerId.present) {
+      map['source_player_id'] = Variable<String>(sourcePlayerId.value);
+    }
+    if (eventType.present) {
+      map['event_type'] = Variable<String>(eventType.value);
+    }
+    if (delta.present) {
+      map['delta'] = Variable<int>(delta.value);
+    }
+    if (value.present) {
+      map['value'] = Variable<int>(value.value);
+    }
+    if (sequenceNumber.present) {
+      map['sequence_number'] = Variable<int>(sequenceNumber.value);
+    }
+    if (payloadJson.present) {
+      map['payload_json'] = Variable<String>(payloadJson.value);
+    }
+    if (timestamp.present) {
+      map['timestamp'] = Variable<DateTime>(timestamp.value);
+    }
+    if (isUndone.present) {
+      map['is_undone'] = Variable<bool>(isUndone.value);
+    }
+    if (isDeleted.present) {
+      map['is_deleted'] = Variable<bool>(isDeleted.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('MatchEventsCompanion(')
+          ..write('id: $id, ')
+          ..write('sessionId: $sessionId, ')
+          ..write('playerId: $playerId, ')
+          ..write('sourcePlayerId: $sourcePlayerId, ')
+          ..write('eventType: $eventType, ')
+          ..write('delta: $delta, ')
+          ..write('value: $value, ')
+          ..write('sequenceNumber: $sequenceNumber, ')
+          ..write('payloadJson: $payloadJson, ')
+          ..write('timestamp: $timestamp, ')
+          ..write('isUndone: $isUndone, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -5298,7 +8416,11 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $DeckMatchupsTable deckMatchups = $DeckMatchupsTable(this);
   late final $DeckSynergiesTable deckSynergies = $DeckSynergiesTable(this);
   late final $SyncQueueTable syncQueue = $SyncQueueTable(this);
+  late final $MatchSessionsTable matchSessions = $MatchSessionsTable(this);
+  late final $MatchPlayersTable matchPlayers = $MatchPlayersTable(this);
+  late final $MatchEventsTable matchEvents = $MatchEventsTable(this);
   late final VaultDao vaultDao = VaultDao(this as AppDatabase);
+  late final MatchDao matchDao = MatchDao(this as AppDatabase);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -5312,6 +8434,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     deckMatchups,
     deckSynergies,
     syncQueue,
+    matchSessions,
+    matchPlayers,
+    matchEvents,
   ];
 }
 
@@ -5742,6 +8867,24 @@ final class $$VaultItemsTableReferences
       manager.$state.copyWith(prefetchedData: cache),
     );
   }
+
+  static MultiTypedResultKey<$MatchPlayersTable, List<MatchPlayer>>
+  _matchPlayersRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.matchPlayers,
+    aliasName: 'vault_items__id__match_players__commander_card_id',
+  );
+
+  $$MatchPlayersTableProcessedTableManager get matchPlayersRefs {
+    final manager = $$MatchPlayersTableTableManager($_db, $_db.matchPlayers)
+        .filter(
+          (f) => f.commanderCardId.id.sqlEquals($_itemColumn<String>('id')!),
+        );
+
+    final cache = $_typedResult.readTableOrNull(_matchPlayersRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
 }
 
 class $$VaultItemsTableFilterComposer
@@ -5922,6 +9065,31 @@ class $$VaultItemsTableFilterComposer
           }) => $$DeckVersionItemsTableFilterComposer(
             $db: $db,
             $table: $db.deckVersionItems,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> matchPlayersRefs(
+    Expression<bool> Function($$MatchPlayersTableFilterComposer f) f,
+  ) {
+    final $$MatchPlayersTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.matchPlayers,
+      getReferencedColumn: (t) => t.commanderCardId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MatchPlayersTableFilterComposer(
+            $db: $db,
+            $table: $db.matchPlayers,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -6259,6 +9427,31 @@ class $$VaultItemsTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> matchPlayersRefs<T extends Object>(
+    Expression<T> Function($$MatchPlayersTableAnnotationComposer a) f,
+  ) {
+    final $$MatchPlayersTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.matchPlayers,
+      getReferencedColumn: (t) => t.commanderCardId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MatchPlayersTableAnnotationComposer(
+            $db: $db,
+            $table: $db.matchPlayers,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$VaultItemsTableTableManager
@@ -6277,6 +9470,7 @@ class $$VaultItemsTableTableManager
           PrefetchHooks Function({
             bool primaryBinderId,
             bool deckVersionItemsRefs,
+            bool matchPlayersRefs,
           })
         > {
   $$VaultItemsTableTableManager(_$AppDatabase db, $VaultItemsTable table)
@@ -6419,11 +9613,16 @@ class $$VaultItemsTableTableManager
               )
               .toList(),
           prefetchHooksCallback:
-              ({primaryBinderId = false, deckVersionItemsRefs = false}) {
+              ({
+                primaryBinderId = false,
+                deckVersionItemsRefs = false,
+                matchPlayersRefs = false,
+              }) {
                 return PrefetchHooks(
                   db: db,
                   explicitlyWatchedTables: [
                     if (deckVersionItemsRefs) db.deckVersionItems,
+                    if (matchPlayersRefs) db.matchPlayers,
                   ],
                   addJoins:
                       <
@@ -6481,6 +9680,27 @@ class $$VaultItemsTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (matchPlayersRefs)
+                        await $_getPrefetchedData<
+                          VaultItem,
+                          $VaultItemsTable,
+                          MatchPlayer
+                        >(
+                          currentTable: table,
+                          referencedTable: $$VaultItemsTableReferences
+                              ._matchPlayersRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$VaultItemsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).matchPlayersRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.commanderCardId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -6501,7 +9721,11 @@ typedef $$VaultItemsTableProcessedTableManager =
       $$VaultItemsTableUpdateCompanionBuilder,
       (VaultItem, $$VaultItemsTableReferences),
       VaultItem,
-      PrefetchHooks Function({bool primaryBinderId, bool deckVersionItemsRefs})
+      PrefetchHooks Function({
+        bool primaryBinderId,
+        bool deckVersionItemsRefs,
+        bool matchPlayersRefs,
+      })
     >;
 typedef $$DecksTableCreateCompanionBuilder =
     DecksCompanion Function({
@@ -6597,6 +9821,24 @@ final class $$DecksTableReferences
     ).filter((f) => f.deckId.id.sqlEquals($_itemColumn<String>('id')!));
 
     final cache = $_typedResult.readTableOrNull(_deckSynergiesRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$MatchPlayersTable, List<MatchPlayer>>
+  _matchPlayersRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.matchPlayers,
+    aliasName: 'decks__id__match_players__deck_id',
+  );
+
+  $$MatchPlayersTableProcessedTableManager get matchPlayersRefs {
+    final manager = $$MatchPlayersTableTableManager(
+      $_db,
+      $_db.matchPlayers,
+    ).filter((f) => f.deckId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_matchPlayersRefsTable($_db));
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: cache),
     );
@@ -6757,6 +9999,31 @@ class $$DecksTableFilterComposer extends Composer<_$AppDatabase, $DecksTable> {
           }) => $$DeckSynergiesTableFilterComposer(
             $db: $db,
             $table: $db.deckSynergies,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> matchPlayersRefs(
+    Expression<bool> Function($$MatchPlayersTableFilterComposer f) f,
+  ) {
+    final $$MatchPlayersTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.matchPlayers,
+      getReferencedColumn: (t) => t.deckId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MatchPlayersTableFilterComposer(
+            $db: $db,
+            $table: $db.matchPlayers,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -7000,6 +10267,31 @@ class $$DecksTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> matchPlayersRefs<T extends Object>(
+    Expression<T> Function($$MatchPlayersTableAnnotationComposer a) f,
+  ) {
+    final $$MatchPlayersTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.matchPlayers,
+      getReferencedColumn: (t) => t.deckId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MatchPlayersTableAnnotationComposer(
+            $db: $db,
+            $table: $db.matchPlayers,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$DecksTableTableManager
@@ -7019,6 +10311,7 @@ class $$DecksTableTableManager
             bool deckVersionsRefs,
             bool deckMatchupsRefs,
             bool deckSynergiesRefs,
+            bool matchPlayersRefs,
           })
         > {
   $$DecksTableTableManager(_$AppDatabase db, $DecksTable table)
@@ -7119,6 +10412,7 @@ class $$DecksTableTableManager
                 deckVersionsRefs = false,
                 deckMatchupsRefs = false,
                 deckSynergiesRefs = false,
+                matchPlayersRefs = false,
               }) {
                 return PrefetchHooks(
                   db: db,
@@ -7126,6 +10420,7 @@ class $$DecksTableTableManager
                     if (deckVersionsRefs) db.deckVersions,
                     if (deckMatchupsRefs) db.deckMatchups,
                     if (deckSynergiesRefs) db.deckSynergies,
+                    if (matchPlayersRefs) db.matchPlayers,
                   ],
                   addJoins: null,
                   getPrefetchedDataCallback: (items) async {
@@ -7193,6 +10488,27 @@ class $$DecksTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (matchPlayersRefs)
+                        await $_getPrefetchedData<
+                          Deck,
+                          $DecksTable,
+                          MatchPlayer
+                        >(
+                          currentTable: table,
+                          referencedTable: $$DecksTableReferences
+                              ._matchPlayersRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$DecksTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).matchPlayersRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.deckId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -7217,6 +10533,7 @@ typedef $$DecksTableProcessedTableManager =
         bool deckVersionsRefs,
         bool deckMatchupsRefs,
         bool deckSynergiesRefs,
+        bool matchPlayersRefs,
       })
     >;
 typedef $$DeckVersionsTableCreateCompanionBuilder =
@@ -9112,6 +12429,1979 @@ typedef $$SyncQueueTableProcessedTableManager =
       SyncQueueEntry,
       PrefetchHooks Function()
     >;
+typedef $$MatchSessionsTableCreateCompanionBuilder =
+    MatchSessionsCompanion Function({
+      required String id,
+      Value<String> name,
+      Value<String> format,
+      Value<int> startingLife,
+      Value<int> playerCount,
+      Value<String> status,
+      required DateTime createdAt,
+      Value<DateTime?> endedAt,
+      Value<bool> isP2pHost,
+      Value<String?> p2pSessionCode,
+      Value<String?> settingsJson,
+      Value<bool> isDeleted,
+      Value<DateTime?> updatedAt,
+      Value<int> rowid,
+    });
+typedef $$MatchSessionsTableUpdateCompanionBuilder =
+    MatchSessionsCompanion Function({
+      Value<String> id,
+      Value<String> name,
+      Value<String> format,
+      Value<int> startingLife,
+      Value<int> playerCount,
+      Value<String> status,
+      Value<DateTime> createdAt,
+      Value<DateTime?> endedAt,
+      Value<bool> isP2pHost,
+      Value<String?> p2pSessionCode,
+      Value<String?> settingsJson,
+      Value<bool> isDeleted,
+      Value<DateTime?> updatedAt,
+      Value<int> rowid,
+    });
+
+final class $$MatchSessionsTableReferences
+    extends BaseReferences<_$AppDatabase, $MatchSessionsTable, MatchSession> {
+  $$MatchSessionsTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static MultiTypedResultKey<$MatchPlayersTable, List<MatchPlayer>>
+  _matchPlayersRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.matchPlayers,
+    aliasName: 'match_sessions__id__match_players__session_id',
+  );
+
+  $$MatchPlayersTableProcessedTableManager get matchPlayersRefs {
+    final manager = $$MatchPlayersTableTableManager(
+      $_db,
+      $_db.matchPlayers,
+    ).filter((f) => f.sessionId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_matchPlayersRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$MatchEventsTable, List<MatchEvent>>
+  _matchEventsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.matchEvents,
+    aliasName: 'match_sessions__id__match_events__session_id',
+  );
+
+  $$MatchEventsTableProcessedTableManager get matchEventsRefs {
+    final manager = $$MatchEventsTableTableManager(
+      $_db,
+      $_db.matchEvents,
+    ).filter((f) => f.sessionId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_matchEventsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
+
+class $$MatchSessionsTableFilterComposer
+    extends Composer<_$AppDatabase, $MatchSessionsTable> {
+  $$MatchSessionsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get format => $composableBuilder(
+    column: $table.format,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get startingLife => $composableBuilder(
+    column: $table.startingLife,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get playerCount => $composableBuilder(
+    column: $table.playerCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get endedAt => $composableBuilder(
+    column: $table.endedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isP2pHost => $composableBuilder(
+    column: $table.isP2pHost,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get p2pSessionCode => $composableBuilder(
+    column: $table.p2pSessionCode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get settingsJson => $composableBuilder(
+    column: $table.settingsJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  Expression<bool> matchPlayersRefs(
+    Expression<bool> Function($$MatchPlayersTableFilterComposer f) f,
+  ) {
+    final $$MatchPlayersTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.matchPlayers,
+      getReferencedColumn: (t) => t.sessionId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MatchPlayersTableFilterComposer(
+            $db: $db,
+            $table: $db.matchPlayers,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> matchEventsRefs(
+    Expression<bool> Function($$MatchEventsTableFilterComposer f) f,
+  ) {
+    final $$MatchEventsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.matchEvents,
+      getReferencedColumn: (t) => t.sessionId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MatchEventsTableFilterComposer(
+            $db: $db,
+            $table: $db.matchEvents,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$MatchSessionsTableOrderingComposer
+    extends Composer<_$AppDatabase, $MatchSessionsTable> {
+  $$MatchSessionsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get format => $composableBuilder(
+    column: $table.format,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get startingLife => $composableBuilder(
+    column: $table.startingLife,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get playerCount => $composableBuilder(
+    column: $table.playerCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get endedAt => $composableBuilder(
+    column: $table.endedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isP2pHost => $composableBuilder(
+    column: $table.isP2pHost,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get p2pSessionCode => $composableBuilder(
+    column: $table.p2pSessionCode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get settingsJson => $composableBuilder(
+    column: $table.settingsJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$MatchSessionsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $MatchSessionsTable> {
+  $$MatchSessionsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get format =>
+      $composableBuilder(column: $table.format, builder: (column) => column);
+
+  GeneratedColumn<int> get startingLife => $composableBuilder(
+    column: $table.startingLife,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get playerCount => $composableBuilder(
+    column: $table.playerCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get endedAt =>
+      $composableBuilder(column: $table.endedAt, builder: (column) => column);
+
+  GeneratedColumn<bool> get isP2pHost =>
+      $composableBuilder(column: $table.isP2pHost, builder: (column) => column);
+
+  GeneratedColumn<String> get p2pSessionCode => $composableBuilder(
+    column: $table.p2pSessionCode,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get settingsJson => $composableBuilder(
+    column: $table.settingsJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isDeleted =>
+      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  Expression<T> matchPlayersRefs<T extends Object>(
+    Expression<T> Function($$MatchPlayersTableAnnotationComposer a) f,
+  ) {
+    final $$MatchPlayersTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.matchPlayers,
+      getReferencedColumn: (t) => t.sessionId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MatchPlayersTableAnnotationComposer(
+            $db: $db,
+            $table: $db.matchPlayers,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<T> matchEventsRefs<T extends Object>(
+    Expression<T> Function($$MatchEventsTableAnnotationComposer a) f,
+  ) {
+    final $$MatchEventsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.matchEvents,
+      getReferencedColumn: (t) => t.sessionId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MatchEventsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.matchEvents,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$MatchSessionsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $MatchSessionsTable,
+          MatchSession,
+          $$MatchSessionsTableFilterComposer,
+          $$MatchSessionsTableOrderingComposer,
+          $$MatchSessionsTableAnnotationComposer,
+          $$MatchSessionsTableCreateCompanionBuilder,
+          $$MatchSessionsTableUpdateCompanionBuilder,
+          (MatchSession, $$MatchSessionsTableReferences),
+          MatchSession,
+          PrefetchHooks Function({bool matchPlayersRefs, bool matchEventsRefs})
+        > {
+  $$MatchSessionsTableTableManager(_$AppDatabase db, $MatchSessionsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$MatchSessionsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$MatchSessionsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$MatchSessionsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<String> format = const Value.absent(),
+                Value<int> startingLife = const Value.absent(),
+                Value<int> playerCount = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime?> endedAt = const Value.absent(),
+                Value<bool> isP2pHost = const Value.absent(),
+                Value<String?> p2pSessionCode = const Value.absent(),
+                Value<String?> settingsJson = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<DateTime?> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => MatchSessionsCompanion(
+                id: id,
+                name: name,
+                format: format,
+                startingLife: startingLife,
+                playerCount: playerCount,
+                status: status,
+                createdAt: createdAt,
+                endedAt: endedAt,
+                isP2pHost: isP2pHost,
+                p2pSessionCode: p2pSessionCode,
+                settingsJson: settingsJson,
+                isDeleted: isDeleted,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                Value<String> name = const Value.absent(),
+                Value<String> format = const Value.absent(),
+                Value<int> startingLife = const Value.absent(),
+                Value<int> playerCount = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                required DateTime createdAt,
+                Value<DateTime?> endedAt = const Value.absent(),
+                Value<bool> isP2pHost = const Value.absent(),
+                Value<String?> p2pSessionCode = const Value.absent(),
+                Value<String?> settingsJson = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<DateTime?> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => MatchSessionsCompanion.insert(
+                id: id,
+                name: name,
+                format: format,
+                startingLife: startingLife,
+                playerCount: playerCount,
+                status: status,
+                createdAt: createdAt,
+                endedAt: endedAt,
+                isP2pHost: isP2pHost,
+                p2pSessionCode: p2pSessionCode,
+                settingsJson: settingsJson,
+                isDeleted: isDeleted,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$MatchSessionsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback:
+              ({matchPlayersRefs = false, matchEventsRefs = false}) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [
+                    if (matchPlayersRefs) db.matchPlayers,
+                    if (matchEventsRefs) db.matchEvents,
+                  ],
+                  addJoins: null,
+                  getPrefetchedDataCallback: (items) async {
+                    return [
+                      if (matchPlayersRefs)
+                        await $_getPrefetchedData<
+                          MatchSession,
+                          $MatchSessionsTable,
+                          MatchPlayer
+                        >(
+                          currentTable: table,
+                          referencedTable: $$MatchSessionsTableReferences
+                              ._matchPlayersRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$MatchSessionsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).matchPlayersRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.sessionId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (matchEventsRefs)
+                        await $_getPrefetchedData<
+                          MatchSession,
+                          $MatchSessionsTable,
+                          MatchEvent
+                        >(
+                          currentTable: table,
+                          referencedTable: $$MatchSessionsTableReferences
+                              ._matchEventsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$MatchSessionsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).matchEventsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.sessionId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                    ];
+                  },
+                );
+              },
+        ),
+      );
+}
+
+typedef $$MatchSessionsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $MatchSessionsTable,
+      MatchSession,
+      $$MatchSessionsTableFilterComposer,
+      $$MatchSessionsTableOrderingComposer,
+      $$MatchSessionsTableAnnotationComposer,
+      $$MatchSessionsTableCreateCompanionBuilder,
+      $$MatchSessionsTableUpdateCompanionBuilder,
+      (MatchSession, $$MatchSessionsTableReferences),
+      MatchSession,
+      PrefetchHooks Function({bool matchPlayersRefs, bool matchEventsRefs})
+    >;
+typedef $$MatchPlayersTableCreateCompanionBuilder =
+    MatchPlayersCompanion Function({
+      required String id,
+      required String sessionId,
+      required int seatOrder,
+      required String playerName,
+      Value<String?> deckId,
+      Value<String?> commanderCardId,
+      Value<String?> commanderName,
+      Value<String?> artCropUrl,
+      Value<String?> colorTheme,
+      Value<int> currentLife,
+      Value<int> poison,
+      Value<int> energy,
+      Value<int> experience,
+      Value<int> commanderTax,
+      Value<bool> isMonarch,
+      Value<bool> hasInitiative,
+      Value<bool> isEliminated,
+      Value<DateTime?> eliminatedAt,
+      Value<bool> isLocalDevice,
+      Value<String?> peerDeviceId,
+      Value<String?> commanderDamageJson,
+      Value<String?> floatingManaJson,
+      Value<int> stormCount,
+      Value<String?> countersJson,
+      Value<bool> isDeleted,
+      Value<DateTime?> updatedAt,
+      Value<int> rowid,
+    });
+typedef $$MatchPlayersTableUpdateCompanionBuilder =
+    MatchPlayersCompanion Function({
+      Value<String> id,
+      Value<String> sessionId,
+      Value<int> seatOrder,
+      Value<String> playerName,
+      Value<String?> deckId,
+      Value<String?> commanderCardId,
+      Value<String?> commanderName,
+      Value<String?> artCropUrl,
+      Value<String?> colorTheme,
+      Value<int> currentLife,
+      Value<int> poison,
+      Value<int> energy,
+      Value<int> experience,
+      Value<int> commanderTax,
+      Value<bool> isMonarch,
+      Value<bool> hasInitiative,
+      Value<bool> isEliminated,
+      Value<DateTime?> eliminatedAt,
+      Value<bool> isLocalDevice,
+      Value<String?> peerDeviceId,
+      Value<String?> commanderDamageJson,
+      Value<String?> floatingManaJson,
+      Value<int> stormCount,
+      Value<String?> countersJson,
+      Value<bool> isDeleted,
+      Value<DateTime?> updatedAt,
+      Value<int> rowid,
+    });
+
+final class $$MatchPlayersTableReferences
+    extends BaseReferences<_$AppDatabase, $MatchPlayersTable, MatchPlayer> {
+  $$MatchPlayersTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $MatchSessionsTable _sessionIdTable(_$AppDatabase db) => db
+      .matchSessions
+      .createAlias('match_players__session_id__match_sessions__id');
+
+  $$MatchSessionsTableProcessedTableManager get sessionId {
+    final $_column = $_itemColumn<String>('session_id')!;
+
+    final manager = $$MatchSessionsTableTableManager(
+      $_db,
+      $_db.matchSessions,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_sessionIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $DecksTable _deckIdTable(_$AppDatabase db) =>
+      db.decks.createAlias('match_players__deck_id__decks__id');
+
+  $$DecksTableProcessedTableManager? get deckId {
+    final $_column = $_itemColumn<String>('deck_id');
+    if ($_column == null) return null;
+    final manager = $$DecksTableTableManager(
+      $_db,
+      $_db.decks,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_deckIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $VaultItemsTable _commanderCardIdTable(_$AppDatabase db) => db
+      .vaultItems
+      .createAlias('match_players__commander_card_id__vault_items__id');
+
+  $$VaultItemsTableProcessedTableManager? get commanderCardId {
+    final $_column = $_itemColumn<String>('commander_card_id');
+    if ($_column == null) return null;
+    final manager = $$VaultItemsTableTableManager(
+      $_db,
+      $_db.vaultItems,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_commanderCardIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$MatchPlayersTableFilterComposer
+    extends Composer<_$AppDatabase, $MatchPlayersTable> {
+  $$MatchPlayersTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get seatOrder => $composableBuilder(
+    column: $table.seatOrder,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get playerName => $composableBuilder(
+    column: $table.playerName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get commanderName => $composableBuilder(
+    column: $table.commanderName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get artCropUrl => $composableBuilder(
+    column: $table.artCropUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get colorTheme => $composableBuilder(
+    column: $table.colorTheme,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get currentLife => $composableBuilder(
+    column: $table.currentLife,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get poison => $composableBuilder(
+    column: $table.poison,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get energy => $composableBuilder(
+    column: $table.energy,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get experience => $composableBuilder(
+    column: $table.experience,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get commanderTax => $composableBuilder(
+    column: $table.commanderTax,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isMonarch => $composableBuilder(
+    column: $table.isMonarch,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get hasInitiative => $composableBuilder(
+    column: $table.hasInitiative,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isEliminated => $composableBuilder(
+    column: $table.isEliminated,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get eliminatedAt => $composableBuilder(
+    column: $table.eliminatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isLocalDevice => $composableBuilder(
+    column: $table.isLocalDevice,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get peerDeviceId => $composableBuilder(
+    column: $table.peerDeviceId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get commanderDamageJson => $composableBuilder(
+    column: $table.commanderDamageJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get floatingManaJson => $composableBuilder(
+    column: $table.floatingManaJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get stormCount => $composableBuilder(
+    column: $table.stormCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get countersJson => $composableBuilder(
+    column: $table.countersJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$MatchSessionsTableFilterComposer get sessionId {
+    final $$MatchSessionsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.sessionId,
+      referencedTable: $db.matchSessions,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MatchSessionsTableFilterComposer(
+            $db: $db,
+            $table: $db.matchSessions,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$DecksTableFilterComposer get deckId {
+    final $$DecksTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.deckId,
+      referencedTable: $db.decks,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$DecksTableFilterComposer(
+            $db: $db,
+            $table: $db.decks,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$VaultItemsTableFilterComposer get commanderCardId {
+    final $$VaultItemsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.commanderCardId,
+      referencedTable: $db.vaultItems,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$VaultItemsTableFilterComposer(
+            $db: $db,
+            $table: $db.vaultItems,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$MatchPlayersTableOrderingComposer
+    extends Composer<_$AppDatabase, $MatchPlayersTable> {
+  $$MatchPlayersTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get seatOrder => $composableBuilder(
+    column: $table.seatOrder,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get playerName => $composableBuilder(
+    column: $table.playerName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get commanderName => $composableBuilder(
+    column: $table.commanderName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get artCropUrl => $composableBuilder(
+    column: $table.artCropUrl,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get colorTheme => $composableBuilder(
+    column: $table.colorTheme,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get currentLife => $composableBuilder(
+    column: $table.currentLife,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get poison => $composableBuilder(
+    column: $table.poison,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get energy => $composableBuilder(
+    column: $table.energy,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get experience => $composableBuilder(
+    column: $table.experience,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get commanderTax => $composableBuilder(
+    column: $table.commanderTax,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isMonarch => $composableBuilder(
+    column: $table.isMonarch,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get hasInitiative => $composableBuilder(
+    column: $table.hasInitiative,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isEliminated => $composableBuilder(
+    column: $table.isEliminated,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get eliminatedAt => $composableBuilder(
+    column: $table.eliminatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isLocalDevice => $composableBuilder(
+    column: $table.isLocalDevice,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get peerDeviceId => $composableBuilder(
+    column: $table.peerDeviceId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get commanderDamageJson => $composableBuilder(
+    column: $table.commanderDamageJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get floatingManaJson => $composableBuilder(
+    column: $table.floatingManaJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get stormCount => $composableBuilder(
+    column: $table.stormCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get countersJson => $composableBuilder(
+    column: $table.countersJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$MatchSessionsTableOrderingComposer get sessionId {
+    final $$MatchSessionsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.sessionId,
+      referencedTable: $db.matchSessions,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MatchSessionsTableOrderingComposer(
+            $db: $db,
+            $table: $db.matchSessions,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$DecksTableOrderingComposer get deckId {
+    final $$DecksTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.deckId,
+      referencedTable: $db.decks,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$DecksTableOrderingComposer(
+            $db: $db,
+            $table: $db.decks,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$VaultItemsTableOrderingComposer get commanderCardId {
+    final $$VaultItemsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.commanderCardId,
+      referencedTable: $db.vaultItems,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$VaultItemsTableOrderingComposer(
+            $db: $db,
+            $table: $db.vaultItems,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$MatchPlayersTableAnnotationComposer
+    extends Composer<_$AppDatabase, $MatchPlayersTable> {
+  $$MatchPlayersTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<int> get seatOrder =>
+      $composableBuilder(column: $table.seatOrder, builder: (column) => column);
+
+  GeneratedColumn<String> get playerName => $composableBuilder(
+    column: $table.playerName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get commanderName => $composableBuilder(
+    column: $table.commanderName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get artCropUrl => $composableBuilder(
+    column: $table.artCropUrl,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get colorTheme => $composableBuilder(
+    column: $table.colorTheme,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get currentLife => $composableBuilder(
+    column: $table.currentLife,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get poison =>
+      $composableBuilder(column: $table.poison, builder: (column) => column);
+
+  GeneratedColumn<int> get energy =>
+      $composableBuilder(column: $table.energy, builder: (column) => column);
+
+  GeneratedColumn<int> get experience => $composableBuilder(
+    column: $table.experience,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get commanderTax => $composableBuilder(
+    column: $table.commanderTax,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isMonarch =>
+      $composableBuilder(column: $table.isMonarch, builder: (column) => column);
+
+  GeneratedColumn<bool> get hasInitiative => $composableBuilder(
+    column: $table.hasInitiative,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isEliminated => $composableBuilder(
+    column: $table.isEliminated,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get eliminatedAt => $composableBuilder(
+    column: $table.eliminatedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isLocalDevice => $composableBuilder(
+    column: $table.isLocalDevice,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get peerDeviceId => $composableBuilder(
+    column: $table.peerDeviceId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get commanderDamageJson => $composableBuilder(
+    column: $table.commanderDamageJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get floatingManaJson => $composableBuilder(
+    column: $table.floatingManaJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get stormCount => $composableBuilder(
+    column: $table.stormCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get countersJson => $composableBuilder(
+    column: $table.countersJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isDeleted =>
+      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  $$MatchSessionsTableAnnotationComposer get sessionId {
+    final $$MatchSessionsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.sessionId,
+      referencedTable: $db.matchSessions,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MatchSessionsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.matchSessions,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$DecksTableAnnotationComposer get deckId {
+    final $$DecksTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.deckId,
+      referencedTable: $db.decks,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$DecksTableAnnotationComposer(
+            $db: $db,
+            $table: $db.decks,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$VaultItemsTableAnnotationComposer get commanderCardId {
+    final $$VaultItemsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.commanderCardId,
+      referencedTable: $db.vaultItems,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$VaultItemsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.vaultItems,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$MatchPlayersTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $MatchPlayersTable,
+          MatchPlayer,
+          $$MatchPlayersTableFilterComposer,
+          $$MatchPlayersTableOrderingComposer,
+          $$MatchPlayersTableAnnotationComposer,
+          $$MatchPlayersTableCreateCompanionBuilder,
+          $$MatchPlayersTableUpdateCompanionBuilder,
+          (MatchPlayer, $$MatchPlayersTableReferences),
+          MatchPlayer,
+          PrefetchHooks Function({
+            bool sessionId,
+            bool deckId,
+            bool commanderCardId,
+          })
+        > {
+  $$MatchPlayersTableTableManager(_$AppDatabase db, $MatchPlayersTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$MatchPlayersTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$MatchPlayersTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$MatchPlayersTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> sessionId = const Value.absent(),
+                Value<int> seatOrder = const Value.absent(),
+                Value<String> playerName = const Value.absent(),
+                Value<String?> deckId = const Value.absent(),
+                Value<String?> commanderCardId = const Value.absent(),
+                Value<String?> commanderName = const Value.absent(),
+                Value<String?> artCropUrl = const Value.absent(),
+                Value<String?> colorTheme = const Value.absent(),
+                Value<int> currentLife = const Value.absent(),
+                Value<int> poison = const Value.absent(),
+                Value<int> energy = const Value.absent(),
+                Value<int> experience = const Value.absent(),
+                Value<int> commanderTax = const Value.absent(),
+                Value<bool> isMonarch = const Value.absent(),
+                Value<bool> hasInitiative = const Value.absent(),
+                Value<bool> isEliminated = const Value.absent(),
+                Value<DateTime?> eliminatedAt = const Value.absent(),
+                Value<bool> isLocalDevice = const Value.absent(),
+                Value<String?> peerDeviceId = const Value.absent(),
+                Value<String?> commanderDamageJson = const Value.absent(),
+                Value<String?> floatingManaJson = const Value.absent(),
+                Value<int> stormCount = const Value.absent(),
+                Value<String?> countersJson = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<DateTime?> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => MatchPlayersCompanion(
+                id: id,
+                sessionId: sessionId,
+                seatOrder: seatOrder,
+                playerName: playerName,
+                deckId: deckId,
+                commanderCardId: commanderCardId,
+                commanderName: commanderName,
+                artCropUrl: artCropUrl,
+                colorTheme: colorTheme,
+                currentLife: currentLife,
+                poison: poison,
+                energy: energy,
+                experience: experience,
+                commanderTax: commanderTax,
+                isMonarch: isMonarch,
+                hasInitiative: hasInitiative,
+                isEliminated: isEliminated,
+                eliminatedAt: eliminatedAt,
+                isLocalDevice: isLocalDevice,
+                peerDeviceId: peerDeviceId,
+                commanderDamageJson: commanderDamageJson,
+                floatingManaJson: floatingManaJson,
+                stormCount: stormCount,
+                countersJson: countersJson,
+                isDeleted: isDeleted,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String sessionId,
+                required int seatOrder,
+                required String playerName,
+                Value<String?> deckId = const Value.absent(),
+                Value<String?> commanderCardId = const Value.absent(),
+                Value<String?> commanderName = const Value.absent(),
+                Value<String?> artCropUrl = const Value.absent(),
+                Value<String?> colorTheme = const Value.absent(),
+                Value<int> currentLife = const Value.absent(),
+                Value<int> poison = const Value.absent(),
+                Value<int> energy = const Value.absent(),
+                Value<int> experience = const Value.absent(),
+                Value<int> commanderTax = const Value.absent(),
+                Value<bool> isMonarch = const Value.absent(),
+                Value<bool> hasInitiative = const Value.absent(),
+                Value<bool> isEliminated = const Value.absent(),
+                Value<DateTime?> eliminatedAt = const Value.absent(),
+                Value<bool> isLocalDevice = const Value.absent(),
+                Value<String?> peerDeviceId = const Value.absent(),
+                Value<String?> commanderDamageJson = const Value.absent(),
+                Value<String?> floatingManaJson = const Value.absent(),
+                Value<int> stormCount = const Value.absent(),
+                Value<String?> countersJson = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<DateTime?> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => MatchPlayersCompanion.insert(
+                id: id,
+                sessionId: sessionId,
+                seatOrder: seatOrder,
+                playerName: playerName,
+                deckId: deckId,
+                commanderCardId: commanderCardId,
+                commanderName: commanderName,
+                artCropUrl: artCropUrl,
+                colorTheme: colorTheme,
+                currentLife: currentLife,
+                poison: poison,
+                energy: energy,
+                experience: experience,
+                commanderTax: commanderTax,
+                isMonarch: isMonarch,
+                hasInitiative: hasInitiative,
+                isEliminated: isEliminated,
+                eliminatedAt: eliminatedAt,
+                isLocalDevice: isLocalDevice,
+                peerDeviceId: peerDeviceId,
+                commanderDamageJson: commanderDamageJson,
+                floatingManaJson: floatingManaJson,
+                stormCount: stormCount,
+                countersJson: countersJson,
+                isDeleted: isDeleted,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$MatchPlayersTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback:
+              ({sessionId = false, deckId = false, commanderCardId = false}) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [],
+                  addJoins:
+                      <
+                        T extends TableManagerState<
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic
+                        >
+                      >(state) {
+                        if (sessionId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.sessionId,
+                                    referencedTable:
+                                        $$MatchPlayersTableReferences
+                                            ._sessionIdTable(db),
+                                    referencedColumn:
+                                        $$MatchPlayersTableReferences
+                                            ._sessionIdTable(db)
+                                            .id,
+                                  )
+                                  as T;
+                        }
+                        if (deckId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.deckId,
+                                    referencedTable:
+                                        $$MatchPlayersTableReferences
+                                            ._deckIdTable(db),
+                                    referencedColumn:
+                                        $$MatchPlayersTableReferences
+                                            ._deckIdTable(db)
+                                            .id,
+                                  )
+                                  as T;
+                        }
+                        if (commanderCardId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.commanderCardId,
+                                    referencedTable:
+                                        $$MatchPlayersTableReferences
+                                            ._commanderCardIdTable(db),
+                                    referencedColumn:
+                                        $$MatchPlayersTableReferences
+                                            ._commanderCardIdTable(db)
+                                            .id,
+                                  )
+                                  as T;
+                        }
+
+                        return state;
+                      },
+                  getPrefetchedDataCallback: (items) async {
+                    return [];
+                  },
+                );
+              },
+        ),
+      );
+}
+
+typedef $$MatchPlayersTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $MatchPlayersTable,
+      MatchPlayer,
+      $$MatchPlayersTableFilterComposer,
+      $$MatchPlayersTableOrderingComposer,
+      $$MatchPlayersTableAnnotationComposer,
+      $$MatchPlayersTableCreateCompanionBuilder,
+      $$MatchPlayersTableUpdateCompanionBuilder,
+      (MatchPlayer, $$MatchPlayersTableReferences),
+      MatchPlayer,
+      PrefetchHooks Function({
+        bool sessionId,
+        bool deckId,
+        bool commanderCardId,
+      })
+    >;
+typedef $$MatchEventsTableCreateCompanionBuilder =
+    MatchEventsCompanion Function({
+      required String id,
+      required String sessionId,
+      required String playerId,
+      Value<String?> sourcePlayerId,
+      required String eventType,
+      Value<int> delta,
+      Value<int> value,
+      Value<int> sequenceNumber,
+      Value<String?> payloadJson,
+      required DateTime timestamp,
+      Value<bool> isUndone,
+      Value<bool> isDeleted,
+      Value<DateTime?> updatedAt,
+      Value<int> rowid,
+    });
+typedef $$MatchEventsTableUpdateCompanionBuilder =
+    MatchEventsCompanion Function({
+      Value<String> id,
+      Value<String> sessionId,
+      Value<String> playerId,
+      Value<String?> sourcePlayerId,
+      Value<String> eventType,
+      Value<int> delta,
+      Value<int> value,
+      Value<int> sequenceNumber,
+      Value<String?> payloadJson,
+      Value<DateTime> timestamp,
+      Value<bool> isUndone,
+      Value<bool> isDeleted,
+      Value<DateTime?> updatedAt,
+      Value<int> rowid,
+    });
+
+final class $$MatchEventsTableReferences
+    extends BaseReferences<_$AppDatabase, $MatchEventsTable, MatchEvent> {
+  $$MatchEventsTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $MatchSessionsTable _sessionIdTable(_$AppDatabase db) => db
+      .matchSessions
+      .createAlias('match_events__session_id__match_sessions__id');
+
+  $$MatchSessionsTableProcessedTableManager get sessionId {
+    final $_column = $_itemColumn<String>('session_id')!;
+
+    final manager = $$MatchSessionsTableTableManager(
+      $_db,
+      $_db.matchSessions,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_sessionIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$MatchEventsTableFilterComposer
+    extends Composer<_$AppDatabase, $MatchEventsTable> {
+  $$MatchEventsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get playerId => $composableBuilder(
+    column: $table.playerId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sourcePlayerId => $composableBuilder(
+    column: $table.sourcePlayerId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get eventType => $composableBuilder(
+    column: $table.eventType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get delta => $composableBuilder(
+    column: $table.delta,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get value => $composableBuilder(
+    column: $table.value,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get sequenceNumber => $composableBuilder(
+    column: $table.sequenceNumber,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get payloadJson => $composableBuilder(
+    column: $table.payloadJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get timestamp => $composableBuilder(
+    column: $table.timestamp,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isUndone => $composableBuilder(
+    column: $table.isUndone,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$MatchSessionsTableFilterComposer get sessionId {
+    final $$MatchSessionsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.sessionId,
+      referencedTable: $db.matchSessions,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MatchSessionsTableFilterComposer(
+            $db: $db,
+            $table: $db.matchSessions,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$MatchEventsTableOrderingComposer
+    extends Composer<_$AppDatabase, $MatchEventsTable> {
+  $$MatchEventsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get playerId => $composableBuilder(
+    column: $table.playerId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sourcePlayerId => $composableBuilder(
+    column: $table.sourcePlayerId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get eventType => $composableBuilder(
+    column: $table.eventType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get delta => $composableBuilder(
+    column: $table.delta,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get value => $composableBuilder(
+    column: $table.value,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get sequenceNumber => $composableBuilder(
+    column: $table.sequenceNumber,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get payloadJson => $composableBuilder(
+    column: $table.payloadJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get timestamp => $composableBuilder(
+    column: $table.timestamp,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isUndone => $composableBuilder(
+    column: $table.isUndone,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$MatchSessionsTableOrderingComposer get sessionId {
+    final $$MatchSessionsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.sessionId,
+      referencedTable: $db.matchSessions,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MatchSessionsTableOrderingComposer(
+            $db: $db,
+            $table: $db.matchSessions,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$MatchEventsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $MatchEventsTable> {
+  $$MatchEventsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get playerId =>
+      $composableBuilder(column: $table.playerId, builder: (column) => column);
+
+  GeneratedColumn<String> get sourcePlayerId => $composableBuilder(
+    column: $table.sourcePlayerId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get eventType =>
+      $composableBuilder(column: $table.eventType, builder: (column) => column);
+
+  GeneratedColumn<int> get delta =>
+      $composableBuilder(column: $table.delta, builder: (column) => column);
+
+  GeneratedColumn<int> get value =>
+      $composableBuilder(column: $table.value, builder: (column) => column);
+
+  GeneratedColumn<int> get sequenceNumber => $composableBuilder(
+    column: $table.sequenceNumber,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get payloadJson => $composableBuilder(
+    column: $table.payloadJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get timestamp =>
+      $composableBuilder(column: $table.timestamp, builder: (column) => column);
+
+  GeneratedColumn<bool> get isUndone =>
+      $composableBuilder(column: $table.isUndone, builder: (column) => column);
+
+  GeneratedColumn<bool> get isDeleted =>
+      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  $$MatchSessionsTableAnnotationComposer get sessionId {
+    final $$MatchSessionsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.sessionId,
+      referencedTable: $db.matchSessions,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MatchSessionsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.matchSessions,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$MatchEventsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $MatchEventsTable,
+          MatchEvent,
+          $$MatchEventsTableFilterComposer,
+          $$MatchEventsTableOrderingComposer,
+          $$MatchEventsTableAnnotationComposer,
+          $$MatchEventsTableCreateCompanionBuilder,
+          $$MatchEventsTableUpdateCompanionBuilder,
+          (MatchEvent, $$MatchEventsTableReferences),
+          MatchEvent,
+          PrefetchHooks Function({bool sessionId})
+        > {
+  $$MatchEventsTableTableManager(_$AppDatabase db, $MatchEventsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$MatchEventsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$MatchEventsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$MatchEventsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> sessionId = const Value.absent(),
+                Value<String> playerId = const Value.absent(),
+                Value<String?> sourcePlayerId = const Value.absent(),
+                Value<String> eventType = const Value.absent(),
+                Value<int> delta = const Value.absent(),
+                Value<int> value = const Value.absent(),
+                Value<int> sequenceNumber = const Value.absent(),
+                Value<String?> payloadJson = const Value.absent(),
+                Value<DateTime> timestamp = const Value.absent(),
+                Value<bool> isUndone = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<DateTime?> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => MatchEventsCompanion(
+                id: id,
+                sessionId: sessionId,
+                playerId: playerId,
+                sourcePlayerId: sourcePlayerId,
+                eventType: eventType,
+                delta: delta,
+                value: value,
+                sequenceNumber: sequenceNumber,
+                payloadJson: payloadJson,
+                timestamp: timestamp,
+                isUndone: isUndone,
+                isDeleted: isDeleted,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String sessionId,
+                required String playerId,
+                Value<String?> sourcePlayerId = const Value.absent(),
+                required String eventType,
+                Value<int> delta = const Value.absent(),
+                Value<int> value = const Value.absent(),
+                Value<int> sequenceNumber = const Value.absent(),
+                Value<String?> payloadJson = const Value.absent(),
+                required DateTime timestamp,
+                Value<bool> isUndone = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<DateTime?> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => MatchEventsCompanion.insert(
+                id: id,
+                sessionId: sessionId,
+                playerId: playerId,
+                sourcePlayerId: sourcePlayerId,
+                eventType: eventType,
+                delta: delta,
+                value: value,
+                sequenceNumber: sequenceNumber,
+                payloadJson: payloadJson,
+                timestamp: timestamp,
+                isUndone: isUndone,
+                isDeleted: isDeleted,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$MatchEventsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({sessionId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (sessionId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.sessionId,
+                                referencedTable: $$MatchEventsTableReferences
+                                    ._sessionIdTable(db),
+                                referencedColumn: $$MatchEventsTableReferences
+                                    ._sessionIdTable(db)
+                                    .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$MatchEventsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $MatchEventsTable,
+      MatchEvent,
+      $$MatchEventsTableFilterComposer,
+      $$MatchEventsTableOrderingComposer,
+      $$MatchEventsTableAnnotationComposer,
+      $$MatchEventsTableCreateCompanionBuilder,
+      $$MatchEventsTableUpdateCompanionBuilder,
+      (MatchEvent, $$MatchEventsTableReferences),
+      MatchEvent,
+      PrefetchHooks Function({bool sessionId})
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -9132,4 +14422,10 @@ class $AppDatabaseManager {
       $$DeckSynergiesTableTableManager(_db, _db.deckSynergies);
   $$SyncQueueTableTableManager get syncQueue =>
       $$SyncQueueTableTableManager(_db, _db.syncQueue);
+  $$MatchSessionsTableTableManager get matchSessions =>
+      $$MatchSessionsTableTableManager(_db, _db.matchSessions);
+  $$MatchPlayersTableTableManager get matchPlayers =>
+      $$MatchPlayersTableTableManager(_db, _db.matchPlayers);
+  $$MatchEventsTableTableManager get matchEvents =>
+      $$MatchEventsTableTableManager(_db, _db.matchEvents);
 }

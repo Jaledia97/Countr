@@ -1,6 +1,13 @@
+// Copyright (c) 2026 Countr. All rights reserved.
+
 import 'package:flutter/material.dart';
+
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_typography.dart';
+import '../../../../features/decks/domain/models/deck_summary.dart';
+import '../../../../features/life_counter/domain/models/pod_state.dart';
+import '../../../../features/life_counter/presentation/dialogs/pregame_setup_sheet.dart';
+import '../../../../features/life_counter/presentation/widgets/pod_scaffold_widget.dart';
 
 /// Accordion 2: "Play / Track +"
 /// Features Nested ExpansionTiles:
@@ -9,10 +16,16 @@ import '../../../../core/constants/app_typography.dart';
 /// - "Lorcana" -> Grandchildren: "Core / Standard", "Draft"
 class PlayTrackAccordion extends StatelessWidget {
   final VoidCallback onModeSelected;
+  final void Function(String format)? onLaunchMtgMode;
+  final void Function(PodState podState)? onStartMatch;
+  final List<DeckSummary>? injectedDecks;
 
   const PlayTrackAccordion({
     super.key,
     required this.onModeSelected,
+    this.onLaunchMtgMode,
+    this.onStartMatch,
+    this.injectedDecks,
   });
 
   @override
@@ -142,17 +155,12 @@ class PlayTrackAccordion extends StatelessWidget {
           top: 2,
         ),
         children: modes.map((mode) {
+          final modeKey =
+              'mode_${gameTitle.toLowerCase()}_${mode.toLowerCase().replaceAll(' ', '_').replaceAll('/', '_')}';
+
           return InkWell(
-            onTap: () {
-              onModeSelected();
-              ScaffoldMessenger.of(context).hideCurrentSnackBar();
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  behavior: SnackBarBehavior.floating,
-                  content: Text('Selected Play/Track mode: $gameTitle - $mode'),
-                ),
-              );
-            },
+            key: Key(modeKey),
+            onTap: () => _handleModeTap(context, gameTitle, mode),
             borderRadius: BorderRadius.circular(8),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -188,5 +196,43 @@ class PlayTrackAccordion extends StatelessWidget {
         }).toList(),
       ),
     );
+  }
+
+  Future<void> _handleModeTap(
+    BuildContext context,
+    String gameTitle,
+    String mode,
+  ) async {
+    onModeSelected();
+
+    if (gameTitle == 'MTG') {
+      if (onLaunchMtgMode != null) {
+        onLaunchMtgMode!(mode);
+      } else {
+        final formatKey = mode.toLowerCase();
+        final podState = await PregameSetupSheet.show(
+          context,
+          initialFormat: formatKey,
+          injectedDecks: injectedDecks,
+          onStartMatch: onStartMatch,
+        );
+
+        if (podState != null && context.mounted) {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => PodScaffoldWidget(podState: podState),
+            ),
+          );
+        }
+      }
+    } else {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          content: Text('Selected Play/Track mode: $gameTitle - $mode'),
+        ),
+      );
+    }
   }
 }

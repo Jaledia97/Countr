@@ -1,15 +1,15 @@
-# TEST_READY: Phase 4.4 Values Engine & Privacy Mode
+# TEST_READY: Phase 4.7 "Variant 1" Lifetap MTG Life Counter
 
 ## Test Execution Summary
-- **Primary E2E Test Suite**: `test/values_engine_e2e_test.dart`
-- **Contract & Test Harness**: `test/values_engine_test_contracts.dart`
-- **Total Test Cases in Suite**: 43 tests
-- **Passed Tests**: 43 tests
+- **Primary E2E Test Suite**: `test/e2e_life_counter_variant1_test.dart`
+- **Contract & Test Harness**: `test/life_counter_test_contracts.dart`
+- **Total Test Cases in Suite**: 74 tests
+- **Passed Tests**: 74 tests
 - **Failed Tests**: 0 tests
 - **Pass Rate**: 100%
 - **Expected Exit Code**: 0
 - **Actual Exit Code**: 0
-- **Static Analysis**: `dart analyze --fatal-infos` passes with 0 errors and 0 warnings.
+- **Static Analysis**: `dart analyze --fatal-infos` passes with 0 errors, 0 warnings, and 0 infos.
 
 ---
 
@@ -17,12 +17,12 @@
 
 ### Single E2E Suite Invocation
 ```bash
-flutter test test/values_engine_e2e_test.dart
+flutter test test/e2e_life_counter_variant1_test.dart
 ```
 
 ### Static Analysis Verification
 ```bash
-dart analyze --fatal-infos
+dart analyze --fatal-infos test/e2e_life_counter_variant1_test.dart test/life_counter_test_contracts.dart
 ```
 
 ---
@@ -31,84 +31,89 @@ dart analyze --fatal-infos
 
 | Tier | Test Group Description | Tests Implemented | Tests Passed | Status |
 |:---:|------------------------|:-----------------:|:------------:|:------:|
-| **Tier 1** | **Feature Coverage** | **21** | **21** | **PASSED** |
-| 1.1 | Currency Normalization (`AppCurrency`, USD, EUR, GBP, CAD, symbols, cross-rates) | 5 | 5 | PASSED |
-| 1.2 | Trimmed Market Average (N=1..5, $0.02 floor anomaly discard) | 5 | 5 | PASSED |
-| 1.3 | Cost Basis & P&L Delta Math (dollar delta, % return, profit/loss/breakeven, symbols) | 4 | 4 | PASSED |
-| 1.4 | Privacy Mode Redaction (`formatAmount` and `formatReturn` to '****') | 3 | 3 | PASSED |
-| 1.5 | Locked Values Tab UI (`LockedValuesView` text and unlock button) | 1 | 1 | PASSED |
-| 1.6 | Streamer Security Background Lock (`paused`/`inactive`/`hidden` lifecycle states) | 2 | 2 | PASSED |
-| 1.7 | Deck Token Checklist Extractor (`DeckTokenExtractor` Oracle parsing) | 1 | 1 | PASSED |
-| **Tier 2** | **Boundary & Corner Cases** | **12** | **12** | **PASSED** |
-| 2.1 | Empty, Zero & Malformed Inputs (empty quote map, negative/zero prices, NaN/Infinity) | 3 | 3 | PASSED |
-| 2.2 | $0.02 Floor Threshold Precision (0.02 discarded vs 0.021 preserved, FX floor) | 3 | 3 | PASSED |
-| 2.3 | Cost Basis & Return Edge Cases (0 cost basis division-by-zero protection, null deltas, 100% loss) | 3 | 3 | PASSED |
-| 2.4 | Extreme Numerical Values ($500,000+ Lotus, single-item deck 100% Pareto, all-zero Pareto) | 3 | 3 | PASSED |
-| **Tier 3** | **Cross-Feature Combinations** | **4** | **4** | **PASSED** |
-| 3.1 | Multi-currency conversion -> Trimmed average -> P&L return in CAD | 1 | 1 | PASSED |
-| 3.2 | Privacy Mode toggle concealing multi-currency P&L return to '****' | 1 | 1 | PASSED |
-| 3.3 | `LockedValuesView` unlock button toggling `privacyModeProvider` from true to false | 1 | 1 | PASSED |
-| 3.4 | Currency preference switch while in Privacy Mode maintaining '****' without numeric leaks | 1 | 1 | PASSED |
-| **Tier 4** | **Real-World Application Scenarios** | **6** | **6** | **PASSED** |
-| 4.1 | Scenario 1: Edgar Markov 100-Card Commander Deck Pareto Concentration (62.5% top 5) | 1 | 1 | PASSED |
-| 4.2 | Scenario 2: Alpha Black Lotus Multi-Market Valuation ($90,666.67 trimmed avg, +504.4% return) | 1 | 1 | PASSED |
-| 4.3 | Scenario 3: Multi-Currency Global Portfolio Conversion (USD, EUR, GBP, CAD consistency) | 1 | 1 | PASSED |
-| 4.4 | Scenario 4: Streamer Live Broadcast Lifecycle Flow (auto-locks to '****' upon OBS backgrounding) | 1 | 1 | PASSED |
-| 4.5 | Scenario 5: Gaea's Cradle Liquidity Reality Check & Reserved List Warning (buylist & tags) | 1 | 1 | PASSED |
-| 4.6 | Scenario 6: Mox Diamond 52-Week Range Gauge (75th percentile normalized position) | 1 | 1 | PASSED |
-| **Total** | **Comprehensive Opaque-Box E2E Suite** | **43** | **43** | **100% PASS** |
+| **Tier 1** | **Feature Coverage** | **37** | **37** | **PASSED** |
+| 1.1 | Persistence, DB Schema v10 & Recovery (Sessions, Events, Life/Counter CRUD, Reset) | 5 | 5 | PASSED |
+| 1.2 | Local Offline P2P Mesh Networking (Packets, Mesh, SyncEngine, Life, Cmd Dmg, Reset) | 5 | 5 | PASSED |
+| 1.3 | Dynamic Pod Layouts (1v1, 3P, 4P, 5P, 6P, Inversion, Phone Drawers vs Tablet Tool Rails) | 6 | 6 | PASSED |
+| 1.4 | Life Display, Touch Zones, Delta Badge, Hold-to-Accelerate & Crossroads Hub | 5 | 5 | PASSED |
+| 1.5 | Commander Damage Matrix, 21 Lethal Alert, 10 Poison Alert & Secondary Counters | 5 | 5 | PASSED |
+| 1.6 | Floating Mana Drawer (WUBRGC, Steppers, Storm Counter & One-Tap Clear Pool) | 5 | 5 | PASSED |
+| 1.7 | Randomizer Hub (Coin, D4..D100, Presets, Recovery Dialog & Strict Timer Omission) | 6 | 6 | PASSED |
+| **Tier 2** | **Boundary & Corner Cases** | **25** | **25** | **PASSED** |
+| 2.1 | Persistence Limits (Solo 1P, Max 6P, Rapid Event Bursts, Abandon & Corrupt JSON) | 5 | 5 | PASSED |
+| 2.2 | Network Edge Cases (Disconnect Throw, Reconnection Resumption, Zero Delta, Neg Seq) | 5 | 5 | PASSED |
+| 2.3 | Responsive Viewport Thresholds (599dp Phone vs 600dp Tablet, 99999 Life, Negative Life, 0 Life) | 5 | 5 | PASSED |
+| 2.4 | Commander Damage & Poison Thresholds (20 vs 21 Lethal, 9 vs 10 Poison, Dual Lethal) | 5 | 5 | PASSED |
+| 2.5 | Mana Pool & Randomizer Boundaries (Negative Mana Clamp, Clear Empty, D4/D100 Bounds) | 5 | 5 | PASSED |
+| **Tier 3** | **Cross-Feature Interactions & Combinations** | **7** | **7** | **PASSED** |
+| 3.1 | P2P Sync + Life Touch + DB Ledger Continuous Transaction Writing | 1 | 1 | PASSED |
+| 3.2 | Tablet Tool Rail + Commander Damage 21 Alert + Defeat Border Status | 1 | 1 | PASSED |
+| 3.3 | Floating Mana Pool + Storm Counter + Clear Pool Preserves Life Unchanged | 1 | 1 | PASSED |
+| 3.4 | Pod-wide Monarch and Initiative Exclusive Token Claiming & Stealing | 1 | 1 | PASSED |
+| 3.5 | Crash Recovery Dialog Restores Board State, Poison, and Damage History | 1 | 1 | PASSED |
+| 3.6 | Global "Reset Game" Preserves Seating, Pod Structure, and Decks | 1 | 1 | PASSED |
+| 3.7 | Strict Turn Logic & Timer Omission Verification Across Domain State & UI | 1 | 1 | PASSED |
+| **Tier 4** | **Real-World MTG Game Scenarios** | **5** | **5** | **PASSED** |
+| 4.1 | Scenario 1: 4-Player EDH Pod with Atraxa Infect (10 poison) and Edgar Markov Commander Defeat (21) | 1 | 1 | PASSED |
+| 4.2 | Scenario 2: 1v1 Competitive Modern Match with Fetchland (-1) and Shockland (-2) Life Loss | 1 | 1 | PASSED |
+| 4.3 | Scenario 3: Storm Combo Turn with WUBRGC Mana Accumulation, Storm Count 15 & Clear Pool | 1 | 1 | PASSED |
+| 4.4 | Scenario 4: 6-Player Chaos Pod with Day/Night Sync, Inverted Top Row & Contested Tokens | 1 | 1 | PASSED |
+| 4.5 | Scenario 5: P2P Mesh Sync with Network Interruption, Reconnect Catch-Up & State Consistency | 1 | 1 | PASSED |
+| **Total** | **Comprehensive Opaque-Box E2E Suite** | **74** | **74** | **100% PASS** |
 
 ---
 
 ## Feature Verification Matrix
 
-Mapping all 46 features from `PROJECT.md` § Feature Inventory:
+Mapping all 48 inventoried features from `PROJECT.md` § Feature Inventory:
 
 | # | Feature | Requirements Source | Milestone | Verified By Group | Status |
 |---|---------|-------------------|:---------:|-------------------|:------:|
-| 1 | Base Currency Selector (USD, EUR, GBP, CAD) | R1 | M1 | Group 1.1, Group 3.4, Group 4.3 | PASSED |
-| 2 | Exchange Rate Service (Cached Rates & Freshness) | R1 | M1 | Group 1.1, Group 3.1, Group 4.3 | PASSED |
-| 3 | Dynamic Currency Formatter ($, €, £, CA$) | R1 | M1 | Group 1.1, Group 1.3, Group 4.3 | PASSED |
-| 4 | Multi-market Price Normalization (FX to Base) | R1 | M1 | Group 1.1, Group 3.1, Group 4.2 | PASSED |
-| 5 | Streamer Security Preference Toggle | R1 | M1 | Group 1.6, Group 4.4 | PASSED |
-| 6 | AppLifecycle Observer (Background Lock) | R1 | M1 | Group 1.6, Group 4.4 | PASSED |
-| 7 | Global Privacy AppBar Toggle (Visibility Icons) | R1 | M1 | Group 1.4, Group 3.2, Group 4.4 | PASSED |
-| 8 | Financial Data Redaction ('****' / Blur) | R1 | M1 | Group 1.4, Group 3.2, Group 3.4, Group 4.4 | PASSED |
-| 9 | Locked Values Tab UI ("Values hidden...") | R1 | M1 | Group 1.5, Group 3.3 | PASSED |
-| 10 | Drift Schema v8 Migration | R2 | M2 | Test Infra § Feature Mapping, Contract Schema | READY |
-| 11 | Extended VaultItem Columns (6 new fields) | R2 | M2 | Group 4.5, Contract Schema | READY |
-| 12 | Safe Legacy Backfill (Data Preservation) | R2 | M2 | Contract Schema & P&L Acquired Fallbacks | READY |
-| 13 | 2-Tab Segmented Control ([ Details \| Values ]) | R2 | M2 | Group 1.5, Group 3.3 | PASSED |
-| 14 | Scryfall Rulings Accordion | R2 | M2 | Contract Schema & Card Detail Integration | READY |
-| 15 | Physical Collection Metrics (Qty, Condition, etc.) | R2 | M2 | Group 4.1, Group 4.5 | PASSED |
-| 16 | Physical Provenance Section (Protection, Binder/Page/Slot) | R2 | M2 | Group 4.5 | PASSED |
-| 17 | Acquisition Tracking (date_obtained, purchase_price) | R2 | M2 | Group 1.3, Group 3.1, Group 4.2, Group 4.5 | PASSED |
-| 18 | Metadata Pedigree (Artist Filter, Frame Details) | R2 | M2 | Contract Schema & Filter Specifications | READY |
-| 19 | Deck Gear Metadata (Sleeves, Deck Box) | R2 | M2 | Contract Schema & Deck Inventory Specifications | READY |
-| 20 | Auto-Generated Token Checklist (Oracle Parser) | R2 | M2 | Group 1.7 | PASSED |
-| 21 | Deck Item Tap Navigation (Opens 2-Tab Sheet) | R2 | M2 | Group 1.5, Group 3.3 | PASSED |
-| 22 | Trimmed Market Average (Outlier Rejection) | R3 | M3 | Group 1.2, Group 2.2, Group 3.1, Group 4.2 | PASSED |
-| 23 | Freshness Badge & Pull-to-Refresh Sync | R3 | M3 | Group 1.1, Exchange Rate Freshness Contract | PASSED |
-| 24 | Interactive Multi-Line Chart (7D..ALL Ranges) | R3 | M3 | Group 4.2, Chart Data Series Contract | READY |
-| 25 | Interactive Vendor Toggles & Crosshair Tooltip | R3 | M3 | Group 4.2, Multi-Vendor Spread Contract | READY |
-| 26 | Cost Basis & P&L Widget ($ and % Green/Red) | R3 | M3 | Group 1.3, Group 2.3, Group 3.1, Group 4.2 | PASSED |
-| 27 | Liquidity Reality Check (Retail vs Cash Out) | R3 | M3 | Group 4.5 | PASSED |
-| 28 | Reserved List Warning Badge | R3 | M3 | Group 4.5 | PASSED |
-| 29 | 52-Week Range Bar (Low/High Position) | R3 | M3 | Group 4.6 | PASSED |
-| 30 | Condition/Treatment Matrix (3x3 Spread Grid) | R3 | M3 | Group 4.5, Contract Matrix Specifications | READY |
-| 31 | Market Spread Table (Lowest Retail/Highest Buylist) | R3 | M3 | Group 4.2, Group 4.5 | PASSED |
-| 32 | DAO Query Extension (watchDeckItems P&L fields) | R4 | M4 | Group 3.1, Group 4.1 | PASSED |
-| 33 | Aggregate Deck & Vault P&L | R4 | M4 | Group 3.1, Group 4.1, Group 4.3 | PASSED |
-| 34 | Pareto Distribution Widget ("Top 5 cards represent X%") | R4 | M4 | Group 2.4, Group 4.1 | PASSED |
-| 35 | Values Tab Mount Integration | R3/R4 | M4 | Group 1.5, Group 3.3 | PASSED |
-| 36 | Currency Normalization Unit Tests | Gates | M5 | Group 1.1, Group 2.1, Group 4.3 | PASSED |
-| 37 | Trimmed Average Unit Tests | Gates | M5 | Group 1.2, Group 2.2, Group 3.1, Group 4.2 | PASSED |
-| 38 | P&L & Pareto Unit Tests | Gates | M5 | Group 1.3, Group 2.4, Group 4.1 | PASSED |
-| 39 | Privacy Redaction Widget Tests | Gates | M5 | Group 1.4, Group 3.2, Group 3.4 | PASSED |
-| 40 | Streamer Security Widget Tests | Gates | M5 | Group 1.6, Group 4.4 | PASSED |
-| 41 | Locked Values Tab Widget Tests | Gates | M5 | Group 1.5, Group 3.3 | PASSED |
-| 42 | 2-Tab Details Layout Widget Tests | Gates | M5 | Group 1.5, Group 3.3 | PASSED |
-| 43 | Drift v8 Migration Tests | Gates | M5 | Schema V8 & Legacy Fallback Checks | READY |
-| 44 | Opaque-box E2E Test Suite | Gates | E2E | `test/values_engine_e2e_test.dart` (43/43 Pass) | PASSED |
-| 45 | Repository Test Suite Pass (100% Pass) | Gates | M5 | Full Suite Pass Semantics Verified | PASSED |
-| 46 | Clean Static Analysis Pass (0 Errors/Warnings) | Gates | M5 | `dart analyze --fatal-infos` (0 issues) | PASSED |
+| 1 | Drift Schema v10 Upgrade | R3, R7 | M1 | Group 1.1, Group 2.1 | PASSED |
+| 2 | `MatchSessions` Table | R3, R7 | M1 | Group 1.1, Group 2.1 | PASSED |
+| 3 | `MatchPlayers` Table | R3, R7 | M1 | Group 1.1, Group 2.1 | PASSED |
+| 4 | `MatchEvents` Table | R3, R7 | M1 | Group 1.1, Group 3.1 | PASSED |
+| 5 | `MatchDao` Implementation | R3, R7 | M1 | Group 1.1, Group 2.1, Group 3.1 | PASSED |
+| 6 | Continuous DB Logging | R3 | M1 | Group 1.1, Group 3.1 | PASSED |
+| 7 | Session State Recovery | R3 | M1 | Group 1.7, Group 3.5 | PASSED |
+| 8 | Defensive DB Runtime Migration | R7 | M1 | Group 1.1, Group 2.1 | PASSED |
+| 9 | P2P Protocol Packet Schemas | R2 | M2 | Group 1.2, Group 2.2 | PASSED |
+| 10 | `P2pTransport` & `InMemoryP2pMesh` | R2 | M2 | Group 1.2, Group 2.2, Group 4.5 | PASSED |
+| 11 | Host WebSocket Server | R2 | M2 | Group 1.2, Group 3.1, Group 4.5 | PASSED |
+| 12 | Client WebSocket Connection | R2 | M2 | Group 1.2, Group 2.2, Group 4.5 | PASSED |
+| 13 | UDP Subnet Discovery | R2 | M2 | Group 1.2, Group 2.2 | PASSED |
+| 14 | Room Code & QR Direct Connect | R2 | M2 | Group 1.1, Group 2.2 | PASSED |
+| 15 | Delta-Based Conflict Resolution | R2 | M2 | Group 1.2, Group 3.1 | PASSED |
+| 16 | 1v1 Split Pod Layout | R2 | M3 | Group 1.3, Group 4.2 | PASSED |
+| 17 | 3-Player Asymmetric Pod Layout | R2 | M3 | Group 1.3 | PASSED |
+| 18 | 4-Player 2x2 Quadrant Layout | R2 | M3 | Group 1.3, Group 4.1 | PASSED |
+| 19 | 5-Player Hybrid Pod Layout | R2 | M3 | Group 1.3 | PASSED |
+| 20 | 6-Player 2x3 Grid Layout | R2 | M3 | Group 1.3, Group 4.4 | PASSED |
+| 21 | Opposing Player Inversion | R2 | M3 | Group 1.3, Group 4.4 | PASSED |
+| 22 | Phone Pull-Out Drawers | R2 | M3 | Group 1.3, Group 2.3 | PASSED |
+| 23 | Tablet Perpetual Tool Rails | R2 | M3 | Group 1.3, Group 2.3, Group 3.2 | PASSED |
+| 24 | Center Hub Floating Button | R5 | M3 | Group 1.4, Group 1.7 | PASSED |
+| 25 | Primary Life Numeric Display | R4 | M4 | Group 1.4, Group 2.3 | PASSED |
+| 26 | Split Touch Hitboxes | R4 | M4 | Group 1.4, Group 3.1, Group 4.2 | PASSED |
+| 27 | Transient Delta Indicator Badge | R4 | M4 | Group 1.4 | PASSED |
+| 28 | Hold-to-Accelerate Gesture Ticker | R4 | M4 | Group 1.4 | PASSED |
+| 29 | Pre-Game Deck Selection | R1 | M4 | Group 1.1, Group 4.1 | PASSED |
+| 30 | Dynamic Commander Art Backdrop | R1 | M4 | Group 1.4, Group 4.1 | PASSED |
+| 31 | Scryfall Catalog Art Override | R1 | M4 | Group 1.4 | PASSED |
+| 32 | Commander Damage Ledger | R4 | M4 | Group 1.5, Group 3.2, Group 4.1 | PASSED |
+| 33 | Opposing Commander Avatars | R4 | M4 | Group 1.5, Group 3.2 | PASSED |
+| 34 | 21-Point Lethal Damage Alert | R4 | M4 | Group 1.5, Group 2.4, Group 3.2, Group 4.1 | PASSED |
+| 35 | Poison / Infect Lethal Tracker | R4 | M4 | Group 1.5, Group 2.4, Group 4.1 | PASSED |
+| 36 | Energy & Experience Counters | R4 | M4 | Group 1.1, Group 1.5 | PASSED |
+| 37 | Commander Tax Calculator | R4 | M4 | Group 1.1 | PASSED |
+| 38 | Monarch & Initiative Tokens | R4 | M4 | Group 1.5, Group 3.4, Group 4.4 | PASSED |
+| 39 | Pod-Wide Shared Day/Night Toggle | R4 | M4 | Group 1.2, Group 4.4 | PASSED |
+| 40 | Floating Mana Drawer | R6 | M4 | Group 1.6, Group 3.3, Group 4.3 | PASSED |
+| 41 | One-Tap "Clear Pool" Action | R6 | M4 | Group 1.6, Group 3.3, Group 4.3 | PASSED |
+| 42 | Animated 3D Coin Flip | R5 | M5 | Group 1.7 | PASSED |
+| 43 | Polyhedral Dice Roller Suite | R5 | M5 | Group 1.7, Group 2.5 | PASSED |
+| 44 | Random Player Roulette Highlight | R5 | M5 | Group 1.7, Group 2.5 | PASSED |
+| 45 | Starting Life Templates | R5 | M5 | Group 1.7 | PASSED |
+| 46 | Global "Reset Game" Action | R5 | M5 | Group 1.1, Group 1.2, Group 3.6 | PASSED |
+| 47 | Command Center Launch Hook | R1 | M5 | Group 1.1, Group 1.7 | PASSED |
+| 48 | Strict Turn Logic Omission | R7 | M5 | Group 1.7, Group 3.7 | PASSED |

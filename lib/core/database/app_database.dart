@@ -9,7 +9,11 @@ import 'package:countr/core/database/tables/decks/deck_version_items_table.dart'
 import 'package:countr/core/database/tables/decks/deck_matchups_table.dart';
 import 'package:countr/core/database/tables/decks/deck_synergies_table.dart';
 import 'package:countr/core/database/tables/sync_queue_table.dart';
+import 'package:countr/core/database/tables/matches/match_sessions_table.dart';
+import 'package:countr/core/database/tables/matches/match_players_table.dart';
+import 'package:countr/core/database/tables/matches/match_events_table.dart';
 import 'package:countr/features/vault/data/daos/vault_dao.dart';
+import 'package:countr/features/life_counter/data/daos/match_dao.dart';
 
 part 'app_database.g.dart';
 
@@ -25,8 +29,11 @@ part 'app_database.g.dart';
     DeckMatchups,
     DeckSynergies,
     SyncQueue,
+    MatchSessions,
+    MatchPlayers,
+    MatchEvents,
   ],
-  daos: [VaultDao],
+  daos: [VaultDao, MatchDao],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? e])
@@ -40,7 +47,7 @@ class AppDatabase extends _$AppDatabase {
         );
 
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 10;
 
   @override
   MigrationStrategy get migration {
@@ -137,6 +144,16 @@ class AppDatabase extends _$AppDatabase {
           await addSoftDeleteCols(deckVersionItems, deckVersionItems.isDeleted, deckVersionItems.updatedAt);
           await addSoftDeleteCols(deckMatchups, deckMatchups.isDeleted, deckMatchups.updatedAt);
           await addSoftDeleteCols(deckSynergies, deckSynergies.isDeleted, deckSynergies.updatedAt);
+        }
+
+        if (from < 10) {
+          try {
+            await m.createTable(matchSessions);
+            await m.createTable(matchPlayers);
+            await m.createTable(matchEvents);
+          } catch (error, stackTrace) {
+            debugPrint('[AppDatabase.onUpgrade] Migration to v10 warning: $error\n$stackTrace');
+          }
         }
       },
       beforeOpen: (details) async {
@@ -392,6 +409,168 @@ class AppDatabase extends _$AppDatabase {
           } catch (error, stackTrace) {
             debugPrint('[AppDatabase.beforeOpen] v9 schema verification ($tableName) warning: $error\n$stackTrace');
           }
+        }
+
+        // Defensive runtime schema verification for v10 (Match Sessions, Players, Events):
+        // 1. Ensure match_sessions table exists
+        try {
+          await customStatement('''
+            CREATE TABLE IF NOT EXISTS "match_sessions" (
+              "id" TEXT NOT NULL PRIMARY KEY,
+              "name" TEXT NOT NULL DEFAULT 'MTG Match',
+              "format" TEXT NOT NULL DEFAULT 'Commander',
+              "starting_life" INTEGER NOT NULL DEFAULT 40,
+              "player_count" INTEGER NOT NULL DEFAULT 4,
+              "status" TEXT NOT NULL DEFAULT 'active',
+              "created_at" INTEGER NOT NULL,
+              "ended_at" INTEGER,
+              "is_p2p_host" INTEGER NOT NULL DEFAULT 0,
+              "p2p_session_code" TEXT,
+              "settings_json" TEXT,
+              "is_deleted" INTEGER NOT NULL DEFAULT 0,
+              "updated_at" INTEGER
+            );
+          ''');
+        } catch (error, stackTrace) {
+          debugPrint('[AppDatabase.beforeOpen] match_sessions table creation warning: $error\n$stackTrace');
+        }
+
+        // 2. Ensure match_players table exists
+        try {
+          await customStatement('''
+            CREATE TABLE IF NOT EXISTS "match_players" (
+              "id" TEXT NOT NULL PRIMARY KEY,
+              "session_id" TEXT NOT NULL REFERENCES "match_sessions" ("id"),
+              "seat_order" INTEGER NOT NULL,
+              "player_name" TEXT NOT NULL,
+              "deck_id" TEXT REFERENCES "decks" ("id"),
+              "commander_card_id" TEXT REFERENCES "vault_items" ("id"),
+              "commander_name" TEXT,
+              "art_crop_url" TEXT,
+              "color_theme" TEXT,
+              "current_life" INTEGER NOT NULL DEFAULT 40,
+              "poison" INTEGER NOT NULL DEFAULT 0,
+              "energy" INTEGER NOT NULL DEFAULT 0,
+              "experience" INTEGER NOT NULL DEFAULT 0,
+              "commander_tax" INTEGER NOT NULL DEFAULT 0,
+              "is_monarch" INTEGER NOT NULL DEFAULT 0,
+              "has_initiative" INTEGER NOT NULL DEFAULT 0,
+              "is_eliminated" INTEGER NOT NULL DEFAULT 0,
+              "eliminated_at" INTEGER,
+              "is_local_device" INTEGER NOT NULL DEFAULT 1,
+              "peer_device_id" TEXT,
+              "commander_damage_json" TEXT,
+              "floating_mana_json" TEXT,
+              "storm_count" INTEGER NOT NULL DEFAULT 0,
+              "counters_json" TEXT,
+              "is_deleted" INTEGER NOT NULL DEFAULT 0,
+              "updated_at" INTEGER
+            );
+          ''');
+        } catch (error, stackTrace) {
+          debugPrint('[AppDatabase.beforeOpen] match_players table creation warning: $error\n$stackTrace');
+        }
+
+        // 3. Ensure match_events table exists
+        try {
+          await customStatement('''
+            CREATE TABLE IF NOT EXISTS "match_events" (
+              "id" TEXT NOT NULL PRIMARY KEY,
+              "session_id" TEXT NOT NULL REFERENCES "match_sessions" ("id"),
+              "player_id" TEXT NOT NULL,
+              "source_player_id" TEXT,
+              "event_type" TEXT NOT NULL,
+              "delta" INTEGER NOT NULL DEFAULT 0,
+              "value" INTEGER NOT NULL DEFAULT 0,
+              "sequence_number" INTEGER NOT NULL DEFAULT 0,
+              "payload_json" TEXT,
+              "timestamp" INTEGER NOT NULL,
+              "is_undone" INTEGER NOT NULL DEFAULT 0,
+              "is_deleted" INTEGER NOT NULL DEFAULT 0,
+              "updated_at" INTEGER
+            );
+          ''');
+        } catch (error, stackTrace) {
+          debugPrint('[AppDatabase.beforeOpen] match_events table creation warning: $error\n$stackTrace');
+        }
+
+        // 4. Defensive column checks for v10 tables in case of schema drift
+        try {
+          final sessionCols = (await customSelect('PRAGMA table_info("match_sessions");').get())
+              .map((row) => row.read<String>('name'))
+              .toSet();
+          if (sessionCols.isNotEmpty) {
+            if (!sessionCols.contains('name')) await customStatement('ALTER TABLE "match_sessions" ADD COLUMN "name" TEXT NOT NULL DEFAULT \'MTG Match\';');
+            if (!sessionCols.contains('format')) await customStatement('ALTER TABLE "match_sessions" ADD COLUMN "format" TEXT NOT NULL DEFAULT \'Commander\';');
+            if (!sessionCols.contains('starting_life')) await customStatement('ALTER TABLE "match_sessions" ADD COLUMN "starting_life" INTEGER NOT NULL DEFAULT 40;');
+            if (!sessionCols.contains('player_count')) await customStatement('ALTER TABLE "match_sessions" ADD COLUMN "player_count" INTEGER NOT NULL DEFAULT 4;');
+            if (!sessionCols.contains('status')) await customStatement('ALTER TABLE "match_sessions" ADD COLUMN "status" TEXT NOT NULL DEFAULT \'active\';');
+            if (!sessionCols.contains('is_p2p_host')) await customStatement('ALTER TABLE "match_sessions" ADD COLUMN "is_p2p_host" INTEGER NOT NULL DEFAULT 0;');
+            if (!sessionCols.contains('p2p_session_code')) await customStatement('ALTER TABLE "match_sessions" ADD COLUMN "p2p_session_code" TEXT;');
+            if (!sessionCols.contains('settings_json')) await customStatement('ALTER TABLE "match_sessions" ADD COLUMN "settings_json" TEXT;');
+            if (!sessionCols.contains('is_deleted')) await customStatement('ALTER TABLE "match_sessions" ADD COLUMN "is_deleted" INTEGER NOT NULL DEFAULT 0;');
+            if (!sessionCols.contains('updated_at')) await customStatement('ALTER TABLE "match_sessions" ADD COLUMN "updated_at" INTEGER;');
+          }
+
+          final playerCols = (await customSelect('PRAGMA table_info("match_players");').get())
+              .map((row) => row.read<String>('name'))
+              .toSet();
+          if (playerCols.isNotEmpty) {
+            if (!playerCols.contains('poison')) await customStatement('ALTER TABLE "match_players" ADD COLUMN "poison" INTEGER NOT NULL DEFAULT 0;');
+            if (!playerCols.contains('energy')) await customStatement('ALTER TABLE "match_players" ADD COLUMN "energy" INTEGER NOT NULL DEFAULT 0;');
+            if (!playerCols.contains('experience')) await customStatement('ALTER TABLE "match_players" ADD COLUMN "experience" INTEGER NOT NULL DEFAULT 0;');
+            if (!playerCols.contains('commander_tax')) await customStatement('ALTER TABLE "match_players" ADD COLUMN "commander_tax" INTEGER NOT NULL DEFAULT 0;');
+            if (!playerCols.contains('is_monarch')) await customStatement('ALTER TABLE "match_players" ADD COLUMN "is_monarch" INTEGER NOT NULL DEFAULT 0;');
+            if (!playerCols.contains('has_initiative')) await customStatement('ALTER TABLE "match_players" ADD COLUMN "has_initiative" INTEGER NOT NULL DEFAULT 0;');
+            if (!playerCols.contains('is_eliminated')) await customStatement('ALTER TABLE "match_players" ADD COLUMN "is_eliminated" INTEGER NOT NULL DEFAULT 0;');
+            if (!playerCols.contains('eliminated_at')) await customStatement('ALTER TABLE "match_players" ADD COLUMN "eliminated_at" INTEGER;');
+            if (!playerCols.contains('is_local_device')) await customStatement('ALTER TABLE "match_players" ADD COLUMN "is_local_device" INTEGER NOT NULL DEFAULT 1;');
+            if (!playerCols.contains('peer_device_id')) await customStatement('ALTER TABLE "match_players" ADD COLUMN "peer_device_id" TEXT;');
+            if (!playerCols.contains('commander_damage_json')) await customStatement('ALTER TABLE "match_players" ADD COLUMN "commander_damage_json" TEXT;');
+            if (!playerCols.contains('floating_mana_json')) await customStatement('ALTER TABLE "match_players" ADD COLUMN "floating_mana_json" TEXT;');
+            if (!playerCols.contains('storm_count')) await customStatement('ALTER TABLE "match_players" ADD COLUMN "storm_count" INTEGER NOT NULL DEFAULT 0;');
+            if (!playerCols.contains('counters_json')) await customStatement('ALTER TABLE "match_players" ADD COLUMN "counters_json" TEXT;');
+            if (!playerCols.contains('is_deleted')) await customStatement('ALTER TABLE "match_players" ADD COLUMN "is_deleted" INTEGER NOT NULL DEFAULT 0;');
+            if (!playerCols.contains('updated_at')) await customStatement('ALTER TABLE "match_players" ADD COLUMN "updated_at" INTEGER;');
+          }
+
+          final eventCols = (await customSelect('PRAGMA table_info("match_events");').get())
+              .map((row) => row.read<String>('name'))
+              .toSet();
+          if (eventCols.isNotEmpty) {
+            if (!eventCols.contains('source_player_id')) await customStatement('ALTER TABLE "match_events" ADD COLUMN "source_player_id" TEXT;');
+            if (!eventCols.contains('delta')) await customStatement('ALTER TABLE "match_events" ADD COLUMN "delta" INTEGER NOT NULL DEFAULT 0;');
+            if (!eventCols.contains('value')) await customStatement('ALTER TABLE "match_events" ADD COLUMN "value" INTEGER NOT NULL DEFAULT 0;');
+            if (!eventCols.contains('sequence_number')) await customStatement('ALTER TABLE "match_events" ADD COLUMN "sequence_number" INTEGER NOT NULL DEFAULT 0;');
+            if (!eventCols.contains('payload_json')) await customStatement('ALTER TABLE "match_events" ADD COLUMN "payload_json" TEXT;');
+            if (!eventCols.contains('is_undone')) await customStatement('ALTER TABLE "match_events" ADD COLUMN "is_undone" INTEGER NOT NULL DEFAULT 0;');
+            if (!eventCols.contains('is_deleted')) await customStatement('ALTER TABLE "match_events" ADD COLUMN "is_deleted" INTEGER NOT NULL DEFAULT 0;');
+            if (!eventCols.contains('updated_at')) await customStatement('ALTER TABLE "match_events" ADD COLUMN "updated_at" INTEGER;');
+          }
+        } catch (error, stackTrace) {
+          debugPrint('[AppDatabase.beforeOpen] v10 column verification warning: $error\n$stackTrace');
+        }
+
+        // 5. Compound indexes for high-speed match queries and sequence log ordering
+        try {
+          await customStatement('''
+            CREATE INDEX IF NOT EXISTS "idx_match_sessions_status"
+            ON "match_sessions" ("status", "is_deleted", "created_at" DESC);
+          ''');
+          await customStatement('''
+            CREATE INDEX IF NOT EXISTS "idx_match_players_session"
+            ON "match_players" ("session_id", "seat_order" ASC);
+          ''');
+          await customStatement('''
+            CREATE INDEX IF NOT EXISTS "idx_match_events_session_seq"
+            ON "match_events" ("session_id", "sequence_number" ASC);
+          ''');
+          await customStatement('''
+            CREATE INDEX IF NOT EXISTS "idx_match_events_player"
+            ON "match_events" ("player_id", "event_type");
+          ''');
+        } catch (error, stackTrace) {
+          debugPrint('[AppDatabase.beforeOpen] Match index creation warning: $error\n$stackTrace');
         }
 
         // Performance compound indexes for instantaneous query and sorting

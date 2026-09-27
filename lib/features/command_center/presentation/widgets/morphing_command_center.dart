@@ -7,6 +7,8 @@ import '../../../../core/constants/app_typography.dart';
 import '../../../../core/state/app_state.dart';
 import 'collections_accordion.dart';
 import 'play_track_accordion.dart';
+import '../../../../features/life_counter/presentation/dialogs/pregame_setup_sheet.dart';
+import '../../../../features/life_counter/presentation/widgets/pod_scaffold_widget.dart';
 
 /// The Morphing Global Command Center.
 /// Morphs and expands directly outward from the Menu button (Alignment.bottomRight).
@@ -531,6 +533,20 @@ class _MorphingCommandCenterState extends ConsumerState<MorphingCommandCenter> {
                   PlayTrackAccordion(
                     onModeSelected: () {
                       Navigator.of(context).pop();
+                    },
+                    onLaunchMtgMode: (mode) {
+                      Navigator.of(context).pop();
+                      PregameSetupSheet.show(
+                        context,
+                        initialFormat: mode.toLowerCase(),
+                        onStartMatch: (podState) {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => PodScaffoldWidget(podState: podState),
+                            ),
+                          );
+                        },
+                      );
                     },
                   ),
 
