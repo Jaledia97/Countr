@@ -214,7 +214,11 @@ void main() {
             find.widgetWithText(VaultItemCard, 'Sol Ring');
         expect(solRingCardFinder, findsOneWidget);
 
-        await tester.tap(solRingCardFinder);
+        final solRingThumb = find.descendant(
+          of: solRingCardFinder,
+          matching: find.byWidgetPredicate((w) => w.key?.toString().contains('vault_card_thumbnail_tap_') ?? false),
+        );
+        await tester.tap(solRingThumb);
         await tester.pumpAndSettle();
 
         expect(find.byType(CardDetailSheet), findsOneWidget);
@@ -382,6 +386,9 @@ void main() {
 
         // Initially in Investor Mode: verify financial labels inside VaultItemCard
         final vaultCardFinder = find.byType(VaultItemCard);
+        await tester.tap(vaultCardFinder.first);
+        await tester.pumpAndSettle();
+
         expect(
           find.descendant(of: vaultCardFinder, matching: find.text('ACQUIRED')),
           findsWidgets,
@@ -463,8 +470,11 @@ void main() {
         // 7. Opens CardDetailSheet on Atraxa
         final atraxaCardFinder =
             find.widgetWithText(VaultItemCard, "Atraxa, Praetors' Voice");
-        expect(atraxaCardFinder, findsOneWidget);
-        await tester.tap(atraxaCardFinder);
+        final atraxaThumb = find.descendant(
+          of: atraxaCardFinder,
+          matching: find.byWidgetPredicate((w) => w.key?.toString().contains('vault_card_thumbnail_tap_') ?? false),
+        );
+        await tester.tap(atraxaThumb);
         await tester.pumpAndSettle();
 
         expect(find.byType(CardDetailSheet), findsOneWidget);
@@ -784,7 +794,12 @@ void main() {
         await tester.pumpAndSettle();
 
         // Open CardDetailSheet on Swords to Plowshares
-        await tester.tap(find.widgetWithText(VaultItemCard, 'Swords to Plowshares'));
+        final swordsFinder = find.widgetWithText(VaultItemCard, 'Swords to Plowshares');
+        final swordsThumb = find.descendant(
+          of: swordsFinder,
+          matching: find.byWidgetPredicate((w) => w.key?.toString().contains('vault_card_thumbnail_tap_') ?? false),
+        );
+        await tester.tap(swordsThumb);
         await tester.pumpAndSettle();
 
         // Tap Edit in Quick Action Bar

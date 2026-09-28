@@ -6,14 +6,14 @@ import '../../features/feed/presentation/screens/feed_screen.dart';
 import '../../features/shell/presentation/screens/main_shell_screen.dart';
 import '../../features/vault/presentation/screens/vault_screen.dart';
 
-final GlobalKey<NavigatorState> _rootNavigatorKey =
+final GlobalKey<NavigatorState> rootNavigatorKey =
     GlobalKey<NavigatorState>(debugLabel: 'root');
 
 /// Declarative GoRouter configuration utilizing StatefulShellRoute.indexedStack.
 /// Maintains 4 primary branches: Feed, Vault, Decks, and dummy branch for Menu.
 /// Freezes the local state of Feed, Vault, and Decks when navigating between them.
 final GoRouter appRouter = GoRouter(
-  navigatorKey: _rootNavigatorKey,
+  navigatorKey: rootNavigatorKey,
   initialLocation: '/feed',
   debugLogDiagnostics: false,
   routes: [

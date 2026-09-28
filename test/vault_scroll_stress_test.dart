@@ -328,8 +328,8 @@ void main() {
         tester.view.resetDevicePixelRatio();
       });
 
-      // Insert exactly 49 items (limit is 50)
-      await _insertTestCards(db, 49, isOwned: true);
+      // Insert exactly 34 items (threshold for limit 50 is floor(50 * 0.7) = 35)
+      await _insertTestCards(db, 34, isOwned: true);
 
       final container = ProviderContainer(
         overrides: [
@@ -356,7 +356,7 @@ void main() {
       scrollable.position.jumpTo(scrollable.position.maxScrollExtent);
       await tester.pump();
 
-      // With 49 items (< 50), limit must NOT increment
+      // With 34 items (< 35 threshold), limit must NOT increment
       expect(container.read(vaultPaginationLimitProvider), equals(50));
       expect(container.read(vaultIsFetchingMoreProvider), isFalse);
 

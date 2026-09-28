@@ -984,8 +984,8 @@ void main() {
       await db.close();
     });
 
-    test('Drift schemaVersion strictly equals 9', () {
-      expect(db.schemaVersion, equals(9));
+    test('Drift schemaVersion strictly equals 10', () {
+      expect(db.schemaVersion, equals(10));
     });
 
     test('All 7 entity tables contain is_deleted and updated_at columns', () async {

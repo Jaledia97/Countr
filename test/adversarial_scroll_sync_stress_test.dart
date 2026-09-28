@@ -10,7 +10,6 @@ import 'package:countr/features/vault/data/daos/vault_dao.dart';
 import 'package:countr/features/vault/presentation/providers/vault_providers.dart';
 import 'package:countr/features/vault/presentation/screens/vault_screen.dart';
 import 'package:countr/features/vault/presentation/widgets/card_detail_sheet.dart';
-import 'package:countr/features/vault/presentation/widgets/vault_item_card.dart';
 import 'package:countr/features/vault/presentation/widgets/vault_item_tile.dart';
 
 // ============================================================================
@@ -437,9 +436,9 @@ void main() {
       expect(scrollable.position.pixels, equals(0.0));
 
       // Tap card 0 to open CardDetailSheet
-      final firstCard = find.byType(VaultItemCard).hitTestable().first;
-      expect(firstCard, findsOneWidget);
-      await tester.tap(firstCard);
+      final firstThumbnail = find.byWidgetPredicate((w) => w.key?.toString().contains('vault_card_thumbnail_tap_') ?? false).hitTestable().first;
+      expect(firstThumbnail, findsOneWidget);
+      await tester.tap(firstThumbnail);
       await tester.pumpAndSettle();
 
       expect(find.byType(CardDetailSheet), findsOneWidget);
@@ -465,8 +464,8 @@ void main() {
           reason: 'List mode must preserve scroll position after sheet dismissal');
 
       // Re-open from currently visible card
-      final visibleCard = find.byType(VaultItemCard).hitTestable().first;
-      await tester.tap(visibleCard);
+      final visibleThumbnail = find.byWidgetPredicate((w) => w.key?.toString().contains('vault_card_thumbnail_tap_') ?? false).hitTestable().first;
+      await tester.tap(visibleThumbnail);
       await tester.pumpAndSettle();
       expect(find.byType(CardDetailSheet), findsOneWidget);
 

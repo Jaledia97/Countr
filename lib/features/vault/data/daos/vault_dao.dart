@@ -920,19 +920,34 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     return lower;
   }
 
-  /// Seeds the 4 hyper-detailed mock records if the ledger is empty.
+  /// Seeds the 4 hyper-detailed mock records if the ledger is empty of owned cards.
   Future<void> seedDatabase() async {
-    final existing = await (select(vaultItems)..where((t) => t.isDeleted.equals(false))..limit(1)).get();
+    final existing = await (select(vaultItems)
+          ..where((t) => t.quantity.isBiggerThanValue(0) & t.isDeleted.equals(false))
+          ..limit(1))
+        .get();
     if (existing.isNotEmpty) return;
 
     final now = DateTime.now();
 
     await batch((b) {
+      b.insertAll(vaultBinders, [
+        VaultBindersCompanion.insert(
+          id: 'binder-mtg-personal',
+          name: 'Personal Collection',
+          collectionType: 'mtg',
+          createdAt: now,
+          isDeleted: const Value(false),
+          updatedAt: Value(now),
+        ),
+      ], mode: InsertMode.insertOrReplace);
+
       b.insertAll(vaultItems, [
         // 1. MTG: The One Ring
         VaultItemsCompanion.insert(
           id: 'item-mtg-one-ring',
           collectionType: 'mtg',
+          primaryBinderId: const Value('binder-mtg-personal'),
           name: 'The One Ring (Serialized #007/100)',
           setOrSeries: 'The Lord of the Rings: Tales of Middle-earth',
           imageUrl:
@@ -944,6 +959,11 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
           isGraded: const Value(false),
           personalNotes: const Value(
               'Pulled from collector booster at TBS Comics. Serialized #007/100.'),
+          dateObtained: Value(now.subtract(const Duration(days: 45))),
+          purchasePrice: const Value(15.00),
+          protectionStatus: const Value('Sleeved'),
+          isDeleted: const Value(false),
+          updatedAt: Value(now),
           currentMarketPrice: 45.50,
           lastPriceUpdate: now,
           dynamicData: jsonEncode({
@@ -1005,6 +1025,11 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
           isGraded: const Value(false),
           personalNotes: const Value(
               'Minor corner wear on rear. Stored in double sleeve.'),
+          dateObtained: Value(now.subtract(const Duration(days: 60))),
+          purchasePrice: const Value(4.50),
+          protectionStatus: const Value('Sleeved'),
+          isDeleted: const Value(false),
+          updatedAt: Value(now),
           currentMarketPrice: 3.25,
           lastPriceUpdate: now,
           dynamicData: '{"hp": 120, "stage": "Basic"}',
@@ -1025,6 +1050,11 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
           isGraded: const Value(true),
           personalNotes: const Value(
               'Graded CGC 9.8 with pristine white pages. Holy grail issue.'),
+          dateObtained: Value(now.subtract(const Duration(days: 180))),
+          purchasePrice: const Value(150.00),
+          protectionStatus: const Value('Graded Slab'),
+          isDeleted: const Value(false),
+          updatedAt: Value(now),
           currentMarketPrice: 210.00,
           lastPriceUpdate: now,
           dynamicData: '{"issue": 1, "publisher": "Marvel"}',
@@ -1045,6 +1075,11 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
           isGraded: const Value(true),
           personalNotes:
               const Value('Gem Mint 10 rookie card. True investment hold.'),
+          dateObtained: Value(now.subtract(const Duration(days: 365))),
+          purchasePrice: const Value(20.00),
+          protectionStatus: const Value('Graded Slab'),
+          isDeleted: const Value(false),
+          updatedAt: Value(now),
           currentMarketPrice: 180.00,
           lastPriceUpdate: now,
           dynamicData:
@@ -1127,6 +1162,12 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     final now = DateTime.now();
     final count = await (update(vaultItems)).write(
       VaultItemsCompanion(
+        isDeleted: const Value(true),
+        updatedAt: Value(now),
+      ),
+    );
+    await (update(vaultBinders)).write(
+      VaultBindersCompanion(
         isDeleted: const Value(true),
         updatedAt: Value(now),
       ),
@@ -2308,8 +2349,8 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
         dv.id AS active_version_id,
         COALESCE(cover_vi.id, vi.id) AS commander_card_id,
         COALESCE(cover_vi.name, vi.name) AS commander_name,
-        COALESCE(cover_vi.image_url, vi.image_url) AS commander_image_url,
-        COALESCE(cover_vi.dynamic_data, vi.dynamic_data) AS commander_dynamic_data,
+        COALESCE(cover_vi.image_url, vi.image_url, fallback_vi.image_url) AS commander_image_url,
+        COALESCE(cover_vi.dynamic_data, vi.dynamic_data, fallback_vi.dynamic_data) AS commander_dynamic_data,
         (SELECT COALESCE(SUM(dvi_count.quantity), 0) 
          FROM deck_version_items dvi_count 
          WHERE dvi_count.version_id = dv.id 
@@ -2326,6 +2367,18 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
       LEFT JOIN vault_items vi 
         ON vi.id = dvi.vault_item_id 
        AND (vi.is_deleted IS NULL OR vi.is_deleted = 0)
+      LEFT JOIN (
+        SELECT version_id, vault_item_id,
+               ROW_NUMBER() OVER (
+                 PARTITION BY version_id 
+                 ORDER BY CASE WHEN board_zone = 'Mainboard' THEN 0 ELSE 1 END, rowid ASC
+               ) as rn
+        FROM deck_version_items
+        WHERE (is_deleted IS NULL OR is_deleted = 0)
+      ) first_dvi ON first_dvi.version_id = dv.id AND first_dvi.rn = 1
+      LEFT JOIN vault_items fallback_vi 
+        ON fallback_vi.id = first_dvi.vault_item_id 
+       AND (fallback_vi.is_deleted IS NULL OR fallback_vi.is_deleted = 0)
       LEFT JOIN vault_items cover_vi 
         ON cover_vi.id = d.cover_item_id 
        AND (cover_vi.is_deleted IS NULL OR cover_vi.is_deleted = 0)
@@ -2376,8 +2429,8 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
         dv.id AS active_version_id,
         COALESCE(cover_vi.id, vi.id) AS commander_card_id,
         COALESCE(cover_vi.name, vi.name) AS commander_name,
-        COALESCE(cover_vi.image_url, vi.image_url) AS commander_image_url,
-        COALESCE(cover_vi.dynamic_data, vi.dynamic_data) AS commander_dynamic_data,
+        COALESCE(cover_vi.image_url, vi.image_url, fallback_vi.image_url) AS commander_image_url,
+        COALESCE(cover_vi.dynamic_data, vi.dynamic_data, fallback_vi.dynamic_data) AS commander_dynamic_data,
         (SELECT COALESCE(SUM(dvi_count.quantity), 0) 
          FROM deck_version_items dvi_count 
          WHERE dvi_count.version_id = dv.id 
@@ -2394,6 +2447,18 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
       LEFT JOIN vault_items vi 
         ON vi.id = dvi.vault_item_id 
        AND (vi.is_deleted IS NULL OR vi.is_deleted = 0)
+      LEFT JOIN (
+        SELECT version_id, vault_item_id,
+               ROW_NUMBER() OVER (
+                 PARTITION BY version_id 
+                 ORDER BY CASE WHEN board_zone = 'Mainboard' THEN 0 ELSE 1 END, rowid ASC
+               ) as rn
+        FROM deck_version_items
+        WHERE (is_deleted IS NULL OR is_deleted = 0)
+      ) first_dvi ON first_dvi.version_id = dv.id AND first_dvi.rn = 1
+      LEFT JOIN vault_items fallback_vi 
+        ON fallback_vi.id = first_dvi.vault_item_id 
+       AND (fallback_vi.is_deleted IS NULL OR fallback_vi.is_deleted = 0)
       LEFT JOIN vault_items cover_vi 
         ON cover_vi.id = d.cover_item_id 
        AND (cover_vi.is_deleted IS NULL OR cover_vi.is_deleted = 0)

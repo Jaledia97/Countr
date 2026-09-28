@@ -192,8 +192,8 @@ class MockDeckData {
             if (data['promo'] == true) {
               cardHasBling = true;
             } else if (data['finishes'] is List) {
-              final finishes = (data['finishes'] as List).cast<String>();
-              if (finishes.contains('foil') || finishes.contains('etched')) {
+              final finishes = data['finishes'] as List;
+              if (finishes.any((f) => f == 'foil' || f == 'etched')) {
                 cardHasBling = true;
               }
             }
@@ -270,6 +270,61 @@ class MockDeckData {
   // 100-Card Canonical MTG Commander Deck: Edgar Markov Aristocrats
   // ===========================================================================
 
+  static final Map<String, Map<String, String>> _cardArtLookup = {
+    'blood-artist': {
+      'normal': 'https://cards.scryfall.io/normal/front/6/9/693dd112-d04a-4404-8fce-74f7e5497312.jpg',
+      'art_crop': 'https://cards.scryfall.io/art_crop/front/6/9/693dd112-d04a-4404-8fce-74f7e5497312.jpg',
+    },
+    'cruel-celebrant': {
+      'normal': 'https://cards.scryfall.io/normal/front/8/7/87fed6cb-2802-4228-868d-d27385e35f7e.jpg',
+      'art_crop': 'https://cards.scryfall.io/art_crop/front/8/7/87fed6cb-2802-4228-868d-d27385e35f7e.jpg',
+    },
+    'cordial-vampire': {
+      'normal': 'https://cards.scryfall.io/normal/front/8/c/8c841474-761d-450e-a86d-0a37750976d1.jpg',
+      'art_crop': 'https://cards.scryfall.io/art_crop/front/8/c/8c841474-761d-450e-a86d-0a37750976d1.jpg',
+    },
+    'viscera-seer': {
+      'normal': 'https://cards.scryfall.io/normal/front/4/8/486fb84c-2234-4b55-a222-3a36db5e1730.jpg',
+      'art_crop': 'https://cards.scryfall.io/art_crop/front/4/8/486fb84c-2234-4b55-a222-3a36db5e1730.jpg',
+    },
+    'twilight-prophet': {
+      'normal': 'https://cards.scryfall.io/normal/front/7/2/72225695-1774-4b82-901c-69532822ca9d.jpg',
+      'art_crop': 'https://cards.scryfall.io/art_crop/front/7/2/72225695-1774-4b82-901c-69532822ca9d.jpg',
+    },
+    'elenda-the-dusk-rose': {
+      'normal': 'https://cards.scryfall.io/normal/front/2/5/25e34147-588b-4fd5-8895-340b04123518.jpg',
+      'art_crop': 'https://cards.scryfall.io/art_crop/front/2/5/25e34147-588b-4fd5-8895-340b04123518.jpg',
+    },
+    'sol-ring': {
+      'normal': 'https://cards.scryfall.io/normal/front/4/c/4c565076-5db2-47ea-8ee0-4a4fd7bb353d.jpg',
+      'art_crop': 'https://cards.scryfall.io/art_crop/front/4/c/4c565076-5db2-47ea-8ee0-4a4fd7bb353d.jpg',
+    },
+    'arcane-signet': {
+      'normal': 'https://cards.scryfall.io/normal/front/0/4/04397b98-bc92-437e-b0e2-640df2323ffb.jpg',
+      'art_crop': 'https://cards.scryfall.io/art_crop/front/0/4/04397b98-bc92-437e-b0e2-640df2323ffb.jpg',
+    },
+    'swords-to-plowshares': {
+      'normal': 'https://cards.scryfall.io/normal/front/7/c/7c85d415-460d-4074-b5a1-778ea2ca2c48.jpg',
+      'art_crop': 'https://cards.scryfall.io/art_crop/front/7/c/7c85d415-460d-4074-b5a1-778ea2ca2c48.jpg',
+    },
+    'demonic-tutor': {
+      'normal': 'https://cards.scryfall.io/normal/front/3/b/3bdbc231-5316-4abd-9d8d-d87cff2c9847.jpg',
+      'art_crop': 'https://cards.scryfall.io/art_crop/front/3/b/3bdbc231-5316-4abd-9d8d-d87cff2c9847.jpg',
+    },
+    'skullclamp': {
+      'normal': 'https://cards.scryfall.io/normal/front/a/3/a3652ec2-5907-41a4-a367-192a43507d34.jpg',
+      'art_crop': 'https://cards.scryfall.io/art_crop/front/a/3/a3652ec2-5907-41a4-a367-192a43507d34.jpg',
+    },
+    'teferis-protection': {
+      'normal': 'https://cards.scryfall.io/normal/front/4/8/483fa1cb-1e35-44f2-a143-98c0f107f5ca.jpg',
+      'art_crop': 'https://cards.scryfall.io/art_crop/front/4/8/483fa1cb-1e35-44f2-a143-98c0f107f5ca.jpg',
+    },
+    'command-tower': {
+      'normal': 'https://cards.scryfall.io/normal/front/0/5/05364120-218b-4338-b856-a1c8a0430c9a.jpg',
+      'art_crop': 'https://cards.scryfall.io/art_crop/front/0/5/05364120-218b-4338-b856-a1c8a0430c9a.jpg',
+    },
+  };
+
   static Map<String, dynamic> _makeCard({
     required String id,
     required String name,
@@ -287,8 +342,39 @@ class MockDeckData {
     bool isAltered = false,
     bool isSigned = false,
     bool isPromo = false,
+    String? imageUrl,
+    String? artCropUrl,
+    String? normalUrl,
+    String? smallUrl,
+    String setOrSeries = 'CMM',
     Map<String, dynamic>? extraDynamicData,
   }) {
+    final String resolvedArtCropUrl;
+    final String resolvedNormalUrl;
+    final String resolvedSmallUrl;
+
+    if (artCropUrl != null || normalUrl != null || smallUrl != null || imageUrl != null) {
+      resolvedArtCropUrl = artCropUrl ?? imageUrl ?? normalUrl ?? smallUrl!;
+      resolvedNormalUrl = normalUrl ?? imageUrl ?? artCropUrl ?? smallUrl!;
+      resolvedSmallUrl = smallUrl ?? imageUrl ?? normalUrl ?? artCropUrl!;
+    } else if (id == 'edgar-markov') {
+      resolvedArtCropUrl =
+          'https://cards.scryfall.io/art_crop/front/8/d/8d94b8ec-ecda-45c8-a90d-10b6394c3904.jpg';
+      resolvedNormalUrl =
+          'https://cards.scryfall.io/normal/front/8/d/8d94b8ec-ecda-45c8-a90d-10b6394c3904.jpg';
+      resolvedSmallUrl =
+          'https://cards.scryfall.io/small/front/8/d/8d94b8ec-ecda-45c8-a90d-10b6394c3904.jpg';
+    } else if (_cardArtLookup.containsKey(id)) {
+      final lookup = _cardArtLookup[id]!;
+      resolvedArtCropUrl = lookup['art_crop'] ?? lookup['normal']!;
+      resolvedNormalUrl = lookup['normal']!;
+      resolvedSmallUrl = lookup['small'] ?? lookup['normal']!;
+    } else {
+      resolvedArtCropUrl = 'https://cards.scryfall.io/art_crop/back.jpg';
+      resolvedNormalUrl = 'https://cards.scryfall.io/normal/back.jpg';
+      resolvedSmallUrl = 'https://cards.scryfall.io/small/back.jpg';
+    }
+
     final dyn = <String, dynamic>{
       'cmc': cmc,
       'mana_cost': manaCost,
@@ -311,10 +397,10 @@ class MockDeckData {
         'usd_foil': (price * 2.2).toStringAsFixed(2),
       },
       'image_uris': {
-        'small':
-            'https://cards.scryfall.io/small/front/${id.hashCode.abs() % 10}/${id.hashCode.abs() % 100}/$id.jpg',
-        'normal':
-            'https://cards.scryfall.io/normal/front/${id.hashCode.abs() % 10}/${id.hashCode.abs() % 100}/$id.jpg',
+        'small': resolvedSmallUrl,
+        'normal': resolvedNormalUrl,
+        'large': resolvedNormalUrl,
+        'art_crop': resolvedArtCropUrl,
       },
       if (extraDynamicData != null) ...extraDynamicData,
     };
@@ -328,7 +414,7 @@ class MockDeckData {
       'is_proxy': 0,
       'id': id,
       'name': name,
-      'set_or_series': 'CMM',
+      'set_or_series': setOrSeries,
       'image_url': dyn['image_uris']['normal'],
       'dynamic_data': jsonEncode(dyn),
       'current_market_price': price,
@@ -1499,6 +1585,11 @@ class MockDeckData {
       rarity: 'double rare',
       colors: ['R'],
       finishes: ['foil'],
+      setOrSeries: 'OBF',
+      imageUrl:
+          'https://images.unsplash.com/photo-1613771404784-3a5686aa2be3?auto=format&fit=crop&w=400&q=80',
+      artCropUrl:
+          'https://images.unsplash.com/photo-1613771404784-3a5686aa2be3?auto=format&fit=crop&w=400&q=80',
     ),
     _makeCard(
       id: 'pkm-pidgeot-ex',
@@ -1512,6 +1603,11 @@ class MockDeckData {
       rarity: 'double rare',
       colors: ['C'],
       finishes: ['foil'],
+      setOrSeries: 'OBF',
+      imageUrl:
+          'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=400&q=80',
+      artCropUrl:
+          'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=400&q=80',
     ),
     _makeCard(
       id: 'pkm-rare-candy',
@@ -1524,6 +1620,11 @@ class MockDeckData {
       typeLine: 'Item',
       rarity: 'uncommon',
       colors: [],
+      setOrSeries: 'SVI',
+      imageUrl:
+          'https://images.unsplash.com/photo-1582562124811-c09040d0a901?auto=format&fit=crop&w=400&q=80',
+      artCropUrl:
+          'https://images.unsplash.com/photo-1582562124811-c09040d0a901?auto=format&fit=crop&w=400&q=80',
     ),
     _makeCard(
       id: 'pkm-fire-energy',
@@ -1537,6 +1638,11 @@ class MockDeckData {
       rarity: 'common',
       colors: ['R'],
       producedMana: ['R'],
+      setOrSeries: 'SVI',
+      imageUrl:
+          'https://images.unsplash.com/photo-1525498128493-380d1990a112?auto=format&fit=crop&w=400&q=80',
+      artCropUrl:
+          'https://images.unsplash.com/photo-1525498128493-380d1990a112?auto=format&fit=crop&w=400&q=80',
     ),
   ];
 
@@ -1553,6 +1659,11 @@ class MockDeckData {
       rarity: 'mythic',
       colors: [],
       finishes: ['foil'],
+      setOrSeries: '2XM',
+      imageUrl:
+          'https://cards.scryfall.io/normal/front/4/b/4b0c6662-4dde-40a2-97e0-0318478c0367.jpg',
+      artCropUrl:
+          'https://cards.scryfall.io/art_crop/front/4/b/4b0c6662-4dde-40a2-97e0-0318478c0367.jpg',
     ),
     _makeCard(
       id: 'tron-wurmcoil-engine',
@@ -1566,6 +1677,11 @@ class MockDeckData {
       rarity: 'mythic',
       colors: [],
       finishes: ['foil'],
+      setOrSeries: '2XM',
+      imageUrl:
+          'https://cards.scryfall.io/normal/front/d/0/d0a13423-11e1-4466-80d6-bc570f25ebd8.jpg',
+      artCropUrl:
+          'https://cards.scryfall.io/art_crop/front/d/0/d0a13423-11e1-4466-80d6-bc570f25ebd8.jpg',
     ),
     _makeCard(
       id: 'tron-urzas-tower',
@@ -1579,6 +1695,11 @@ class MockDeckData {
       rarity: 'common',
       colors: [],
       producedMana: ['C'],
+      setOrSeries: '2XM',
+      imageUrl:
+          'https://cards.scryfall.io/normal/front/9/e/9e369f3f-354b-42bf-9b2f-2c1914068393.jpg',
+      artCropUrl:
+          'https://cards.scryfall.io/art_crop/front/9/e/9e369f3f-354b-42bf-9b2f-2c1914068393.jpg',
     ),
   ];
 }

@@ -537,7 +537,6 @@ void main() {
       final caughtErrors = <FlutterErrorDetails>[];
       final originalOnError = FlutterError.onError;
       FlutterError.onError = (details) => caughtErrors.add(details);
-      addTearDown(() => FlutterError.onError = originalOnError);
 
       await tester.pumpWidget(buildTestApp());
       await tester.pumpAndSettle();
@@ -545,6 +544,8 @@ void main() {
       // Stage an item so sticky action bar is active
       await tester.tap(find.byKey(const Key('stepper_increment_catalog-sol-ring')));
       await tester.pumpAndSettle();
+
+      FlutterError.onError = originalOnError;
 
       expect(find.byKey(const Key('bulk_add_submit_button')), findsOneWidget);
 
@@ -574,7 +575,6 @@ void main() {
       final caughtErrors = <FlutterErrorDetails>[];
       final originalOnError = FlutterError.onError;
       FlutterError.onError = (details) => caughtErrors.add(details);
-      addTearDown(() => FlutterError.onError = originalOnError);
 
       await tester.pumpWidget(buildTestApp());
       await tester.pumpAndSettle();
@@ -585,6 +585,8 @@ void main() {
       // Stage an item to display action bar at 320px width
       await tester.tap(find.byKey(const Key('stepper_increment_catalog-sol-ring')));
       await tester.pumpAndSettle();
+
+      FlutterError.onError = originalOnError;
 
       expect(find.byKey(const Key('bulk_add_submit_button')), findsOneWidget);
 
@@ -624,7 +626,6 @@ void main() {
       final caughtErrors = <FlutterErrorDetails>[];
       final originalOnError = FlutterError.onError;
       FlutterError.onError = (details) => caughtErrors.add(details);
-      addTearDown(() => FlutterError.onError = originalOnError);
 
       await tester.pumpWidget(buildTestApp());
       await tester.pumpAndSettle();
@@ -632,6 +633,8 @@ void main() {
       // Stage an item so sticky action bar and binder selector appear
       await tester.tap(find.byKey(const Key('stepper_increment_catalog-sol-ring')));
       await tester.pumpAndSettle();
+
+      FlutterError.onError = originalOnError;
 
       // Verify ZERO layout overflow occurred despite long binder name
       final overflowErrors = caughtErrors

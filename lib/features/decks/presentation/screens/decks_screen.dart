@@ -36,6 +36,11 @@ class _DecksScreenState extends ConsumerState<DecksScreen> {
       'tcgDomain': 'mtg',
       'isRegistered': true,
       'isCompetitive': false,
+      'commanderName': 'Edgar Markov',
+      'commanderImageUrl':
+          'https://cards.scryfall.io/art_crop/front/8/d/8d94b8ec-ecda-45c8-a90d-10b6394c3904.jpg',
+      'commanderArtCrop':
+          'https://cards.scryfall.io/art_crop/front/8/d/8d94b8ec-ecda-45c8-a90d-10b6394c3904.jpg',
     },
     {
       'id': 'deck-charizard-ex',
@@ -48,6 +53,11 @@ class _DecksScreenState extends ConsumerState<DecksScreen> {
       'tcgDomain': 'pokemon',
       'isRegistered': true,
       'isCompetitive': true,
+      'commanderName': 'Charizard ex',
+      'commanderImageUrl':
+          'https://images.unsplash.com/photo-1613771404784-3a5686aa2be3?auto=format&fit=crop&w=400&q=80',
+      'commanderArtCrop':
+          'https://images.unsplash.com/photo-1613771404784-3a5686aa2be3?auto=format&fit=crop&w=400&q=80',
     },
     {
       'id': 'deck-yuriko',
@@ -60,6 +70,11 @@ class _DecksScreenState extends ConsumerState<DecksScreen> {
       'tcgDomain': 'mtg',
       'isRegistered': false,
       'isCompetitive': true,
+      'commanderName': 'Yuriko, the Tiger\'s Shadow',
+      'commanderImageUrl':
+          'https://cards.scryfall.io/art_crop/front/3/6/364c9d94-60c7-41b4-bc1b-840a775693bd.jpg',
+      'commanderArtCrop':
+          'https://cards.scryfall.io/art_crop/front/3/6/364c9d94-60c7-41b4-bc1b-840a775693bd.jpg',
     },
     {
       'id': 'deck-lorcana',
@@ -72,6 +87,11 @@ class _DecksScreenState extends ConsumerState<DecksScreen> {
       'tcgDomain': 'lorcana',
       'isRegistered': false,
       'isCompetitive': false,
+      'commanderName': 'Ruby / Amethyst Bounce Control',
+      'commanderImageUrl':
+          'https://images.unsplash.com/photo-1569003339405-ea396a5a8a90?auto=format&fit=crop&w=400&q=80',
+      'commanderArtCrop':
+          'https://images.unsplash.com/photo-1569003339405-ea396a5a8a90?auto=format&fit=crop&w=400&q=80',
     },
     {
       'id': 'deck-lost-zone',
@@ -84,6 +104,11 @@ class _DecksScreenState extends ConsumerState<DecksScreen> {
       'tcgDomain': 'pokemon',
       'isRegistered': true,
       'isCompetitive': true,
+      'commanderName': 'Giratina VSTAR',
+      'commanderImageUrl':
+          'https://images.unsplash.com/photo-1613771404784-3a5686aa2be3?auto=format&fit=crop&w=400&q=80',
+      'commanderArtCrop':
+          'https://images.unsplash.com/photo-1613771404784-3a5686aa2be3?auto=format&fit=crop&w=400&q=80',
     },
     {
       'id': 'deck-tron',
@@ -96,6 +121,11 @@ class _DecksScreenState extends ConsumerState<DecksScreen> {
       'tcgDomain': 'mtg',
       'isRegistered': false,
       'isCompetitive': false,
+      'commanderName': 'Karn Liberated',
+      'commanderImageUrl':
+          'https://cards.scryfall.io/art_crop/front/4/b/4b0c6662-4dde-40a2-97e0-0318478c0367.jpg',
+      'commanderArtCrop':
+          'https://cards.scryfall.io/art_crop/front/4/b/4b0c6662-4dde-40a2-97e0-0318478c0367.jpg',
     },
   ];
 
@@ -341,6 +371,9 @@ class _DecksScreenState extends ConsumerState<DecksScreen> {
               ? 'Assembled'
               : (curCount >= targetCount && curCount > 0 ? 'Ready' : 'Draft'),
           colorIdentity: colors,
+          commanderName: m['commanderName'] as String?,
+          commanderImageUrl: m['commanderImageUrl'] as String?,
+          commanderArtCrop: m['commanderArtCrop'] as String?,
           deck: Deck(
             id: m['id'] as String,
             name: title,

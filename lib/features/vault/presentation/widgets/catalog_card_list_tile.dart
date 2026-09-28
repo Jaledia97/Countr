@@ -158,34 +158,40 @@ class CatalogCardListTile extends StatelessWidget {
                 ),
                 if (manaCost.isNotEmpty) ...[
                   const SizedBox(width: 6),
-                  ManaCostBar(
-                    manaCost: manaCost,
-                    symbolSize: 11.5,
+                  Flexible(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerRight,
+                      child: ManaCostBar(
+                        manaCost: manaCost,
+                        symbolSize: 11.5,
+                      ),
+                    ),
                   ),
                 ],
               ],
             ),
             subtitle: Padding(
               padding: const EdgeInsets.only(top: 2),
-              child: Row(
+              child: Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 6,
+                runSpacing: 2,
                 children: [
-                  Flexible(
-                    child: Text(
-                      [
-                        if (card.setOrSeries.isNotEmpty)
-                          card.setOrSeries.toUpperCase(),
-                        if (typeLine.isNotEmpty) typeLine,
-                      ].join(' • '),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 11,
-                      ),
+                  Text(
+                    [
+                      if (card.setOrSeries.isNotEmpty)
+                        card.setOrSeries.toUpperCase(),
+                      if (typeLine.isNotEmpty) typeLine,
+                    ].join(' • '),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 11,
                     ),
                   ),
-                  if (rarity.isNotEmpty) ...[
-                    const SizedBox(width: 6),
+                  if (rarity.isNotEmpty)
                     Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 5, vertical: 1.5),
@@ -206,8 +212,6 @@ class CatalogCardListTile extends StatelessWidget {
                         ),
                       ),
                     ),
-                  ],
-                  const SizedBox(width: 6),
                   Text(
                     isPrivacyMode
                         ? '****'

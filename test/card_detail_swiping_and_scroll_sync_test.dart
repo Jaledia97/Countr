@@ -12,7 +12,6 @@ import 'package:countr/features/vault/presentation/providers/vault_providers.dar
 import 'package:countr/features/vault/presentation/screens/vault_screen.dart';
 import 'package:countr/features/vault/presentation/widgets/card_detail_sheet.dart';
 import 'package:countr/features/vault/presentation/widgets/full_screen_card_viewer.dart';
-import 'package:countr/features/vault/presentation/widgets/vault_item_card.dart';
 import 'package:countr/features/vault/presentation/widgets/vault_item_tile.dart';
 
 // ============================================================================
@@ -968,10 +967,10 @@ void main() {
       final scrollable = tester.state<ScrollableState>(scrollableFinder);
       expect(scrollable.position.pixels, equals(0.0));
 
-      // Tap card 0 to open CardDetailSheet
-      final firstCard = find.byType(VaultItemCard).hitTestable().first;
-      expect(firstCard, findsOneWidget);
-      await tester.tap(firstCard);
+      // Tap card 0 thumbnail to open CardDetailSheet
+      final firstThumbnail = find.byKey(const Key('vault_card_thumbnail_tap_vault-card-0'));
+      expect(firstThumbnail, findsOneWidget);
+      await tester.tap(firstThumbnail);
       await tester.pumpAndSettle();
 
       expect(find.byType(CardDetailSheet), findsOneWidget);

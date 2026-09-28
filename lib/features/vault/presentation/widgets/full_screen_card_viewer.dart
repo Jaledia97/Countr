@@ -77,6 +77,7 @@ class _FullScreenCardViewerState extends State<FullScreenCardViewer>
   late List<VaultItem> _items;
   late int _currentIndex;
   bool _isFoilActive = false;
+  bool _isUserFoilOverride = false;
   bool _isFlipped = false;
   bool _isZoomed = false;
   Map<String, dynamic> _dynamicData = {};
@@ -112,6 +113,17 @@ class _FullScreenCardViewerState extends State<FullScreenCardViewer>
   }
 
   void _checkAndApplyFoilForCurrentItem() {
+    if (_isUserFoilOverride) {
+      if (_isFoilActive) {
+        if (!_foilController.isAnimating) {
+          _foilController.repeat();
+        }
+      } else {
+        _foilController.stop();
+        _foilController.reset();
+      }
+      return;
+    }
     final shouldFoil = _shouldAutoActivateFoil(_currentItem, _dynamicData);
     _isFoilActive = shouldFoil;
     if (_isFoilActive) {
@@ -446,6 +458,7 @@ class _FullScreenCardViewerState extends State<FullScreenCardViewer>
 
   void _toggleFoil() {
     setState(() {
+      _isUserFoilOverride = true;
       _isFoilActive = !_isFoilActive;
       if (_isFoilActive) {
         _foilController.repeat();

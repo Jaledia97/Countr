@@ -493,6 +493,43 @@ void main() {
 
       container.dispose();
     });
+
+    test(
+        'seedDatabase seeds starter owned items even when catalog cards (quantity: 0) exist',
+        () async {
+      final unseededDb = AppDatabase(NativeDatabase.memory());
+      // First insert catalog cards with quantity: 0 (simulating hydration before seed)
+      final catalogCards = [
+        VaultItemsCompanion.insert(
+          id: 'catalog-card-1',
+          collectionType: 'mtg',
+          name: 'Catalog Card 1',
+          setOrSeries: 'M10',
+          imageUrl: '',
+          acquiredPrice: 0.0,
+          acquiredDate: DateTime.now(),
+          quantity: const drift.Value(0),
+          condition: 'NM',
+          isGraded: const drift.Value(false),
+          currentMarketPrice: 5.0,
+          lastPriceUpdate: DateTime.now(),
+          dynamicData: '{}',
+        ),
+      ];
+      await unseededDb.vaultDao.insertDictionaryBatch(catalogCards);
+
+      // Now call seedDatabase
+      await unseededDb.vaultDao.seedDatabase();
+
+      // Verify that starter items (quantity > 0) are now seeded
+      final ownedItems = await (unseededDb.select(unseededDb.vaultItems)
+            ..where((t) => t.quantity.isBiggerThanValue(0) & t.isDeleted.equals(false)))
+          .get();
+      expect(ownedItems.length, 4);
+      expect(ownedItems.any((i) => i.id == 'item-mtg-one-ring'), isTrue);
+
+      await unseededDb.close();
+    });
   });
 
   group('Phase 2.5 - HydrationController State Flow Tests', () {

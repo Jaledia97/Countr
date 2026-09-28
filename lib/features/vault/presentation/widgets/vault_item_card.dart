@@ -175,6 +175,8 @@ class _VaultItemCardState extends State<VaultItemCard> {
             tilePadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
             childrenPadding: const EdgeInsets.fromLTRB(8, 2, 8, 2),
             leading: GestureDetector(
+              key: Key('vault_card_thumbnail_tap_${item.id}'),
+              behavior: HitTestBehavior.opaque,
               onTap: onTap ?? () => CardDetailSheet.show(context, item),
               child: _buildLeadingThumbnail(width: 38, height: 52),
             ),
@@ -347,16 +349,20 @@ class _VaultItemCardState extends State<VaultItemCard> {
               ],
               if (activePersona != UserPersona.player && !isExpanded) ...[
                 const SizedBox(width: 6),
-                Text(
-                  isPrivacyMode
-                      ? '****'
-                      : (effectivePrice > 0
-                          ? '\$${effectivePrice.toStringAsFixed(2)}'
-                          : 'Unlisted'),
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.accentEmerald,
+                Flexible(
+                  child: Text(
+                    isPrivacyMode
+                        ? '****'
+                        : (effectivePrice > 0
+                            ? '\$${effectivePrice.toStringAsFixed(2)}'
+                            : 'Unlisted'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.accentEmerald,
+                    ),
                   ),
                 ),
               ],
@@ -1248,36 +1254,40 @@ class OptionalCardAvailabilityBreakdown extends StatelessWidget {
           borderRadius: BorderRadius.circular(4),
           border: Border.all(color: AppColors.surfaceBorderSubtle, width: 0.6),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Owned: $owned',
-              style: const TextStyle(
-                fontSize: 9.5,
-                fontWeight: FontWeight.w700,
-                color: AppColors.accentCyan,
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Owned: $owned',
+                style: const TextStyle(
+                  fontSize: 9.5,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.accentCyan,
+                ),
               ),
-            ),
-            const Text('  |  ', style: TextStyle(fontSize: 9, color: AppColors.textMuted)),
-            Text(
-              'Available: $available',
-              style: const TextStyle(
-                fontSize: 9.5,
-                fontWeight: FontWeight.w700,
-                color: AppColors.accentEmerald,
+              const Text('  |  ', style: TextStyle(fontSize: 9, color: AppColors.textMuted)),
+              Text(
+                'Available: $available',
+                style: const TextStyle(
+                  fontSize: 9.5,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.accentEmerald,
+                ),
               ),
-            ),
-            const Text('  |  ', style: TextStyle(fontSize: 9, color: AppColors.textMuted)),
-            Text(
-              'In Deck: $inDeck',
-              style: TextStyle(
-                fontSize: 9.5,
-                fontWeight: FontWeight.w700,
-                color: inDeck > 0 ? AppColors.accentVioletLight : AppColors.textMuted,
+              const Text('  |  ', style: TextStyle(fontSize: 9, color: AppColors.textMuted)),
+              Text(
+                'In Deck: $inDeck',
+                style: TextStyle(
+                  fontSize: 9.5,
+                  fontWeight: FontWeight.w700,
+                  color: inDeck > 0 ? AppColors.accentVioletLight : AppColors.textMuted,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

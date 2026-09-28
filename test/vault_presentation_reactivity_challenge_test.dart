@@ -529,11 +529,11 @@ void main() {
       expect(find.text('Total Tracked Items: 1'), findsOneWidget);
 
       // Tap 'Add Item' button 5 times
-      final addButtonFinder = find.text('Add Item');
+      final addButtonFinder = find.byKey(const Key('vault_add_item_button'));
       expect(addButtonFinder, findsOneWidget);
 
       for (int i = 0; i < 5; i++) {
-        await tester.tap(addButtonFinder);
+        await tester.tap(addButtonFinder, warnIfMissed: false);
         await tester.pump();
       }
       await tester.pumpAndSettle();

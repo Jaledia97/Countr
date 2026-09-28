@@ -1,14 +1,18 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:drift/drift.dart' show Value;
 import 'package:countr/core/constants/app_colors.dart';
 import 'package:countr/core/constants/app_typography.dart';
 import 'package:countr/core/database/app_database.dart';
 import 'package:countr/core/cache/countr_cached_image.dart';
+import 'package:countr/core/cache/parsed_json_cache.dart';
 import 'package:countr/features/vault/presentation/providers/vault_providers.dart';
 import 'package:countr/features/decks/presentation/providers/deck_providers.dart';
 import 'package:countr/features/decks/domain/models/deck_item_with_card.dart';
+import 'package:countr/features/hydration/domain/isolate/scryfall_parser.dart';
+import 'package:countr/features/hydration/presentation/providers/hydration_providers.dart';
+import 'package:countr/features/symbology/presentation/widgets/mana_symbol_icon.dart';
 
 /// Interactive modal allowing users to customize deck cover image / thumbnail
 /// from cards within the deck or by searching the catalog.
@@ -71,12 +75,56 @@ class _DeckThumbnailPickerModalState
       setState(() => _isSearching = true);
       try {
         final dao = ref.read(vaultDaoProvider);
-        final results = await dao.searchCatalogCards(
+        var results = await dao.searchCatalogCards(
           trimmed,
           collectionType: 'mtg',
           groupByOracleId: true,
           limit: 30,
         );
+
+        if (results.isEmpty) {
+          try {
+            final scryfall = ref.read(scryfallServiceProvider);
+            final onlineCards = await scryfall.searchCards(trimmed);
+            if (onlineCards != null && onlineCards.isNotEmpty) {
+              final stubs = <VaultItem>[];
+              for (final c in onlineCards) {
+                final comp = mapScryfallCardToCompanion(c);
+                stubs.add(
+                  VaultItem(
+                    id: comp.id.value,
+                    collectionType: comp.collectionType.value,
+                    name: comp.name.value,
+                    flavorName: comp.flavorName.present ? comp.flavorName.value : null,
+                    setOrSeries: comp.setOrSeries.value,
+                    imageUrl: comp.imageUrl.value,
+                    acquiredPrice: comp.acquiredPrice.value,
+                    acquiredDate: comp.acquiredDate.value,
+                    quantity: 0,
+                    condition: comp.condition.value,
+                    isGraded: comp.isGraded.value,
+                    isAltered: false,
+                    isMisprint: false,
+                    isSigned: false,
+                    personalNotes: comp.personalNotes.present ? comp.personalNotes.value : null,
+                    currentMarketPrice: comp.currentMarketPrice.value,
+                    lastPriceUpdate: comp.lastPriceUpdate.value,
+                    dynamicData: comp.dynamicData.value,
+                    isDeleted: false,
+                    updatedAt: null,
+                    primaryBinderId: null,
+                    binderPage: null,
+                    binderSlot: null,
+                  ),
+                );
+              }
+              results = stubs;
+            }
+          } catch (scryfallError) {
+            debugPrint('[DeckThumbnailPickerModal] Scryfall online search fallback error: $scryfallError');
+          }
+        }
+
         if (mounted) {
           setState(() {
             _searchResults = results;
@@ -91,12 +139,37 @@ class _DeckThumbnailPickerModalState
     });
   }
 
-  Future<void> _selectCover(String vaultItemId, String cardName) async {
+  Future<void> _selectCover(String vaultItemId, String cardName, {VaultItem? selectedStub}) async {
     if (_isSaving) return;
     setState(() => _isSaving = true);
 
     try {
       final dao = ref.read(vaultDaoProvider);
+
+      final existing = await dao.getItemById(vaultItemId);
+      if (existing == null && selectedStub != null) {
+        await dao.insertItem(
+          VaultItemsCompanion(
+            id: Value(selectedStub.id),
+            collectionType: Value(selectedStub.collectionType),
+            name: Value(selectedStub.name),
+            flavorName: Value(selectedStub.flavorName),
+            setOrSeries: Value(selectedStub.setOrSeries),
+            imageUrl: Value(selectedStub.imageUrl),
+            acquiredPrice: Value(selectedStub.acquiredPrice),
+            acquiredDate: Value(selectedStub.acquiredDate),
+            quantity: const Value(0),
+            condition: Value(selectedStub.condition),
+            isGraded: Value(selectedStub.isGraded),
+            personalNotes: Value(selectedStub.personalNotes),
+            currentMarketPrice: Value(selectedStub.currentMarketPrice),
+            lastPriceUpdate: Value(selectedStub.lastPriceUpdate),
+            dynamicData: Value(selectedStub.dynamicData),
+            isDeleted: const Value(false),
+          ),
+        );
+      }
+
       await dao.updateDeckCover(widget.deck.id, vaultItemId);
 
       ref.invalidate(deckProvider(widget.deck.id));
@@ -156,21 +229,46 @@ class _DeckThumbnailPickerModalState
   String? _extractArtCrop(String? dynamicData, String? fallbackUrl) {
     if (dynamicData != null && dynamicData.isNotEmpty) {
       try {
-        final decoded = jsonDecode(dynamicData);
-        if (decoded is Map<String, dynamic>) {
-          if (decoded['image_uris'] is Map && decoded['image_uris']['art_crop'] != null) {
-            return decoded['image_uris']['art_crop'] as String?;
+        final decoded = ParsedJsonCache.parse(dynamicData);
+        if (decoded.isNotEmpty) {
+          if (decoded['image_uris'] is Map) {
+            final uris = decoded['image_uris'] as Map;
+            final url = uris['art_crop'] ??
+                uris['normal'] ??
+                uris['large'] ??
+                uris['small'];
+            if (url != null && url.toString().isNotEmpty) {
+              return url.toString();
+            }
           }
-          if (decoded['card_faces'] is List && (decoded['card_faces'] as List).isNotEmpty) {
-            final face0 = (decoded['card_faces'] as List).first;
-            if (face0 is Map && face0['image_uris'] is Map) {
-              return face0['image_uris']['art_crop'] as String?;
+          if (decoded['card_faces'] is List) {
+            for (final face in (decoded['card_faces'] as List)) {
+              if (face is Map && face['image_uris'] is Map) {
+                final uris = face['image_uris'] as Map;
+                final url = uris['art_crop'] ??
+                    uris['normal'] ??
+                    uris['large'] ??
+                    uris['small'];
+                if (url != null && url.toString().isNotEmpty) {
+                  return url.toString();
+                }
+              }
             }
           }
         }
       } catch (_) {}
     }
     return fallbackUrl;
+  }
+
+  String? _extractManaCost(String? dynamicData) {
+    if (dynamicData == null || dynamicData.isEmpty) return null;
+    try {
+      final decoded = ParsedJsonCache.parse(dynamicData);
+      return decoded['mana_cost'] as String? ?? decoded['mana'] as String?;
+    } catch (_) {
+      return null;
+    }
   }
 
   @override
@@ -309,12 +407,14 @@ class _DeckThumbnailPickerModalState
                 ? item.imageUrl
                 : item['image_url'] as String?;
             final artUrl = _extractArtCrop(dynamicData, imageUrl);
+            final manaCost = _extractManaCost(dynamicData);
             final isSelected = activeDeck.coverItemId == cardId;
 
             return _buildCardGridTile(
               cardId: cardId,
               cardName: cardName,
               artUrl: artUrl,
+              manaCost: manaCost,
               isSelected: isSelected,
               onTap: () => _selectCover(cardId, cardName),
             );
@@ -388,14 +488,16 @@ class _DeckThumbnailPickerModalState
               itemBuilder: (context, index) {
                 final card = _searchResults[index];
                 final artUrl = _extractArtCrop(card.dynamicData, card.imageUrl);
+                final manaCost = _extractManaCost(card.dynamicData);
                 final isSelected = activeDeck.coverItemId == card.id;
 
                 return _buildCardGridTile(
                   cardId: card.id,
                   cardName: card.name,
                   artUrl: artUrl,
+                  manaCost: manaCost,
                   isSelected: isSelected,
-                  onTap: () => _selectCover(card.id, card.name),
+                  onTap: () => _selectCover(card.id, card.name, selectedStub: card),
                 );
               },
             ),
@@ -404,13 +506,61 @@ class _DeckThumbnailPickerModalState
     );
   }
 
+  Widget _buildCardPlaceholder(String cardName, {String? manaCost}) {
+    String? symbol;
+    if (manaCost != null && manaCost.isNotEmpty) {
+      final match = RegExp(r'\{([^}]+)\}').firstMatch(manaCost);
+      if (match != null) {
+        symbol = match.group(0);
+      }
+    }
+    symbol ??= '{C}';
+
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppColors.surfaceRaised,
+            AppColors.surface,
+          ],
+        ),
+      ),
+      padding: const EdgeInsets.all(8),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ManaSymbolIcon(symbolCode: symbol, size: 28),
+            const SizedBox(height: 8),
+            Text(
+              cardName,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildCardGridTile({
     required String cardId,
     required String cardName,
     required String? artUrl,
+    String? manaCost,
     required bool isSelected,
     required VoidCallback onTap,
   }) {
+    final placeholder = _buildCardPlaceholder(cardName, manaCost: manaCost);
+
     return GestureDetector(
       key: Key('cover_card_tile_$cardId'),
       onTap: onTap,
@@ -427,9 +577,13 @@ class _DeckThumbnailPickerModalState
           fit: StackFit.expand,
           children: [
             if (artUrl != null && artUrl.isNotEmpty)
-              CountrCachedImage(imageUrl: artUrl, fit: BoxFit.cover)
+              CountrCachedImage(
+                imageUrl: artUrl,
+                fit: BoxFit.cover,
+                errorWidget: placeholder,
+              )
             else
-              Container(color: AppColors.surfaceRaised),
+              placeholder,
             Positioned(
               left: 0,
               right: 0,

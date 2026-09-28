@@ -565,7 +565,7 @@ void main() {
         find.byKey(Key('vault_tile_duplicate_badge_${duplicateItem.id}')),
         findsOneWidget,
       );
-      expect(find.textContaining('3'), findsOneWidget);
+      expect(find.text('3x'), findsOneWidget);
     });
 
     testWidgets('F9.2: 3x singles grid tile quantity badge displays exact count text x2 / 2x', (tester) async {
@@ -589,7 +589,7 @@ void main() {
         find.byKey(Key('vault_tile_duplicate_badge_${duplicateItem.id}')),
         findsOneWidget,
       );
-      expect(find.textContaining('2'), findsOneWidget);
+      expect(find.text('2x'), findsOneWidget);
     });
 
     testWidgets('F9.3: 3x singles grid tile does NOT render duplicate badge when quantity == 1', (tester) async {

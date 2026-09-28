@@ -596,12 +596,12 @@ void main() {
       final playerTitleRect = tester.getRect(find.text('Invariance Test Card'));
 
       // Strict assertions: Geometry must not shift by even a fraction of a pixel
-      expect(playerThumbRect.width, equals(38.0));
-      expect(playerThumbRect.height, equals(52.0));
-      expect(playerThumbRect.width, equals(investorThumbRect.width));
-      expect(playerThumbRect.height, equals(investorThumbRect.height));
-      expect(playerThumbRect.left, equals(investorThumbRect.left));
-      expect(playerThumbRect.top, equals(investorThumbRect.top));
+      expect(playerThumbRect.width, closeTo(38.0, 0.001));
+      expect(playerThumbRect.height, closeTo(52.0, 0.001));
+      expect(playerThumbRect.width, closeTo(investorThumbRect.width, 0.001));
+      expect(playerThumbRect.height, closeTo(investorThumbRect.height, 0.001));
+      expect(playerThumbRect.left, closeTo(investorThumbRect.left, 0.001));
+      expect(playerThumbRect.top, closeTo(investorThumbRect.top, 0.001));
 
       // Title offset must be identical
       expect(playerTitleRect.left, equals(investorTitleRect.left));

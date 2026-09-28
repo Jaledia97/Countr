@@ -650,5 +650,69 @@ void main() {
       final updated = await (db.select(db.decks)..where((t) => t.id.equals('test-deck-reset'))).getSingle();
       expect(updated.coverItemId, isNull);
     });
+
+    testWidgets('4.3: DeckThumbnailPickerModal extracts back-face art when front-face has no art crop', (tester) async {
+      final now = DateTime.now();
+      final mockDeck = Deck(
+        id: 'test-deck-dfc',
+        name: 'DFC Test Deck',
+        format: 'Commander',
+        tcgDomain: 'mtg',
+        isRegistered: false,
+        isAssembled: false,
+        isCompetitive: false,
+        wins: 0,
+        losses: 0,
+        draws: 0,
+        isDeleted: false,
+        createdAt: now,
+      );
+
+      const dfcDynamicData = '{"card_faces":[{"name":"Front","oracle_text":"Front text"},{"name":"Back","image_uris":{"art_crop":"https://scryfall.io/back_art.jpg"}}]}';
+
+      await insertTestCard(
+        id: 'deck-card-dfc',
+        name: 'DFC Card',
+        dynamicData: dfcDynamicData,
+      );
+      await insertTestDeck(id: 'test-deck-dfc', name: 'DFC Test Deck');
+      await addCardToVersion(dviId: 'dvi-modal-dfc', versionId: 'ver_test-deck-dfc', cardId: 'deck-card-dfc');
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            vaultDaoProvider.overrideWithValue(dao),
+            deckProvider('test-deck-dfc').overrideWith((ref) => Stream.value(mockDeck)),
+            deckItemsProvider('test-deck-dfc').overrideWith(
+              (ref) => Stream.value([
+                {
+                  'id': 'dvi-modal-dfc',
+                  'vault_item_id': 'deck-card-dfc',
+                  'name': 'DFC Card',
+                  'image_url': 'https://scryfall.io/fallback.jpg',
+                  'dynamic_data': dfcDynamicData,
+                }
+              ]),
+            ),
+          ],
+          child: MaterialApp(
+            home: Scaffold(
+              body: DeckThumbnailPickerModal(deck: mockDeck),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('cover_card_tile_deck-card-dfc')), findsOneWidget);
+
+      // Tap on card to select as cover
+      await tester.tap(find.byKey(const Key('cover_card_tile_deck-card-dfc')));
+      await tester.pumpAndSettle();
+
+      // Verify deck cover is updated
+      final updated = await (db.select(db.decks)..where((t) => t.id.equals('test-deck-dfc'))).getSingle();
+      expect(updated.coverItemId, equals('deck-card-dfc'));
+    });
   });
 }

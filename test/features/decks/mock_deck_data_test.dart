@@ -102,12 +102,38 @@ void main() {
       expect((dfcDyn['card_faces'] as List).length, equals(2));
     });
 
-    test('Multi-format mock decks return format-specific card lists', () {
+    test('Multi-format mock decks return format-specific card lists with authentic art', () {
+      const oneRingScryfallId = 'd5806e68-1054-458e-866d-1f2470f682b2';
+
       final charizardItems = MockDeckData.getDeckItems('deck-charizard-ex');
       expect(charizardItems.any((i) => i['name'] == 'Charizard ex'), isTrue);
+      for (final card in charizardItems) {
+        expect(card['image_url'], isNot(contains(oneRingScryfallId)));
+        final dyn = jsonDecode(card['dynamic_data'] as String);
+        expect(dyn['image_uris']['art_crop'], isNot(contains(oneRingScryfallId)));
+      }
+      final charizard = charizardItems.firstWhere((i) => i['name'] == 'Charizard ex');
+      expect(charizard['set_or_series'], equals('OBF'));
+      expect(charizard['image_url'], contains('images.unsplash.com'));
 
       final tronItems = MockDeckData.getDeckItems('deck-tron');
       expect(tronItems.any((i) => i['name'] == 'Karn Liberated'), isTrue);
+      for (final card in tronItems) {
+        expect(card['image_url'], isNot(contains(oneRingScryfallId)));
+        final dyn = jsonDecode(card['dynamic_data'] as String);
+        expect(dyn['image_uris']['art_crop'], isNot(contains(oneRingScryfallId)));
+      }
+      final karn = tronItems.firstWhere((i) => i['name'] == 'Karn Liberated');
+      expect(karn['set_or_series'], equals('2XM'));
+      expect(karn['image_url'], contains('4b0c6662-4dde-40a2-97e0-0318478c0367'));
+
+      // Edgar Markov deck cards should not default to The One Ring art
+      final edgarItems = MockDeckData.getDeckItems('deck-edgar-markov');
+      for (final card in edgarItems) {
+        if (card['id'] != 'item-mtg-one-ring') {
+          expect(card['image_url'], isNot(contains(oneRingScryfallId)));
+        }
+      }
 
       // Unknown ID defaults to Edgar Markov 100-card deck
       final fallbackItems = MockDeckData.getDeckItems('some-random-id-12345');

@@ -480,6 +480,11 @@ class PodController extends StateNotifier<PodState> {
     await _repository?.abandonSession(state.sessionId);
   }
 
+  /// Directly synchronizes or sets the active in-memory pod state.
+  void setPodState(PodState newState) {
+    state = newState;
+  }
+
   @override
   void dispose() {
     _syncEngine?.dispose();

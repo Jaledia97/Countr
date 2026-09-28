@@ -53,7 +53,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
     if (maxScroll > 0 && currentScroll >= maxScroll - 300 && !isFetchingMore) {
       final currentLimit = ref.read(vaultPaginationLimitProvider);
       final currentItems = ref.read(vaultItemsStreamProvider).valueOrNull ?? [];
-      if (currentItems.length >= currentLimit) {
+      if (currentItems.length >= (currentLimit * 0.7).floor()) {
         ref.read(vaultIsFetchingMoreProvider.notifier).state = true;
         ref.read(vaultPaginationLimitProvider.notifier).update((l) => l + 50);
       }
@@ -1074,14 +1074,46 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
     final counts = countsAsync.valueOrNull ?? const {};
 
     return bindersAsync.when(
-      loading: () => const SliverFillRemaining(
+      loading: () => SliverFillRemaining(
         hasScrollBody: false,
-        child: Center(child: CircularProgressIndicator(color: AppColors.accentCyan)),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(color: AppColors.accentCyan),
+              const SizedBox(height: 16),
+              const Text(
+                'Loading binders...',
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+              ),
+              const SizedBox(height: 8),
+              TextButton.icon(
+                icon: const Icon(Icons.refresh, size: 16, color: AppColors.accentCyan),
+                label: const Text('Refresh Data', style: TextStyle(color: AppColors.accentCyan)),
+                onPressed: () => ref.invalidate(bindersStreamProvider),
+              ),
+            ],
+          ),
+        ),
       ),
       error: (err, stack) => SliverToBoxAdapter(
-        child: Center(
-          child: Text('Error loading binders: $err',
-              style: const TextStyle(color: Colors.redAccent)),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Error loading binders: $err',
+                    style: const TextStyle(color: Colors.redAccent)),
+                const SizedBox(height: 8),
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Retry'),
+                  onPressed: () => ref.invalidate(bindersStreamProvider),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
       data: (binders) {
@@ -1112,14 +1144,35 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 16),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.accentCyan,
-                        foregroundColor: AppColors.textDark,
-                      ),
-                      icon: const Icon(Icons.add),
-                      label: const Text('+ Create First Binder'),
-                      onPressed: () => _showCreateBinderDialog(context, activeGame),
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 10,
+                      alignment: WrapAlignment.center,
+                      children: [
+                        ElevatedButton.icon(
+                          key: const Key('vault_view_owned_singles_empty_button'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.accentCyan,
+                            foregroundColor: AppColors.textDark,
+                          ),
+                          icon: const Icon(Icons.style_outlined),
+                          label: const Text('View Owned Singles'),
+                          onPressed: () {
+                            ref.read(vaultViewModeProvider.notifier).state =
+                                VaultViewMode.allVault;
+                          },
+                        ),
+                        ElevatedButton.icon(
+                          key: const Key('vault_create_first_binder_button'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.surfaceHighlight,
+                            foregroundColor: AppColors.textPrimary,
+                          ),
+                          icon: const Icon(Icons.add),
+                          label: const Text('+ Create First Binder'),
+                          onPressed: () => _showCreateBinderDialog(context, activeGame),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -1374,8 +1427,15 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
       }
 
       final cardLayout = ref.watch(cardDisplayLayoutProvider);
-      final variantResult = VaultVariantHelper.groupVaultItemsByVariant(filtered);
-      final multiVariantKeys = variantResult.multiVariantCardKeys;
+      final cardKeyCounts = <String, int>{};
+      for (final item in filtered) {
+        final key = VaultVariantHelper.resolveAbstractCardKey(item);
+        cardKeyCounts[key] = (cardKeyCounts[key] ?? 0) + 1;
+      }
+      final multiVariantKeys = {
+        for (final entry in cardKeyCounts.entries)
+          if (entry.value > 1) entry.key,
+      };
 
       if (cardLayout == CardDisplayLayout.grid) {
         final screenWidth = MediaQuery.of(context).size.width;
@@ -1435,12 +1495,28 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
     }
 
     if (asyncItems.isLoading) {
-      return const SliverFillRemaining(
+      return SliverFillRemaining(
         hasScrollBody: false,
         child: Padding(
-          padding: EdgeInsets.all(40),
+          padding: const EdgeInsets.all(40),
           child: Center(
-            child: CircularProgressIndicator(color: AppColors.accentCyan),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const CircularProgressIndicator(color: AppColors.accentCyan),
+                const SizedBox(height: 16),
+                const Text(
+                  'Loading collection...',
+                  style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                ),
+                const SizedBox(height: 8),
+                TextButton.icon(
+                  icon: const Icon(Icons.refresh, size: 16, color: AppColors.accentCyan),
+                  label: const Text('Refresh Data', style: TextStyle(color: AppColors.accentCyan)),
+                  onPressed: () => ref.invalidate(vaultItemsStreamProvider),
+                ),
+              ],
+            ),
           ),
         ),
       );
@@ -1457,9 +1533,24 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: AppColors.accentRose),
             ),
-            child: Text(
-              'Database Ledger Error: ${asyncItems.error}',
-              style: const TextStyle(color: AppColors.accentRose),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Database Ledger Error: ${asyncItems.error}',
+                  style: const TextStyle(color: AppColors.accentRose),
+                ),
+                const SizedBox(height: 8),
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.refresh, size: 16),
+                  label: const Text('Retry'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.accentRose,
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: () => ref.invalidate(vaultItemsStreamProvider),
+                ),
+              ],
             ),
           ),
         ),

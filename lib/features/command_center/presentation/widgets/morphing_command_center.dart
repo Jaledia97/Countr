@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_typography.dart';
+import '../../../../core/router/app_router.dart';
 import '../../../../core/state/app_state.dart';
 import 'collections_accordion.dart';
 import 'play_track_accordion.dart';
@@ -534,19 +535,25 @@ class _MorphingCommandCenterState extends ConsumerState<MorphingCommandCenter> {
                     onModeSelected: () {
                       Navigator.of(context).pop();
                     },
-                    onLaunchMtgMode: (mode) {
-                      Navigator.of(context).pop();
-                      PregameSetupSheet.show(
-                        context,
+                    onLaunchMtgMode: (mode) async {
+                      // 1. Open pregame setup on root navigator context (modal already dismissed by onModeSelected)
+                      final rootContext = rootNavigatorKey.currentContext ?? context;
+                      final podState = await PregameSetupSheet.show(
+                        rootContext,
                         initialFormat: mode.toLowerCase(),
-                        onStartMatch: (podState) {
-                          Navigator.of(context).push(
+                      );
+
+                      // 3. When setup completes and returns podState, push PodScaffoldWidget
+                      if (podState != null) {
+                        final navContext = rootNavigatorKey.currentContext ?? rootContext;
+                        if (navContext.mounted) {
+                          Navigator.of(navContext).push(
                             MaterialPageRoute(
                               builder: (_) => PodScaffoldWidget(podState: podState),
                             ),
                           );
-                        },
-                      );
+                        }
+                      }
                     },
                   ),
 
@@ -565,42 +572,48 @@ class _MorphingCommandCenterState extends ConsumerState<MorphingCommandCenter> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceAround,
                         children: [
-                          _QuickActionItem(
-                            icon: Icons.price_check_rounded,
-                            label: 'TCG Pricing',
-                            onTap: () {
-                              Navigator.of(context).pop();
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Offline TCG Pricing active'),
-                                ),
-                              );
-                            },
-                          ),
-                          _QuickActionItem(
-                            icon: Icons.sync_rounded,
-                            label: 'Sync Status',
-                            onTap: () {
-                              Navigator.of(context).pop();
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Local-first storage in sync'),
-                                ),
-                              );
-                            },
-                          ),
-                          _QuickActionItem(
-                            icon: Icons.settings_outlined,
-                            label: 'Settings',
-                            onTap: () {
-                              if (_scrollController.hasClients) {
-                                _scrollController.animateTo(
-                                  0,
-                                  duration: const Duration(milliseconds: 300),
-                                  curve: Curves.easeInOut,
+                          Expanded(
+                            child: _QuickActionItem(
+                              icon: Icons.price_check_rounded,
+                              label: 'TCG Pricing',
+                              onTap: () {
+                                Navigator.of(context).pop();
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Offline TCG Pricing active'),
+                                  ),
                                 );
-                              }
-                            },
+                              },
+                            ),
+                          ),
+                          Expanded(
+                            child: _QuickActionItem(
+                              icon: Icons.sync_rounded,
+                              label: 'Sync Status',
+                              onTap: () {
+                                Navigator.of(context).pop();
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Local-first storage in sync'),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                          Expanded(
+                            child: _QuickActionItem(
+                              icon: Icons.settings_outlined,
+                              label: 'Settings',
+                              onTap: () {
+                                if (_scrollController.hasClients) {
+                                  _scrollController.animateTo(
+                                    0,
+                                    duration: const Duration(milliseconds: 300),
+                                    curve: Curves.easeInOut,
+                                  );
+                                }
+                              },
+                            ),
                           ),
                         ],
                       ),
@@ -633,7 +646,7 @@ class _QuickActionItem extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -641,6 +654,9 @@ class _QuickActionItem extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
               style: AppTypography.caption.copyWith(fontSize: 10),
             ),
           ],

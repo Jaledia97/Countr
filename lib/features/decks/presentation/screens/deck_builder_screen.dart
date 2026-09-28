@@ -197,13 +197,28 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
       try {
         final decoded = ParsedJsonCache.parse(dynamicData);
         if (decoded.isNotEmpty) {
-          if (decoded['image_uris'] is Map && decoded['image_uris']['art_crop'] != null) {
-            return decoded['image_uris']['art_crop'] as String?;
+          if (decoded['image_uris'] is Map) {
+            final uris = decoded['image_uris'] as Map;
+            final url = uris['art_crop'] ??
+                uris['normal'] ??
+                uris['large'] ??
+                uris['small'];
+            if (url != null && url.toString().isNotEmpty) {
+              return url.toString();
+            }
           }
-          if (decoded['card_faces'] is List && (decoded['card_faces'] as List).isNotEmpty) {
-            final face0 = (decoded['card_faces'] as List).first;
-            if (face0 is Map && face0['image_uris'] is Map) {
-              return face0['image_uris']['art_crop'] as String?;
+          if (decoded['card_faces'] is List) {
+            for (final face in (decoded['card_faces'] as List)) {
+              if (face is Map && face['image_uris'] is Map) {
+                final uris = face['image_uris'] as Map;
+                final url = uris['art_crop'] ??
+                    uris['normal'] ??
+                    uris['large'] ??
+                    uris['small'];
+                if (url != null && url.toString().isNotEmpty) {
+                  return url.toString();
+                }
+              }
             }
           }
         }
