@@ -11,7 +11,6 @@ import 'dart:async';
 import 'package:countr/features/vault/presentation/providers/vault_providers.dart';
 import 'package:countr/features/vault/presentation/screens/binder_detail_screen.dart';
 import 'package:countr/features/vault/presentation/widgets/card_detail_sheet.dart';
-import 'package:countr/features/vault/presentation/widgets/manual_add_bottom_sheet.dart';
 import 'package:countr/features/vault/presentation/widgets/vault_import_bottom_sheet.dart';
 import 'package:countr/features/vault/domain/vault_pricing_helper.dart';
 import 'package:countr/features/vault/domain/vault_variant_helper.dart';
@@ -19,6 +18,7 @@ import 'package:countr/features/vault/presentation/widgets/vault_item_card.dart'
 import 'package:countr/features/vault/presentation/widgets/vault_item_tile.dart';
 import 'package:countr/features/vault/presentation/widgets/mtg_filter_sheet.dart';
 import 'package:countr/features/vault/presentation/providers/mtg_filter_state.dart';
+import 'package:countr/features/vault/presentation/widgets/vault_collection_view_sliver.dart';
 import 'package:countr/features/symbology/presentation/widgets/mana_symbol_icon.dart';
 
 /// Vault Screen (Safe / Collection Inventory).
@@ -35,6 +35,8 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   Timer? _debounceTimer;
+  Timer? _loadingTimeoutTimer;
+  bool _isLoadingTimedOut = false;
   int _selectedFilterIndex = 0;
   bool _isSearchExpanded = false;
 
@@ -42,6 +44,35 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    _startLoadingTimeoutTimer();
+  }
+
+  void _startLoadingTimeoutTimer() {
+    _loadingTimeoutTimer?.cancel();
+    final current = ref.read(vaultItemsStreamProvider);
+    if (current.hasValue) {
+      _isLoadingTimedOut = false;
+      return;
+    }
+    _loadingTimeoutTimer = Timer(const Duration(seconds: 5), () {
+      if (mounted) {
+        setState(() {
+          _isLoadingTimedOut = true;
+        });
+      }
+    });
+  }
+
+  void _resetLoadingTimeoutTimer() {
+    _loadingTimeoutTimer?.cancel();
+    _loadingTimeoutTimer = null;
+    if (_isLoadingTimedOut && mounted) {
+      setState(() {
+        _isLoadingTimedOut = false;
+      });
+    } else {
+      _isLoadingTimedOut = false;
+    }
   }
 
   void _onScroll() {
@@ -62,7 +93,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
 
   static const List<String> _polymorphicFilters = [
     'Owned',
-    'Catalog (Ref)',
+    'All Cards',
     'Graded Slabs',
     'Raw Singles',
     'Comics',
@@ -117,6 +148,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
   @override
   void dispose() {
     _debounceTimer?.cancel();
+    _loadingTimeoutTimer?.cancel();
     _scrollController.dispose();
     _searchController.dispose();
     super.dispose();
@@ -215,6 +247,11 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
         if (!next.isLoading) {
           ref.read(vaultIsFetchingMoreProvider.notifier).state = false;
         }
+        if (next.hasValue || next.hasError) {
+          _resetLoadingTimeoutTimer();
+        } else if (next.isLoading && !next.hasValue && _loadingTimeoutTimer == null && !_isLoadingTimedOut) {
+          _startLoadingTimeoutTimer();
+        }
       },
     );
 
@@ -247,9 +284,17 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
             ),
             onSelected: (String selected) {
               ref.read(activeGameContextProvider.notifier).state = selected;
+              if (selected.toLowerCase().contains('magic') ||
+                  selected.toLowerCase() == 'mtg') {
+                ref
+                    .read(mtgAutoHydrationCoordinatorProvider)
+                    .checkAndTriggerAutoHydration();
+              }
               setState(() {
                 _selectedFilterIndex = ref.read(vaultShowCatalogProvider) ? 1 : 0;
+                _isLoadingTimedOut = false;
               });
+              _startLoadingTimeoutTimer();
               ScaffoldMessenger.of(context).hideCurrentSnackBar();
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
@@ -326,53 +371,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
             ),
           ),
         ),
-        actions: [
-          IconButton(
-            key: const Key('vault_privacy_mode_button'),
-            icon: Icon(
-              ref.watch(privacyModeProvider) ? Icons.visibility_off : Icons.visibility,
-              color: ref.watch(privacyModeProvider) ? AppColors.accentAmber : AppColors.textSecondary,
-            ),
-            tooltip: ref.watch(privacyModeProvider) ? 'Disable Privacy Mode' : 'Enable Privacy Mode',
-            onPressed: () {
-              ref.read(privacyModeProvider.notifier).state = !ref.read(privacyModeProvider);
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.bolt_rounded, color: AppColors.accentCyan),
-            tooltip: 'Hydrate MTG Dictionary',
-            onPressed: () {
-              ref.read(hydrationControllerProvider.notifier).startHydration();
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.sync_rounded),
-            tooltip: 'Reseed Database',
-            onPressed: () async {
-              await ref.read(vaultDaoProvider).seedDatabase();
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    behavior: SnackBarBehavior.floating,
-                    content: Text('Database verified and seeded.'),
-                  ),
-                );
-              }
-            },
-          ),
-          IconButton(
-            key: const Key('vault_appbar_filter_button'),
-            icon: Badge(
-              isLabelVisible: ref.watch(mtgFilterProvider).isActive,
-              label: Text('${ref.watch(mtgFilterProvider).activeCount}'),
-              backgroundColor: AppColors.accentCyan,
-              textColor: AppColors.textDark,
-              child: const Icon(Icons.tune_rounded),
-            ),
-            tooltip: 'Filter Vault',
-            onPressed: () => _openMtgFilterSheet(context),
-          ),
-        ],
+        actions: const [],
       ),
       floatingActionButton: viewMode == VaultViewMode.binders
           ? FloatingActionButton.extended(
@@ -413,12 +412,12 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
                   const SizedBox(height: 16),
 
                   // Animated Full-Width Search & View Controls Bar
-                  _buildSearchAndControlsBar(viewMode, cardLayout),
+                  _buildSearchAndControlsBar(viewMode),
 
-                  // Category Filter Chips (when Singles/All Vault is active)
+                  // Category Filter Chips with persistent left-anchored layout switcher (when Singles/All Vault is active)
                   if (viewMode == VaultViewMode.allVault) ...[
                     const SizedBox(height: 12),
-                    _buildCategoryFilterChips(),
+                    _buildCategoryFilterChips(cardLayout),
                   ],
 
                   const SizedBox(height: 16),
@@ -427,9 +426,11 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
             ),
           ),
 
-          // Content Sliver: Either 2-Column Binder Grid OR All Vault Card List
+          // Content Sliver: Either 2-Column Binder Grid OR Collections View OR All Vault Card List
           if (viewMode == VaultViewMode.binders)
             _buildBindersGridSliver(context, activeGame)
+          else if (viewMode == VaultViewMode.collections)
+            _buildCollectionsViewSliver(context, activeGame)
           else
             _buildVaultCardsSliver(asyncItems, activeGame),
 
@@ -492,169 +493,145 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
 
   Widget _buildSearchAndControlsBar(
     VaultViewMode viewMode,
-    CardDisplayLayout cardLayout,
   ) {
     final mtgFilter = ref.watch(mtgFilterProvider);
     final filterActive = mtgFilter.isActive;
     final activeCount = mtgFilter.activeCount;
     final isExpanded = _isSearchExpanded || _searchController.text.isNotEmpty;
 
-    return AnimatedCrossFade(
-      duration: const Duration(milliseconds: 250),
-      crossFadeState: isExpanded
-          ? CrossFadeState.showSecond
-          : CrossFadeState.showFirst,
-      firstChild: SizedBox(
-        height: 40,
-        child: Row(
-          children: [
-            // View Toggle: [ Singles ] | [ Binders ] & Layout Switcher
-            Expanded(
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.centerLeft,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _buildViewToggle(viewMode),
-                    if (viewMode == VaultViewMode.allVault) ...[
-                      const SizedBox(width: 8),
-                      _buildLayoutSwitcher(cardLayout),
-                    ],
-                  ],
-                ),
+    return Row(
+      children: [
+        Expanded(
+          child: AnimatedCrossFade(
+            duration: const Duration(milliseconds: 250),
+            crossFadeState: isExpanded
+                ? CrossFadeState.showSecond
+                : CrossFadeState.showFirst,
+            firstChild: SizedBox(
+              height: 40,
+              child: Row(
+                children: [
+                  // Primary View Switcher: [ Singles | Binders | Collections ]
+                  Expanded(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: _buildViewToggle(viewMode),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+
+                  // Collapsed Search Trigger Icon
+                  IconButton(
+                    key: const Key('vault_search_expand_button'),
+                    padding: EdgeInsets.zero,
+                    constraints:
+                        const BoxConstraints(minWidth: 36, minHeight: 36),
+                    icon: const Icon(Icons.search, color: AppColors.accentCyan),
+                    tooltip: 'Search Vault',
+                    onPressed: () {
+                      setState(() {
+                        _isSearchExpanded = true;
+                      });
+                    },
+                  ),
+                ],
               ),
             ),
-            const SizedBox(width: 4),
-
-            // Collapsed Search Trigger Icon
-            IconButton(
-              key: const Key('vault_search_expand_button'),
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-              icon: const Icon(Icons.search, color: AppColors.accentCyan),
-              tooltip: 'Search Vault',
-              onPressed: () {
-                setState(() {
-                  _isSearchExpanded = true;
-                });
-              },
-            ),
-            const SizedBox(width: 4),
-
-            // MTG Filter Sheet Trigger Button with Active Count Badge
-            IconButton(
-              key: const Key('vault_mtg_filter_button'),
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-              icon: Badge(
-                isLabelVisible: filterActive,
-                label: Text('$activeCount'),
-                backgroundColor: AppColors.accentCyan,
-                textColor: AppColors.textDark,
-                child: Icon(
-                  Icons.tune_rounded,
-                  color: filterActive ? AppColors.accentCyan : AppColors.textSecondary,
+            secondChild: Container(
+              height: 40,
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: AppColors.accentCyan.withValues(alpha: 0.6),
                 ),
               ),
-              tooltip: 'Filter Cards',
-              onPressed: () => _openMtgFilterSheet(context),
+              child: Row(
+                children: [
+                  const SizedBox(width: 10),
+                  const Icon(Icons.search, color: AppColors.accentCyan, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      key: const Key('vault_search_text_field'),
+                      controller: _searchController,
+                      autofocus: true,
+                      style: const TextStyle(color: Colors.white, fontSize: 13),
+                      decoration: const InputDecoration(
+                        hintText: 'Search cards, sets, or cert numbers...',
+                        hintStyle:
+                            TextStyle(color: AppColors.textMuted, fontSize: 13),
+                        border: InputBorder.none,
+                        isDense: true,
+                        contentPadding: EdgeInsets.symmetric(vertical: 10),
+                      ),
+                      onChanged: (val) {
+                        setState(() {});
+                        _debounceTimer?.cancel();
+                        _debounceTimer =
+                            Timer(const Duration(milliseconds: 250), () {
+                          ref.read(vaultSearchQueryProvider.notifier).state =
+                              val.trim();
+                          ref.read(vaultPaginationLimitProvider.notifier).state = 50;
+                        });
+                      },
+                    ),
+                  ),
+                  IconButton(
+                    key: _searchController.text.isNotEmpty
+                        ? const Key('vault_search_clear_button')
+                        : const Key('vault_search_collapse_button'),
+                    icon: const Icon(Icons.close,
+                        size: 20, color: AppColors.textSecondary),
+                    tooltip: _searchController.text.isNotEmpty
+                        ? 'Clear query'
+                        : 'Close search',
+                    onPressed: () {
+                      _debounceTimer?.cancel();
+                      if (_searchController.text.isNotEmpty) {
+                        setState(() {
+                          _searchController.clear();
+                        });
+                        ref.read(vaultSearchQueryProvider.notifier).state = '';
+                        ref.read(vaultPaginationLimitProvider.notifier).state = 50;
+                      } else {
+                        setState(() {
+                          _searchController.clear();
+                          _isSearchExpanded = false;
+                        });
+                        ref.read(vaultSearchQueryProvider.notifier).state = '';
+                        ref.read(vaultPaginationLimitProvider.notifier).state = 50;
+                        FocusScope.of(context).unfocus();
+                      }
+                    },
+                  ),
+                ],
+              ),
             ),
-          ],
-        ),
-      ),
-      secondChild: Container(
-        height: 40,
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: AppColors.accentCyan.withValues(alpha: 0.6),
           ),
         ),
-        child: Row(
-          children: [
-            const SizedBox(width: 10),
-            const Icon(Icons.search, color: AppColors.accentCyan, size: 20),
-            const SizedBox(width: 8),
-            Expanded(
-              child: TextField(
-                key: const Key('vault_search_text_field'),
-                controller: _searchController,
-                autofocus: true,
-                style: const TextStyle(color: Colors.white, fontSize: 13),
-                decoration: const InputDecoration(
-                  hintText: 'Search cards, sets, or cert numbers...',
-                  hintStyle:
-                      TextStyle(color: AppColors.textMuted, fontSize: 13),
-                  border: InputBorder.none,
-                  isDense: true,
-                  contentPadding: EdgeInsets.symmetric(vertical: 10),
-                ),
-                onChanged: (val) {
-                  setState(() {});
-                  _debounceTimer?.cancel();
-                  _debounceTimer =
-                      Timer(const Duration(milliseconds: 250), () {
-                    ref.read(vaultSearchQueryProvider.notifier).state =
-                        val.trim();
-                    ref.read(vaultPaginationLimitProvider.notifier).state = 50;
-                  });
-                },
-              ),
+        const SizedBox(width: 4),
+
+        // MTG Filter Sheet Trigger Button with Active Count Badge (permanently pinned to right)
+        IconButton(
+          key: const Key('vault_mtg_filter_button'),
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+          icon: Badge(
+            isLabelVisible: filterActive,
+            label: Text('$activeCount'),
+            backgroundColor: AppColors.accentCyan,
+            textColor: AppColors.textDark,
+            child: Icon(
+              Icons.tune_rounded,
+              color: filterActive ? AppColors.accentCyan : AppColors.textSecondary,
             ),
-            if (_searchController.text.isNotEmpty)
-              IconButton(
-                key: const Key('vault_search_clear_button'),
-                icon: const Icon(Icons.clear,
-                    size: 18, color: AppColors.textMuted),
-                tooltip: 'Clear query',
-                onPressed: () {
-                  _debounceTimer?.cancel();
-                  setState(() {
-                    _searchController.clear();
-                  });
-                  ref.read(vaultSearchQueryProvider.notifier).state = '';
-                  ref.read(vaultPaginationLimitProvider.notifier).state = 50;
-                },
-              ),
-            IconButton(
-              key: const Key('vault_mtg_filter_button_expanded'),
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-              icon: Badge(
-                isLabelVisible: filterActive,
-                label: Text('$activeCount'),
-                backgroundColor: AppColors.accentCyan,
-                textColor: AppColors.textDark,
-                child: Icon(
-                  Icons.tune_rounded,
-                  size: 20,
-                  color: filterActive ? AppColors.accentCyan : AppColors.textSecondary,
-                ),
-              ),
-              tooltip: 'Filter Cards',
-              onPressed: () => _openMtgFilterSheet(context),
-            ),
-            IconButton(
-              key: const Key('vault_search_collapse_button'),
-              icon: const Icon(Icons.close,
-                  size: 20, color: AppColors.textSecondary),
-              tooltip: 'Close search',
-              onPressed: () {
-                _debounceTimer?.cancel();
-                setState(() {
-                  _searchController.clear();
-                  _isSearchExpanded = false;
-                });
-                ref.read(vaultSearchQueryProvider.notifier).state = '';
-                ref.read(vaultPaginationLimitProvider.notifier).state = 50;
-                FocusScope.of(context).unfocus();
-              },
-            ),
-          ],
+          ),
+          tooltip: 'Filter Cards',
+          onPressed: () => _openMtgFilterSheet(context),
         ),
-      ),
+      ],
     );
   }
 
@@ -670,59 +647,106 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          GestureDetector(
-            key: const Key('vault_view_singles_toggle'),
-            onTap: () => ref
-                .read(vaultViewModeProvider.notifier)
-                .state = VaultViewMode.allVault,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              decoration: BoxDecoration(
-                color: viewMode == VaultViewMode.allVault
-                    ? AppColors.surfaceRaised
-                    : Colors.transparent,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                'Singles',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: viewMode == VaultViewMode.allVault
-                      ? FontWeight.w700
-                      : FontWeight.w500,
+          Semantics(
+            button: true,
+            selected: viewMode == VaultViewMode.allVault,
+            label: 'Singles',
+            child: GestureDetector(
+              key: const Key('vault_view_singles_toggle'),
+              behavior: HitTestBehavior.opaque,
+              onTap: () => ref
+                  .read(vaultViewModeProvider.notifier)
+                  .state = VaultViewMode.allVault,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                decoration: BoxDecoration(
                   color: viewMode == VaultViewMode.allVault
-                      ? AppColors.accentCyan
-                      : AppColors.textSecondary,
+                      ? AppColors.surfaceRaised
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  'Singles',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: viewMode == VaultViewMode.allVault
+                        ? FontWeight.w700
+                        : FontWeight.w500,
+                    color: viewMode == VaultViewMode.allVault
+                        ? AppColors.accentCyan
+                        : AppColors.textSecondary,
+                  ),
                 ),
               ),
             ),
           ),
           const SizedBox(width: 4),
-          GestureDetector(
-            key: const Key('vault_view_binders_toggle'),
-            onTap: () => ref
-                .read(vaultViewModeProvider.notifier)
-                .state = VaultViewMode.binders,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              decoration: BoxDecoration(
-                color: viewMode == VaultViewMode.binders
-                    ? AppColors.surfaceRaised
-                    : Colors.transparent,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                'Binders',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: viewMode == VaultViewMode.binders
-                      ? FontWeight.w700
-                      : FontWeight.w500,
+          Semantics(
+            button: true,
+            selected: viewMode == VaultViewMode.binders,
+            label: 'Binders',
+            child: GestureDetector(
+              key: const Key('vault_view_binders_toggle'),
+              behavior: HitTestBehavior.opaque,
+              onTap: () => ref
+                  .read(vaultViewModeProvider.notifier)
+                  .state = VaultViewMode.binders,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                decoration: BoxDecoration(
                   color: viewMode == VaultViewMode.binders
-                      ? AppColors.accentCyan
-                      : AppColors.textSecondary,
+                      ? AppColors.surfaceRaised
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  'Binders',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: viewMode == VaultViewMode.binders
+                        ? FontWeight.w700
+                        : FontWeight.w500,
+                    color: viewMode == VaultViewMode.binders
+                        ? AppColors.accentCyan
+                        : AppColors.textSecondary,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
+          Semantics(
+            button: true,
+            selected: viewMode == VaultViewMode.collections,
+            label: 'Collections',
+            child: GestureDetector(
+              key: const Key('vault_view_collections_toggle'),
+              behavior: HitTestBehavior.opaque,
+              onTap: () => ref
+                  .read(vaultViewModeProvider.notifier)
+                  .state = VaultViewMode.collections,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                decoration: BoxDecoration(
+                  color: viewMode == VaultViewMode.collections
+                      ? AppColors.surfaceRaised
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  'Collections',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: viewMode == VaultViewMode.collections
+                        ? FontWeight.w700
+                        : FontWeight.w500,
+                    color: viewMode == VaultViewMode.collections
+                        ? AppColors.accentCyan
+                        : AppColors.textSecondary,
+                  ),
                 ),
               ),
             ),
@@ -746,11 +770,13 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
         children: [
           Semantics(
             button: true,
+            selected: cardLayout == CardDisplayLayout.list,
             label: 'List layout',
             child: Tooltip(
               message: 'List layout',
               child: GestureDetector(
                 key: const Key('vault_layout_list_button'),
+                behavior: HitTestBehavior.opaque,
                 onTap: () => ref
                     .read(cardDisplayLayoutProvider.notifier)
                     .state = CardDisplayLayout.list,
@@ -777,11 +803,13 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
           const SizedBox(width: 4),
           Semantics(
             button: true,
+            selected: cardLayout == CardDisplayLayout.grid,
             label: 'Grid layout',
             child: Tooltip(
               message: 'Grid layout',
               child: GestureDetector(
                 key: const Key('vault_layout_grid_button'),
+                behavior: HitTestBehavior.opaque,
                 onTap: () => ref
                     .read(cardDisplayLayoutProvider.notifier)
                     .state = CardDisplayLayout.grid,
@@ -810,20 +838,27 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
     );
   }
 
-  Widget _buildCategoryFilterChips() {
+  Widget _buildCategoryFilterChips(CardDisplayLayout cardLayout) {
     final activeGame = ref.watch(activeGameContextProvider);
     final isMtg = activeGame.toLowerCase().contains('magic') || activeGame.toLowerCase() == 'mtg';
     final showCatalog = ref.watch(vaultShowCatalogProvider);
 
-    if (isMtg) {
-      return _buildMtgCategoryFilterChips(showCatalog);
-    } else {
-      return _buildPolymorphicCategoryFilterChips(showCatalog);
-    }
+    return Row(
+      children: [
+        _buildLayoutSwitcher(cardLayout),
+        const SizedBox(width: 8),
+        Expanded(
+          child: isMtg
+              ? _buildMtgCategoryFilterChips(showCatalog)
+              : _buildPolymorphicCategoryFilterChips(showCatalog),
+        ),
+      ],
+    );
   }
 
   Widget _buildPolymorphicCategoryFilterChips(bool showCatalog) {
     return SingleChildScrollView(
+      key: const PageStorageKey<String>('vault_polymorphic_filter_chips_scroll'),
       scrollDirection: Axis.horizontal,
       child: Row(
         children: List.generate(_polymorphicFilters.length, (index) {
@@ -836,7 +871,9 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
             padding: const EdgeInsets.only(right: 8),
             child: FilterChip(
               key: Key(
-                'vault_filter_chip_${filterName.toLowerCase().replaceAll(' ', '_')}',
+                index == 1
+                    ? 'vault_filter_chip_catalog_(ref)'
+                    : 'vault_filter_chip_${filterName.toLowerCase().replaceAll(' ', '_')}',
               ),
               selected: isSelected,
               label: Text(filterName),
@@ -875,6 +912,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
     final mtgFilter = ref.watch(mtgFilterProvider);
 
     return SingleChildScrollView(
+      key: const PageStorageKey<String>('vault_mtg_filter_chips_scroll'),
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
@@ -904,18 +942,21 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
             ),
           ),
 
-          // 2. Catalog (Ref) Chip
+          // 2. All Cards Chip
           Padding(
             padding: const EdgeInsets.only(right: 8),
             child: FilterChip(
               key: const Key('vault_filter_chip_catalog_(ref)'),
               selected: showCatalog,
-              label: const Text('Catalog (Ref)'),
+              label: const Text('All Cards'),
               onSelected: (_) {
                 setState(() {
                   _selectedFilterIndex = 1;
                   ref.read(vaultShowCatalogProvider.notifier).state = true;
                 });
+                ref
+                    .read(mtgAutoHydrationCoordinatorProvider)
+                    .checkAndTriggerAutoHydration();
               },
               labelStyle: TextStyle(
                 fontSize: 11.5,
@@ -1067,6 +1108,14 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
     );
   }
 
+  /// Sliver displaying set collections with completion progress bars and expandable cards
+  Widget _buildCollectionsViewSliver(BuildContext context, String activeGame) {
+    return VaultCollectionViewSliver(
+      activeGame: activeGame,
+      searchQuery: _searchController.text,
+    );
+  }
+
   /// 2-Column GridView displaying custom Vault Binders
   Widget _buildBindersGridSliver(BuildContext context, String activeGame) {
     final bindersAsync = ref.watch(bindersStreamProvider);
@@ -1074,28 +1123,60 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
     final counts = countsAsync.valueOrNull ?? const {};
 
     return bindersAsync.when(
-      loading: () => SliverFillRemaining(
-        hasScrollBody: false,
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const CircularProgressIndicator(color: AppColors.accentCyan),
-              const SizedBox(height: 16),
-              const Text(
-                'Loading binders...',
-                style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+      loading: () {
+        if (_isLoadingTimedOut) {
+          return SliverFillRemaining(
+            hasScrollBody: false,
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.hourglass_top_rounded, size: 36, color: AppColors.accentAmber),
+                  const SizedBox(height: 12),
+                  const Text('Loading binders took longer than expected',
+                      style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+                  const SizedBox(height: 12),
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.refresh, size: 16),
+                    label: const Text('Retry Binders'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.accentCyan,
+                      foregroundColor: AppColors.textDark,
+                    ),
+                    onPressed: () {
+                      setState(() => _isLoadingTimedOut = false);
+                      _startLoadingTimeoutTimer();
+                      ref.invalidate(bindersStreamProvider);
+                    },
+                  ),
+                ],
               ),
-              const SizedBox(height: 8),
-              TextButton.icon(
-                icon: const Icon(Icons.refresh, size: 16, color: AppColors.accentCyan),
-                label: const Text('Refresh Data', style: TextStyle(color: AppColors.accentCyan)),
-                onPressed: () => ref.invalidate(bindersStreamProvider),
-              ),
-            ],
+            ),
+          );
+        }
+        return SliverFillRemaining(
+          hasScrollBody: false,
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const CircularProgressIndicator(color: AppColors.accentCyan),
+                const SizedBox(height: 16),
+                const Text(
+                  'Loading binders...',
+                  style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                ),
+                const SizedBox(height: 8),
+                TextButton.icon(
+                  icon: const Icon(Icons.refresh, size: 16, color: AppColors.accentCyan),
+                  label: const Text('Refresh Data', style: TextStyle(color: AppColors.accentCyan)),
+                  onPressed: () => ref.invalidate(bindersStreamProvider),
+                ),
+              ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
       error: (err, stack) => SliverToBoxAdapter(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -1439,7 +1520,9 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
 
       if (cardLayout == CardDisplayLayout.grid) {
         final screenWidth = MediaQuery.of(context).size.width;
-        final columns = _calculateGridColumns(screenWidth);
+        final textScale = MediaQuery.textScalerOf(context).scale(1.0);
+        final columns = _calculateGridColumns(screenWidth, textScale);
+        final dynamicAspectRatio = _calculateChildAspectRatio(context);
 
         return SliverPadding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -1449,7 +1532,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
               crossAxisCount: columns,
               crossAxisSpacing: 10,
               mainAxisSpacing: 10,
-              childAspectRatio: 0.64,
+              childAspectRatio: dynamicAspectRatio,
             ),
             delegate: SliverChildBuilderDelegate(
               (context, index) {
@@ -1495,6 +1578,63 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
     }
 
     if (asyncItems.isLoading) {
+      if (_isLoadingTimedOut) {
+        return SliverFillRemaining(
+          hasScrollBody: false,
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.accentAmber.withValues(alpha: 0.12),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.hourglass_top_rounded,
+                      size: 40,
+                      color: AppColors.accentAmber,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Loading is taking longer than usual',
+                    style: AppTypography.heading2,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'The database ledger query or isolate initialization is experiencing delays.',
+                    style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 20),
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.refresh_rounded, size: 18),
+                    label: const Text('Retry Connection'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.accentCyan,
+                      foregroundColor: AppColors.textDark,
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _isLoadingTimedOut = false;
+                      });
+                      _startLoadingTimeoutTimer();
+                      ref.invalidate(vaultItemsStreamProvider);
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      }
+
       return SliverFillRemaining(
         hasScrollBody: false,
         child: Padding(
@@ -1560,11 +1700,22 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
     return const SliverToBoxAdapter(child: SizedBox.shrink());
   }
 
-  int _calculateGridColumns(double screenWidth) {
+  int _calculateGridColumns(double screenWidth, [double textScale = 1.0]) {
+    if ((screenWidth < 360 && textScale > 1.1) ||
+        (screenWidth < 450 && textScale > 1.6)) {
+      return 2;
+    }
     if (screenWidth < 600) return 3;
     if (screenWidth < 900) return 4;
     if (screenWidth < 1200) return 5;
     return 6;
+  }
+
+  double _calculateChildAspectRatio(BuildContext context) {
+    final textScale = MediaQuery.textScalerOf(context).scale(1.0);
+    if (textScale > 1.8) return 0.36;
+    if (textScale > 1.3) return 0.44;
+    return 0.54;
   }
 
   /// Smoothly scrolls the Vault grid or list so that [index] is centered
@@ -1584,11 +1735,15 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
 
     double targetOffset;
     if (cardLayout == CardDisplayLayout.grid) {
-      final columns = _calculateGridColumns(screenWidth);
+      final textScale = mediaQuery != null
+          ? mediaQuery.textScaler.scale(1.0)
+          : 1.0;
+      final columns = _calculateGridColumns(screenWidth, textScale);
       final totalSpacing = (columns - 1) * 10.0;
       final gridWidth = screenWidth - 32.0; // 16px horizontal margins
       final itemWidth = (gridWidth - totalSpacing) / columns;
-      final itemHeight = itemWidth / 0.64; // childAspectRatio: 0.64
+      final aspectRatio = _calculateChildAspectRatio(context);
+      final itemHeight = itemWidth / aspectRatio;
       final rowHeight = itemHeight + 10.0; // mainAxisSpacing: 10.0
       final rowIndex = index ~/ columns;
       targetOffset = rowIndex == 0
@@ -2011,6 +2166,11 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
           'Legacy',
           'Vintage',
           'Pauper',
+          'Oathbreaker',
+          'Brawl',
+          'Historic',
+          'Timeless',
+          'Premodern',
         ];
 
         return Wrap(
@@ -2056,7 +2216,8 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
           'Uncommon',
           'Rare',
           'Mythic',
-          'Special',
+          'Special Card',
+          'Art Card',
           'Bonus',
         ];
 
@@ -2064,12 +2225,16 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
           spacing: 6,
           runSpacing: 6,
           children: rarities.map((r) {
-            final isSelected = mtgFilter.rarities.contains(r.toLowerCase());
+            final key = r == 'Special Card'
+                ? 'special_card'
+                : (r == 'Art Card' ? 'art_card' : r.toLowerCase());
+            final isSelected = mtgFilter.rarities.contains(key) ||
+                (key == 'special_card' && mtgFilter.rarities.contains('special'));
             return FilterChip(
               label: Text(r),
               selected: isSelected,
               onSelected: (_) {
-                ref.read(mtgFilterProvider.notifier).toggleRarity(r.toLowerCase());
+                ref.read(mtgFilterProvider.notifier).toggleRarity(key);
                 setModalState(() {});
               },
               backgroundColor: AppColors.surface,
@@ -2098,7 +2263,12 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
       },
       contentBuilder: (ctx, setModalState) {
         final mtgFilter = ref.watch(mtgFilterProvider);
-        const popularSets = ['MH3', 'OTJ', 'BLB', 'DSK', 'FDN', 'SLD'];
+        const popularSets = [
+          'MH3', 'OTJ', 'BLB', 'DSK', 'FDN', 'SLD',
+          'MKM', 'LCI', 'WOE', 'MH2', 'MH1',
+          'LTR', '40K', 'WHO', 'PIP', 'ACR',
+          'CMM', '2XM', 'LEB', '3ED', 'USG', 'RAV', 'ISD',
+        ];
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2143,18 +2313,31 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
       },
       contentBuilder: (ctx, setModalState) {
         final mtgFilter = ref.watch(mtgFilterProvider);
-        const finishes = ['Nonfoil', 'Foil', 'Etched'];
+        const finishes = [
+          'Nonfoil',
+          'Foil',
+          'Etched',
+          'Textured',
+          'Surge',
+          'Galaxy',
+          'Step-and-Compleat',
+          'Halo',
+          'Confetti',
+          'Serialized',
+        ];
 
         return Wrap(
           spacing: 6,
           runSpacing: 6,
           children: finishes.map((f) {
-            final isSelected = mtgFilter.finishes.contains(f.toLowerCase());
+            final key = f.toLowerCase().replaceAll('-', '_');
+            final isSelected = mtgFilter.finishes.contains(key) ||
+                mtgFilter.finishes.contains(f.toLowerCase());
             return FilterChip(
               label: Text(f),
               selected: isSelected,
               onSelected: (_) {
-                ref.read(mtgFilterProvider.notifier).toggleFinish(f.toLowerCase());
+                ref.read(mtgFilterProvider.notifier).toggleFinish(key);
                 setModalState(() {});
               },
               backgroundColor: AppColors.surface,
@@ -2310,21 +2493,10 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
                     minimumSize: Size.zero,
                   ),
                   icon: const Icon(Icons.file_download_outlined, size: 16),
-                  label: const Text('Import +',
+                  label: const Text('Import',
                       style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
                   onPressed: () {
                     VaultImportBottomSheet.show(context);
-                  },
-                ),
-                const SizedBox(width: 6),
-                IconButton(
-                  key: const Key('vault_add_item_button'),
-                  icon: const Icon(Icons.add, size: 18, color: AppColors.accentCyan),
-                  tooltip: 'Add Single Item',
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                  onPressed: () {
-                    ManualAddBottomSheet.show(context);
                   },
                 ),
               ],

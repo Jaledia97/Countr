@@ -47,6 +47,7 @@ void main() {
     db = AppDatabase(NativeDatabase.memory());
     spyDao = SpyVaultDao(db);
     await spyDao.seedDatabase();
+    await spyDao.clearAllItems();
 
     // Insert multiple catalog cards for multi-item stress testing
     await db.into(db.vaultItems).insert(

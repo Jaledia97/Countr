@@ -684,22 +684,22 @@ void main() {
         expect(find.text('ESTIMATED VAULT VALUE'), findsOneWidget);
         expect(find.text('****'), findsAtLeast(1));
 
-        // When toggling privacy mode via AppBar button, values unmask
-        final toggleBtn = find.byKey(const Key('vault_privacy_mode_button'));
-        expect(toggleBtn, findsOneWidget);
+        // Privacy toggle is relocated to Command Center; verify VaultScreen AppBar does not have it
+        expect(find.byKey(const Key('vault_privacy_mode_button')), findsNothing);
 
-        await tester.tap(toggleBtn);
+        // When toggling privacy mode via provider (as done from Command Center), values unmask
+        container.read(privacyModeProvider.notifier).state = false;
         await tester.pumpAndSettle();
 
         expect(container.read(privacyModeProvider), isFalse,
-            reason: 'Tapping AppBar privacy button must toggle privacy mode to false.');
+            reason: 'Toggling privacy mode must set it to false.');
 
-        // Re-tap to re-enable privacy mode
-        await tester.tap(toggleBtn);
+        // Re-enable privacy mode
+        container.read(privacyModeProvider.notifier).state = true;
         await tester.pumpAndSettle();
 
         expect(container.read(privacyModeProvider), isTrue,
-            reason: 'Tapping AppBar privacy button again must re-enable privacy mode.');
+            reason: 'Toggling privacy mode again must re-enable privacy mode.');
         expect(find.text('****'), findsAtLeast(1));
       },
     );

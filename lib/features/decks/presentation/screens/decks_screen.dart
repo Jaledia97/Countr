@@ -22,7 +22,6 @@ class DecksScreen extends ConsumerStatefulWidget {
 
 class _DecksScreenState extends ConsumerState<DecksScreen> {
   int _activeTab = 0;
-  int _deckCount = 6;
 
   final List<Map<String, dynamic>> _mockDecks = [
     {
@@ -38,9 +37,9 @@ class _DecksScreenState extends ConsumerState<DecksScreen> {
       'isCompetitive': false,
       'commanderName': 'Edgar Markov',
       'commanderImageUrl':
-          'https://cards.scryfall.io/art_crop/front/8/d/8d94b8ec-ecda-45c8-a90d-10b6394c3904.jpg',
+          'https://api.scryfall.com/cards/named?exact=Edgar%20Markov&format=image&version=art_crop',
       'commanderArtCrop':
-          'https://cards.scryfall.io/art_crop/front/8/d/8d94b8ec-ecda-45c8-a90d-10b6394c3904.jpg',
+          'https://api.scryfall.com/cards/named?exact=Edgar%20Markov&format=image&version=art_crop',
     },
     {
       'id': 'deck-charizard-ex',
@@ -72,9 +71,9 @@ class _DecksScreenState extends ConsumerState<DecksScreen> {
       'isCompetitive': true,
       'commanderName': 'Yuriko, the Tiger\'s Shadow',
       'commanderImageUrl':
-          'https://cards.scryfall.io/art_crop/front/3/6/364c9d94-60c7-41b4-bc1b-840a775693bd.jpg',
+          'https://api.scryfall.com/cards/named?exact=Yuriko%2C%20the%20Tiger%27s%20Shadow&format=image&version=art_crop',
       'commanderArtCrop':
-          'https://cards.scryfall.io/art_crop/front/3/6/364c9d94-60c7-41b4-bc1b-840a775693bd.jpg',
+          'https://api.scryfall.com/cards/named?exact=Yuriko%2C%20the%20Tiger%27s%20Shadow&format=image&version=art_crop',
     },
     {
       'id': 'deck-lorcana',
@@ -165,69 +164,6 @@ class _DecksScreenState extends ConsumerState<DecksScreen> {
     return 'All Decks';
   }
 
-  void _createNewDeck() {
-    final activeFilter = ref.read(activeDeckTcgFilterProvider);
-    final String domain;
-    final String format;
-    final String cardCount;
-    final List<Color> colors;
-    final List<String> colorIdentity;
-
-    switch (activeFilter.toLowerCase()) {
-      case 'pokemon':
-        domain = 'pokemon';
-        format = 'Pokémon Standard';
-        cardCount = '0/60';
-        colors = [Colors.orange, Colors.red];
-        colorIdentity = [];
-        break;
-      case 'lorcana':
-        domain = 'lorcana';
-        format = 'Disney Lorcana Core';
-        cardCount = '0/60';
-        colors = [Colors.red, Colors.purple];
-        colorIdentity = [];
-        break;
-      case 'mtg':
-      case 'all':
-      default:
-        domain = 'mtg';
-        format = 'MTG Commander';
-        cardCount = '0/100';
-        colors = [AppColors.accentCyan];
-        colorIdentity = ['W', 'B', 'R'];
-        break;
-    }
-
-    final newId = 'deck-${DateTime.now().millisecondsSinceEpoch}';
-    final newTitle = 'New $format Brew #$_deckCount';
-
-    setState(() {
-      _deckCount++;
-      _mockDecks.insert(0, {
-        'id': newId,
-        'title': newTitle,
-        'format': format,
-        'cardCount': cardCount,
-        'colors': colors,
-        'colorIdentity': colorIdentity,
-        'winRate': '--',
-        'tcgDomain': domain,
-        'isRegistered': false,
-        'isCompetitive': false,
-      });
-    });
-
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        behavior: SnackBarBehavior.floating,
-        content: Text('Deck created! Total decks: $_deckCount'),
-        duration: const Duration(seconds: 1),
-      ),
-    );
-  }
-
   Widget _buildCommanderCardArt(DeckSummary deck) {
     final artUrl = deck.commanderArtCrop ?? deck.commanderImageUrl;
     if (artUrl != null && artUrl.isNotEmpty) {
@@ -239,6 +175,9 @@ class _DecksScreenState extends ConsumerState<DecksScreen> {
           color: AppColors.surfaceRaised,
           child: CountrCachedImage(
             imageUrl: artUrl,
+            cacheKey: 'deck_cover_${deck.id}',
+            cardName: deck.commanderName ?? deck.name,
+            tcgDomain: deck.tcgDomain,
             fit: BoxFit.cover,
             placeholder: const SkeletonShimmerBox(
               width: 44,
@@ -332,6 +271,55 @@ class _DecksScreenState extends ConsumerState<DecksScreen> {
     );
   }
 
+  DeckSummary _mapMockToSummary(Map<String, dynamic> m) {
+    final title = m['title'] as String? ?? 'Untitled Deck';
+    final format = m['format'] as String? ?? 'MTG Commander';
+    final domain = m['tcgDomain'] as String? ?? 'mtg';
+    final isReg = m['isRegistered'] as bool? ?? false;
+    final isComp = m['isCompetitive'] as bool? ?? false;
+    final countStr = m['cardCount'] as String? ?? '0/100';
+    final parts = countStr.split('/');
+    final curCount = int.tryParse(parts.first) ?? 0;
+    final targetCount =
+        parts.length > 1 ? (int.tryParse(parts[1]) ?? 60) : 60;
+    final colors = (m['colorIdentity'] as List?)?.cast<String>() ??
+        (domain == 'mtg' ? ['W', 'B', 'R'] : <String>[]);
+
+    return DeckSummary(
+      id: m['id'] as String,
+      name: title,
+      format: format,
+      tcgDomain: domain,
+      isRegistered: isReg,
+      isCompetitive: isComp,
+      createdAt: DateTime.now(),
+      cardCount: curCount,
+      targetCardCount: targetCount,
+      completeness: targetCount > 0 ? curCount / targetCount : 0.0,
+      assemblyStatus: isReg
+          ? 'Assembled'
+          : (curCount >= targetCount && curCount > 0 ? 'Ready' : 'Draft'),
+      colorIdentity: colors,
+      commanderName: m['commanderName'] as String?,
+      commanderImageUrl: m['commanderImageUrl'] as String?,
+      commanderArtCrop: m['commanderArtCrop'] as String?,
+      deck: Deck(
+        id: m['id'] as String,
+        name: title,
+        format: format,
+        tcgDomain: domain,
+        isRegistered: isReg,
+        isAssembled: isReg,
+        isCompetitive: isComp,
+        createdAt: DateTime.now(),
+        wins: 0,
+        losses: 0,
+        draws: 0,
+        isDeleted: false,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final activeFilter = ref.watch(activeDeckTcgFilterProvider);
@@ -340,56 +328,13 @@ class _DecksScreenState extends ConsumerState<DecksScreen> {
 
     final List<DeckSummary> allSummaries;
     if (dbSummaries != null && dbSummaries.isNotEmpty) {
-      allSummaries = dbSummaries;
+      final newInMemSummaries = _mockDecks
+          .where((m) => !dbSummaries.any((s) => s.id == m['id']))
+          .map(_mapMockToSummary)
+          .toList();
+      allSummaries = [...newInMemSummaries, ...dbSummaries];
     } else {
-      allSummaries = _mockDecks.map((m) {
-        final title = m['title'] as String? ?? 'Untitled Deck';
-        final format = m['format'] as String? ?? 'MTG Commander';
-        final domain = m['tcgDomain'] as String? ?? 'mtg';
-        final isReg = m['isRegistered'] as bool? ?? false;
-        final isComp = m['isCompetitive'] as bool? ?? false;
-        final countStr = m['cardCount'] as String? ?? '0/100';
-        final parts = countStr.split('/');
-        final curCount = int.tryParse(parts.first) ?? 0;
-        final targetCount =
-            parts.length > 1 ? (int.tryParse(parts[1]) ?? 60) : 60;
-        final colors = (m['colorIdentity'] as List?)?.cast<String>() ??
-            (domain == 'mtg' ? ['W', 'B', 'R'] : <String>[]);
-
-        return DeckSummary(
-          id: m['id'] as String,
-          name: title,
-          format: format,
-          tcgDomain: domain,
-          isRegistered: isReg,
-          isCompetitive: isComp,
-          createdAt: DateTime.now(),
-          cardCount: curCount,
-          targetCardCount: targetCount,
-          completeness: targetCount > 0 ? curCount / targetCount : 0.0,
-          assemblyStatus: isReg
-              ? 'Assembled'
-              : (curCount >= targetCount && curCount > 0 ? 'Ready' : 'Draft'),
-          colorIdentity: colors,
-          commanderName: m['commanderName'] as String?,
-          commanderImageUrl: m['commanderImageUrl'] as String?,
-          commanderArtCrop: m['commanderArtCrop'] as String?,
-          deck: Deck(
-            id: m['id'] as String,
-            name: title,
-            format: format,
-            tcgDomain: domain,
-            isRegistered: isReg,
-            isAssembled: isReg,
-            isCompetitive: isComp,
-            createdAt: DateTime.now(),
-            wins: 0,
-            losses: 0,
-            draws: 0,
-            isDeleted: false,
-          ),
-        );
-      }).toList();
+      allSummaries = _mockDecks.map(_mapMockToSummary).toList();
     }
 
     // Filter by TCG domain first
@@ -540,7 +485,10 @@ class _DecksScreenState extends ConsumerState<DecksScreen> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         key: const Key('decks_new_deck_fab'),
-        onPressed: _createNewDeck,
+        onPressed: () => DeckSetupWizardModal.show(
+          context,
+          initialTcgDomain: activeFilter,
+        ),
         icon: const Icon(Icons.add_rounded),
         label: const Text('New Deck'),
         backgroundColor: AppColors.accentCyan,

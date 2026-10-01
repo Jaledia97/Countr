@@ -111,8 +111,12 @@ void main() {
       );
 
       // Verify Mainboard now only contains legal cards
+      final activeVersion = await (db.select(db.deckVersions)..where((t) => t.deckId.equals(deck.id))).getSingle();
       final mainboardItems = await (db.select(db.deckVersionItems)
-            ..where((t) => t.boardZone.equals('Mainboard') & t.isDeleted.equals(false)))
+            ..where((t) =>
+                t.versionId.equals(activeVersion.id) &
+                t.boardZone.equals('Mainboard') &
+                t.isDeleted.equals(false)))
           .get();
       expect(mainboardItems.length, equals(3));
 

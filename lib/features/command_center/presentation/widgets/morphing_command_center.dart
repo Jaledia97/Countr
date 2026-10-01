@@ -10,6 +10,9 @@ import 'collections_accordion.dart';
 import 'play_track_accordion.dart';
 import '../../../../features/life_counter/presentation/dialogs/pregame_setup_sheet.dart';
 import '../../../../features/life_counter/presentation/widgets/pod_scaffold_widget.dart';
+import '../../../../features/hydration/presentation/controllers/hydration_state.dart';
+import '../../../../features/hydration/presentation/providers/hydration_providers.dart';
+import '../../../../features/vault/presentation/providers/vault_providers.dart';
 
 /// The Morphing Global Command Center.
 /// Morphs and expands directly outward from the Menu button (Alignment.bottomRight).
@@ -555,6 +558,171 @@ class _MorphingCommandCenterState extends ConsumerState<MorphingCommandCenter> {
                         }
                       }
                     },
+                  ),
+
+                  const SizedBox(height: 8),
+
+                  // Test & Developer Tools Section Card
+                  Container(
+                    key: const Key('command_center_developer_tools_card'),
+                    margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: AppColors.surfaceBorder),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.terminal_rounded,
+                              size: 16,
+                              color: AppColors.accentCyan,
+                            ),
+                            const SizedBox(width: 8),
+                            const Expanded(
+                              child: Text(
+                                'TEST & DEVELOPER TOOLS',
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0.8,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: AppColors.accentCyan.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: const Text(
+                                'DEV',
+                                style: TextStyle(
+                                  fontSize: 8.5,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppColors.accentCyan,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+
+                        // 1. Hydration Engine Action Trigger
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceRaised,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: AppColors.surfaceBorderSubtle),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.bolt_rounded, size: 20, color: AppColors.accentCyan),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Hydration Engine',
+                                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      ref.watch(hydrationControllerProvider).status == HydrationStatus.idle
+                                          ? 'Hydrate MTG Dictionary from Scryfall'
+                                          : 'Status: ${ref.watch(hydrationControllerProvider).status.name}',
+                                      style: const TextStyle(fontSize: 10, color: AppColors.textSecondary),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              ElevatedButton(
+                                key: const Key('command_center_hydrate_button'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.accentCyan,
+                                  foregroundColor: AppColors.textDark,
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  minimumSize: Size.zero,
+                                ),
+                                onPressed: () {
+                                  ref.read(hydrationControllerProvider.notifier).startHydration();
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      behavior: SnackBarBehavior.floating,
+                                      content: Text('Starting MTG bulk hydration...'),
+                                    ),
+                                  );
+                                },
+                                child: const Text('Hydrate', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+
+                        // 2. Database Verification Action Trigger
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceRaised,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: AppColors.surfaceBorderSubtle),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.sync_rounded, size: 20, color: AppColors.accentEmerald),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: const [
+                                    Text(
+                                      'Database Verification',
+                                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white),
+                                    ),
+                                    SizedBox(height: 2),
+                                    Text(
+                                      'Verify SQLite schema and reseed catalog',
+                                      style: TextStyle(fontSize: 10, color: AppColors.textSecondary),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              ElevatedButton(
+                                key: const Key('command_center_verify_database_button'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.accentEmerald,
+                                  foregroundColor: AppColors.textDark,
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  minimumSize: Size.zero,
+                                ),
+                                onPressed: () async {
+                                  await ref.read(vaultDaoProvider).seedDatabase();
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        behavior: SnackBarBehavior.floating,
+                                        content: Text('Database verified and seeded.'),
+                                      ),
+                                    );
+                                  }
+                                },
+                                child: const Text('Verify', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
 
                   const SizedBox(height: 16),

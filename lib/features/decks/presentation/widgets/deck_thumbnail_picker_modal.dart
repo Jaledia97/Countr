@@ -276,94 +276,94 @@ class _DeckThumbnailPickerModalState
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     final deckAsync = ref.watch(deckProvider(widget.deck.id));
     final activeDeck = deckAsync.value ?? widget.deck;
+    final screenHeight = MediaQuery.of(context).size.height;
 
-    return Container(
-      key: const Key('deck_thumbnail_picker_modal'),
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.85,
-      ),
-      margin: EdgeInsets.only(bottom: bottomInset),
-      decoration: const BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        border: Border(top: BorderSide(color: AppColors.surfaceBorder, width: 1)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Drag Handle
-          Center(
-            child: Container(
-              margin: const EdgeInsets.only(top: 10, bottom: 8),
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: AppColors.textMuted.withValues(alpha: 0.4),
-                borderRadius: BorderRadius.circular(2),
+    return SizedBox(
+      height: screenHeight * 0.85,
+      child: Container(
+        key: const Key('deck_thumbnail_picker_modal'),
+        margin: EdgeInsets.only(bottom: bottomInset),
+        decoration: const BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          border: Border(top: BorderSide(color: AppColors.surfaceBorder, width: 1)),
+        ),
+        child: Column(
+          children: [
+            // Drag Handle
+            Center(
+              child: Container(
+                margin: const EdgeInsets.only(top: 10, bottom: 8),
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.textMuted.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
             ),
-          ),
 
-          // Header
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            child: Row(
-              children: [
-                const Icon(Icons.photo_library_outlined, color: AppColors.accentCyan, size: 22),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('Customize Deck Cover', style: AppTypography.heading2),
-                      Text(
-                        activeDeck.name,
-                        style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
+            // Header
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: Row(
+                children: [
+                  const Icon(Icons.photo_library_outlined, color: AppColors.accentCyan, size: 22),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Customize Deck Cover', style: AppTypography.heading2),
+                        Text(
+                          activeDeck.name,
+                          style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                if (activeDeck.coverItemId != null)
-                  TextButton.icon(
-                    key: const Key('reset_deck_cover_button'),
-                    icon: const Icon(Icons.refresh, size: 14, color: AppColors.textMuted),
-                    label: const Text('Reset', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
-                    onPressed: _isSaving ? null : _resetToDefault,
+                  if (activeDeck.coverItemId != null)
+                    TextButton.icon(
+                      key: const Key('reset_deck_cover_button'),
+                      icon: const Icon(Icons.refresh, size: 14, color: AppColors.textMuted),
+                      label: const Text('Reset', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                      onPressed: _isSaving ? null : _resetToDefault,
+                    ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: AppColors.textSecondary),
+                    onPressed: () => Navigator.of(context).pop(),
                   ),
-                IconButton(
-                  icon: const Icon(Icons.close, color: AppColors.textSecondary),
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
 
-          // Tab Bar
-          TabBar(
-            controller: _tabController,
-            indicatorColor: AppColors.accentCyan,
-            labelColor: AppColors.accentCyan,
-            unselectedLabelColor: AppColors.textSecondary,
-            tabs: const [
-              Tab(key: Key('tab_cards_in_deck'), text: 'Cards in Deck'),
-              Tab(key: Key('tab_search_catalog'), text: 'Search Catalog'),
-            ],
-          ),
-          const Divider(height: 1, color: AppColors.surfaceBorderSubtle),
-
-          // Tab Content
-          Flexible(
-            child: TabBarView(
+            // Tab Bar
+            TabBar(
               controller: _tabController,
-              children: [
-                _buildCardsInDeckTab(activeDeck),
-                _buildSearchCatalogTab(activeDeck),
+              indicatorColor: AppColors.accentCyan,
+              labelColor: AppColors.accentCyan,
+              unselectedLabelColor: AppColors.textSecondary,
+              tabs: const [
+                Tab(key: Key('tab_cards_in_deck'), text: 'Cards in Deck'),
+                Tab(key: Key('tab_search_catalog'), text: 'Search Catalog'),
               ],
             ),
-          ),
-        ],
+            const Divider(height: 1, color: AppColors.surfaceBorderSubtle),
+
+            // Tab Content
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildCardsInDeckTab(activeDeck),
+                  _buildSearchCatalogTab(activeDeck),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

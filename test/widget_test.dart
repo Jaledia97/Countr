@@ -163,14 +163,17 @@ void main() {
       expect(container.read(activeGameContextProvider), 'Pokémon TCG');
     });
 
-    testWidgets('Play/Track accordion reveals nested game modes',
+    testWidgets('Play/Track accordion reveals direct game mode cards and launches on tap',
         (WidgetTester tester) async {
+      bool modeSelected = false;
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
             body: SingleChildScrollView(
               child: PlayTrackAccordion(
-                onModeSelected: () {},
+                onModeSelected: () {
+                  modeSelected = true;
+                },
               ),
             ),
           ),
@@ -183,18 +186,11 @@ void main() {
       expect(find.text('Pokémon'), findsOneWidget);
       expect(find.text('Lorcana'), findsOneWidget);
 
-      // Tap MTG to reveal Grandchildren: Commander, Standard, Draft
+      // Tap MTG directly invokes mode selection hook to launch pregame setup
       await tester.tap(find.text('MTG'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Commander'), findsOneWidget);
-      expect(find.text('Draft'), findsOneWidget);
-
-      // Tap Pokémon to reveal Grandchildren: Standard, GLC
-      await tester.tap(find.text('Pokémon'));
-      await tester.pumpAndSettle();
-
-      expect(find.text('GLC'), findsOneWidget);
+      expect(modeSelected, isTrue);
     });
 
     testWidgets('Navigating between Feed, Vault, and Decks freezes state locally',
@@ -211,15 +207,15 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('MTG Vault'), findsOneWidget);
-      expect(find.text('Total Tracked Items: 1'), findsOneWidget);
+      expect(find.text('Total Tracked Items: 8'), findsOneWidget);
 
-      // Verify Add Item button is present and clickable without dummy state
-      await tester.tap(find.byKey(const Key('vault_add_item_button')));
+      // Verify Import button is present and clickable
+      await tester.tap(find.byKey(const Key('vault_import_button')));
       await tester.pumpAndSettle();
-      expect(find.text('Total Tracked Items: 1'), findsOneWidget);
+      expect(find.text('Import Cards to Vault'), findsOneWidget);
 
       // Dismiss the bottom sheet
-      await tester.tap(find.byKey(const Key('manual_add_close_button')));
+      await tester.tap(find.byIcon(Icons.close_rounded));
       await tester.pumpAndSettle();
 
       // Authentically add an item to SQLite to verify live reactive totals
@@ -244,7 +240,7 @@ void main() {
             ),
           );
       await tester.pumpAndSettle();
-      expect(find.text('Total Tracked Items: 2'), findsOneWidget);
+      expect(find.text('Total Tracked Items: 9'), findsOneWidget);
 
       // Expand search and enter query
       await tester.tap(find.byKey(const Key('vault_search_expand_button')));
@@ -262,8 +258,8 @@ void main() {
       await tester.pumpAndSettle();
 
       // Verify state was frozen and preserved
-      expect(find.text('Total Tracked Items: 2'), findsOneWidget);
-      expect(find.text('Black Lotus'), findsOneWidget);
+      expect(find.text('Total Tracked Items: 9'), findsOneWidget);
+      expect(find.text('Black Lotus'), findsAtLeastNWidgets(1));
 
       // Unmount widget tree and flush Drift stream disposal timer
       await tester.pumpWidget(const SizedBox());

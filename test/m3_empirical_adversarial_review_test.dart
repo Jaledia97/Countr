@@ -159,7 +159,7 @@ void main() {
       expect(find.byKey(Key('vault_tile_slab_badge_${card.id}')), findsOneWidget);
       expect(find.byKey(Key('vault_tile_unowned_badge_${card.id}')), findsOneWidget);
       expect(find.text('SLAB'), findsOneWidget);
-      expect(find.text('REF'), findsOneWidget);
+      expect(find.text('UNOWNED'), findsOneWidget);
 
       final slabRect = tester.getRect(find.byKey(Key('vault_tile_slab_badge_${card.id}')));
       final refRect = tester.getRect(find.byKey(Key('vault_tile_unowned_badge_${card.id}')));

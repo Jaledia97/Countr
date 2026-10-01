@@ -382,7 +382,7 @@ void main() {
       tester.takeException();
 
       // Open Visual Analytics modal
-      final analyticsBtn = find.byIcon(Icons.analytics_rounded);
+      final analyticsBtn = find.byKey(const Key('inline_analytics_expand_modal_button'));
       expect(analyticsBtn, findsOneWidget);
       await tester.tap(analyticsBtn);
       await tester.pumpAndSettle();

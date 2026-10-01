@@ -1346,15 +1346,15 @@ void main() {
     List<String> getContextFilters(String activeGame) {
       switch (activeGame) {
         case 'Magic: The Gathering':
-          return ['Owned', 'Catalog (Ref)', 'Graded Slabs', 'Raw Singles', 'High P/L', 'Commander Legal'];
+          return ['Owned', 'All Cards', 'Graded Slabs', 'Raw Singles', 'High P/L', 'Commander Legal'];
         case 'Pokémon TCG':
-          return ['Owned', 'Catalog (Ref)', 'Graded Slabs', 'Raw Singles', 'High P/L', 'Standard Legal'];
+          return ['Owned', 'All Cards', 'Graded Slabs', 'Raw Singles', 'High P/L', 'Standard Legal'];
         case 'Comic Books':
-          return ['Owned', 'Catalog (Ref)', 'Graded Slabs', 'Raw Issues', 'High P/L', 'Golden Age'];
+          return ['Owned', 'All Cards', 'Graded Slabs', 'Raw Issues', 'High P/L', 'Golden Age'];
         case 'Sports Cards':
-          return ['Owned', 'Catalog (Ref)', 'Graded Slabs', 'Raw Cards', 'High P/L', 'Rookie Cards'];
+          return ['Owned', 'All Cards', 'Graded Slabs', 'Raw Cards', 'High P/L', 'Rookie Cards'];
         default:
-          return ['Owned', 'Catalog (Ref)', 'Graded Slabs', 'Raw Singles', 'High P/L'];
+          return ['Owned', 'All Cards', 'Graded Slabs', 'Raw Singles', 'High P/L'];
       }
     }
 
@@ -1394,7 +1394,7 @@ void main() {
       for (final ctx in contexts) {
         final filters = getContextFilters(ctx);
         expect(filters, contains('Owned'));
-        expect(filters, contains('Catalog (Ref)'));
+        expect(filters, contains('All Cards'));
         expect(filters, contains('Graded Slabs'));
         expect(filters, contains('High P/L'));
       }

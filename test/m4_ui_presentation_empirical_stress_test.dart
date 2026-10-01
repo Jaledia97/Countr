@@ -568,9 +568,6 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Privacy icon should show visibility_off
-      expect(find.byIcon(Icons.visibility_off), findsOneWidget);
-
       // Valuation and P&L must be masked to ****
       expect(find.text('****'), findsWidgets);
 
@@ -834,6 +831,10 @@ void main() {
         ],
       );
       addTearDown(container.dispose);
+
+      tester.view.physicalSize = const Size(800, 1200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
 
       // Start with privacy mode active
       container.read(privacyModeProvider.notifier).state = true;

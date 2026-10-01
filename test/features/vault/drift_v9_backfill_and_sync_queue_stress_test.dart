@@ -692,6 +692,8 @@ void main() {
       // Clear seeded data
       await (db.delete(db.vaultItems)).go();
       await (db.delete(db.syncQueue)).go();
+      await (db.delete(db.deckVersionItems)).go();
+      await (db.delete(db.deckVersions)).go();
       await (db.delete(db.decks)).go();
       await (db.delete(db.vaultBinders)).go();
     });

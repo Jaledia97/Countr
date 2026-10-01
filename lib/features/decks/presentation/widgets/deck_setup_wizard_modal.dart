@@ -1,10 +1,12 @@
 // Copyright (c) 2026 Countr. All rights reserved.
 // Deck Setup Wizard modal for blank deck creation and text decklist imports.
 
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:uuid/uuid.dart';
+import 'package:countr/core/cache/countr_cached_image.dart';
 import 'package:countr/core/constants/app_colors.dart';
 import 'package:countr/core/constants/app_typography.dart';
 import 'package:countr/core/database/app_database.dart';
@@ -144,6 +146,21 @@ class _DeckSetupWizardModalState extends ConsumerState<DeckSetupWizardModal> {
           } else {
             // Create a virtual / catalog vault item entry if not yet in vault
             final newCardId = const Uuid().v4();
+            final cleanName = item.name.contains('//') ? item.name.split('//').first.trim() : item.name.trim();
+            final scryfallArtUrl = _selectedDomain == 'mtg'
+                ? CountrCachedImage.buildScryfallNamedUrl(cleanName, version: 'normal')
+                : '';
+            final scryfallArtCrop = _selectedDomain == 'mtg'
+                ? CountrCachedImage.buildScryfallNamedUrl(cleanName, version: 'art_crop')
+                : '';
+            final dynDataMap = <String, dynamic>{
+              'collector_number': item.collectorNumber ?? '1',
+              if (_selectedDomain == 'mtg')
+                'image_uris': {
+                  'normal': scryfallArtUrl,
+                  'art_crop': scryfallArtCrop,
+                },
+            };
             await dao.insertItem(
               VaultItemsCompanion.insert(
                 id: newCardId,
@@ -151,14 +168,13 @@ class _DeckSetupWizardModalState extends ConsumerState<DeckSetupWizardModal> {
                 setOrSeries: item.setCode ?? 'Imported',
                 collectionType: _selectedDomain,
                 quantity: drift.Value(item.quantity),
-                imageUrl: '',
+                imageUrl: scryfallArtUrl,
                 condition: 'Near Mint',
                 acquiredPrice: 0.0,
                 currentMarketPrice: 0.0,
                 acquiredDate: DateTime.now(),
                 lastPriceUpdate: DateTime.now(),
-                dynamicData:
-                    '{"collector_number": "${item.collectorNumber ?? '1'}"}',
+                dynamicData: jsonEncode(dynDataMap),
               ),
             );
             vaultItemId = newCardId;

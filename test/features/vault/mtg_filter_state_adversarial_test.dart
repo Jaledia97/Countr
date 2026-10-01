@@ -1190,4 +1190,159 @@ void main() {
       expect(const MtgFilterState(isSigned: true).matches(customCard), isFalse);
     });
   });
+
+  group('9. Milestone 2: Colorless Mana, Default Exclusions & Formats', () {
+    test('Colorless + Colored mana: Selecting {W, C} does NOT discard C', () {
+      final eldraziDisplacer = createCard(
+        id: 'eldrazi-displacer',
+        name: 'Eldrazi Displacer',
+        dynamicData: {
+          'mana_cost': '{2}{W}',
+          'colors': ['W'],
+          'color_identity': ['W', 'C'],
+          'oracle_text': '{2}{C}: Exile another target creature, then return it to the battlefield tapped under its owner\'s control.',
+        },
+      );
+
+      final monoWhite = createCard(
+        id: 'savannah-lions',
+        name: 'Savannah Lions',
+        dynamicData: {
+          'mana_cost': '{W}',
+          'colors': ['W'],
+          'color_identity': ['W'],
+          'oracle_text': '',
+        },
+      );
+
+      // Color target: colorIdentity including {'W', 'C'}
+      final filterWC = const MtgFilterState(
+        colors: {'W', 'C'},
+        colorTarget: ColorTarget.colorIdentity,
+        colorMatchMode: ColorMatchMode.including,
+      );
+
+      // Eldrazi Displacer has {C} in text, so its derived identity contains 'C' and 'W'
+      expect(filterWC.matches(eldraziDisplacer), isTrue);
+
+      // Savannah Lions has NO 'C' symbol, only 'W'
+      // Under including: both 'W' and 'C' must be in card's identity
+      expect(filterWC.matches(monoWhite), isFalse);
+    });
+
+    test('True Colorless {C} pip vs generic numeric mana cost {1}, {2}', () {
+      final wastes = createCard(
+        id: 'wastes',
+        name: 'Wastes',
+        dynamicData: {
+          'type_line': 'Basic Land',
+          'oracle_text': '{T}: Add {C}.',
+        },
+      );
+
+      final solRing = createCard(
+        id: 'sol-ring',
+        name: 'Sol Ring',
+        dynamicData: {
+          'mana_cost': '{1}',
+          'oracle_text': '{T}: Add {C}{C}.',
+        },
+      );
+
+      final spellbook = createCard(
+        id: 'spellbook',
+        name: 'Spellbook',
+        dynamicData: {
+          'mana_cost': '{0}',
+          'oracle_text': 'You have no maximum hand size.',
+        },
+      );
+
+      // All three cards are colorless in colors
+      final filterOnlyC = const MtgFilterState(
+        colors: {'C'},
+        colorMatchMode: ColorMatchMode.exactly,
+      );
+
+      expect(filterOnlyC.matches(wastes), isTrue);
+      expect(filterOnlyC.matches(solRing), isTrue);
+      expect(filterOnlyC.matches(spellbook), isTrue);
+    });
+
+    test('Default exclusion of Art Series and Memorabilia', () {
+      final normalCard = createCard(
+        id: 'normal-card',
+        name: 'Lightning Bolt',
+        dynamicData: {
+          'layout': 'normal',
+          'rarity': 'common',
+        },
+      );
+
+      final artSeriesCard = createCard(
+        id: 'art-series-card',
+        name: 'Bloomburrow Art Card',
+        dynamicData: {
+          'layout': 'art_series',
+          'rarity': 'common',
+        },
+      );
+
+      final tokenCard = createCard(
+        id: 'token-card',
+        name: 'Goblin Token',
+        dynamicData: {
+          'layout': 'token',
+          'rarity': 'common',
+        },
+      );
+
+      // Default state excludes art series and unplayable tokens
+      const defaultState = MtgFilterState();
+      expect(defaultState.matches(normalCard), isTrue);
+      expect(defaultState.matches(artSeriesCard), isFalse);
+      expect(defaultState.matches(tokenCard), isFalse);
+
+      // Selecting 'art_card' rarity matches art series cards
+      final artFilter = const MtgFilterState(rarities: {'art_card'});
+      expect(artFilter.matches(artSeriesCard), isTrue);
+      expect(artFilter.matches(tokenCard), isFalse);
+
+      // Selecting 'special_card' matches tokens / special cards
+      final specialFilter = const MtgFilterState(rarities: {'special_card'});
+      expect(specialFilter.matches(tokenCard), isTrue);
+      expect(specialFilter.matches(artSeriesCard), isFalse);
+
+      // Explicitly allowing token layout overrides default exclusion
+      final layoutFilter = const MtgFilterState(layouts: {'token'});
+      expect(layoutFilter.matches(tokenCard), isTrue);
+    });
+
+    test('Format Legality filter correctly evaluates legalities map', () {
+      final legalCard = createCard(
+        id: 'counterspell',
+        name: 'Counterspell',
+        dynamicData: {
+          'legalities': {
+            'modern': 'legal',
+            'commander': 'legal',
+            'standard': 'not_legal',
+            'vintage': 'legal',
+          },
+        },
+      );
+
+      final modernFilter = const MtgFilterState(formats: {'modern'});
+      expect(modernFilter.matches(legalCard), isTrue);
+
+      final standardFilter = const MtgFilterState(formats: {'standard'});
+      expect(standardFilter.matches(legalCard), isFalse);
+
+      final multiFormatFilter = const MtgFilterState(formats: {'modern', 'commander'});
+      expect(multiFormatFilter.matches(legalCard), isTrue);
+
+      final mixedFilter = const MtgFilterState(formats: {'modern', 'standard'});
+      expect(mixedFilter.matches(legalCard), isFalse);
+    });
+  });
 }

@@ -16,6 +16,7 @@ import 'package:countr/features/vault/domain/models/vault_totals.dart';
 import 'package:countr/features/vault/domain/models/card_availability.dart';
 import 'package:countr/features/vault/domain/vault_variant_helper.dart';
 import 'package:countr/features/vault/presentation/providers/mtg_filter_state.dart';
+import 'package:countr/features/vault/domain/models/vault_set_collection.dart';
 
 import 'package:countr/core/database/tables/decks/decks_table.dart';
 import 'package:countr/core/database/tables/decks/deck_versions_table.dart';
@@ -162,6 +163,8 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     // Stage 1: Push down direct SQLite column where clauses
     if (mtgFilter != null && mtgFilter.isActive) {
       _applyMtgFilterStage1(query, mtgFilter);
+    } else {
+      _applyDefaultMemorabiliaExclusion(query);
     }
 
     if (searchQuery != null && searchQuery.trim().isNotEmpty) {
@@ -188,22 +191,14 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
       ]);
     }
 
-    // Defer SQL limit when mtgFilter is active to avoid row starvation prior to Stage 2
-    if (limit != null && (mtgFilter == null || !mtgFilter.isActive)) {
+    if (limit != null) {
       query.limit(limit, offset: offset);
     }
 
     // Stage 2: In-memory stream mapping using mtgFilter.matches(item)
     return query.watch().map((items) {
       if (mtgFilter == null || !mtgFilter.isActive) return items;
-      final filtered = items.where((item) => mtgFilter.matches(item)).toList();
-      if (limit != null) {
-        if (offset != null) {
-          return filtered.skip(offset).take(limit).toList();
-        }
-        return filtered.take(limit).toList();
-      }
-      return filtered;
+      return items.where((item) => mtgFilter.matches(item)).toList();
     });
   }
 
@@ -258,6 +253,8 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     // Stage 1: Push down direct SQLite column where clauses
     if (mtgFilter != null && mtgFilter.isActive) {
       _applyMtgFilterStage1(query, mtgFilter);
+    } else {
+      _applyDefaultMemorabiliaExclusion(query);
     }
 
     if (searchQuery != null && searchQuery.trim().isNotEmpty) {
@@ -284,8 +281,7 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
       ]);
     }
 
-    // Defer SQL limit when mtgFilter is active to avoid row starvation prior to Stage 2
-    if (limit != null && (mtgFilter == null || !mtgFilter.isActive)) {
+    if (limit != null) {
       query.limit(limit, offset: offset);
     }
 
@@ -296,14 +292,7 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
       return items;
     }
 
-    final filtered = items.where((item) => mtgFilter.matches(item)).toList();
-    if (limit != null) {
-      if (offset != null) {
-        return filtered.skip(offset).take(limit).toList();
-      }
-      return filtered.take(limit).toList();
-    }
-    return filtered;
+    return items.where((item) => mtgFilter.matches(item)).toList();
   }
 
   /// Generates a weighted search rank [Expression<int>] prioritizing:
@@ -339,11 +328,69 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
   Expression<int> buildSearchRankExpression($VaultItemsTable t, String query) =>
       _buildSearchRankExpression(t, query);
 
+  /// Default exclusion for Art Series and non-playable memorabilia.
+  void _applyDefaultMemorabiliaExclusion(
+    SimpleSelectStatement<$VaultItemsTable, VaultItem> query,
+  ) {
+    query.where((t) =>
+        t.dynamicData.like('%"layout":"art_series"%').not() &
+        t.dynamicData.like('%"layout": "art_series"%').not() &
+        t.dynamicData.like('%"layout":"token"%').not() &
+        t.dynamicData.like('%"layout": "token"%').not() &
+        t.dynamicData.like('%"layout":"double_faced_token"%').not() &
+        t.dynamicData.like('%"layout": "double_faced_token"%').not() &
+        t.dynamicData.like('%"layout":"emblem"%').not() &
+        t.dynamicData.like('%"layout": "emblem"%').not() &
+        t.dynamicData.like('%"layout":"planar"%').not() &
+        t.dynamicData.like('%"layout": "planar"%').not() &
+        t.dynamicData.like('%"layout":"scheme"%').not() &
+        t.dynamicData.like('%"layout": "scheme"%').not() &
+        t.dynamicData.like('%"layout":"vanguard"%').not() &
+        t.dynamicData.like('%"layout": "vanguard"%').not());
+  }
+
   /// Applies Stage 1 SQL pushdown filters to the Drift query.
   void _applyMtgFilterStage1(
     SimpleSelectStatement<$VaultItemsTable, VaultItem> query,
     MtgFilterState filter,
   ) {
+    // 0. Default exclusions & special cards pushdown
+    final allowsArtCards = filter.rarities.contains('art_card') ||
+        filter.rarities.contains('art card') ||
+        filter.layouts.contains('art_series');
+    final allowsSpecialCards = filter.rarities.contains('special') ||
+        filter.rarities.contains('special_card') ||
+        filter.rarities.contains('special card') ||
+        filter.layouts.any((l) => [
+              'token',
+              'double_faced_token',
+              'emblem',
+              'planar',
+              'scheme',
+              'vanguard',
+            ].contains(l.toLowerCase()));
+
+    if (!allowsArtCards) {
+      query.where((t) =>
+          t.dynamicData.like('%"layout":"art_series"%').not() &
+          t.dynamicData.like('%"layout": "art_series"%').not());
+    }
+    if (!allowsSpecialCards && !allowsArtCards) {
+      query.where((t) =>
+          t.dynamicData.like('%"layout":"token"%').not() &
+          t.dynamicData.like('%"layout": "token"%').not() &
+          t.dynamicData.like('%"layout":"double_faced_token"%').not() &
+          t.dynamicData.like('%"layout": "double_faced_token"%').not() &
+          t.dynamicData.like('%"layout":"emblem"%').not() &
+          t.dynamicData.like('%"layout": "emblem"%').not() &
+          t.dynamicData.like('%"layout":"planar"%').not() &
+          t.dynamicData.like('%"layout": "planar"%').not() &
+          t.dynamicData.like('%"layout":"scheme"%').not() &
+          t.dynamicData.like('%"layout": "scheme"%').not() &
+          t.dynamicData.like('%"layout":"vanguard"%').not() &
+          t.dynamicData.like('%"layout": "vanguard"%').not());
+    }
+
     // 1. Direct table columns
     if (filter.conditions.isNotEmpty) {
       final expandedConditions = filter.conditions
@@ -413,6 +460,96 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
             t.dynamicData.like('%"set_code":"$cleanSet"%') |
             t.dynamicData.like('%"set": "$cleanSet"%') |
             t.dynamicData.like('%"set_code": "$cleanSet"%'));
+      }
+    }
+
+    // 3. Rarities pushdown
+    if (filter.rarities.isNotEmpty) {
+      query.where((t) {
+        final rarityExprs = <Expression<bool>>[];
+        for (final r in filter.rarities) {
+          final clean = r.toLowerCase().trim();
+          if (clean == 'art_card' || clean == 'art card') {
+            rarityExprs.add(
+              t.dynamicData.like('%"layout":"art_series"%') |
+              t.dynamicData.like('%"layout": "art_series"%'),
+            );
+          } else if (clean == 'special_card' || clean == 'special card') {
+            rarityExprs.add(
+              t.dynamicData.like('%"rarity":"special"%') |
+              t.dynamicData.like('%"rarity": "special"%') |
+              t.dynamicData.like('%"rarity":"bonus"%') |
+              t.dynamicData.like('%"rarity": "bonus"%') |
+              t.dynamicData.like('%"layout":"token"%') |
+              t.dynamicData.like('%"layout": "token"%'),
+            );
+          } else {
+            rarityExprs.add(
+              t.dynamicData.like('%"rarity":"$clean"%') |
+              t.dynamicData.like('%"rarity": "$clean"%'),
+            );
+          }
+        }
+        var combined = rarityExprs.first;
+        for (int i = 1; i < rarityExprs.length; i++) {
+          combined = combined | rarityExprs[i];
+        }
+        return combined;
+      });
+    }
+
+    // 4. Layouts pushdown
+    if (filter.layouts.isNotEmpty) {
+      query.where((t) {
+        final layoutExprs = <Expression<bool>>[];
+        for (final l in filter.layouts) {
+          final clean = l.toLowerCase().trim();
+          layoutExprs.add(
+            t.dynamicData.like('%"layout":"$clean"%') |
+            t.dynamicData.like('%"layout": "$clean"%'),
+          );
+        }
+        var combined = layoutExprs.first;
+        for (int i = 1; i < layoutExprs.length; i++) {
+          combined = combined | layoutExprs[i];
+        }
+        return combined;
+      });
+    }
+
+    // 5. Finishes pushdown
+    if (filter.finishes.isNotEmpty) {
+      query.where((t) {
+        final finishExprs = <Expression<bool>>[];
+        for (final f in filter.finishes) {
+          final clean = f.toLowerCase().trim().replaceAll('-', '_');
+          final raw = f.toLowerCase().trim();
+          finishExprs.add(
+            t.dynamicData.like('%"$clean"%') |
+            t.dynamicData.like('%"$raw"%'),
+          );
+        }
+        var combined = finishExprs.first;
+        for (int i = 1; i < finishExprs.length; i++) {
+          combined = combined | finishExprs[i];
+        }
+        return combined;
+      });
+    }
+
+    // 6. Colors pushdown
+    if (filter.colors.isNotEmpty) {
+      final onlyC = filter.colors.length == 1 && filter.colors.contains('C');
+      if (onlyC) {
+        query.where((t) =>
+            t.dynamicData.like('%"colors":[]%') |
+            t.dynamicData.like('%"colors": []%') |
+            t.dynamicData.like('%"{C}"%'));
+      } else if (filter.colorMatchMode == ColorMatchMode.including ||
+          filter.colorMatchMode == ColorMatchMode.exactly) {
+        for (final c in filter.colors.where((c) => c != 'C')) {
+          query.where((t) => t.dynamicData.like('%"$c"%'));
+        }
       }
     }
   }
@@ -533,6 +670,21 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
       totalProfitLoss: delta,
       profitLossPercentage: pct,
     );
+  }
+
+  /// Returns the count of unowned reference MTG catalog cards in the database.
+  /// Used by health checks to verify if MTG card dictionary has been hydrated.
+  Future<int> getMtgCatalogCardCount() async {
+    final countCol = vaultItems.id.count();
+    final query = selectOnly(vaultItems)
+      ..addColumns([countCol])
+      ..where(
+        vaultItems.collectionType.equals('mtg') &
+            vaultItems.quantity.equals(0) &
+            vaultItems.isDeleted.equals(false),
+      );
+    final row = await query.getSingleOrNull();
+    return row?.read(countCol) ?? 0;
   }
 
   /// Queries vaultItems table with case-insensitive name or setOrSeries matching.
@@ -920,18 +1072,17 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     return lower;
   }
 
-  /// Seeds the 4 hyper-detailed mock records if the ledger is empty of owned cards.
+  /// Seeds the starter binder and 4 hyper-detailed mock records.
   Future<void> seedDatabase() async {
-    final existing = await (select(vaultItems)
-          ..where((t) => t.quantity.isBiggerThanValue(0) & t.isDeleted.equals(false))
-          ..limit(1))
-        .get();
-    if (existing.isNotEmpty) return;
-
     final now = DateTime.now();
 
-    await batch((b) {
-      b.insertAll(vaultBinders, [
+    // 1. Ensure starter binder exists if vaultBinders is empty
+    final existingBinders = await (select(vaultBinders)
+          ..where((t) => t.isDeleted.equals(false))
+          ..limit(1))
+        .get();
+    if (existingBinders.isEmpty) {
+      await into(vaultBinders).insert(
         VaultBindersCompanion.insert(
           id: 'binder-mtg-personal',
           name: 'Personal Collection',
@@ -940,153 +1091,1031 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
           isDeleted: const Value(false),
           updatedAt: Value(now),
         ),
-      ], mode: InsertMode.insertOrReplace);
+        mode: InsertMode.insertOrReplace,
+      );
+    }
 
-      b.insertAll(vaultItems, [
-        // 1. MTG: The One Ring
+    // 2. Ensure starter items exist if vaultItems has no owned items
+    final existing = await (select(vaultItems)
+          ..where((t) => t.quantity.isBiggerThanValue(0) & t.isDeleted.equals(false))
+          ..limit(1))
+        .get();
+    if (existing.isEmpty) {
+      await batch((b) {
+        b.insertAll(vaultItems, [
+          // 1. MTG: The One Ring
+          VaultItemsCompanion.insert(
+            id: 'item-mtg-one-ring',
+            collectionType: 'mtg',
+            primaryBinderId: const Value('binder-mtg-personal'),
+            name: 'The One Ring (Serialized #007/100)',
+            setOrSeries: 'The Lord of the Rings: Tales of Middle-earth',
+            imageUrl:
+                'https://cards.scryfall.io/large/front/d/5/d5806e68-1054-458e-866d-1f2470f682b2.jpg?1790212038',
+            acquiredPrice: 15.00,
+            acquiredDate: now,
+            quantity: const Value(1),
+            condition: 'NM',
+            isGraded: const Value(false),
+            personalNotes: const Value(
+                'Pulled from collector booster at TBS Comics. Serialized #007/100.'),
+            dateObtained: Value(now),
+            purchasePrice: const Value(15.00),
+            protectionStatus: const Value('Sleeved'),
+            isDeleted: const Value(false),
+            updatedAt: Value(now),
+            currentMarketPrice: 45.50,
+            lastPriceUpdate: now,
+            dynamicData: jsonEncode({
+              'scryfall_id': 'd5806e68-1054-458e-866d-1f2470f682b2',
+              'id': 'd5806e68-1054-458e-866d-1f2470f682b2',
+              'oracle_id': '3aa83ed2-f48b-4ce6-a614-2c54ddf50538',
+              'mana': '{4}',
+              'mana_cost': '{4}',
+              'cmc': 4.0,
+              'type': 'Legendary Artifact',
+              'type_line': 'Legendary Artifact',
+              'oracle_text':
+                  'Indestructible\nAs The One Ring enters the battlefield, if you cast it, you gain protection from everything until your next turn.\nAt the beginning of your upkeep, you lose 1 life for each burden counter on The One Ring.\n{T}: Put a burden counter on The One Ring, then draw a card for each burden counter on The One Ring.',
+              'keywords': ['Indestructible'],
+              'rarity': 'mythic',
+              'collector_number': '007',
+              'set_code': 'ltr',
+              'set': 'ltr',
+              'artist': 'Tania Sanchez-Fortun',
+              'flavor_text':
+                  'One Ring to rule them all, One Ring to find them, One Ring to bring them all and in the darkness bind them.',
+              'image_uris': {
+                'small':
+                    'https://cards.scryfall.io/small/front/d/5/d5806e68-1054-458e-866d-1f2470f682b2.jpg?1790212038',
+                'normal':
+                    'https://cards.scryfall.io/normal/front/d/5/d5806e68-1054-458e-866d-1f2470f682b2.jpg?1790212038',
+                'large':
+                    'https://cards.scryfall.io/large/front/d/5/d5806e68-1054-458e-866d-1f2470f682b2.jpg?1790212038',
+                'art_crop':
+                    'https://cards.scryfall.io/art_crop/front/d/5/d5806e68-1054-458e-866d-1f2470f682b2.jpg?1790212038',
+              },
+              'finishes': ['nonfoil', 'foil'],
+              'finish': 'foil',
+              'rulings':
+                  "Protection from everything means that you can't be targeted by anything, damaged by anything, enchanted/equipped by anything, or blocked by anything.",
+              'legalities': {
+                'standard': 'not_legal',
+                'modern': 'legal',
+                'commander': 'legal',
+                'legacy': 'legal',
+                'vintage': 'restricted',
+              },
+              'scryfall_uri': 'https://scryfall.com/card/ltr/246/the-one-ring',
+            }),
+          ),
+
+          // 2. MTG: Sol Ring
+          VaultItemsCompanion.insert(
+            id: 'item-mtg-sol-ring',
+            collectionType: 'mtg',
+            primaryBinderId: const Value('binder-mtg-personal'),
+            name: 'Sol Ring (Retro Artifact)',
+            setOrSeries: 'Commander Masters',
+            imageUrl:
+                'https://cards.scryfall.io/large/front/a/a/aa626895-d166-4a49-8c67-6228383f98c8.jpg',
+            acquiredPrice: 2.00,
+            acquiredDate: now.subtract(const Duration(days: 30)),
+            quantity: const Value(1),
+            condition: 'NM',
+            isGraded: const Value(false),
+            personalNotes:
+                const Value('Essential staple mana rock for Commander format.'),
+            dateObtained: Value(now.subtract(const Duration(days: 30))),
+            purchasePrice: const Value(2.00),
+            protectionStatus: const Value('Sleeved'),
+            isDeleted: const Value(false),
+            updatedAt: Value(now),
+            currentMarketPrice: 2.50,
+            lastPriceUpdate: now,
+            dynamicData: jsonEncode({
+              'scryfall_id': 'aa626895-d166-4a49-8c67-6228383f98c8',
+              'id': 'aa626895-d166-4a49-8c67-6228383f98c8',
+              'oracle_id': '1970ae46-d249-4113-98fe-c020d5885c34',
+              'mana': '{1}',
+              'mana_cost': '{1}',
+              'cmc': 1.0,
+              'type': 'Artifact',
+              'type_line': 'Artifact',
+              'oracle_text': '{T}: Add {C}{C}.',
+              'rarity': 'uncommon',
+              'collector_number': '405',
+              'set_code': 'cmm',
+              'set': 'cmm',
+              'artist': 'Mark Tedin',
+              'image_uris': {
+                'small':
+                    'https://cards.scryfall.io/small/front/a/a/aa626895-d166-4a49-8c67-6228383f98c8.jpg',
+                'normal':
+                    'https://cards.scryfall.io/normal/front/a/a/aa626895-d166-4a49-8c67-6228383f98c8.jpg',
+                'large':
+                    'https://cards.scryfall.io/large/front/a/a/aa626895-d166-4a49-8c67-6228383f98c8.jpg',
+                'art_crop':
+                    'https://cards.scryfall.io/art_crop/front/a/a/aa626895-d166-4a49-8c67-6228383f98c8.jpg',
+              },
+              'finishes': ['nonfoil', 'foil'],
+              'finish': 'nonfoil',
+              'legalities': {
+                'commander': 'legal',
+                'vintage': 'restricted',
+                'legacy': 'banned',
+              },
+            }),
+          ),
+
+          // 3. MTG: Black Lotus
+          VaultItemsCompanion.insert(
+            id: 'item-mtg-black-lotus',
+            collectionType: 'mtg',
+            primaryBinderId: const Value('binder-mtg-personal'),
+            name: 'Black Lotus',
+            setOrSeries: 'Limited Edition Beta',
+            imageUrl:
+                'https://cards.scryfall.io/large/front/b/d/bd8fa327-dd41-4737-8f19-2cf5eb1f7cdd.jpg',
+            acquiredPrice: 12000.00,
+            acquiredDate: now.subtract(const Duration(days: 300)),
+            quantity: const Value(1),
+            condition: 'LP',
+            isGraded: const Value(true),
+            personalNotes:
+                const Value('Power Nine centerpiece of vintage collection.'),
+            dateObtained: Value(now.subtract(const Duration(days: 300))),
+            purchasePrice: const Value(12000.00),
+            protectionStatus: const Value('Graded Slab'),
+            isDeleted: const Value(false),
+            updatedAt: Value(now),
+            currentMarketPrice: 25000.00,
+            lastPriceUpdate: now,
+            dynamicData: jsonEncode({
+              'scryfall_id': 'bd8fa327-dd41-4737-8f19-2cf5eb1f7cdd',
+              'id': 'bd8fa327-dd41-4737-8f19-2cf5eb1f7cdd',
+              'oracle_id': '4c311684-2830-4e3f-a63e-b873f1d84814',
+              'mana': '{0}',
+              'mana_cost': '{0}',
+              'cmc': 0.0,
+              'type': 'Artifact',
+              'type_line': 'Artifact',
+              'oracle_text':
+                  '{T}, Sacrifice Black Lotus: Add three mana of any one color.',
+              'rarity': 'rare',
+              'collector_number': '232',
+              'set_code': 'leb',
+              'set': 'leb',
+              'artist': 'Christopher Rush',
+              'image_uris': {
+                'small':
+                    'https://cards.scryfall.io/small/front/b/d/bd8fa327-dd41-4737-8f19-2cf5eb1f7cdd.jpg',
+                'normal':
+                    'https://cards.scryfall.io/normal/front/b/d/bd8fa327-dd41-4737-8f19-2cf5eb1f7cdd.jpg',
+                'large':
+                    'https://cards.scryfall.io/large/front/b/d/bd8fa327-dd41-4737-8f19-2cf5eb1f7cdd.jpg',
+                'art_crop':
+                    'https://cards.scryfall.io/art_crop/front/b/d/bd8fa327-dd41-4737-8f19-2cf5eb1f7cdd.jpg',
+              },
+              'finishes': ['nonfoil'],
+              'finish': 'nonfoil',
+              'legalities': {
+                'vintage': 'restricted',
+                'commander': 'banned',
+                'legacy': 'banned',
+              },
+            }),
+          ),
+
+          // 4. MTG: Lightning Bolt
+          VaultItemsCompanion.insert(
+            id: 'item-mtg-lightning-bolt',
+            collectionType: 'mtg',
+            primaryBinderId: const Value('binder-mtg-personal'),
+            name: 'Lightning Bolt',
+            setOrSeries: 'Masters 25',
+            imageUrl:
+                'https://cards.scryfall.io/large/front/e/3/e3285e6b-3e79-4d7c-bf96-d920f973b122.jpg',
+            acquiredPrice: 2.50,
+            acquiredDate: now.subtract(const Duration(days: 20)),
+            quantity: const Value(4),
+            condition: 'NM',
+            isGraded: const Value(false),
+            personalNotes: const Value('Playset for burn/aggro builds.'),
+            dateObtained: Value(now.subtract(const Duration(days: 20))),
+            purchasePrice: const Value(2.50),
+            protectionStatus: const Value('Sleeved'),
+            isDeleted: const Value(false),
+            updatedAt: Value(now),
+            currentMarketPrice: 3.50,
+            lastPriceUpdate: now,
+            dynamicData: jsonEncode({
+              'scryfall_id': 'e3285e6b-3e79-4d7c-bf96-d920f973b122',
+              'id': 'e3285e6b-3e79-4d7c-bf96-d920f973b122',
+              'oracle_id': '9f583595-6b80-4cf8-a968-3e4b77f98501',
+              'mana': '{R}',
+              'mana_cost': '{R}',
+              'cmc': 1.0,
+              'type': 'Instant',
+              'type_line': 'Instant',
+              'oracle_text': 'Lightning Bolt deals 3 damage to any target.',
+              'colors': ['R'],
+              'rarity': 'uncommon',
+              'collector_number': '141',
+              'set_code': 'a25',
+              'set': 'a25',
+              'artist': 'Christopher Moeller',
+              'image_uris': {
+                'small':
+                    'https://cards.scryfall.io/small/front/e/3/e3285e6b-3e79-4d7c-bf96-d920f973b122.jpg',
+                'normal':
+                    'https://cards.scryfall.io/normal/front/e/3/e3285e6b-3e79-4d7c-bf96-d920f973b122.jpg',
+                'large':
+                    'https://cards.scryfall.io/large/front/e/3/e3285e6b-3e79-4d7c-bf96-d920f973b122.jpg',
+                'art_crop':
+                    'https://cards.scryfall.io/art_crop/front/e/3/e3285e6b-3e79-4d7c-bf96-d920f973b122.jpg',
+              },
+              'finishes': ['nonfoil', 'foil'],
+              'finish': 'foil',
+              'legalities': {
+                'modern': 'legal',
+                'commander': 'legal',
+                'legacy': 'legal',
+                'pauper': 'legal',
+                'vintage': 'legal',
+              },
+            }),
+          ),
+
+          // 5. Pokémon: Charizard ex
+          VaultItemsCompanion.insert(
+            id: 'item-pokemon-charizard',
+            collectionType: 'pokemon',
+            name: 'Charizard ex',
+            setOrSeries: 'Scarlet & Violet: 151',
+            imageUrl:
+                'https://images.unsplash.com/photo-1613771404784-3a5686aa2be3?auto=format&fit=crop&w=400&q=80',
+            acquiredPrice: 4.50,
+            acquiredDate: now.subtract(const Duration(days: 60)),
+            quantity: const Value(1),
+            condition: 'LP',
+            isGraded: const Value(false),
+            personalNotes: const Value(
+                'Minor corner wear on rear. Stored in double sleeve.'),
+            dateObtained: Value(now.subtract(const Duration(days: 60))),
+            purchasePrice: const Value(4.50),
+            protectionStatus: const Value('Sleeved'),
+            isDeleted: const Value(false),
+            updatedAt: Value(now),
+            currentMarketPrice: 3.25,
+            lastPriceUpdate: now,
+            dynamicData: '{"hp": 120, "stage": "Basic"}',
+          ),
+
+          // 6. Comic Book: Ultimate Fallout #4
+          VaultItemsCompanion.insert(
+            id: 'item-comic-fallout-4',
+            collectionType: 'comic',
+            name: 'Ultimate Fallout #4 (1st Miles Morales)',
+            setOrSeries: 'Marvel Comics • 1st Print 2011',
+            imageUrl:
+                'https://images.unsplash.com/photo-1569003339405-ea396a5a8a90?auto=format&fit=crop&w=400&q=80',
+            acquiredPrice: 150.00,
+            acquiredDate: now.subtract(const Duration(days: 180)),
+            quantity: const Value(1),
+            condition: 'CGC 9.8',
+            isGraded: const Value(true),
+            personalNotes: const Value(
+                'Graded CGC 9.8 with pristine white pages. Holy grail issue.'),
+            dateObtained: Value(now.subtract(const Duration(days: 180))),
+            purchasePrice: const Value(150.00),
+            protectionStatus: const Value('Graded Slab'),
+            isDeleted: const Value(false),
+            updatedAt: Value(now),
+            currentMarketPrice: 210.00,
+            lastPriceUpdate: now,
+            dynamicData: '{"issue": 1, "publisher": "Marvel"}',
+          ),
+
+          // 7. Sports Card: T.J. Watt Prizm Silver Rookie
+          VaultItemsCompanion.insert(
+            id: 'item-sports-watt-rookie',
+            collectionType: 'sports_card',
+            name: 'T.J. Watt Prizm Silver Rookie',
+            setOrSeries: '2017 Panini Prizm Football',
+            imageUrl:
+                'https://images.unsplash.com/photo-1587280501635-68a0e82cd5ff?auto=format&fit=crop&w=400&q=80',
+            acquiredPrice: 20.00,
+            acquiredDate: now.subtract(const Duration(days: 365)),
+            quantity: const Value(1),
+            condition: 'PSA 10',
+            isGraded: const Value(true),
+            personalNotes:
+                const Value('Gem Mint 10 rookie card. True investment hold.'),
+            dateObtained: Value(now.subtract(const Duration(days: 365))),
+            purchasePrice: const Value(20.00),
+            protectionStatus: const Value('Graded Slab'),
+            isDeleted: const Value(false),
+            updatedAt: Value(now),
+            currentMarketPrice: 180.00,
+            lastPriceUpdate: now,
+            dynamicData:
+                '{"sport": "Football", "team": "Steelers", "is_rookie": true}',
+          ),
+        ], mode: InsertMode.insertOrReplace);
+      });
+    }
+
+    // 3. Ensure starter MTG catalog reference cards (quantity == 0) exist
+    final existingCatalog = await (select(vaultItems)
+          ..where((t) => t.quantity.equals(0) & t.isDeleted.equals(false))
+          ..limit(1))
+        .get();
+    if (existingCatalog.isEmpty) {
+      await batch((b) {
+        b.insertAll(vaultItems, [
+          // Catalog Reference Card 1: Mox Diamond
+          VaultItemsCompanion.insert(
+            id: 'item-catalog-mox-diamond',
+            collectionType: 'mtg',
+            name: 'Mox Diamond',
+            setOrSeries: 'Stronghold',
+            imageUrl:
+                'https://cards.scryfall.io/large/front/b/f/bf9fec3e-5aa8-4188-bad5-aacbe0666282.jpg',
+            acquiredPrice: 0.0,
+            acquiredDate: now,
+            quantity: const Value(0),
+            condition: 'NM',
+            isGraded: const Value(false),
+            protectionStatus: const Value('Catalog Reference'),
+            isDeleted: const Value(false),
+            updatedAt: Value(now),
+            currentMarketPrice: 650.00,
+            lastPriceUpdate: now,
+            dynamicData: jsonEncode({
+              'scryfall_id': 'bf9fec3e-5aa8-4188-bad5-aacbe0666282',
+              'id': 'bf9fec3e-5aa8-4188-bad5-aacbe0666282',
+              'oracle_id': 'f0535e6c-e1a5-4eb4-b9b5-c0525d8b7625',
+              'mana': '{0}',
+              'mana_cost': '{0}',
+              'cmc': 0.0,
+              'type': 'Artifact',
+              'type_line': 'Artifact',
+              'oracle_text':
+                  'You may discard a land card rather than pay this spell’s mana cost.\nIf Mox Diamond would enter the battlefield, you may discard a land card instead. If you do, put Mox Diamond onto the battlefield. If you don’t, put it into its owner’s graveyard.\n{T}: Add one mana of any color.',
+              'rarity': 'rare',
+              'collector_number': '138',
+              'set_code': 'sth',
+              'set': 'sth',
+              'artist': 'Dan Frazier',
+              'image_uris': {
+                'small':
+                    'https://cards.scryfall.io/small/front/b/f/bf9fec3e-5aa8-4188-bad5-aacbe0666282.jpg',
+                'normal':
+                    'https://cards.scryfall.io/normal/front/b/f/bf9fec3e-5aa8-4188-bad5-aacbe0666282.jpg',
+                'large':
+                    'https://cards.scryfall.io/large/front/b/f/bf9fec3e-5aa8-4188-bad5-aacbe0666282.jpg',
+                'art_crop':
+                    'https://cards.scryfall.io/art_crop/front/b/f/bf9fec3e-5aa8-4188-bad5-aacbe0666282.jpg',
+              },
+              'finishes': ['nonfoil'],
+              'finish': 'nonfoil',
+              'legalities': {
+                'legacy': 'legal',
+                'commander': 'legal',
+                'vintage': 'restricted',
+              },
+            }),
+          ),
+
+          // Catalog Reference Card 2: Mana Crypt
+          VaultItemsCompanion.insert(
+            id: 'item-catalog-mana-crypt',
+            collectionType: 'mtg',
+            name: 'Mana Crypt',
+            setOrSeries: 'Double Masters',
+            imageUrl:
+                'https://cards.scryfall.io/large/front/4/d/4d960186-4559-4af0-bd22-63baa15f8939.jpg',
+            acquiredPrice: 0.0,
+            acquiredDate: now,
+            quantity: const Value(0),
+            condition: 'NM',
+            isGraded: const Value(false),
+            protectionStatus: const Value('Catalog Reference'),
+            isDeleted: const Value(false),
+            updatedAt: Value(now),
+            currentMarketPrice: 180.00,
+            lastPriceUpdate: now,
+            dynamicData: jsonEncode({
+              'scryfall_id': '4d960186-4559-4af0-bd22-63baa15f8939',
+              'id': '4d960186-4559-4af0-bd22-63baa15f8939',
+              'oracle_id': 'b5dfba73-5593-4b68-b7eb-d1cf57adab4b',
+              'mana': '{0}',
+              'mana_cost': '{0}',
+              'cmc': 0.0,
+              'type': 'Artifact',
+              'type_line': 'Artifact',
+              'oracle_text':
+                  'At the beginning of your upkeep, flip a coin. If you lose the flip, Mana Crypt deals 3 damage to you.\n{T}: Add {C}{C}.',
+              'rarity': 'mythic',
+              'collector_number': '270',
+              'set_code': '2xm',
+              'set': '2xm',
+              'artist': 'Mark Tedin',
+              'image_uris': {
+                'small':
+                    'https://cards.scryfall.io/small/front/4/d/4d960186-4559-4af0-bd22-63baa15f8939.jpg',
+                'normal':
+                    'https://cards.scryfall.io/normal/front/4/d/4d960186-4559-4af0-bd22-63baa15f8939.jpg',
+                'large':
+                    'https://cards.scryfall.io/large/front/4/d/4d960186-4559-4af0-bd22-63baa15f8939.jpg',
+                'art_crop':
+                    'https://cards.scryfall.io/art_crop/front/4/d/4d960186-4559-4af0-bd22-63baa15f8939.jpg',
+              },
+              'finishes': ['nonfoil', 'foil'],
+              'finish': 'nonfoil',
+              'legalities': {
+                'vintage': 'restricted',
+                'commander': 'banned',
+                'legacy': 'banned',
+              },
+            }),
+          ),
+
+          // Catalog Reference Card 3: Force of Will
+          VaultItemsCompanion.insert(
+            id: 'item-catalog-force-of-will',
+            collectionType: 'mtg',
+            name: 'Force of Will',
+            setOrSeries: 'Alliances',
+            imageUrl:
+                'https://cards.scryfall.io/large/front/e/b/ebc01ab4-d88a-4625-be44-a4c45e3c2363.jpg',
+            acquiredPrice: 0.0,
+            acquiredDate: now,
+            quantity: const Value(0),
+            condition: 'NM',
+            isGraded: const Value(false),
+            protectionStatus: const Value('Catalog Reference'),
+            isDeleted: const Value(false),
+            updatedAt: Value(now),
+            currentMarketPrice: 75.00,
+            lastPriceUpdate: now,
+            dynamicData: jsonEncode({
+              'scryfall_id': 'ebc01ab4-d88a-4625-be44-a4c45e3c2363',
+              'id': 'ebc01ab4-d88a-4625-be44-a4c45e3c2363',
+              'oracle_id': 'd69ec7ea-626e-4f36-96b6-d2427a1470ce',
+              'mana': '{3}{U}{U}',
+              'mana_cost': '{3}{U}{U}',
+              'cmc': 5.0,
+              'type': 'Instant',
+              'type_line': 'Instant',
+              'oracle_text':
+                  'You may pay 1 life and exile a blue card from your hand rather than pay this spell’s mana cost.\nCounter target spell.',
+              'colors': ['U'],
+              'rarity': 'uncommon',
+              'collector_number': '38',
+              'set_code': 'all',
+              'set': 'all',
+              'artist': 'Terese Nielsen',
+              'image_uris': {
+                'small':
+                    'https://cards.scryfall.io/small/front/e/b/ebc01ab4-d88a-4625-be44-a4c45e3c2363.jpg',
+                'normal':
+                    'https://cards.scryfall.io/normal/front/e/b/ebc01ab4-d88a-4625-be44-a4c45e3c2363.jpg',
+                'large':
+                    'https://cards.scryfall.io/large/front/e/b/ebc01ab4-d88a-4625-be44-a4c45e3c2363.jpg',
+                'art_crop':
+                    'https://cards.scryfall.io/art_crop/front/e/b/ebc01ab4-d88a-4625-be44-a4c45e3c2363.jpg',
+              },
+              'finishes': ['nonfoil'],
+              'finish': 'nonfoil',
+              'legalities': {
+                'legacy': 'legal',
+                'commander': 'legal',
+                'vintage': 'restricted',
+              },
+            }),
+          ),
+
+          // Catalog Reference Card 4: Demonic Tutor
+          VaultItemsCompanion.insert(
+            id: 'item-catalog-demonic-tutor',
+            collectionType: 'mtg',
+            name: 'Demonic Tutor',
+            setOrSeries: 'Revised Edition',
+            imageUrl:
+                'https://cards.scryfall.io/large/front/3/b/3bdbc231-5316-4abd-9d8d-d87cff2c9847.jpg',
+            acquiredPrice: 0.0,
+            acquiredDate: now,
+            quantity: const Value(0),
+            condition: 'NM',
+            isGraded: const Value(false),
+            protectionStatus: const Value('Catalog Reference'),
+            isDeleted: const Value(false),
+            updatedAt: Value(now),
+            currentMarketPrice: 42.00,
+            lastPriceUpdate: now,
+            dynamicData: jsonEncode({
+              'scryfall_id': '3bdbc231-5316-4abd-9d8d-d87cff2c9847',
+              'id': '3bdbc231-5316-4abd-9d8d-d87cff2c9847',
+              'oracle_id': '7b3e1572-c511-4809-b684-25e1bc48ff41',
+              'mana': '{1}{B}',
+              'mana_cost': '{1}{B}',
+              'cmc': 2.0,
+              'type': 'Sorcery',
+              'type_line': 'Sorcery',
+              'oracle_text':
+                  'Search your library for a card, put that card into your hand, then shuffle.',
+              'colors': ['B'],
+              'rarity': 'uncommon',
+              'collector_number': '105',
+              'set_code': '3ed',
+              'set': '3ed',
+              'artist': 'Douglas Shuler',
+              'image_uris': {
+                'small':
+                    'https://cards.scryfall.io/small/front/3/b/3bdbc231-5316-4abd-9d8d-d87cff2c9847.jpg',
+                'normal':
+                    'https://cards.scryfall.io/normal/front/3/b/3bdbc231-5316-4abd-9d8d-d87cff2c9847.jpg',
+                'large':
+                    'https://cards.scryfall.io/large/front/3/b/3bdbc231-5316-4abd-9d8d-d87cff2c9847.jpg',
+                'art_crop':
+                    'https://cards.scryfall.io/art_crop/front/3/b/3bdbc231-5316-4abd-9d8d-d87cff2c9847.jpg',
+              },
+              'finishes': ['nonfoil'],
+              'finish': 'nonfoil',
+              'legalities': {
+                'commander': 'legal',
+                'vintage': 'restricted',
+                'legacy': 'banned',
+              },
+            }),
+          ),
+        ], mode: InsertMode.insertOrReplace);
+      });
+    }
+
+    // 3. Ensure starter decks exist if decks table is empty
+    final existingDecks = await (select(decks)
+          ..where((t) => t.isDeleted.equals(false))
+          ..limit(1))
+        .get();
+    if (existingDecks.isEmpty) {
+      // 3.1 Canonical MTG Commander Deck: Edgar Markov Aristocrats
+      await into(decks).insert(
+        DecksCompanion.insert(
+          id: 'deck-edgar-markov',
+          name: 'Edgar Markov Aristocrats',
+          format: 'MTG Commander',
+          tcgDomain: const Value('mtg'),
+          isRegistered: const Value(true),
+          isCompetitive: const Value(false),
+          isAssembled: const Value(true),
+          coverItemId: const Value('edgar-markov'),
+          coverCropRect: const Value(null),
+          createdAt: now,
+          isDeleted: const Value(false),
+          updatedAt: Value(now),
+        ),
+        mode: InsertMode.insertOrReplace,
+      );
+
+      await into(deckVersions).insert(
+        DeckVersionsCompanion.insert(
+          id: 'ver-edgar-3',
+          deckId: 'deck-edgar-markov',
+          versionNumber: 3,
+          isActive: const Value(true),
+          createdAt: now,
+          isDeleted: const Value(false),
+          updatedAt: Value(now),
+        ),
+        mode: InsertMode.insertOrReplace,
+      );
+
+      // Authentic Edgar Markov card in vault_items with direct Scryfall CDN art
+      await into(vaultItems).insert(
         VaultItemsCompanion.insert(
-          id: 'item-mtg-one-ring',
+          id: 'edgar-markov',
           collectionType: 'mtg',
           primaryBinderId: const Value('binder-mtg-personal'),
-          name: 'The One Ring (Serialized #007/100)',
-          setOrSeries: 'The Lord of the Rings: Tales of Middle-earth',
+          name: 'Edgar Markov',
+          setOrSeries: 'Commander 2017',
           imageUrl:
-              'https://cards.scryfall.io/large/front/d/5/d5806e68-1054-458e-866d-1f2470f682b2.jpg?1790212038',
-          acquiredPrice: 15.00,
-          acquiredDate: now.subtract(const Duration(days: 45)),
+              'https://cards.scryfall.io/art_crop/front/8/d/8d94b8ec-ecda-43c8-a60e-1ba33e6a54a4.jpg',
+          acquiredPrice: 0.0,
+          acquiredDate: now.subtract(const Duration(days: 5)),
           quantity: const Value(1),
           condition: 'NM',
           isGraded: const Value(false),
-          personalNotes: const Value(
-              'Pulled from collector booster at TBS Comics. Serialized #007/100.'),
-          dateObtained: Value(now.subtract(const Duration(days: 45))),
-          purchasePrice: const Value(15.00),
           protectionStatus: const Value('Sleeved'),
           isDeleted: const Value(false),
           updatedAt: Value(now),
-          currentMarketPrice: 45.50,
+          currentMarketPrice: 85.00,
           lastPriceUpdate: now,
           dynamicData: jsonEncode({
-            'scryfall_id': 'd5806e68-1054-458e-866d-1f2470f682b2',
-            'id': 'd5806e68-1054-458e-866d-1f2470f682b2',
-            'oracle_id': '3aa83ed2-f48b-4ce6-a614-2c54ddf50538',
-            'mana': '{4}',
-            'mana_cost': '{4}',
-            'cmc': 4.0,
-            'type': 'Legendary Artifact',
-            'type_line': 'Legendary Artifact',
+            'id': '8d94b8ec-ecda-43c8-a60e-1ba33e6a54a4',
+            'scryfall_id': '8d94b8ec-ecda-43c8-a60e-1ba33e6a54a4',
+            'name': 'Edgar Markov',
+            'mana_cost': '{3}{R}{W}{B}',
+            'cmc': 6.0,
+            'type_line': 'Legendary Creature — Vampire Knight',
             'oracle_text':
-                'Indestructible\nAs The One Ring enters the battlefield, if you cast it, you gain protection from everything until your next turn.\nAt the beginning of your upkeep, you lose 1 life for each burden counter on The One Ring.\n{T}: Put a burden counter on The One Ring, then draw a card for each burden counter on The One Ring.',
-            'keywords': ['Indestructible'],
-            'rarity': 'mythic',
-            'collector_number': '007',
-            'set_code': 'ltr',
-            'set': 'ltr',
-            'artist': 'Tania Sanchez-Fortun',
-            'flavor_text':
-                'One Ring to rule them all, One Ring to find them, One Ring to bring them all and in the darkness bind them.',
+                'Eminence — As long as Edgar Markov is in the command zone or on the battlefield, whenever you cast another Vampire spell, create a 1/1 black Vampire creature token.\nFirst strike, haste\nWhenever Edgar Markov attacks, put a +1/+1 counter on each Vampire you control.',
+            'power': '4',
+            'toughness': '4',
+            'colors': ['R', 'W', 'B'],
+            'color_identity': ['R', 'W', 'B'],
             'image_uris': {
               'small':
-                  'https://cards.scryfall.io/small/front/d/5/d5806e68-1054-458e-866d-1f2470f682b2.jpg?1790212038',
+                  'https://cards.scryfall.io/small/front/8/d/8d94b8ec-ecda-43c8-a60e-1ba33e6a54a4.jpg',
               'normal':
-                  'https://cards.scryfall.io/normal/front/d/5/d5806e68-1054-458e-866d-1f2470f682b2.jpg?1790212038',
-              'large':
-                  'https://cards.scryfall.io/large/front/d/5/d5806e68-1054-458e-866d-1f2470f682b2.jpg?1790212038',
+                  'https://cards.scryfall.io/normal/front/8/d/8d94b8ec-ecda-43c8-a60e-1ba33e6a54a4.jpg',
               'art_crop':
-                  'https://cards.scryfall.io/art_crop/front/d/5/d5806e68-1054-458e-866d-1f2470f682b2.jpg?1790212038',
+                  'https://cards.scryfall.io/art_crop/front/8/d/8d94b8ec-ecda-43c8-a60e-1ba33e6a54a4.jpg',
             },
-            'finishes': ['nonfoil', 'foil'],
-            'finish': 'foil',
-            'rulings':
-                "Protection from everything means that you can't be targeted by anything, damaged by anything, enchanted/equipped by anything, or blocked by anything.",
-            'legalities': {
-              'standard': 'not_legal',
-              'modern': 'legal',
-              'commander': 'legal',
-              'legacy': 'legal',
-              'vintage': 'restricted',
-            },
-            'scryfall_uri': 'https://scryfall.com/card/ltr/246/the-one-ring',
           }),
         ),
+        mode: InsertMode.insertOrReplace,
+      );
 
-        // 2. Pokémon: Charizard ex
+      await into(deckVersionItems).insert(
+        DeckVersionItemsCompanion.insert(
+          id: 'dvi-edgar-markov',
+          versionId: 'ver-edgar-3',
+          vaultItemId: 'edgar-markov',
+          quantity: const Value(1),
+          boardZone: 'Commander',
+          isProxy: const Value(false),
+          isDeleted: const Value(false),
+          updatedAt: Value(now),
+        ),
+        mode: InsertMode.insertOrReplace,
+      );
+
+      // 3.2 Canonical MTG Commander Deck: Yuriko, the Tiger's Shadow
+      await into(decks).insert(
+        DecksCompanion.insert(
+          id: 'deck-yuriko',
+          name: "Yuriko, the Tiger's Shadow",
+          format: 'MTG Commander (cEDH)',
+          tcgDomain: const Value('mtg'),
+          isRegistered: const Value(false),
+          isCompetitive: const Value(true),
+          isAssembled: const Value(false),
+          coverItemId: const Value('card-yuriko'),
+          coverCropRect: const Value(null),
+          createdAt: now.subtract(const Duration(seconds: 2)),
+          isDeleted: const Value(false),
+          updatedAt: Value(now),
+        ),
+        mode: InsertMode.insertOrReplace,
+      );
+
+      await into(deckVersions).insert(
+        DeckVersionsCompanion.insert(
+          id: 'ver-yuriko-1',
+          deckId: 'deck-yuriko',
+          versionNumber: 1,
+          isActive: const Value(true),
+          createdAt: now.subtract(const Duration(seconds: 2)),
+          isDeleted: const Value(false),
+          updatedAt: Value(now),
+        ),
+        mode: InsertMode.insertOrReplace,
+      );
+
+      await into(vaultItems).insert(
         VaultItemsCompanion.insert(
-          id: 'item-pokemon-charizard',
+          id: 'card-yuriko',
+          collectionType: 'mtg',
+          name: "Yuriko, the Tiger's Shadow",
+          setOrSeries: 'Commander 2018',
+          imageUrl:
+              'https://cards.scryfall.io/art_crop/front/3/6/364c9d33-660b-4125-a382-920f6667505f.jpg',
+          acquiredPrice: 0.0,
+          acquiredDate: now,
+          quantity: const Value(0),
+          condition: 'NM',
+          isGraded: const Value(false),
+          protectionStatus: const Value('Catalog Reference'),
+          isDeleted: const Value(false),
+          updatedAt: Value(now),
+          currentMarketPrice: 2.50,
+          lastPriceUpdate: now,
+          dynamicData: jsonEncode({
+            'id': '364c9d33-660b-4125-a382-920f6667505f',
+            'scryfall_id': '364c9d33-660b-4125-a382-920f6667505f',
+            'name': "Yuriko, the Tiger's Shadow",
+            'mana_cost': '{1}{U}{B}',
+            'cmc': 3.0,
+            'type_line': 'Legendary Creature — Human Ninja',
+            'oracle_text':
+                'Commander ninjutsu {U}{B} ({U}{B}, Return an unblocked attacker you control to hand: Put this card onto the battlefield from your hand or the command zone tapped and attacking.)\nWhenever a Ninja you control deals combat damage to a player, reveal the top card of your library and put that card into your hand. Each opponent loses life equal to that card\'s mana value.',
+            'power': '1',
+            'toughness': '3',
+            'colors': ['U', 'B'],
+            'color_identity': ['U', 'B'],
+            'image_uris': {
+              'small':
+                  'https://cards.scryfall.io/small/front/3/6/364c9d33-660b-4125-a382-920f6667505f.jpg',
+              'normal':
+                  'https://cards.scryfall.io/normal/front/3/6/364c9d33-660b-4125-a382-920f6667505f.jpg',
+              'art_crop':
+                  'https://cards.scryfall.io/art_crop/front/3/6/364c9d33-660b-4125-a382-920f6667505f.jpg',
+            },
+          }),
+        ),
+        mode: InsertMode.insertOrReplace,
+      );
+
+      await into(deckVersionItems).insert(
+        DeckVersionItemsCompanion.insert(
+          id: 'dvi-yuriko',
+          versionId: 'ver-yuriko-1',
+          vaultItemId: 'card-yuriko',
+          quantity: const Value(1),
+          boardZone: 'Commander',
+          isProxy: const Value(false),
+          isDeleted: const Value(false),
+          updatedAt: Value(now),
+        ),
+        mode: InsertMode.insertOrReplace,
+      );
+
+      // 3.3 Canonical MTG Commander Deck: Yuriko, the Tiger's Shadow is already 3.2
+
+      // 3.3 MTG Modern Deck: Modern Mono-Green Tron
+      await into(decks).insert(
+        DecksCompanion.insert(
+          id: 'deck-tron',
+          name: 'Modern Mono-Green Tron',
+          format: 'MTG Modern',
+          tcgDomain: const Value('mtg'),
+          isRegistered: const Value(false),
+          isCompetitive: const Value(false),
+          isAssembled: const Value(false),
+          coverItemId: const Value('card-tron'),
+          coverCropRect: const Value(null),
+          createdAt: now.subtract(const Duration(seconds: 5)),
+          isDeleted: const Value(false),
+          updatedAt: Value(now),
+        ),
+        mode: InsertMode.insertOrReplace,
+      );
+
+      await into(deckVersions).insert(
+        DeckVersionsCompanion.insert(
+          id: 'ver-tron-1',
+          deckId: 'deck-tron',
+          versionNumber: 1,
+          isActive: const Value(true),
+          createdAt: now.subtract(const Duration(seconds: 5)),
+          isDeleted: const Value(false),
+          updatedAt: Value(now),
+        ),
+        mode: InsertMode.insertOrReplace,
+      );
+
+      await into(vaultItems).insert(
+        VaultItemsCompanion.insert(
+          id: 'card-tron',
+          collectionType: 'mtg',
+          name: 'Karn Liberated',
+          setOrSeries: 'New Phyrexia',
+          imageUrl:
+              'https://cards.scryfall.io/art_crop/front/4/b/4b0c6662-4dde-40a2-97e0-0318478c0367.jpg',
+          acquiredPrice: 0.0,
+          acquiredDate: now,
+          quantity: const Value(0),
+          condition: 'NM',
+          isGraded: const Value(false),
+          protectionStatus: const Value('Catalog Reference'),
+          isDeleted: const Value(false),
+          updatedAt: Value(now),
+          currentMarketPrice: 20.00,
+          lastPriceUpdate: now,
+          dynamicData: jsonEncode({
+            'id': '4b0c6662-4dde-40a2-97e0-0318478c0367',
+            'scryfall_id': '4b0c6662-4dde-40a2-97e0-0318478c0367',
+            'name': 'Karn Liberated',
+            'mana_cost': '{7}',
+            'cmc': 7.0,
+            'type_line': 'Legendary Planeswalker — Karn',
+            'oracle_text':
+                '+4: Target player exiles a card from their hand.\n−3: Exile target permanent.\n−14: Restart the game, leaving in exile all non-Aura permanent cards exiled with Karn Liberated. Then put those cards onto the battlefield under your control.',
+            'loyalty': '6',
+            'colors': <String>[],
+            'color_identity': <String>[],
+            'image_uris': {
+              'small':
+                  'https://cards.scryfall.io/small/front/4/b/4b0c6662-4dde-40a2-97e0-0318478c0367.jpg',
+              'normal':
+                  'https://cards.scryfall.io/normal/front/4/b/4b0c6662-4dde-40a2-97e0-0318478c0367.jpg',
+              'art_crop':
+                  'https://cards.scryfall.io/art_crop/front/4/b/4b0c6662-4dde-40a2-97e0-0318478c0367.jpg',
+            },
+          }),
+        ),
+        mode: InsertMode.insertOrReplace,
+      );
+
+      await into(deckVersionItems).insert(
+        DeckVersionItemsCompanion.insert(
+          id: 'dvi-tron',
+          versionId: 'ver-tron-1',
+          vaultItemId: 'card-tron',
+          quantity: const Value(1),
+          boardZone: 'Mainboard',
+          isProxy: const Value(false),
+          isDeleted: const Value(false),
+          updatedAt: Value(now),
+        ),
+        mode: InsertMode.insertOrReplace,
+      );
+
+      // 3.4 Pokemon Decks
+      // 3.4.1 Charizard ex / Pidgeot ex (registered, competitive)
+      await into(decks).insert(
+        DecksCompanion.insert(
+          id: 'deck-charizard-ex',
+          name: 'Charizard ex / Pidgeot ex',
+          format: 'Pokémon Standard',
+          tcgDomain: const Value('pokemon'),
+          isRegistered: const Value(true),
+          isCompetitive: const Value(true),
+          isAssembled: const Value(true),
+          coverItemId: const Value('item-pokemon-charizard'),
+          createdAt: now.subtract(const Duration(seconds: 1)),
+          isDeleted: const Value(false),
+          updatedAt: Value(now),
+        ),
+        mode: InsertMode.insertOrReplace,
+      );
+
+      await into(deckVersions).insert(
+        DeckVersionsCompanion.insert(
+          id: 'ver-charizard-1',
+          deckId: 'deck-charizard-ex',
+          versionNumber: 1,
+          isActive: const Value(true),
+          createdAt: now.subtract(const Duration(seconds: 1)),
+          isDeleted: const Value(false),
+          updatedAt: Value(now),
+        ),
+        mode: InsertMode.insertOrReplace,
+      );
+
+      await into(deckVersionItems).insert(
+        DeckVersionItemsCompanion.insert(
+          id: 'dvi-charizard-ex',
+          versionId: 'ver-charizard-1',
+          vaultItemId: 'item-pokemon-charizard',
+          quantity: const Value(1),
+          boardZone: 'Mainboard',
+          isProxy: const Value(false),
+          isDeleted: const Value(false),
+          updatedAt: Value(now),
+        ),
+        mode: InsertMode.insertOrReplace,
+      );
+
+      // 3.4.2 Lost Zone Giratina VSTAR (registered, competitive)
+      await into(decks).insert(
+        DecksCompanion.insert(
+          id: 'deck-lost-zone',
+          name: 'Lost Zone Giratina VSTAR',
+          format: 'Pokémon Standard',
+          tcgDomain: const Value('pokemon'),
+          isRegistered: const Value(true),
+          isCompetitive: const Value(true),
+          isAssembled: const Value(true),
+          coverItemId: const Value('card-giratina'),
+          createdAt: now.subtract(const Duration(seconds: 4)),
+          isDeleted: const Value(false),
+          updatedAt: Value(now),
+        ),
+        mode: InsertMode.insertOrReplace,
+      );
+
+      await into(deckVersions).insert(
+        DeckVersionsCompanion.insert(
+          id: 'ver-lost-zone-1',
+          deckId: 'deck-lost-zone',
+          versionNumber: 1,
+          isActive: const Value(true),
+          createdAt: now.subtract(const Duration(seconds: 4)),
+          isDeleted: const Value(false),
+          updatedAt: Value(now),
+        ),
+        mode: InsertMode.insertOrReplace,
+      );
+
+      await into(vaultItems).insert(
+        VaultItemsCompanion.insert(
+          id: 'card-giratina',
           collectionType: 'pokemon',
-          name: 'Charizard ex',
-          setOrSeries: 'Scarlet & Violet: 151',
+          name: 'Giratina VSTAR',
+          setOrSeries: 'Lost Origin',
           imageUrl:
               'https://images.unsplash.com/photo-1613771404784-3a5686aa2be3?auto=format&fit=crop&w=400&q=80',
-          acquiredPrice: 4.50,
-          acquiredDate: now.subtract(const Duration(days: 60)),
-          quantity: const Value(1),
-          condition: 'LP',
+          acquiredPrice: 0.0,
+          acquiredDate: now,
+          quantity: const Value(0),
+          condition: 'NM',
           isGraded: const Value(false),
-          personalNotes: const Value(
-              'Minor corner wear on rear. Stored in double sleeve.'),
-          dateObtained: Value(now.subtract(const Duration(days: 60))),
-          purchasePrice: const Value(4.50),
-          protectionStatus: const Value('Sleeved'),
+          protectionStatus: const Value('Catalog Reference'),
           isDeleted: const Value(false),
           updatedAt: Value(now),
-          currentMarketPrice: 3.25,
+          currentMarketPrice: 15.00,
           lastPriceUpdate: now,
-          dynamicData: '{"hp": 120, "stage": "Basic"}',
+          dynamicData: '{"hp": 280, "stage": "VSTAR"}',
         ),
+        mode: InsertMode.insertOrReplace,
+      );
 
-        // 3. Comic Book: Ultimate Fallout #4
+      await into(deckVersionItems).insert(
+        DeckVersionItemsCompanion.insert(
+          id: 'dvi-lost-zone',
+          versionId: 'ver-lost-zone-1',
+          vaultItemId: 'card-giratina',
+          quantity: const Value(1),
+          boardZone: 'Mainboard',
+          isProxy: const Value(false),
+          isDeleted: const Value(false),
+          updatedAt: Value(now),
+        ),
+        mode: InsertMode.insertOrReplace,
+      );
+
+      // 3.5 Lorcana Deck: Ruby / Amethyst Bounce Control (draft/unregistered, casual)
+      await into(decks).insert(
+        DecksCompanion.insert(
+          id: 'deck-lorcana',
+          name: 'Ruby / Amethyst Bounce Control',
+          format: 'Disney Lorcana Core',
+          tcgDomain: const Value('lorcana'),
+          isRegistered: const Value(false),
+          isCompetitive: const Value(false),
+          isAssembled: const Value(false),
+          coverItemId: const Value('card-lorcana'),
+          createdAt: now.subtract(const Duration(seconds: 3)),
+          isDeleted: const Value(false),
+          updatedAt: Value(now),
+        ),
+        mode: InsertMode.insertOrReplace,
+      );
+
+      await into(deckVersions).insert(
+        DeckVersionsCompanion.insert(
+          id: 'ver-lorcana-1',
+          deckId: 'deck-lorcana',
+          versionNumber: 1,
+          isActive: const Value(true),
+          createdAt: now.subtract(const Duration(seconds: 3)),
+          isDeleted: const Value(false),
+          updatedAt: Value(now),
+        ),
+        mode: InsertMode.insertOrReplace,
+      );
+
+      await into(vaultItems).insert(
         VaultItemsCompanion.insert(
-          id: 'item-comic-fallout-4',
-          collectionType: 'comic',
-          name: 'Ultimate Fallout #4 (1st Miles Morales)',
-          setOrSeries: 'Marvel Comics • 1st Print 2011',
+          id: 'card-lorcana',
+          collectionType: 'lorcana',
+          name: 'Ruby / Amethyst Bounce Control',
+          setOrSeries: 'The First Chapter',
           imageUrl:
               'https://images.unsplash.com/photo-1569003339405-ea396a5a8a90?auto=format&fit=crop&w=400&q=80',
-          acquiredPrice: 150.00,
-          acquiredDate: now.subtract(const Duration(days: 180)),
-          quantity: const Value(1),
-          condition: 'CGC 9.8',
-          isGraded: const Value(true),
-          personalNotes: const Value(
-              'Graded CGC 9.8 with pristine white pages. Holy grail issue.'),
-          dateObtained: Value(now.subtract(const Duration(days: 180))),
-          purchasePrice: const Value(150.00),
-          protectionStatus: const Value('Graded Slab'),
+          acquiredPrice: 0.0,
+          acquiredDate: now,
+          quantity: const Value(0),
+          condition: 'NM',
+          isGraded: const Value(false),
+          protectionStatus: const Value('Catalog Reference'),
           isDeleted: const Value(false),
           updatedAt: Value(now),
-          currentMarketPrice: 210.00,
+          currentMarketPrice: 45.00,
           lastPriceUpdate: now,
-          dynamicData: '{"issue": 1, "publisher": "Marvel"}',
+          dynamicData: '{"ink": "Ruby/Amethyst"}',
         ),
+        mode: InsertMode.insertOrReplace,
+      );
 
-        // 4. Sports Card: T.J. Watt Prizm Silver Rookie
-        VaultItemsCompanion.insert(
-          id: 'item-sports-watt-rookie',
-          collectionType: 'sports_card',
-          name: 'T.J. Watt Prizm Silver Rookie',
-          setOrSeries: '2017 Panini Prizm Football',
-          imageUrl:
-              'https://images.unsplash.com/photo-1587280501635-68a0e82cd5ff?auto=format&fit=crop&w=400&q=80',
-          acquiredPrice: 20.00,
-          acquiredDate: now.subtract(const Duration(days: 365)),
+      await into(deckVersionItems).insert(
+        DeckVersionItemsCompanion.insert(
+          id: 'dvi-lorcana',
+          versionId: 'ver-lorcana-1',
+          vaultItemId: 'card-lorcana',
           quantity: const Value(1),
-          condition: 'PSA 10',
-          isGraded: const Value(true),
-          personalNotes:
-              const Value('Gem Mint 10 rookie card. True investment hold.'),
-          dateObtained: Value(now.subtract(const Duration(days: 365))),
-          purchasePrice: const Value(20.00),
-          protectionStatus: const Value('Graded Slab'),
+          boardZone: 'Mainboard',
+          isProxy: const Value(false),
           isDeleted: const Value(false),
           updatedAt: Value(now),
-          currentMarketPrice: 180.00,
-          lastPriceUpdate: now,
-          dynamicData:
-              '{"sport": "Football", "team": "Steelers", "is_rookie": true}',
         ),
-      ], mode: InsertMode.insertOrReplace);
-    });
+        mode: InsertMode.insertOrReplace,
+      );
+    }
   }
 
   /// Inserts a new vault item.
@@ -1172,6 +2201,9 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
         updatedAt: Value(now),
       ),
     );
+    await delete(decks).go();
+    await delete(deckVersions).go();
+    await delete(deckVersionItems).go();
     await _recordSync('vault_item', 'ALL', 'DELETE', timestamp: now);
     return count;
   }
@@ -3416,10 +4448,31 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
       }
     }
 
-    if (artCropUrl != null && artCropUrl.isNotEmpty) {
-      final imageUris = (data['image_uris'] as Map<String, dynamic>?) ?? {};
-      imageUris['art_crop'] = artCropUrl;
+    if (imageUrl.isNotEmpty || (artCropUrl != null && artCropUrl.isNotEmpty)) {
+      final imageUris = Map<String, dynamic>.from((data['image_uris'] as Map?) ?? {});
+      if (imageUrl.isNotEmpty) {
+        imageUris['normal'] = imageUrl;
+      }
+      if (artCropUrl != null && artCropUrl.isNotEmpty) {
+        imageUris['art_crop'] = artCropUrl;
+      }
       data['image_uris'] = imageUris;
+    }
+
+    if (data['card_faces'] is List && (data['card_faces'] as List).isNotEmpty) {
+      final faces = List<dynamic>.from(data['card_faces'] as List);
+      final frontFace = Map<String, dynamic>.from(faces[0] as Map);
+      final faceUris = Map<String, dynamic>.from((frontFace['image_uris'] as Map?) ?? {});
+      if (imageUrl.isNotEmpty) {
+        faceUris['normal'] = imageUrl;
+        frontFace['image_url'] = imageUrl;
+      }
+      if (artCropUrl != null && artCropUrl.isNotEmpty) {
+        faceUris['art_crop'] = artCropUrl;
+      }
+      frontFace['image_uris'] = faceUris;
+      faces[0] = frontFace;
+      data['card_faces'] = faces;
     }
 
     if (extraDynamicData != null && extraDynamicData.isNotEmpty) {
@@ -3879,6 +4932,143 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     final deckNames = activeDecks.map((r) => r.read<String>('name')).toList();
     await updateItemNotesAndDecks(vaultItemId, deckTags: deckNames);
   }
+
+  // ---------------------------------------------------------------------------
+  // MILESTONE 3: VAULT COLLECTION VIEW & SET AGGREGATIONS
+  // ---------------------------------------------------------------------------
+
+  /// Streams aggregated set collections grouped by set_or_series,
+  /// calculating total unique cards, unique owned cards (quantity > 0),
+  /// and completion percentage (0.0 to 1.0).
+  Stream<List<VaultSetCollection>> watchSetCollections({
+    String? collectionType,
+    String? searchQuery,
+  }) {
+    final variables = <Variable>[];
+    final whereClauses = <String>[
+      'is_deleted = 0',
+      'set_or_series IS NOT NULL',
+      "TRIM(set_or_series) != ''",
+    ];
+
+    if (collectionType != null) {
+      final normalized = _normalizeCollectionType(collectionType);
+      if (normalized != 'all') {
+        whereClauses.add('collection_type = ?');
+        variables.add(Variable.withString(normalized));
+      }
+    }
+
+    if (searchQuery != null && searchQuery.trim().isNotEmpty) {
+      whereClauses.add('(set_or_series LIKE ? OR name LIKE ? OR dynamic_data LIKE ?)');
+      final term = '%${searchQuery.trim()}%';
+      variables.add(Variable.withString(term));
+      variables.add(Variable.withString(term));
+      variables.add(Variable.withString(term));
+    }
+
+    final whereSql = whereClauses.join(' AND ');
+    final querySql = '''
+      SELECT
+        set_or_series AS set_name,
+        COALESCE(
+          MAX(json_extract(dynamic_data, '\$.set_code')),
+          MAX(json_extract(dynamic_data, '\$.set')),
+          ''
+        ) AS set_code,
+        collection_type,
+        COUNT(DISTINCT name) AS total_cards,
+        COUNT(DISTINCT CASE WHEN quantity > 0 THEN name END) AS owned_cards,
+        MAX(image_url) AS sample_image_url,
+        MAX(json_extract(dynamic_data, '\$.released_at')) AS release_date
+      FROM vault_items
+      WHERE $whereSql
+      GROUP BY set_or_series
+    ''';
+
+    return customSelect(
+      querySql,
+      variables: variables,
+      readsFrom: {vaultItems},
+    ).watch().map((rows) {
+      final collections = rows.map((r) {
+        final total = (r.data['total_cards'] as num?)?.toInt() ?? 0;
+        final owned = (r.data['owned_cards'] as num?)?.toInt() ?? 0;
+        final pct = total > 0 ? (owned / total).clamp(0.0, 1.0) : 0.0;
+        return VaultSetCollection(
+          setName: r.read<String>('set_name'),
+          setCode: (r.data['set_code'] as String? ?? '').toUpperCase(),
+          collectionType: r.read<String>('collection_type'),
+          totalCount: total,
+          ownedCount: owned,
+          completionPercentage: pct,
+          sampleImageUrl: r.data['sample_image_url'] as String?,
+          releaseDate: r.data['release_date'] as String?,
+        );
+      }).toList();
+
+      collections.sort((a, b) {
+        // Primary: highest completion percentage descending (1.0 -> 0.0)
+        final pctComp = b.completionPercentage.compareTo(a.completionPercentage);
+        if (pctComp != 0) return pctComp;
+
+        // Tie-breaker: release date newest to oldest (descending)
+        final aDate = a.releaseDate ?? '';
+        final bDate = b.releaseDate ?? '';
+        final dateComp = bDate.compareTo(aDate);
+        if (dateComp != 0) return dateComp;
+
+        // Fallback: alphabetical set name ascending
+        return a.setName.compareTo(b.setName);
+      });
+
+      return collections;
+    });
+  }
+
+  /// Streams cards belonging to a given set, ordered by set code and collector number.
+  Stream<List<VaultItem>> watchItemsBySet(
+    String setName, {
+    String? collectionType,
+  }) {
+    final query = select(vaultItems)
+      ..where((t) => t.isDeleted.equals(false) & t.setOrSeries.equals(setName));
+    if (collectionType != null) {
+      final normalized = _normalizeCollectionType(collectionType);
+      if (normalized != 'all') {
+        query.where((t) => t.collectionType.equals(normalized));
+      }
+    }
+    query.orderBy([
+      (t) => OrderingTerm(
+            expression: const CustomExpression<String>(
+              "COALESCE(json_extract(vault_items.dynamic_data, '\$.set_code'), json_extract(vault_items.dynamic_data, '\$.set'), '')",
+            ),
+            mode: OrderingMode.asc,
+          ),
+      (t) => OrderingTerm(
+            expression: const CustomExpression<String>(
+              "CAST(COALESCE(json_extract(vault_items.dynamic_data, '\$.collector_number'), '0') AS INTEGER)",
+            ),
+            mode: OrderingMode.asc,
+          ),
+      (t) => OrderingTerm(
+            expression: const CustomExpression<String>(
+              "COALESCE(json_extract(vault_items.dynamic_data, '\$.collector_number'), vault_items.name)",
+            ),
+            mode: OrderingMode.asc,
+          ),
+      (t) => OrderingTerm(expression: t.name, mode: OrderingMode.asc),
+    ]);
+    return query.watch();
+  }
+
+  /// Backward-compatible alias for watchItemsBySet
+  Stream<List<VaultItem>> watchCardsBySet(
+    String setName, {
+    String? collectionType,
+  }) =>
+      watchItemsBySet(setName, collectionType: collectionType);
 }
 
 /// Model representing alternative physical printings with computed headroom and location details.

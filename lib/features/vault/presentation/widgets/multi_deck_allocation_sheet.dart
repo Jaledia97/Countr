@@ -262,10 +262,13 @@ class _MultiDeckAllocationSheetState
                         _buildFilters(),
                         ...decksAsync.when(
                           data: (rawDecks) {
-                            final decks = rawDecks.isEmpty
+                            final activeDecks =
+                                rawDecks.where((d) => !d.isDeleted).toList();
+                            final decks = activeDecks.isEmpty
                                 ? MockDeckData.defaultDecks
-                                : rawDecks;
+                                : activeDecks;
                             final filteredDecks = decks.where((d) {
+                              if (d.isDeleted) return false;
                               if (_selectedDomain != 'all' &&
                                   d.tcgDomain.toLowerCase() !=
                                       _selectedDomain.toLowerCase()) {

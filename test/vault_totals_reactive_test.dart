@@ -28,31 +28,40 @@ void main() {
 
       // Seeded:
       // 1. MTG: The One Ring (qty 1, market 45.50, cost 15.00)
-      // 2. Pokemon: Charizard ex (qty 1, market 3.25, cost 4.50)
-      // 3. Comic: Ultimate Fallout #4 (qty 1, market 210.00, cost 150.00)
-      // 4. Sports: T.J. Watt (qty 1, market 180.00, cost 20.00)
-      // Total count = 4
-      // Total market = 45.50 + 3.25 + 210.00 + 180.00 = 438.75
-      // Total cost = 15.00 + 4.50 + 150.00 + 20.00 = 189.50
-      // Delta = 438.75 - 189.50 = 249.25
-      // Profit % = (249.25 / 189.50) * 100 = 131.5303...
-      expect(totals.totalCount, 4);
-      expect(totals.totalMarketValue, closeTo(438.75, 0.001));
-      expect(totals.totalCostBasis, closeTo(189.50, 0.001));
-      expect(totals.totalProfitLoss, closeTo(249.25, 0.001));
-      expect(totals.profitLossPercentage, closeTo(131.53, 0.01));
+      // 2. MTG: Sol Ring (Retro Artifact) (qty 1, market 2.50, cost 2.00)
+      // 3. MTG: Black Lotus (qty 1, market 25000.00, cost 12000.00)
+      // 4. MTG: Lightning Bolt (qty 4, market 14.00, cost 10.00)
+      // 5. MTG: Edgar Markov (qty 1, market 85.00, cost 0.00)
+      // 6. Pokemon: Charizard ex (qty 1, market 3.25, cost 4.50)
+      // 7. Comic: Ultimate Fallout #4 (qty 1, market 210.00, cost 150.00)
+      // 8. Sports: T.J. Watt (qty 1, market 180.00, cost 20.00)
+      // Total count = 11
+      // Total market = 25540.25
+      // Total cost = 12201.50
+      // Delta = 13338.75
+      // Profit % = (13338.75 / 12201.50) * 100 = 109.3205...
+      expect(totals.totalCount, 11);
+      expect(totals.totalMarketValue, closeTo(25540.25, 0.001));
+      expect(totals.totalCostBasis, closeTo(12201.50, 0.001));
+      expect(totals.totalProfitLoss, closeTo(13338.75, 0.001));
+      expect(totals.profitLossPercentage, closeTo(109.32, 0.01));
       expect(totals.isProfitable, isTrue);
     });
 
     test('Scopes totals strictly to MTG collection', () async {
       final totals = await dao.watchVaultTotals(collectionType: 'Magic: The Gathering').first;
 
-      // MTG only: The One Ring (qty 1, market 45.50, cost 15.00)
-      expect(totals.totalCount, 1);
-      expect(totals.totalMarketValue, closeTo(45.50, 0.001));
-      expect(totals.totalCostBasis, closeTo(15.00, 0.001));
-      expect(totals.totalProfitLoss, closeTo(30.50, 0.001));
-      expect(totals.profitLossPercentage, closeTo(203.33, 0.01));
+      // MTG only: The One Ring, Sol Ring, Black Lotus, Lightning Bolt (4x), Edgar Markov
+      // Total count = 8
+      // Total market = 25147.00
+      // Total cost = 12027.00
+      // Delta = 13120.00
+      // Profit % = (13120.00 / 12027.00) * 100 = 109.087...
+      expect(totals.totalCount, 8);
+      expect(totals.totalMarketValue, closeTo(25147.00, 0.001));
+      expect(totals.totalCostBasis, closeTo(12027.00, 0.001));
+      expect(totals.totalProfitLoss, closeTo(13120.00, 0.001));
+      expect(totals.profitLossPercentage, closeTo(109.09, 0.01));
       expect(totals.isProfitable, isTrue);
     });
 
@@ -102,9 +111,9 @@ void main() {
       );
 
       final totals = await dao.watchVaultTotals().first;
-      // Should now have 3 items instead of 4
-      expect(totals.totalCount, 3);
-      expect(totals.totalMarketValue, closeTo(438.75 - 3.25, 0.001));
+      // Should now have 10 items instead of 11 (Charizard moved to INBOX)
+      expect(totals.totalCount, 10);
+      expect(totals.totalMarketValue, closeTo(25540.25 - 3.25, 0.001));
     });
 
     test('Ignores unowned reference items (quantity == 0)', () async {
@@ -127,8 +136,8 @@ void main() {
       );
 
       final mtgTotals = await dao.watchVaultTotals(collectionType: 'mtg').first;
-      expect(mtgTotals.totalCount, 1);
-      expect(mtgTotals.totalMarketValue, closeTo(45.50, 0.001));
+      expect(mtgTotals.totalCount, 8);
+      expect(mtgTotals.totalMarketValue, closeTo(25147.00, 0.001));
     });
   });
 
@@ -139,7 +148,7 @@ void main() {
 
       await pumpEventQueue();
       expect(emittedTotals.length, 1);
-      expect(emittedTotals.first.totalCount, 1);
+      expect(emittedTotals.first.totalCount, 8);
 
       // 1. Insert a new MTG card
       await db.into(db.vaultItems).insert(
@@ -161,8 +170,8 @@ void main() {
 
       await pumpEventQueue();
       expect(emittedTotals.length, 2);
-      expect(emittedTotals.last.totalCount, 3); // 1 One Ring + 2 Mox Pearls
-      expect(emittedTotals.last.totalMarketValue, closeTo(45.50 + 1000.0, 0.001));
+      expect(emittedTotals.last.totalCount, 10); // 8 baseline + 2 Mox Pearls
+      expect(emittedTotals.last.totalMarketValue, closeTo(25147.00 + 1000.0, 0.001));
 
       // 2. Update quantity and price
       await (db.update(db.vaultItems)..where((t) => t.id.equals('item-mtg-mox-pearl'))).write(
@@ -174,16 +183,16 @@ void main() {
 
       await pumpEventQueue();
       expect(emittedTotals.length, 3);
-      expect(emittedTotals.last.totalCount, 4); // 1 One Ring + 3 Mox Pearls
-      expect(emittedTotals.last.totalMarketValue, closeTo(45.50 + 1800.0, 0.001));
+      expect(emittedTotals.last.totalCount, 11); // 8 baseline + 3 Mox Pearls
+      expect(emittedTotals.last.totalMarketValue, closeTo(25147.00 + 1800.0, 0.001));
 
       // 3. Delete the item
       await (db.delete(db.vaultItems)..where((t) => t.id.equals('item-mtg-mox-pearl'))).go();
 
       await pumpEventQueue();
       expect(emittedTotals.length, 4);
-      expect(emittedTotals.last.totalCount, 1);
-      expect(emittedTotals.last.totalMarketValue, closeTo(45.50, 0.001));
+      expect(emittedTotals.last.totalCount, 8);
+      expect(emittedTotals.last.totalMarketValue, closeTo(25147.00, 0.001));
 
       await subscription.cancel();
     });
@@ -202,12 +211,12 @@ void main() {
 
       // Read initial summary
       final asyncTotals = await container.read(vaultTotalsProvider.future);
-      expect(asyncTotals.totalCount, 1);
-      expect(asyncTotals.totalMarketValue, closeTo(45.50, 0.001));
+      expect(asyncTotals.totalCount, 8);
+      expect(asyncTotals.totalMarketValue, closeTo(25147.00, 0.001));
 
       final summary = container.read(vaultPortfolioSummaryProvider);
-      expect(summary.totalItemCount, 1);
-      expect(summary.totalMarketValue, closeTo(45.50, 0.001));
+      expect(summary.totalItemCount, 8);
+      expect(summary.totalMarketValue, closeTo(25147.00, 0.001));
 
       // Switch context to Pokemon
       container.read(activeGameContextProvider.notifier).state = 'Pokémon';

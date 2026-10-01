@@ -57,7 +57,7 @@ void main() {
 
       // All 4 seeded cards should be visible initially
       expect(find.textContaining('The One Ring'), findsOneWidget);
-      expect(find.textContaining('Charizard ex'), findsOneWidget);
+      expect(find.text('Charizard ex'), findsOneWidget);
       expect(find.textContaining('Ultimate Fallout #4'), findsOneWidget);
       expect(find.textContaining('T.J. Watt'), findsOneWidget);
 
@@ -70,7 +70,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Only Charizard ex is displayed
-      expect(find.textContaining('Charizard ex'), findsOneWidget);
+      expect(find.text('Charizard ex'), findsOneWidget);
       expect(find.textContaining('The One Ring'), findsNothing);
       expect(find.textContaining('Ultimate Fallout #4'), findsNothing);
       expect(find.textContaining('T.J. Watt'), findsNothing);
@@ -82,12 +82,12 @@ void main() {
       expect(find.text('No owned items in All Collections'), findsOneWidget);
 
       // Tap clear button on TextField
-      await tester.tap(find.byIcon(Icons.clear));
+      await tester.tap(find.byKey(const Key('vault_search_clear_button')));
       await tester.pumpAndSettle();
 
       // All 4 cards restored
       expect(find.textContaining('The One Ring'), findsOneWidget);
-      expect(find.textContaining('Charizard ex'), findsOneWidget);
+      expect(find.text('Charizard ex'), findsOneWidget);
 
       // Flush test timers
       await tester.pumpWidget(const SizedBox());
@@ -142,7 +142,7 @@ void main() {
 
       // Only raw items: The One Ring and Charizard ex
       expect(find.textContaining('The One Ring'), findsOneWidget);
-      expect(find.textContaining('Charizard ex'), findsOneWidget);
+      expect(find.text('Charizard ex'), findsOneWidget);
       expect(find.textContaining('Ultimate Fallout #4'), findsNothing);
       expect(find.textContaining('T.J. Watt'), findsNothing);
 
@@ -280,11 +280,11 @@ void main() {
     test('VaultDao clearAllItems deletes all items and seedDatabase restores them',
         () async {
       final initial = await db.vaultDao.watchItemsByCollection('all').first;
-      expect(initial.length, 4);
+      expect(initial.length, 16);
 
       // Clear all
       final deleted = await db.vaultDao.clearAllItems();
-      expect(deleted, 4);
+      expect(deleted, 16);
 
       final empty = await db.vaultDao.watchItemsByCollection('all').first;
       expect(empty.isEmpty, isTrue);
@@ -292,7 +292,7 @@ void main() {
       // Reseed
       await db.vaultDao.seedDatabase();
       final restored = await db.vaultDao.watchItemsByCollection('all').first;
-      expect(restored.length, 4);
+      expect(restored.length, 16);
     });
 
     testWidgets('PolymorphicAttributeChip handles empty or malformed JSON gracefully',

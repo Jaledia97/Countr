@@ -310,6 +310,7 @@ void main() {
     setUp(() async {
       db = AppDatabase(NativeDatabase.memory());
       dao = db.vaultDao;
+      await db.delete(db.vaultItems).go();
       await dao.ensureSecretLairIndexes();
 
       // Seed printings for the same abstract card (Lightning Bolt):

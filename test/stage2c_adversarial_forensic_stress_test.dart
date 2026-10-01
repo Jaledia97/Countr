@@ -22,9 +22,13 @@ void main() {
   late AppDatabase db;
   late VaultDao dao;
 
-  setUp(() {
+  setUp(() async {
     db = AppDatabase(NativeDatabase.memory());
     dao = VaultDao(db);
+    await db.delete(db.deckVersionItems).go();
+    await db.delete(db.deckVersions).go();
+    await db.delete(db.decks).go();
+    await db.delete(db.vaultItems).go();
   });
 
   tearDown(() async {

@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'dart:convert';
+import 'package:countr/core/database/app_database.dart';
+import 'package:countr/features/decks/data/mock_deck_data.dart';
 import 'package:countr/features/decks/presentation/screens/decks_screen.dart';
-import 'package:countr/features/decks/presentation/screens/deck_builder_screen.dart';
 import 'package:countr/features/decks/presentation/providers/deck_providers.dart';
+import 'package:countr/features/decks/presentation/widgets/deck_setup_wizard_modal.dart';
+import 'package:countr/features/decks/presentation/widgets/deck_thumbnail_picker_modal.dart';
+import 'package:countr/features/decks/presentation/widgets/proportional_bubble_scrollbar.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -314,7 +319,7 @@ void main() {
         expect(find.text('Lost Zone Giratina VSTAR'), findsOneWidget);
       });
 
-      testWidgets('3.4. Creating deck via FAB while in empty state dynamically updates list in Draft tab', (tester) async {
+      testWidgets('3.4. Tapping FAB launches DeckSetupWizardModal when in empty state', (tester) async {
         await tester.pumpWidget(buildTestWidget(initialFilter: 'pokemon'));
         await tester.pumpAndSettle();
 
@@ -323,15 +328,18 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text('No decks found'), findsOneWidget);
 
-        // Tap FAB to create new deck (created with isRegistered: false)
+        // Tap FAB to open wizard modal
         await tester.tap(find.byKey(const Key('decks_new_deck_fab')));
         await tester.pumpAndSettle();
 
-        // Since newly created deck is Draft (isRegistered == false), it should appear immediately!
-        expect(find.text('No decks found'), findsNothing);
-        expect(find.textContaining('Pokémon Standard • 0/60'), findsOneWidget);
-        // All Decks count should have incremented from 2 to 3
-        expect(find.text('All Decks (3)'), findsOneWidget);
+        // Verify DeckSetupWizardModal is displayed with Pokémon domain
+        expect(find.byType(DeckSetupWizardModal), findsOneWidget);
+        expect(find.text('New Deck Setup'), findsOneWidget);
+
+        // Close modal
+        await tester.tap(find.byIcon(Icons.close_rounded));
+        await tester.pumpAndSettle();
+        expect(find.byType(DeckSetupWizardModal), findsNothing);
       });
     });
 
@@ -339,102 +347,204 @@ void main() {
     // 4. FAB Creation Stress & Ruleset / Domain Binding
     // =========================================================================
     group('4. FAB Creation Stress & Ruleset / Domain Binding', () {
-      testWidgets('4.1. Rapid multi-domain deck creation generates correct formats, card counts, and domain bindings', (tester) async {
+      testWidgets('4.1. Tapping FAB across TCG domains launches DeckSetupWizardModal with appropriate domain preset', (tester) async {
         await tester.pumpWidget(buildTestWidget(initialFilter: 'all'));
         await tester.pumpAndSettle();
 
         final fabFinder = find.byKey(const Key('decks_new_deck_fab'));
 
-        // 1. In 'all' domain: create deck -> defaults to MTG Commander, 0/100
+        // 1. In 'all' domain: tap FAB -> opens wizard with default MTG format (Commander)
         await tester.tap(fabFinder);
         await tester.pumpAndSettle();
-        expect(find.text('All Decks (7)'), findsOneWidget);
-        expect(find.textContaining('MTG Commander • 0/100'), findsOneWidget);
+        expect(find.byType(DeckSetupWizardModal), findsOneWidget);
+        expect(find.text('Commander'), findsOneWidget);
+        await tester.tap(find.byIcon(Icons.close_rounded));
+        await tester.pumpAndSettle();
 
-        // 2. Switch to 'pokemon': initial count 2 -> create deck -> 3
+        // 2. Switch to 'pokemon': tap FAB -> opens wizard with Pokémon Standard
         await tester.tap(find.byKey(const Key('decks_tcg_context_switcher')));
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const Key('tcg_filter_pokemon')));
         await tester.pumpAndSettle();
 
-        expect(find.text('All Decks (2)'), findsOneWidget);
         await tester.tap(fabFinder);
         await tester.pumpAndSettle();
+        expect(find.byType(DeckSetupWizardModal), findsOneWidget);
+        expect(find.text('Pokémon Standard'), findsOneWidget);
+        await tester.tap(find.byIcon(Icons.close_rounded));
+        await tester.pumpAndSettle();
 
-        expect(find.text('All Decks (3)'), findsOneWidget);
-        expect(find.textContaining('Pokémon Standard • 0/60'), findsOneWidget);
-
-        // 3. Switch to 'lorcana': initial count 1 -> create deck -> 2
+        // 3. Switch to 'lorcana': tap FAB -> opens wizard with Disney Lorcana Core
         await tester.tap(find.byKey(const Key('decks_tcg_context_switcher')));
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const Key('tcg_filter_lorcana')));
         await tester.pumpAndSettle();
 
-        expect(find.text('All Decks (1)'), findsOneWidget);
         await tester.tap(fabFinder);
         await tester.pumpAndSettle();
+        expect(find.byType(DeckSetupWizardModal), findsOneWidget);
+        expect(find.text('Disney Lorcana Core'), findsOneWidget);
+        await tester.tap(find.byIcon(Icons.close_rounded));
+        await tester.pumpAndSettle();
 
-        expect(find.text('All Decks (2)'), findsOneWidget);
-        expect(find.textContaining('Disney Lorcana Core • 0/60'), findsOneWidget);
-
-        // 4. Switch to 'mtg': initial count 3 + 1 from step 1 = 4 -> create deck -> 5
+        // 4. Switch to 'mtg': tap FAB -> opens wizard with MTG Commander
         await tester.tap(find.byKey(const Key('decks_tcg_context_switcher')));
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const Key('tcg_filter_mtg')));
         await tester.pumpAndSettle();
 
-        expect(find.text('All Decks (4)'), findsOneWidget);
         await tester.tap(fabFinder);
         await tester.pumpAndSettle();
-
-        expect(find.text('All Decks (5)'), findsOneWidget);
-
-        // 5. Switch back to 'all': total should now be 6 (original) + 4 (created) = 10
-        await tester.tap(find.byKey(const Key('decks_tcg_context_switcher')));
+        expect(find.byType(DeckSetupWizardModal), findsOneWidget);
+        expect(find.text('Commander'), findsOneWidget);
+        await tester.tap(find.byIcon(Icons.close_rounded));
         await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const Key('tcg_filter_all')));
-        await tester.pumpAndSettle();
-
-        expect(find.text('All Decks (10)'), findsOneWidget);
-
-        // 6. Switch to Draft tab (Tab 2) in 'all': original had 3 drafts + 4 created = 7 drafts
-        await tester.tap(find.byKey(const Key('decks_tab_draft')));
-        await tester.pumpAndSettle();
-
-        // Newly created decks must all appear under Draft tab
-        expect(find.textContaining('Disney Lorcana Core • 0/60'), findsOneWidget);
-        expect(find.textContaining('Pokémon Standard • 0/60'), findsOneWidget);
-        expect(find.textContaining('MTG Commander • 0/100'), findsWidgets);
       });
 
-      testWidgets('4.2. Newly created decks from each domain construct valid typed Deck models for DeckBuilderScreen', (tester) async {
+      testWidgets('4.2. DeckSetupWizardModal launched via FAB exposes format options and input fields', (tester) async {
         await tester.pumpWidget(buildTestWidget(initialFilter: 'lorcana'));
         await tester.pumpAndSettle();
 
-        // Create Lorcana deck
+        // Tap FAB to open wizard for Lorcana
         await tester.tap(find.byKey(const Key('decks_new_deck_fab')));
         await tester.pumpAndSettle();
 
-        // Tap the created Lorcana deck
-        await tester.tap(find.textContaining('Disney Lorcana Core • 0/60'));
-        await tester.pumpAndSettle();
-
-        // Verify DeckBuilderScreen received typed Deck with correct attributes
-        expect(find.byType(DeckBuilderScreen), findsOneWidget);
-        final lorcanaBuilder = tester.widget<DeckBuilderScreen>(find.byType(DeckBuilderScreen));
-        expect(lorcanaBuilder.deck.tcgDomain, equals('lorcana'));
-        expect(lorcanaBuilder.deck.format, equals('Disney Lorcana Core'));
-        expect(lorcanaBuilder.deck.isRegistered, isFalse);
-        expect(lorcanaBuilder.deck.isCompetitive, isFalse);
+        expect(find.byType(DeckSetupWizardModal), findsOneWidget);
+        expect(find.byKey(const Key('deck_wizard_name_input')), findsOneWidget);
+        expect(find.byKey(const Key('deck_wizard_format_dropdown')), findsOneWidget);
+        expect(find.byKey(const Key('deck_wizard_create_button')), findsOneWidget);
 
         // Pop back to DecksScreen
-        await tester.tap(find.byType(BackButton));
+        await tester.tap(find.byIcon(Icons.close_rounded));
         await tester.pumpAndSettle();
         expect(find.byType(DecksScreen), findsOneWidget);
+        expect(find.byType(DeckSetupWizardModal), findsNothing);
 
         // Unmount cleanly to flush Drift stream timer
         await tester.pumpWidget(const SizedBox());
         await tester.pump(const Duration(milliseconds: 100));
+      });
+    });
+
+    // =========================================================================
+    // 5. Patch 4.8 R3 Bug Fixes & UI Enhancements Verification
+    // =========================================================================
+    group('5. Patch 4.8 R3 Bug Fixes & UI Enhancements Verification', () {
+      testWidgets('5.1. DeckThumbnailPickerModal renders inside showModalBottomSheet without layout crash', (tester) async {
+        final mockDeck = Deck(
+          id: 'test-deck-cover',
+          name: 'Edgar Test Deck',
+          format: 'MTG Commander',
+          tcgDomain: 'mtg',
+          wins: 0,
+          losses: 0,
+          draws: 0,
+          isRegistered: false,
+          isCompetitive: false,
+          isAssembled: false,
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+          isDeleted: false,
+        );
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              deckProvider(mockDeck.id).overrideWith((ref) => Stream.value(mockDeck)),
+              deckItemsProvider(mockDeck.id).overrideWith((ref) => Stream.value([])),
+            ],
+            child: MaterialApp(
+              home: Scaffold(
+                body: Builder(
+                  builder: (context) => ElevatedButton(
+                    onPressed: () => DeckThumbnailPickerModal.show(context, deck: mockDeck),
+                    child: const Text('Open Modal'),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // Tap button to launch modal via showModalBottomSheet
+        await tester.tap(find.text('Open Modal'));
+        await tester.pumpAndSettle();
+
+        expect(tester.takeException(), isNull, reason: 'RenderFlex crash when opening DeckThumbnailPickerModal');
+        expect(find.byType(DeckThumbnailPickerModal), findsOneWidget);
+        expect(find.text('Customize Deck Cover'), findsOneWidget);
+        expect(find.byType(TabBarView), findsOneWidget);
+
+        // Close modal
+        await tester.tap(find.byIcon(Icons.close));
+        await tester.pumpAndSettle();
+        expect(find.byType(DeckThumbnailPickerModal), findsNothing);
+      });
+
+      test('5.2. MockDeckData items contain authentic Oracle rules text for key cards', () {
+        final edgarItems = MockDeckData.getDeckItems(MockDeckData.edgarMarkovDeckId);
+
+        // Verify Edgar Markov has authentic oracle_text
+        final edgarCard = edgarItems.firstWhere((c) => c['id'] == 'edgar-markov');
+        final edgarDyn = jsonDecode(edgarCard['dynamic_data'] as String) as Map<String, dynamic>;
+        expect(edgarDyn['oracle_text'], isNotNull);
+        expect(
+          edgarDyn['oracle_text'],
+          contains('Eminence — As long as Edgar Markov is in the command zone'),
+        );
+
+        // Verify Blood Artist
+        final artistCard = edgarItems.firstWhere((c) => c['id'] == 'blood-artist');
+        final artistDyn = jsonDecode(artistCard['dynamic_data'] as String) as Map<String, dynamic>;
+        expect(artistDyn['oracle_text'], isNotNull);
+        expect(artistDyn['oracle_text'], contains('Whenever Blood Artist or another creature dies'));
+
+        // Verify Sol Ring
+        final solCard = edgarItems.firstWhere((c) => c['id'] == 'sol-ring');
+        final solDyn = jsonDecode(solCard['dynamic_data'] as String) as Map<String, dynamic>;
+        expect(solDyn['oracle_text'], equals('{T}: Add {C}{C}.'));
+
+        // Verify Command Tower
+        final towerCard = edgarItems.firstWhere((c) => c['id'] == 'command-tower');
+        final towerDyn = jsonDecode(towerCard['dynamic_data'] as String) as Map<String, dynamic>;
+        expect(towerDyn['oracle_text'], contains("Add one mana of any color in your commander's color identity"));
+
+        // Verify Teferi's Protection
+        final teferiCard = edgarItems.firstWhere((c) => c['id'] == 'teferis-protection');
+        final teferiDyn = jsonDecode(teferiCard['dynamic_data'] as String) as Map<String, dynamic>;
+        expect(teferiDyn['oracle_text'], contains('your life total can\'t change and you gain protection from everything'));
+      });
+
+      testWidgets('5.3. ProportionalBubbleScrollbar renders thin rail spine centered in gesture area', (tester) async {
+        final sections = [
+          ScrollbarSection(label: 'Commander', count: 1, onTap: () {}),
+          ScrollbarSection(label: 'Creatures', count: 32, onTap: () {}),
+        ];
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: SizedBox(
+                height: 400,
+                width: 50,
+                child: ProportionalBubbleScrollbar(
+                  sections: sections,
+                  railWidth: 26,
+                  railColor: Colors.blueGrey,
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(tester.takeException(), isNull);
+        // Find Positioned with 5.0 dp width
+        final positionedFinder = find.byWidgetPredicate(
+          (widget) => widget is Positioned && widget.width == 5.0,
+        );
+        expect(positionedFinder, findsOneWidget);
       });
     });
   });

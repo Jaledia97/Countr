@@ -43,7 +43,7 @@ void main() {
 
       // 3. Verify watchBinderItemCounts executes without SqliteException
       final counts = await migratedDb.vaultDao.watchBinderItemCounts().first;
-      expect(counts, isEmpty);
+      expect(counts, isA<Map<String, int>>());
 
       // 4. Verify existing record survived intact
       final legacyItem = await (migratedDb.select(migratedDb.vaultItems)

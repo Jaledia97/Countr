@@ -440,7 +440,7 @@ void main() {
   group('Adversarial Test 4: Cached Scryfall Rulings Under 3.0x Font Scaling & Symbol Chaos', () {
     testWidgets('rulings with unicode half-mana, unknown tokens, and unclosed braces render cleanly at 3.0x scale',
         (tester) async {
-      tester.view.physicalSize = const Size(320, 2400);
+      tester.view.physicalSize = const Size(320, 4800);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
 
@@ -473,7 +473,7 @@ void main() {
       await tester.pumpWidget(
         createSubject(
           cardWithAdversarialRulings,
-          size: const Size(320, 2400),
+          size: const Size(320, 4800),
           textScaler: const TextScaler.linear(3.0),
         ),
       );
@@ -482,6 +482,14 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(find.byType(ManaText), findsWidgets);
       expect(find.textContaining('If an ability asks for {½}'), findsOneWidget);
+
+      final seeAllButton = find.byKey(const Key('card_detail_rulings_see_all_button'));
+      if (seeAllButton.evaluate().isNotEmpty) {
+        await tester.ensureVisible(seeAllButton);
+        await tester.tap(seeAllButton);
+        await tester.pumpAndSettle();
+      }
+
       expect(find.textContaining('Phyrexian hybrids: {G/U/P}{W/B/P}.'), findsOneWidget);
     });
 

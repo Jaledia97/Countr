@@ -454,14 +454,26 @@ class _ProportionalBubbleScrollbarState
               child: Container(
                 width: widget.railWidth,
                 decoration: BoxDecoration(
-                  color: widget.railColor,
-                  borderRadius: BorderRadius.circular(widget.railWidth / 2),
+                  color: Colors.transparent,
                   border: widget.railBorder,
                   boxShadow: widget.railShadow,
                 ),
                 child: Stack(
                   clipBehavior: Clip.none,
                   children: [
+                    // Noticeably skinnier track spine between node segments
+                    Positioned(
+                      top: 0,
+                      bottom: 0,
+                      left: (widget.railWidth - 5.0) / 2,
+                      width: 5.0,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: widget.railColor,
+                          borderRadius: BorderRadius.circular(2.5),
+                        ),
+                      ),
+                    ),
                     ...bubbles,
                     ?thumbWidget,
                   ],

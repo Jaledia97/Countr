@@ -29,7 +29,7 @@ void main() {
     await tempDir.delete(recursive: true);
   });
 
-  testWidgets('VaultScreen renders Binders and Singles views cleanly without persistent loading spinner', (tester) async {
+  testWidgets('VaultScreen renders Singles and Binders views cleanly without persistent loading spinner', (tester) async {
     tester.view.physicalSize = const Size(400, 850);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(() => tester.view.resetPhysicalSize());
@@ -56,19 +56,19 @@ void main() {
     await tester.pump();
     await tester.pumpAndSettle();
 
-    // 1. Verify Binders view is shown (default view mode) without loading spinner, showing seeded starter binder
-    expect(find.byType(CircularProgressIndicator), findsNothing);
-    expect(find.text('Personal Collection'), findsOneWidget);
-
-    // 2. Switch to Singles view
-    final singlesToggle = find.byKey(const Key('vault_view_singles_toggle'));
-    expect(singlesToggle, findsOneWidget);
-    await tester.tap(singlesToggle);
-    await tester.pumpAndSettle();
-
-    // 3. Verify Singles view displays cards cleanly without persistent loading
+    // 1. Verify Singles view is shown (default view mode) without loading spinner, showing saved cards
     expect(find.byType(CircularProgressIndicator), findsNothing);
     expect(find.textContaining('The One Ring'), findsWidgets);
+
+    // 2. Switch to Binders view
+    final bindersToggle = find.byKey(const Key('vault_view_binders_toggle'));
+    expect(bindersToggle, findsOneWidget);
+    await tester.tap(bindersToggle);
+    await tester.pumpAndSettle();
+
+    // 3. Verify Binders view displays seeded starter binder cleanly without persistent loading
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(find.text('Personal Collection'), findsOneWidget);
   });
 
   testWidgets('VaultScreen renders prominent View Owned Singles button when binders are empty', (tester) async {
@@ -87,6 +87,7 @@ void main() {
         overrides: [
           appDatabaseProvider.overrideWithValue(db),
           vaultDaoProvider.overrideWithValue(db.vaultDao),
+          vaultViewModeProvider.overrideWith((ref) => VaultViewMode.binders),
         ],
         child: const MaterialApp(
           home: VaultScreen(),

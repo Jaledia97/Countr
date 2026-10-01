@@ -296,77 +296,100 @@ class _VaultItemCardState extends State<VaultItemCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  setAndNameText,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textSecondary,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              if (rarity.isNotEmpty) ...[
-                const SizedBox(width: 4),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                  decoration: BoxDecoration(
-                    color: rarityColor.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(
-                      color: rarityColor.withValues(alpha: 0.4),
-                      width: 0.6,
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final row = Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      setAndNameText,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textSecondary,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  child: Text(
-                    rarity.toUpperCase(),
-                    style: TextStyle(
-                      fontSize: 8.5,
-                      fontWeight: FontWeight.w800,
-                      color: rarityColor,
+                  if (rarity.isNotEmpty) ...[
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Container(
+                          padding:
+                              const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: rarityColor.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(
+                              color: rarityColor.withValues(alpha: 0.4),
+                              width: 0.6,
+                            ),
+                          ),
+                          child: Text(
+                            rarity.toUpperCase(),
+                            style: TextStyle(
+                              fontSize: 8.5,
+                              fontWeight: FontWeight.w800,
+                              color: rarityColor,
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-              ],
-              if (typeLine.isNotEmpty) ...[
-                const SizedBox(width: 4),
-                Flexible(
-                  child: Text(
-                    typeLine,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 10,
-                      color: AppColors.textMuted,
+                  ],
+                  if (typeLine.isNotEmpty) ...[
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        typeLine,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: AppColors.textMuted,
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-              ],
-              if (activePersona != UserPersona.player && !isExpanded) ...[
-                const SizedBox(width: 6),
-                Flexible(
-                  child: Text(
-                    isPrivacyMode
-                        ? '****'
-                        : (effectivePrice > 0
-                            ? '\$${effectivePrice.toStringAsFixed(2)}'
-                            : 'Unlisted'),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.accentEmerald,
+                  ],
+                  if (activePersona != UserPersona.player && !isExpanded) ...[
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          isPrivacyMode
+                              ? '****'
+                              : (effectivePrice > 0
+                                  ? '\$${effectivePrice.toStringAsFixed(2)}'
+                                  : 'Unlisted'),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.accentEmerald,
+                          ),
+                        ),
+                      ),
                     ),
+                  ],
+                ],
+              );
+              if (constraints.maxWidth < 60) {
+                return FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(minWidth: 60, maxWidth: 60),
+                    child: row,
                   ),
-                ),
-              ],
-            ],
+                );
+              }
+              return row;
+            },
           ),
           OptionalDeckBadges(item: item),
           OptionalCardAvailabilityBreakdown(item: item),

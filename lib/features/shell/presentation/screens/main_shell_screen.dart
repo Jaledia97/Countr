@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:countr/core/state/settings_state.dart';
 import 'package:countr/features/command_center/presentation/widgets/morphing_command_center.dart';
 import 'package:countr/features/scanner/presentation/screens/scanner_modal.dart';
+import 'package:countr/features/hydration/presentation/providers/hydration_providers.dart';
 import 'package:countr/features/vault/presentation/providers/vault_providers.dart';
 import '../widgets/custom_bottom_nav_bar.dart';
 
@@ -39,6 +40,7 @@ class _MainShellScreenState extends ConsumerState<MainShellScreen> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         ref.read(vaultDaoProvider);
         ref.read(vaultItemsStreamProvider);
+        ref.read(mtgAutoHydrationCoordinatorProvider).checkAndTriggerAutoHydration();
       });
     }
   }

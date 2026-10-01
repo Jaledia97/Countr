@@ -36,14 +36,6 @@ void main() {
     await tester.tap(mtgFinder);
     await tester.pumpAndSettle();
 
-    final commanderFinder = find.byKey(const Key('mode_mtg_commander'));
-    await tester.scrollUntilVisible(commanderFinder, 200, scrollable: scrollableFinder);
-    await tester.pumpAndSettle();
-    expect(commanderFinder, findsOneWidget);
-
-    await tester.tap(commanderFinder);
-    await tester.pumpAndSettle();
-
     // 4. Verify PregameSetupSheet is shown
     final startMatchButtonFinder = find.byKey(const Key('start_match_button'));
     expect(startMatchButtonFinder, findsOneWidget);

@@ -834,8 +834,8 @@ void main() {
       expect(y1 < y2, isTrue, reason: 'section_oracle_rules ($y1) must be above section_portfolio_metrics ($y2)');
       expect(y2 < y3, isTrue, reason: 'section_portfolio_metrics ($y2) must be above section_physical_provenance ($y3)');
       expect(y3 < y4, isTrue, reason: 'section_physical_provenance ($y3) must be above section_acquisition_tracking ($y4)');
-      expect(y4 < y5, isTrue, reason: 'section_acquisition_tracking ($y4) must be above section_metadata_pedigree ($y5)');
-      expect(y5 < y6, isTrue, reason: 'section_metadata_pedigree ($y5) must be above deck_gear_section ($y6)');
+      expect(y4 < y6, isTrue, reason: 'section_acquisition_tracking ($y4) must be above deck_gear_section ($y6)');
+      expect(y6 < y5, isTrue, reason: 'deck_gear_section ($y6) must be above section_metadata_pedigree ($y5)');
     });
 
     testWidgets('T5.5.2: Scroll physics and layout displacement upon accordion expansion and dragging',

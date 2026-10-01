@@ -93,13 +93,42 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // All 3 charts and titles should be present
+      // All charts, user notes, and titles should be present
       expect(find.byType(ManaCurveChartWidget), findsOneWidget);
       expect(find.byType(ColorDevotionPipsWidget), findsOneWidget);
       expect(find.byType(BlingMeterWidget), findsOneWidget);
       expect(find.text('Mana Curve'), findsOneWidget);
       expect(find.text('Color Devotion'), findsOneWidget);
       expect(find.text('Deck Bling'), findsOneWidget);
+      expect(find.text('User Notes'), findsOneWidget);
+      expect(find.byKey(const Key('inline_analytics_user_notes_container')), findsOneWidget);
+    });
+
+    testWidgets('Renders custom userNotes in User Notes container when provided', (tester) async {
+      final sampleAnalytics = MockDeckData.computeAnalyticsFromItems(
+        MockDeckData.getDeckItems(MockDeckData.edgarMarkovDeckId),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: InlineDeckAnalyticsCard(
+                analytics: sampleAnalytics,
+                isExpanded: true,
+                onToggleExpand: () {},
+                onOpenModal: () {},
+                userNotes: 'Aggro strategy: curve out vampires early and drain.',
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('User Notes'), findsOneWidget);
+      expect(find.byKey(const Key('inline_analytics_user_notes_container')), findsOneWidget);
+      expect(find.text('Aggro strategy: curve out vampires early and drain.'), findsOneWidget);
     });
   });
 

@@ -38,6 +38,12 @@ VaultItemsCompanion createTestItem({
 void main() {
   late AppDatabase db;
   late VaultDao dao;
+  late int seedCount;
+  late double seedMarket;
+  late double seedCost;
+  late int initialMtgCount;
+  late double initialMtgMarket;
+  late double initialMtgCost;
 
   setUpAll(() {
     drift.driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
@@ -47,6 +53,16 @@ void main() {
     db = AppDatabase(NativeDatabase.memory());
     dao = db.vaultDao;
     await dao.seedDatabase();
+
+    final baseline = await dao.getVaultTotals();
+    seedCount = baseline.totalCount;
+    seedMarket = baseline.totalMarketValue;
+    seedCost = baseline.totalCostBasis;
+
+    final mtgBaseline = await dao.getVaultTotals(collectionType: 'mtg');
+    initialMtgCount = mtgBaseline.totalCount;
+    initialMtgMarket = mtgBaseline.totalMarketValue;
+    initialMtgCost = mtgBaseline.totalCostBasis;
   });
 
   tearDown(() async {
@@ -58,11 +74,11 @@ void main() {
       final emittedValues = <VaultTotals>[];
       final subscription = dao.watchVaultTotals().listen(emittedValues.add);
 
-      // Initial emission from seed (4 items, $438.75 market, $189.50 cost)
+      // Initial emission from seed
       await pumpEventQueue(times: 20);
       expect(emittedValues.isNotEmpty, isTrue);
       final initialSeedCount = emittedValues.first.totalCount;
-      expect(initialSeedCount, 4);
+      expect(initialSeedCount, seedCount);
 
       const count = 50;
       double addedMarket = 0.0;
@@ -89,9 +105,9 @@ void main() {
       await pumpEventQueue(times: 50);
 
       final latest = emittedValues.last;
-      final expectedCount = 4 + (count * 2);
-      final expectedMarket = 438.75 + addedMarket;
-      final expectedCost = 189.50 + addedCost;
+      final expectedCount = seedCount + (count * 2);
+      final expectedMarket = seedMarket + addedMarket;
+      final expectedCost = seedCost + addedCost;
 
       expect(latest.totalCount, equals(expectedCount));
       expect(latest.totalMarketValue, closeTo(expectedMarket, 0.001));
@@ -139,12 +155,12 @@ void main() {
       await pumpEventQueue(times: 50);
 
       final latest = emittedValues.last;
-      // 4 seed items + 50 items * 5 quantity = 4 + 250 = 254
-      expect(latest.totalCount, equals(254));
-      // Seed market: 438.75; 50 * (5 * 25.0) = 6250.0
-      expect(latest.totalMarketValue, closeTo(438.75 + 6250.0, 0.001));
-      // Seed cost: 189.50; 50 * (5 * 2.0) = 500.0
-      expect(latest.totalCostBasis, closeTo(189.50 + 500.0, 0.001));
+      // seed items + 50 items * 5 quantity = seedCount + 250
+      expect(latest.totalCount, equals(seedCount + 250));
+      // Seed market + 50 * (5 * 25.0) = seedMarket + 6250.0
+      expect(latest.totalMarketValue, closeTo(seedMarket + 6250.0, 0.001));
+      // Seed cost + 50 * (5 * 2.0) = seedCost + 500.0
+      expect(latest.totalCostBasis, closeTo(seedCost + 500.0, 0.001));
 
       await subscription.cancel();
     });
@@ -175,9 +191,9 @@ void main() {
       await pumpEventQueue(times: 50);
 
       final latest = emittedValues.last;
-      expect(latest.totalCount, equals(4));
-      expect(latest.totalMarketValue, closeTo(438.75, 0.001));
-      expect(latest.totalCostBasis, closeTo(189.50, 0.001));
+      expect(latest.totalCount, equals(seedCount));
+      expect(latest.totalMarketValue, closeTo(seedMarket, 0.001));
+      expect(latest.totalCostBasis, closeTo(seedCost, 0.001));
 
       await subscription.cancel();
     });
@@ -272,9 +288,9 @@ void main() {
       });
 
       final totals = await dao.watchVaultTotals().first;
-      expect(totals.totalCount, equals(104));
-      expect(totals.totalMarketValue, closeTo(438.75 + 100.0, 0.001));
-      expect(totals.totalCostBasis, closeTo(189.50 + 50.0, 0.001));
+      expect(totals.totalCount, equals(seedCount + 100));
+      expect(totals.totalMarketValue, closeTo(seedMarket + 100.0, 0.001));
+      expect(totals.totalCostBasis, closeTo(seedCost + 50.0, 0.001));
     });
   });
 
@@ -292,9 +308,9 @@ void main() {
           );
 
       final totals = await dao.watchVaultTotals().first;
-      expect(totals.totalCount, equals(1000004));
-      expect(totals.totalMarketValue, closeTo(438.75 + (1000000 * 2.50), 0.01));
-      expect(totals.totalCostBasis, closeTo(189.50 + (1000000 * 1.50), 0.01));
+      expect(totals.totalCount, equals(seedCount + 1000000));
+      expect(totals.totalMarketValue, closeTo(seedMarket + (1000000 * 2.50), 0.01));
+      expect(totals.totalCostBasis, closeTo(seedCost + (1000000 * 1.50), 0.01));
       expect(totals.totalProfitLoss, closeTo(totals.totalMarketValue - totals.totalCostBasis, 0.01));
       expect(totals.profitLossPercentage, closeTo(((totals.totalMarketValue - totals.totalCostBasis) / totals.totalCostBasis) * 100, 0.01));
     });
@@ -312,8 +328,8 @@ void main() {
           );
 
       final totals = await dao.watchVaultTotals().first;
-      expect(totals.totalCount, equals(100000004));
-      expect(totals.totalMarketValue, closeTo(438.75 + (100000000 * 0.01), 0.01));
+      expect(totals.totalCount, equals(seedCount + 100000000));
+      expect(totals.totalMarketValue, closeTo(seedMarket + (100000000 * 0.01), 0.01));
     });
 
     test('Precision accuracy with sub-cent fractional prices', () async {
@@ -329,10 +345,9 @@ void main() {
           );
 
       final totals = await dao.watchVaultTotals(collectionType: 'mtg').first;
-      // Seed MTG: qty 1, market 45.50, cost 15.00
-      expect(totals.totalCount, equals(80001));
-      expect(totals.totalMarketValue, closeTo(45.50 + 10.0, 0.0001));
-      expect(totals.totalCostBasis, closeTo(15.00 + 4.0, 0.0001));
+      expect(totals.totalCount, equals(initialMtgCount + 80000));
+      expect(totals.totalMarketValue, closeTo(initialMtgMarket + 10.0, 0.0001));
+      expect(totals.totalCostBasis, closeTo(initialMtgCost + 4.0, 0.0001));
     });
 
     test('Zero cost basis does NOT cause division by zero (no NaN or Infinity)', () async {
@@ -606,6 +621,7 @@ void main() {
     test('Mutations in one collection do not contaminate totals of another collection', () async {
       final initialPokemonTotals = await dao.watchVaultTotals(collectionType: 'pokemon').first;
       final initialComicTotals = await dao.watchVaultTotals(collectionType: 'comic').first;
+      final initialMtgTotals = await dao.watchVaultTotals(collectionType: 'mtg').first;
 
       // Insert 20 MTG items
       for (int i = 1; i <= 20; i++) {
@@ -630,7 +646,7 @@ void main() {
       expect(updatedComicTotals.totalMarketValue, equals(initialComicTotals.totalMarketValue));
 
       final updatedMtgTotals = await dao.watchVaultTotals(collectionType: 'mtg').first;
-      expect(updatedMtgTotals.totalCount, equals(1 + (20 * 5)));
+      expect(updatedMtgTotals.totalCount, equals(initialMtgTotals.totalCount + (20 * 5)));
     });
   });
 
@@ -648,13 +664,13 @@ void main() {
       container.read(activeGameContextProvider.notifier).state = 'All Collections';
       await pumpEventQueue();
       var totals = await container.read(vaultTotalsProvider.future);
-      expect(totals.totalCount, equals(4));
+      expect(totals.totalCount, equals(seedCount));
 
       // 2. Switch to MTG
       container.read(activeGameContextProvider.notifier).state = 'Magic: The Gathering';
       await pumpEventQueue();
       totals = await container.read(vaultTotalsProvider.future);
-      expect(totals.totalCount, equals(1));
+      expect(totals.totalCount, equals(initialMtgCount));
 
       // 3. Switch to Pokemon
       container.read(activeGameContextProvider.notifier).state = 'Pokémon';

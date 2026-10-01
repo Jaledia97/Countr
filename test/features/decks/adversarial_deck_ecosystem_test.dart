@@ -558,17 +558,33 @@ void main() {
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() => tester.view.resetPhysicalSize());
 
-      await tester.pumpWidget(createSubject(deck: baseDeck, items: []));
+      final emptyDeckItems = [
+        {
+          'id': 'empty-item-0',
+          'name': 'Zero Quantity Marker',
+          'board_zone': 'Mainboard',
+          'deck_quantity': 0,
+          'dynamic_data': jsonEncode({}),
+        },
+      ];
+
+      await tester.pumpWidget(createSubject(deck: baseDeck, items: emptyDeckItems));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byIcon(Icons.analytics_rounded));
+      await tester.tap(find.byKey(const Key('inline_analytics_expand_modal_button')));
       await tester.pumpAndSettle();
 
       expect(tester.takeException(), isNull);
       expect(find.text('Deck Visual Analytics'), findsOneWidget);
       expect(find.text('Mana Curve (CMC 0 to 7+)'), findsOneWidget);
       expect(find.text('Color Devotion (Mana Pips)'), findsOneWidget);
-      expect(find.text('0.0% Bling'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(BottomSheet),
+          matching: find.text('0.0% Bling'),
+        ),
+        findsOneWidget,
+      );
 
       // Verify pips render with 0
       expect(find.text('W'), findsWidgets);
@@ -606,7 +622,7 @@ void main() {
       await tester.pumpWidget(createSubject(deck: baseDeck, items: foilItems));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byIcon(Icons.analytics_rounded));
+      await tester.tap(find.byKey(const Key('inline_analytics_expand_modal_button')));
       await tester.pumpAndSettle();
 
       expect(tester.takeException(), isNull);
@@ -657,7 +673,7 @@ void main() {
       await tester.pumpWidget(createSubject(deck: baseDeck, items: colorlessItems));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byIcon(Icons.analytics_rounded));
+      await tester.tap(find.byKey(const Key('inline_analytics_expand_modal_button')));
       await tester.pumpAndSettle();
 
       expect(tester.takeException(), isNull);

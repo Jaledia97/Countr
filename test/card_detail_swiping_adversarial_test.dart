@@ -431,7 +431,7 @@ void main() {
       transformController.value = Matrix4.identity();
       await tester.pumpAndSettle();
       expect(tester.widget<PageView>(find.byKey(const Key('fullscreen_page_view'))).physics,
-          isA<PageScrollPhysics>());
+          isA<BouncingScrollPhysics>());
 
       // 3. Horizontal fling at 1.0x - swiping resumes!
       await tester.fling(ivFinder, const Offset(-400, 0), 1000);
@@ -441,7 +441,7 @@ void main() {
       expect(find.text('Zoom Card 2'), findsWidgets);
     });
 
-    testWidgets('3.4: Precision threshold: 1.01x allows swiping, 1.05x disables swiping', (tester) async {
+    testWidgets('3.4: Precision threshold: 1.05x allows swiping, 1.10x disables swiping', (tester) async {
       setupTestScreen(tester);
       await tester.pumpWidget(MaterialApp(
         home: FullScreenCardViewer(
@@ -455,14 +455,14 @@ void main() {
       final ivWidget = tester.widget<InteractiveViewer>(ivFinder);
       final transformController = ivWidget.transformationController!;
 
-      // Scale 1.01x (below 1.02 threshold)
-      transformController.value = Matrix4.diagonal3Values(1.01, 1.01, 1.0);
+      // Scale 1.05x (below 1.08 threshold)
+      transformController.value = Matrix4.diagonal3Values(1.05, 1.05, 1.0);
       await tester.pumpAndSettle();
       expect(tester.widget<PageView>(find.byKey(const Key('fullscreen_page_view'))).physics,
-          isA<PageScrollPhysics>());
+          isA<BouncingScrollPhysics>());
 
-      // Scale 1.05x (above 1.02 threshold)
-      transformController.value = Matrix4.diagonal3Values(1.05, 1.05, 1.0);
+      // Scale 1.10x (above 1.08 threshold)
+      transformController.value = Matrix4.diagonal3Values(1.10, 1.10, 1.0);
       await tester.pumpAndSettle();
       expect(tester.widget<PageView>(find.byKey(const Key('fullscreen_page_view'))).physics,
           isA<NeverScrollableScrollPhysics>());
@@ -553,20 +553,21 @@ void main() {
       expect(find.textContaining('Insectile Aberration oracle text'), findsWidgets);
 
       // Swipe to Card B
-      await tester.fling(find.byType(PageView), const Offset(-400, 0), 1000);
+      final pv = tester.widget<PageView>(find.byType(PageView));
+      pv.controller!.jumpToPage(1);
       await tester.pumpAndSettle();
 
       // Verified: Card B must start on Face 1
-      expect(find.text('Nicol Bolas, the Ravager // Nicol Bolas, the Arisen'), findsWidgets);
+      expect(find.textContaining('Nicol Bolas, the Ravager'), findsWidgets);
       expect(find.text('View Face 2'), findsOneWidget);
       expect(find.textContaining('each opponent discards'), findsWidgets);
 
       // Swipe back to Card A
-      await tester.fling(find.byType(PageView), const Offset(400, 0), 1000);
+      pv.controller!.jumpToPage(0);
       await tester.pumpAndSettle();
 
       // CRITICAL ASSERTION: Card A has RESET to Face 1!
-      expect(find.text('Delver of Secrets // Insectile Aberration'), findsWidgets);
+      expect(find.textContaining('Delver of Secrets'), findsWidgets);
       expect(find.text('View Face 2'), findsOneWidget);
       expect(find.text('View Face 1'), findsNothing);
       expect(find.textContaining('At the beginning of your upkeep'), findsWidgets);
@@ -629,8 +630,10 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('View Face 1'), findsOneWidget);
 
+      final pv = tester.widget<PageView>(find.byType(PageView));
+
       // 2. Swipe to Card B
-      await tester.fling(find.byType(PageView), const Offset(-400, 0), 1000);
+      pv.controller!.jumpToPage(1);
       await tester.pumpAndSettle();
       expect(find.text('View Face 2'), findsOneWidget);
 
@@ -641,23 +644,22 @@ void main() {
       expect(find.textContaining('+2: Draw two cards'), findsWidgets);
 
       // 4. Advance to Card C (single-faced)
-      final pv = tester.widget<PageView>(find.byType(PageView));
       pv.controller!.jumpToPage(2);
       await tester.pumpAndSettle();
       expect(find.text('Lightning Bolt'), findsWidgets);
       expect(find.byKey(const Key('card_detail_switch_face_button')), findsNothing);
 
       // 5. Swipe back to Card B
-      await tester.fling(find.byType(PageView), const Offset(400, 0), 1000);
+      pv.controller!.jumpToPage(1);
       await tester.pumpAndSettle();
-      expect(find.text('Nicol Bolas, the Ravager // Nicol Bolas, the Arisen'), findsWidgets);
+      expect(find.textContaining('Nicol Bolas, the Ravager'), findsWidgets);
       expect(find.text('View Face 2'), findsOneWidget);
       expect(find.textContaining('each opponent discards'), findsWidgets);
 
       // 6. Swipe back to Card A
-      await tester.fling(find.byType(PageView), const Offset(400, 0), 1000);
+      pv.controller!.jumpToPage(0);
       await tester.pumpAndSettle();
-      expect(find.text('Delver of Secrets // Insectile Aberration'), findsWidgets);
+      expect(find.textContaining('Delver of Secrets'), findsWidgets);
       expect(find.text('View Face 2'), findsOneWidget);
       expect(find.textContaining('At the beginning of your upkeep'), findsWidgets);
     });

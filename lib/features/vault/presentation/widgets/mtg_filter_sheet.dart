@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:countr/core/constants/app_colors.dart';
@@ -74,6 +75,48 @@ class _MtgFilterSheetState extends State<MtgFilterSheet>
   String _selectedStatType = 'power';
   String _selectedStatOp = '=';
 
+  int? _matchingCount;
+  Timer? _matchingDebounceTimer;
+  MtgFilterState? _lastCountedState;
+  List<VaultItem>? _lastItems;
+
+  void _scheduleMatchingCountCalculation({bool immediate = false}) {
+    if (widget.items == null || widget.items!.isEmpty) {
+      _matchingCount = null;
+      return;
+    }
+    if (identical(widget.items, _lastItems) && _lastCountedState == _state) {
+      return;
+    }
+    if (immediate || widget.items!.length <= 50) {
+      _lastCountedState = _state;
+      _lastItems = widget.items;
+      _matchingCount = widget.items!.where((i) => _state.matches(i)).length;
+      return;
+    }
+    _matchingDebounceTimer?.cancel();
+    _matchingDebounceTimer = Timer(const Duration(milliseconds: 150), () {
+      if (mounted) {
+        _lastCountedState = _state;
+        _lastItems = widget.items;
+        final count = widget.items!.where((i) => _state.matches(i)).length;
+        setState(() {
+          _matchingCount = count;
+        });
+      }
+    });
+  }
+
+  int? _getMatchingItemsCount() {
+    if (widget.items == null || widget.items!.isEmpty) return null;
+    if (_matchingCount == null && widget.items!.length <= 50) {
+      _lastCountedState = _state;
+      _lastItems = widget.items;
+      _matchingCount = widget.items!.where((i) => _state.matches(i)).length;
+    }
+    return _matchingCount;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -85,6 +128,16 @@ class _MtgFilterSheetState extends State<MtgFilterSheet>
     _manaCostController = TextEditingController(text: _state.manaCost);
     _setCodeController = TextEditingController(text: _state.setCode);
     _statValueController = TextEditingController();
+
+    _scheduleMatchingCountCalculation(immediate: true);
+  }
+
+  @override
+  void didUpdateWidget(covariant MtgFilterSheet oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(widget.items, oldWidget.items)) {
+      _scheduleMatchingCountCalculation(immediate: true);
+    }
   }
 
   @override
@@ -102,6 +155,7 @@ class _MtgFilterSheetState extends State<MtgFilterSheet>
             _manaCostController.text = _state.manaCost;
             _setCodeController.text = _state.setCode;
           });
+          _scheduleMatchingCountCalculation();
         }
       } catch (e, stackTrace) {
         debugPrint('[MtgFilterSheet] ProviderScope not available in didChangeDependencies: $e\n$stackTrace');
@@ -112,6 +166,7 @@ class _MtgFilterSheetState extends State<MtgFilterSheet>
 
   @override
   void dispose() {
+    _matchingDebounceTimer?.cancel();
     _tabController.dispose();
     _typeLineController.dispose();
     _oracleClauseController.dispose();
@@ -132,6 +187,7 @@ class _MtgFilterSheetState extends State<MtgFilterSheet>
     });
     widget.onReset?.call();
     _syncWithProviderIfAvailable(const MtgFilterState());
+    _scheduleMatchingCountCalculation(immediate: true);
   }
 
   void _handleApply() {
@@ -157,14 +213,9 @@ class _MtgFilterSheetState extends State<MtgFilterSheet>
     }
   }
 
-  int? _calculateMatchingItems() {
-    if (widget.items == null || widget.items!.isEmpty) return null;
-    return widget.items!.where((i) => _state.matches(i)).length;
-  }
-
   @override
   Widget build(BuildContext context) {
-    final matchingCount = _calculateMatchingItems();
+    final matchingCount = _getMatchingItemsCount();
 
     return Material(
       color: Colors.transparent,
@@ -571,7 +622,53 @@ class _MtgFilterSheetState extends State<MtgFilterSheet>
         ],
         const Divider(color: AppColors.surfaceBorder, height: 28),
 
-        // 4. Sets & Rarity
+        // 4. Format Legality
+        _buildSectionHeader('Format Legality'),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            'standard',
+            'pioneer',
+            'modern',
+            'legacy',
+            'vintage',
+            'commander',
+            'pauper',
+            'oathbreaker',
+            'brawl',
+            'historic',
+            'timeless',
+            'premodern',
+          ].map((fmt) {
+            final isSelected = _state.formats.contains(fmt);
+            final displayLabel = fmt[0].toUpperCase() + fmt.substring(1);
+            return FilterChip(
+              key: Key('filter_chip_format_${fmt.toLowerCase()}'),
+              label: Text(displayLabel),
+              selected: isSelected,
+              selectedColor: AppColors.accentCyan.withValues(alpha: 0.2),
+              checkmarkColor: AppColors.accentCyan,
+              backgroundColor: AppColors.surfaceRaised,
+              onSelected: (selected) {
+                final set = Set<String>.from(_state.formats);
+                if (selected) {
+                  set.add(fmt);
+                } else {
+                  set.remove(fmt);
+                }
+                setState(() {
+                  _state = _state.copyWith(formats: set);
+                });
+                _scheduleMatchingCountCalculation();
+              },
+            );
+          }).toList(),
+        ),
+        const Divider(color: AppColors.surfaceBorder, height: 28),
+
+        // 5. Sets & Rarity
         _buildSectionHeader('Sets & Rarity'),
         const SizedBox(height: 8),
 
@@ -598,6 +695,7 @@ class _MtgFilterSheetState extends State<MtgFilterSheet>
                   setState(() {
                     _state = _state.copyWith(setOperator: sel.first);
                   });
+                  _scheduleMatchingCountCalculation();
                 },
               ),
             ),
@@ -611,10 +709,55 @@ class _MtgFilterSheetState extends State<MtgFilterSheet>
                   setState(() {
                     _state = _state.copyWith(setCode: val.trim());
                   });
+                  _scheduleMatchingCountCalculation();
                 },
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 8),
+        const Text('Popular Sets', style: AppTypography.caption),
+        const SizedBox(height: 6),
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: [
+            'MH3', 'OTJ', 'BLB', 'DSK', 'FDN', 'SLD', 'MKM', 'LCI', 'WOE',
+            'MH2', 'MH1', 'LTR', '40K', 'WHO', 'PIP', 'ACR', 'CMM', '2XM',
+            'LEB', '3ED', 'USG', 'RAV', 'ISD',
+          ].map((s) {
+            final isSelected = _state.setCode.toUpperCase() == s;
+            return FilterChip(
+              key: Key('filter_chip_popular_set_${s.toLowerCase()}'),
+              label: Text(s, style: const TextStyle(fontSize: 11)),
+              selected: isSelected,
+              selectedColor: AppColors.accentCyan.withValues(alpha: 0.2),
+              checkmarkColor: AppColors.accentCyan,
+              backgroundColor: AppColors.surfaceRaised,
+              onSelected: (selected) {
+                final newCode = selected ? s : '';
+                _setCodeController.text = newCode;
+                setState(() {
+                  _state = _state.copyWith(setCode: newCode);
+                });
+                _scheduleMatchingCountCalculation();
+              },
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 8),
+        CheckboxListTile(
+          key: const Key('filter_checkbox_universes_beyond'),
+          title: const Text('Universes Beyond', style: TextStyle(color: Colors.white, fontSize: 13)),
+          value: _state.isUniversesBeyond ?? false,
+          activeColor: AppColors.accentCyan,
+          contentPadding: EdgeInsets.zero,
+          onChanged: (val) {
+            setState(() {
+              _state = _state.copyWith(isUniversesBeyond: () => val == true ? true : null);
+            });
+            _scheduleMatchingCountCalculation();
+          },
         ),
         const SizedBox(height: 12),
 
@@ -623,11 +766,27 @@ class _MtgFilterSheetState extends State<MtgFilterSheet>
         Wrap(
           spacing: 8,
           runSpacing: 8,
-          children: ['common', 'uncommon', 'rare', 'mythic', 'special', 'bonus'].map((r) {
+          children: [
+            'common',
+            'uncommon',
+            'rare',
+            'mythic',
+            'special_card',
+            'art_card',
+            'bonus',
+          ].map((r) {
             final isSelected = _state.rarities.contains(r);
+            final String displayLabel;
+            if (r == 'special_card') {
+              displayLabel = 'Special Card';
+            } else if (r == 'art_card') {
+              displayLabel = 'Art Card';
+            } else {
+              displayLabel = r[0].toUpperCase() + r.substring(1);
+            }
             return FilterChip(
               key: Key('filter_chip_rarity_$r'),
-              label: Text(r[0].toUpperCase() + r.substring(1)),
+              label: Text(displayLabel),
               selected: isSelected,
               selectedColor: AppColors.accentCyan.withValues(alpha: 0.2),
               checkmarkColor: AppColors.accentCyan,
@@ -642,6 +801,7 @@ class _MtgFilterSheetState extends State<MtgFilterSheet>
                 setState(() {
                   _state = _state.copyWith(rarities: set);
                 });
+                _scheduleMatchingCountCalculation();
               },
             );
           }).toList(),
@@ -768,6 +928,7 @@ class _MtgFilterSheetState extends State<MtgFilterSheet>
                 setState(() {
                   _state = _state.copyWith(layouts: set);
                 });
+                _scheduleMatchingCountCalculation();
               },
             );
           }).toList(),
@@ -779,18 +940,6 @@ class _MtgFilterSheetState extends State<MtgFilterSheet>
         const SizedBox(height: 8),
 
         CheckboxListTile(
-          key: const Key('filter_checkbox_universes_beyond'),
-          title: const Text('Universes Beyond', style: TextStyle(color: Colors.white, fontSize: 13)),
-          value: _state.isUniversesBeyond ?? false,
-          activeColor: AppColors.accentCyan,
-          contentPadding: EdgeInsets.zero,
-          onChanged: (val) {
-            setState(() {
-              _state = _state.copyWith(isUniversesBeyond: () => val == true ? true : null);
-            });
-          },
-        ),
-        CheckboxListTile(
           key: const Key('filter_checkbox_reserved'),
           title: const Text('Reserved List Only', style: TextStyle(color: Colors.white, fontSize: 13)),
           value: _state.isReserved ?? false,
@@ -800,6 +949,7 @@ class _MtgFilterSheetState extends State<MtgFilterSheet>
             setState(() {
               _state = _state.copyWith(isReserved: () => val == true ? true : null);
             });
+            _scheduleMatchingCountCalculation();
           },
         ),
         CheckboxListTile(
@@ -812,6 +962,7 @@ class _MtgFilterSheetState extends State<MtgFilterSheet>
             setState(() {
               _state = _state.copyWith(isPromo: () => val == true ? true : null);
             });
+            _scheduleMatchingCountCalculation();
           },
         ),
         CheckboxListTile(
@@ -824,6 +975,7 @@ class _MtgFilterSheetState extends State<MtgFilterSheet>
             setState(() {
               _state = _state.copyWith(isReprint: () => val == true ? true : null);
             });
+            _scheduleMatchingCountCalculation();
           },
         ),
         CheckboxListTile(
@@ -836,6 +988,7 @@ class _MtgFilterSheetState extends State<MtgFilterSheet>
             setState(() {
               _state = _state.copyWith(isAltered: () => val == true ? true : null);
             });
+            _scheduleMatchingCountCalculation();
           },
         ),
         CheckboxListTile(
@@ -848,6 +1001,7 @@ class _MtgFilterSheetState extends State<MtgFilterSheet>
             setState(() {
               _state = _state.copyWith(isMisprint: () => val == true ? true : null);
             });
+            _scheduleMatchingCountCalculation();
           },
         ),
         const SizedBox(height: 8),
@@ -856,11 +1010,23 @@ class _MtgFilterSheetState extends State<MtgFilterSheet>
         const SizedBox(height: 6),
         Wrap(
           spacing: 8,
-          children: ['nonfoil', 'foil', 'etched'].map((finish) {
+          runSpacing: 8,
+          children: [
+            'nonfoil',
+            'foil',
+            'etched',
+            'textured',
+            'surge',
+            'galaxy',
+            'step_and_compleat',
+            'halo',
+            'confetti',
+            'serialized',
+          ].map((finish) {
             final isSelected = _state.finishes.contains(finish);
             return FilterChip(
               key: Key('filter_chip_finish_$finish'),
-              label: Text(finish[0].toUpperCase() + finish.substring(1)),
+              label: Text(_formatFinishLabel(finish)),
               selected: isSelected,
               selectedColor: AppColors.accentCyan.withValues(alpha: 0.2),
               checkmarkColor: AppColors.accentCyan,
@@ -875,6 +1041,7 @@ class _MtgFilterSheetState extends State<MtgFilterSheet>
                 setState(() {
                   _state = _state.copyWith(finishes: set);
                 });
+                _scheduleMatchingCountCalculation();
               },
             );
           }).toList(),
@@ -1280,6 +1447,33 @@ class _MtgFilterSheetState extends State<MtgFilterSheet>
         return 'Transform';
       default:
         return layout[0].toUpperCase() + layout.substring(1);
+    }
+  }
+
+  String _formatFinishLabel(String finish) {
+    switch (finish) {
+      case 'nonfoil':
+        return 'Nonfoil';
+      case 'foil':
+        return 'Foil';
+      case 'etched':
+        return 'Etched';
+      case 'textured':
+        return 'Textured';
+      case 'surge':
+        return 'Surge';
+      case 'galaxy':
+        return 'Galaxy';
+      case 'step_and_compleat':
+        return 'Step-and-Compleat';
+      case 'halo':
+        return 'Halo';
+      case 'confetti':
+        return 'Confetti';
+      case 'serialized':
+        return 'Serialized';
+      default:
+        return finish[0].toUpperCase() + finish.substring(1);
     }
   }
 }

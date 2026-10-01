@@ -1,98 +1,75 @@
-# Project: Countr Phase 4.4 (Values Engine & Privacy Mode)
+# Project: Countr 4.8 Patch Master Specification
 
 ## Architecture
-Countr Phase 4.4 unifies physical card provenance with financial market analytics and privacy security. The architecture comprises:
+Countr 4.8 Patch addresses key UI refinements, critical crash fixes, and UX streamline enhancements across five core functional domains:
 
-1. **Global Settings & Privacy Layer (`lib/core/state/settings_state.dart`, `lib/features/shell/`)**:
-   - `baseCurrencyProvider`: Reactive enum state (`Currency.usd`, `eur`, `gbp`, `cad`).
-   - `privacyModeProvider`: Global boolean state toggling financial data visibility.
-   - `streamerSecurityEnabledProvider`: Auto-locks `privacyModeProvider` when app lifecycle transitions to background (`paused`, `inactive`, `hidden`) via `AppLifecycleListener` in `MainShellScreen`.
-   - `ExchangeRateService`: Cached exchange rates normalizing multi-market vendor quotes (TCGplayer, Cardmarket, eBay) to base currency.
-   - `LockedValuesView`: Locked UI state rendered when accessing financial data with Privacy Mode enabled (*"Values hidden. Disable Privacy Mode to view market data."*).
+1. **Vault Screen & Collections Presentation (`lib/features/vault/`)**:
+   - Decoupled two-row header architecture separating the primary 3-way view switcher `[ Singles | Binders | Collections ]` from a dedicated, persistent layout toggle row `[ List | Tile ]`.
+   - Tuned tile card aspect ratio (~0.54) and image scaling (`BoxFit.contain`) eliminating card art and border clipping.
+   - Calibrated horizontal swiping physics and zoom interaction thresholds in `FullScreenCardViewer` preventing accidental lockouts and partial scroll states.
+   - Responsive 2x2 grid presentation for the Collections tab with composite sorting: primary by completion percentage descending, secondary by release date descending.
 
-2. **Persistence & Data Layer (`lib/core/database/`, `lib/features/vault/data/daos/`)**:
-   - Drift database schema version incremented from v7 to v8.
-   - `VaultItems` table extended with: `date_obtained` (`DateTime?`), `purchase_price` (`Real?`), `binder_page` (`Int?`), `binder_slot` (`Text?`), `notes` (`Text?`), and `protection_status` (`Text`, default 'Sleeved').
-   - Dual-layer migration: `onUpgrade` step for `from < 8` and `beforeOpen` defensive PRAGMA queries with safe non-destructive backfill from legacy fields.
-   - `vault_dao.dart:watchDeckItems` updated to select `vi.acquired_price` and `vi.purchase_price`.
+2. **Card Details Sheet Restructuring & Dynamic Binding (`lib/features/vault/`)**:
+   - Reactive printing variant synchronization between `SwitchPrintingModal`, `VariantPriceChart`, and `CardDetailSheet` ensuring full card hero art updates immediately without reverting.
+   - Cleaned typography and layout hierarchy:
+     - Set identity line formatted as `[Set Symbol] [Set Code] [Set Name]`.
+     - Oracle text typography with paragraph separation and italicized reminder text `(...)`.
+     - Grouped mechanics attribute chips, `[ Mechanic ] Definition` glossary, and progressive rulings disclosure (1 initial ruling with "See All" expander).
+     - Conditional suppression of Acquisition Tracking for unowned catalog cards.
+     - Full card image preview filling ~66% of the Versions & Printings container.
+     - Relocation of Metadata & Pedigree to the very bottom of the details sheet.
 
-3. **Unified 2-Tab Details & Values Layout (`lib/features/vault/presentation/widgets/card_detail_sheet.dart`)**:
-   - Segmented control directly beneath sheet header toggling `[ Details | Values ]`.
-   - **Details Tab**:
-     1. Oracle Text & Rulings: Scryfall rulings & errata in an expandable accordion with `published_at` date, comment, and `ManaText`.
-     2. Collection Metrics: Quantity, Condition, Language, Treatment.
-     3. Physical Provenance: Protection status, custom notes, and Binder/Page/Slot coordinates.
-     4. Acquisition Tracking: Date picker for `date_obtained` and numeric input for `purchase_price`.
-     5. Metadata Pedigree: Clickable artist name filter button linking to Vault search, frame detail badges.
-     6. Deck Gear (Deck Scope): Sleeve profile (Brand/Color), Deck Box model inputs, and auto-generated physical Token Checklist (`DeckTokenExtractor`).
-   - **Values Tab**:
-     - When Privacy Mode is active: renders `LockedValuesView`.
-     - When Privacy Mode is disabled: renders full financial analytics suite.
+3. **Decks Screen Bug Fixes & Builder Polish (`lib/features/decks/`)**:
+   - Defect remediation for `DeckThumbnailPickerModal`: provides bounded vertical constraints (`0.85 * screenHeight` and `Expanded` child) preventing RenderFlex unbounded layout crashes.
+   - Database and mock data integrity: populates authentic `oracle_text` in dynamic JSON metadata for Edgar Markov and seeded cards.
+   - Connected `decks_new_deck_fab` to launch `DeckSetupWizardModal`.
+   - Streamlined top app bar by removing the redundant Deck Analytics action button.
+   - Added dedicated User Notes container in the inline expandable Deck Analytics card.
+   - Restyled `ProportionalBubbleScrollbar` with a slim rail spine between indicator nodes.
 
-4. **Collector & Investor Values Engine (`lib/features/values/`)**:
-   - `TrimmedMarketAverageCalculator`: Discards floor anomalies ($p \le \$0.02$) and applies symmetrical outlier trimming across converted 5+ market sources.
-   - `InteractiveMultiLineChart`: High-performance CustomPainter rendering 7D, 30D, 90D, 1Y, ALL date ranges with vendor toggle checkboxes and crosshair tooltips.
-   - `CostBasisPnLWidget`: `Market Avg - Purchase Price`, absolute dollar and percentage return color-coded emerald green or rose red.
-   - `LiquidityRealityCheckWidget`: Replacement Value (Retail) vs Cash Out Value (Buylist estimate), Liquidity Tag (High/Low), and Reserved List warning badge.
-   - `FiftyTwoWeekRangeBar`: Horizontal bar showing current price relative to 52-week low and high.
-   - `ConditionTreatmentMatrix`: Compact grid of market spreads across conditions (NM/LP/MP) and finishes (Non-Foil/Foil/Etched).
-   - `MarketSpreadTable`: Tabular breakdown of raw converted vendor quotes highlighting highest buylist and lowest retail.
+4. **Command Center Play/Track UX (`lib/features/command_center/`)**:
+   - Replaced nested accordion expansion in `PlayTrackAccordion`: tapping a TCG card directly sets active TCG context and launches `PregameSetupSheet`.
 
-5. **Aggregate Deck & Vault Analytics (`lib/features/decks/`, `lib/features/vault/`)**:
-   - Total cost basis vs current market value.
-   - Pareto distribution concentration widget ("The top 5 cards represent X% of this deck's total value") with ranked micro-list of top 3-5 heavy hitters.
+5. **Game Setup Pod Enhancements (`lib/features/life_counter/`)**:
+   - Pod table seating orientation picker in `PregameSetupSheet`.
+   - Interactive starting life slider featuring snap nodes for standard formats (40 Commander, 20 Standard, 30 Brawl, etc.).
+   - OLED / Battery Saver mode toggle rendering `#000000` true black in `PodScaffoldWidget`.
+   - Immersive Mode toggle toggling system UI overlays via `SystemChrome`.
+
+6. **Quality Assurance & Testing (`test/`)**:
+   - Static analysis verification (`dart analyze` with 0 issues).
+   - Test suite maintenance and 100% test pass verification (`flutter test`).
 
 ---
 
 ## Feature Inventory
 | # | Feature | Description | Milestone | Source |
 |---|---------|-------------|-----------|--------|
-| 1 | Base Currency Selector | Support USD, EUR, GBP, CAD in settings state with reactive updates | M1 | R1 |
-| 2 | Exchange Rate Service | Cached rates normalizing TCGplayer, Cardmarket, eBay to base currency | M1 | R1 |
-| 3 | Dynamic Currency Formatter | Dynamic symbols ($, €, £, CA$) and formatting across all pricing helpers | M1 | R1 |
-| 4 | Multi-market Price Normalization | Convert source prices to base currency before aggregation and display | M1 | R1 |
-| 5 | Streamer Security Preference | Toggle for auto-locking privacy mode when app is backgrounded | M1 | R1 |
-| 6 | AppLifecycle Observer | `AppLifecycleListener` in `MainShellScreen` auto-locking privacy on paused/inactive | M1 | R1 |
-| 7 | Global Privacy AppBar Toggle | Replace view switcher in main AppBars with `Icons.visibility` / `visibility_off` | M1 | R1 |
-| 8 | Financial Data Redaction | Redact Vault totals, card prices, deck values, P&L to '****' or blur | M1 | R1 |
-| 9 | Locked Values Tab UI | Render *"Values hidden. Disable Privacy Mode to view market data."* with unlock button | M1 | R1 |
-| 10 | Drift Schema v8 Migration | Increment to v8, add 6 columns to `VaultItems` in `app_database.dart` | M2 | R2 |
-| 11 | Extended VaultItem Columns | date_obtained, purchase_price, binder_page, binder_slot, notes, protection_status | M2 | R2 |
-| 12 | Safe Legacy Backfill | Backfill acquired_date -> date_obtained, acquired_price -> purchase_price, etc. | M2 | R2 |
-| 13 | 2-Tab Segmented Control | Top segmented control beneath header toggling `[ Details | Values ]` | M2 | R2 |
-| 14 | Scryfall Rulings Accordion | Expandable accordion showing publication date, comment, and `ManaText` | M2 | R2 |
-| 15 | Physical Collection Metrics | Quantity, Condition, Language, Treatment display and editing | M2 | R2 |
-| 16 | Physical Provenance Section | Protection status (default 'Sleeved'), custom notes, Binder/Page/Slot inputs | M2 | R2 |
-| 17 | Acquisition Tracking | Date picker for `date_obtained` and currency input for `purchase_price` | M2 | R2 |
-| 18 | Metadata Pedigree | Clickable artist name filter link to Vault, frame detail badges | M2 | R2 |
-| 19 | Deck Gear Metadata | Sleeve profile (Brand/Color) and Deck Box model inputs in deck scope | M2 | R2 |
-| 20 | Auto-Generated Token Checklist | Derive physical token checklist from card Oracle texts in deck scope | M2 | R2 |
-| 21 | Deck Item Tap Navigation | Wire card list item taps in `DeckBuilderScreen` to open 2-tab `CardDetailSheet` | M2 | R2 |
-| 22 | Trimmed Market Average | Compute average across 5+ sources filtering $0.02 floor anomalies & outliers | M3 | R3 |
-| 23 | Freshness Badge & Pull-to-Refresh | Freshness badge (`Updated 2h ago`) with pull-to-refresh on-demand syncing | M3 | R3 |
-| 24 | Interactive Multi-Line Chart | Zero-dependency CustomPainter rendering 7D, 30D, 90D, 1Y, ALL ranges | M3 | R3 |
-| 25 | Interactive Vendor Toggles | Checkboxes toggling vendor curves alongside Trimmed Average + crosshair tooltips | M3 | R3 |
-| 26 | Cost Basis & P&L Widget | Current Market Avg - Purchase Price ($ and % return color-coded green/red) | M3 | R3 |
-| 27 | Liquidity Reality Check | Replacement Value vs Buylist Cash Out, Liquidity Tag (High/Low) | M3 | R3 |
-| 28 | Reserved List Warning Badge | Reserved list alert badge (persisting `reserved` flag from Scryfall) | M3 | R3 |
-| 29 | 52-Week Range Bar | Horizontal slider showing current price relative to 52-week low and high | M3 | R3 |
-| 30 | Condition/Treatment Matrix | Compact grid of market spreads across NM/LP/MP vs Non-Foil/Foil/Etched | M3 | R3 |
-| 31 | Market Spread Table | Tabular breakdown of raw converted vendor quotes with buylist/retail highlights | M3 | R3 |
-| 32 | DAO Query Extension | Update `watchDeckItems` in `vault_dao.dart` to select acquired & purchase price | M4 | R4 |
-| 33 | Aggregate Deck & Vault P&L | Total cost basis vs current market value at Deck and Vault level | M4 | R4 |
-| 34 | Pareto Distribution Widget | "Top 5 cards represent X% of value" with ranked micro-list of heavy hitters | M4 | R4 |
-| 35 | Values Tab Mount Integration | Assemble all Values engine components into `[ Values ]` tab on Card/Deck/Vault | M4 | R3/R4 |
-| 36 | Currency Normalization Unit Tests | Unit tests covering exchange rate math and multi-currency conversions | M5 | Gates |
-| 37 | Trimmed Average Unit Tests | Unit tests verifying floor anomaly rejection and outlier trimming | M5 | Gates |
-| 38 | P&L & Pareto Unit Tests | Unit tests verifying cost basis, returns, and Pareto concentration calculations | M5 | Gates |
-| 39 | Privacy Redaction Widget Tests | Widget tests verifying app-wide redaction to '****' on toggle | M5 | Gates |
-| 40 | Streamer Security Widget Tests | Widget tests verifying background state auto-locks privacy mode | M5 | Gates |
-| 41 | Locked Values Tab Widget Tests | Widget tests verifying locked UI state and unlock button functionality | M5 | Gates |
-| 42 | 2-Tab Details Layout Widget Tests | Widget tests verifying tab switching, rulings accordion, and provenance inputs | M5 | Gates |
-| 43 | Drift v8 Migration Tests | Test migration from v7 to v8 verifying schema version and column data safety | M5 | Gates |
-| 44 | Opaque-box E2E Test Suite | 4-tier requirement-driven E2E tests published via `TEST_READY.md` | E2E | Gates |
-| 45 | Repository Test Suite Pass | 100% test pass rate across `flutter test` | M5 | Gates |
-| 46 | Clean Static Analysis Pass | `dart analyze --fatal-infos` passes with 0 errors and 0 warnings | M5 | Gates |
+| 1 | Dedicated Layout Toggle Row | Reposition List/Tile toggle to persistent row below 3-way view switcher | M1 | R1 |
+| 2 | Tile Mode Aspect Ratio & Sizing | Adjust aspect ratio (~0.54) and use BoxFit.contain to eliminate card clipping | M1 | R1 |
+| 3 | PageView Scroll Physics Calibration | Prevent partial scroll zoom locks and high resistance in horizontal viewer | M1 | R1 |
+| 4 | Collections 2x2 Grid & Sorting | 2x2 collections grid sorted by completion % desc, then release date desc | M1 | R1 |
+| 5 | Dynamic Variant Art Binding | Synchronize variant art selection to full card hero art in CardDetailSheet | M2 | R2 |
+| 6 | Set Identity Reordering | Order Line 3 as [Set Symbol] [Set Code] [Set Name] | M2 | R2 |
+| 7 | Oracle Text Layout & Typography | Line breaks, paragraph spacing, and italics for reminder text in (...) | M2 | R2 |
+| 8 | Mechanics & Rulings Restructure | Top attribute chips, [ Mechanic ] Definition, 1 initial ruling with "See All" | M2 | R2 |
+| 9 | Hide Acquisition on Unowned | Completely suppress Acquisition Tracking section on unowned catalog cards | M2 | R2 |
+| 10 | Versions Container Proportions | Thumbnail uses full card image filling ~66% of container height | M2 | R2 |
+| 11 | Metadata Bottom Relocation | Move Metadata & Pedigree section to the very bottom of Details tab | M2 | R2 |
+| 12 | Cover Art Picker Bounded Layout | Provide bounded height and Expanded child to DeckThumbnailPickerModal | M3 | R3 |
+| 13 | Seeded Card Oracle Text Population | Populate authentic oracle_text in dynamicData for Edgar Markov and seeded cards | M3 | R3 |
+| 14 | Decks FAB Wizard Wiring | Connect decks_new_deck_fab to DeckSetupWizardModal.show | M3 | R3 |
+| 15 | Deck Analytics App Bar Cleanup | Remove redundant analytics icon from deck_builder_screen app bar | M3 | R3 |
+| 16 | Inline Analytics User Notes | Add dedicated User Notes container inside InlineDeckAnalyticsCard | M3 | R3 |
+| 17 | Slim Bubble Scrollbar Rail | Restyle scrollbar track to a slim spine between bubble nodes | M3 | R3 |
+| 18 | Direct Play/Track Setup Launch | Tapping TCG card sets active context and opens PregameSetupSheet directly | M4 | R4 |
+| 19 | Pod Seating Orientation Picker | Add seating/layout orientation picker for pod table in PregameSetupSheet | M4 | R5 |
+| 20 | Starting Life Snap Slider | Interactive slider with snap nodes at 40 (Commander), 20 (Standard), 30 (Brawl) | M4 | R5 |
+| 21 | OLED True Black Mode | Toggle applying #000000 background to life counter screens | M4 | R5 |
+| 22 | Immersive Gameplay Mode | Toggle hiding system navigation and status bars during gameplay | M4 | R5 |
+| 23 | Static Analysis Compliance | Verify dart analyze passes with 0 errors, 0 warnings, and 0 lints | M5 | R6 |
+| 24 | Regression & Unit Test Pass | Verify flutter test passes 100% across all unit, widget, and integration tests | M5 | R6 |
+| 25 | Forensic Audit Verification | Clean audit report verifying genuine implementation and zero cheats | M5 | R6 |
 
 ---
 
@@ -100,68 +77,66 @@ Countr Phase 4.4 unifies physical card provenance with financial market analytic
 
 | # | Name | Scope | Dependencies | Status |
 |---|------|-------|-------------|--------|
-| 1 | M1: Global Settings, Currency & Privacy Engine | Base Currency selector, `ExchangeRateService`, `VaultPricingHelper` dynamic formatting, `MainShellScreen` `AppLifecycleListener` for Streamer Security, AppBar privacy toggle, financial redaction to '****' across screens/tiles, and `LockedValuesView`. Outputs: All M1 tests pass, 100% repo tests pass, zero privacy leakage, gate PASSED. | none | DONE |
-| 2 | M2: Drift Schema v8 & 2-Tab Details Architecture | Increment Drift to schema v8, add 6 columns to `VaultItems`, safe legacy backfills, segmented control `[ Details | Values ]` on `CardDetailSheet`, 6 Details sections (rulings accordion, collection metrics, provenance, acquisition tracking, artist filter, deck gear & token checklist), wire deck card taps. Outputs: 2,776/2,776 tests pass, 0 lints, 0 overflows, gate PASSED. | M1 | DONE |
-| 3 | M3: Collector & Investor Values Engine Core Components | Trimmed market average algorithm, freshness badge & sync, `InteractiveMultiLineChart`, P&L widget, liquidity reality check, Reserved List badge, 52W range bar, condition/treatment matrix, market spread table. Outputs: 176/176 values tests pass, 17/17 stress tests pass, 0 overflows on 320x568 at 2.0x scaling, gate PASSED. | M1, M2 | DONE |
-| 4 | M4: Aggregate Deck/Vault Analytics & Tab Integration | `watchDeckItems` DAO query extension for cost basis, aggregate Deck/Vault P&L, Pareto distribution concentration widget with ranked micro-list, mounting full Values engine into `[ Values ]` tab across Card/Deck/Vault. Outputs: 2,931/2,931 tests pass (100%), MapView backward compatibility verified, 0 overflows, gate PASSED. | M2, M3 | DONE |
-| 5 | M5: E2E Test Suite Pass & Adversarial Hardening | Pass 100% of E2E tests from `TEST_READY.md`, adversarial coverage hardening (Tier 5), 100% test pass rate on `flutter test`, and 0 errors/warnings on `dart analyze --fatal-infos`. Outputs: 43/43 E2E pass (100%), 44/44 Tier 5 adversarial pass (100%), 3,016/3,016 repo tests pass (100%), 0 lints, gate PASSED. | M4, E2E Track | DONE |
-| E2E | E2E Testing Track | Independent opaque-box test track creating 4-tier test suite (Category-Partition, BVA, Pairwise, Real-World Scenarios) and publishing `TEST_READY.md`. Outputs: 43/43 tests pass (100%), TEST_READY.md published. | none | DONE |
+| 1 | M1: Vault Screen & Collections Tab Refinements | Dedicated layout toggle row, Tile aspect ratio & BoxFit.contain, horizontal scroll physics calibration, 2x2 collections grid with completion % and release date sorting | M0 (Survey) | DONE |
+| 2 | M2: Card Details Screen Restructuring & Variant Binding | Dynamic variant art binding, Set Identity [Symbol] [Code] [Name], Oracle text typography & italics, mechanics chips & glossary & 1 ruling with "See All", hide acquisition on unowned, versions container proportions, bottom metadata | M1 | DONE |
+| 3 | M3: Decks Screen Bug Fixes & UI Enhancements | DeckThumbnailPickerModal bounded layout constraints, seeded card oracle_text in SQLite & mock data, FAB wired to DeckSetupWizardModal, remove app bar analytics button, User Notes container in inline analytics, slim scrollbar rail | M1 | DONE |
+| 4 | M4: Command Center & Game Setup Pod Enhancements | PlayTrackAccordion direct setup launch on card tap, pod seating orientation picker, starting life slider with format snap points, OLED true black toggle, immersive mode toggle | M1 | DONE |
+| 5 | M5: Quality Standards & E2E Verification | Run dart analyze ensuring 0 issues, run full flutter test ensuring 100% pass, verify test updates for FAB and accordion interactions, final forensic audit | M1, M2, M3, M4 | DONE |
 
 ---
 
 ## Interface Contracts
 
-### 1. `SettingsState` (`lib/core/state/settings_state.dart`)
-```dart
-enum AppCurrency { usd, eur, gbp, cad }
+### 1. Vault Screen Layout & Collections (`lib/features/vault/`)
+- `VaultSetCollection`:
+  ```dart
+  class VaultSetCollection {
+    final String setCode;
+    final String setName;
+    final int totalCards;
+    final int ownedCards;
+    final double completionPercentage;
+    final DateTime? releaseDate;
+  }
+  ```
+- `VaultCollectionViewSliver`: Renders 2-column grid (`SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, ...)`), preserving keys:
+  - `vault_collection_tile_${setCode}`
+  - `vault_collection_header_${setCode}`
+  - `vault_collection_progress_${setCode}`
+  - `vault_collection_grid_${setCode}`
 
-final baseCurrencyProvider = StateProvider<AppCurrency>((ref) => AppCurrency.usd);
-final privacyModeProvider = StateProvider<bool>((ref) => false);
-final streamerSecurityEnabledProvider = StateProvider<bool>((ref) => false);
-```
-
-### 2. `ExchangeRateService` (`lib/features/values/domain/exchange_rate_service.dart`)
-```dart
-class ExchangeRateService {
-  static double getRate({required AppCurrency from, required AppCurrency to});
-  static double convert(double amount, {required AppCurrency from, required AppCurrency to});
-  static String getCurrencySymbol(AppCurrency currency);
-}
-```
-
-### 3. `VaultPricingHelper` (`lib/features/vault/domain/vault_pricing_helper.dart`)
-```dart
-class VaultPricingHelper {
-  static String formatAmount(double? amount, {required AppCurrency currency, required bool isPrivacyMode});
-  static String formatReturn(double? delta, double? percentage, {required AppCurrency currency, required bool isPrivacyMode});
-}
-```
-
-### 4. `TrimmedMarketAverageCalculator` (`lib/features/values/domain/trimmed_market_average_calculator.dart`)
-```dart
-class TrimmedMarketAverageCalculator {
-  static const double minimumFloorPrice = 0.02;
-  static double? computeTrimmedAverage({
-    required Map<String, double> rawQuotes, // vendor -> raw price
-    required Map<String, AppCurrency> vendorCurrencies,
-    required AppCurrency targetCurrency,
+### 2. Card Details Variant Binding & Layout (`lib/features/vault/presentation/widgets/`)
+- `SwitchPrintingModal.show`:
+  ```dart
+  static Future<void> show(
+    BuildContext context,
+    VaultItem item, {
+    void Function(VaultItem updatedItem)? onUpdated,
   });
-}
-```
+  ```
+- `CardDetailSheet`:
+  - `_currentItem` state dynamically updated upon printing switch.
+  - Set Identity row keys: `card_detail_set_symbol_icon`, `card_detail_set_code_badge`, `card_detail_set_name`.
+  - Acquisition tracking rendered only when `isOwned == true`.
+  - Metadata rendered as the final section of `_buildDetailsTab`.
 
-### 5. `DeckTokenExtractor` (`lib/features/decks/domain/deck_token_extractor.dart`)
-```dart
-class DeckTokenExtractor {
-  static List<String> extractRequiredTokens(List<String> oracleTexts);
-}
-```
+### 3. Decks & Builder Interfaces (`lib/features/decks/`)
+- `DeckThumbnailPickerModal.show`:
+  - Enforces bounded height (`MediaQuery.of(context).size.height * 0.85`).
+  - Child `TabBarView` wrapped in `Expanded`.
+- `InlineDeckAnalyticsCard`:
+  - Contains User Notes container bound to `deck.description`.
+- `ProportionalBubbleScrollbar`:
+  - Rail spine width: 4.0 - 6.0 dp centered within gesture area.
 
-### 6. `LockedValuesView` (`lib/features/values/presentation/widgets/locked_values_view.dart`)
-```dart
-class LockedValuesView extends ConsumerWidget {
-  // Renders: "Values hidden. Disable Privacy Mode to view market data." with unlock button.
-}
-```
+### 4. Command Center & Game Setup Interfaces
+- `PlayTrackAccordion`:
+  - Tapping a TCG card sets `activeGameContextProvider` and calls `PregameSetupSheet.show(context, initialTcg: tcg)`.
+- `PregameSetupSheet`:
+  - `seatingOrientation`: Table orientation enum (`standard`, `opposed`, `radial`).
+  - `startingLife`: Slider bound to integer life with format snap nodes (20, 30, 40).
+  - `isOledMode`: Boolean state passing true black `#000000` to `PodScaffoldWidget`.
+  - `isImmersiveMode`: Boolean state triggering `SystemChrome.setEnabledSystemUIMode`.
 
 ---
 
@@ -169,48 +144,31 @@ class LockedValuesView extends ConsumerWidget {
 ```
 lib/
 ├── core/
-│   ├── database/
-│   │   ├── app_database.dart                 # Drift schema v8, onUpgrade & beforeOpen migrations
-│   │   └── tables/vault_items_table.dart     # 6 new physical inventory columns
-│   └── state/
-│       └── settings_state.dart               # baseCurrencyProvider, privacyModeProvider, streamerSecurityEnabledProvider
+│   ├── database/daos/vault_dao.dart                 # Seeded dynamicData oracle_text & switchCardPrinting
+│   └── theme/                                       # OLED black styling
 ├── features/
+│   ├── command_center/presentation/widgets/
+│   │   └── play_track_accordion.dart                # Direct card tap pregame launch
 │   ├── decks/
-│   │   ├── domain/deck_token_extractor.dart  # Oracle text parser extracting required token checklist
-│   │   └── presentation/widgets/             # Deck gear inputs, deck aggregate financial analytics
-│   ├── values/                               # NEW values engine module
-│   │   ├── domain/
-│   │   │   ├── exchange_rate_service.dart    # Daily cached FX conversion rates
-│   │   │   ├── trimmed_market_average_calculator.dart # Outlier rejection & trimmed average math
-│   │   │   └── pareto_analytics_calculator.dart       # Heavy hitters & Pareto distribution math
-│   │   └── presentation/widgets/
-│   │       ├── interactive_multi_line_chart.dart      # CustomPainter 7D..ALL interactive chart
-│   │       ├── cost_basis_pnl_widget.dart             # Cost basis & P&L delta display
-│   │       ├── liquidity_reality_check_widget.dart    # Replacement vs buylist cashout & Reserved List badge
-│   │       ├── fifty_two_week_range_bar.dart          # 52-week price range slider
-│   │       ├── condition_treatment_matrix.dart        # Condition & finish spread grid
-│   │       ├── market_spread_table.dart               # Raw vendor quotes breakdown
-│   │       ├── pareto_distribution_widget.dart        # Deck/Vault Pareto concentration & micro-list
-│   │       └── locked_values_view.dart                # Locked UI state when privacy mode active
-│   └── vault/
-│       ├── domain/vault_pricing_helper.dart           # Dynamic currency symbols & '****' redaction
-│       └── presentation/widgets/
-│           ├── card_detail_sheet.dart                 # 2-tab [ Details | Values ] segmented controller
-│           ├── card_details_tab.dart                  # Rulings accordion, physical provenance, acquisition
-│           └── card_values_tab.dart                   # Integrated values engine presentation
-test/
-├── core/state/settings_state_test.dart                # Settings and privacy mode unit/widget tests
-├── features/
-│   ├── values/
-│   │   ├── domain/
-│   │   │   ├── exchange_rate_service_test.dart        # Currency normalization unit tests
-│   │   │   ├── trimmed_market_average_test.dart       # Anomaly rejection & trimmed average tests
-│   │   │   └── pareto_analytics_test.dart             # Pareto math unit tests
-│   │   └── presentation/widgets/
-│   │       ├── locked_values_view_test.dart           # Locked tab widget tests
-│   │       └── interactive_chart_test.dart            # Multi-line chart widget tests
-│   └── vault/presentation/widgets/
-│       └── card_detail_two_tab_test.dart              # 2-tab segmented control & rulings widget tests
-├── migration_test.dart                                # Drift schema v8 migration test
-└── values_engine_e2e_test.dart                        # 4-tier opaque-box E2E test suite
+│   │   ├── data/mock_deck_data.dart                 # Seeded card oracle_text
+│   │   └── presentation/
+│   │       ├── screens/
+│   │       │   ├── decks_screen.dart                # FAB wiring to wizard
+│   │       │   └── deck_builder_screen.dart         # App bar analytics cleanup
+│   │       └── widgets/
+│   │           ├── deck_thumbnail_picker_modal.dart # Bounded height layout constraints
+│   │           ├── inline_deck_analytics_card.dart  # User Notes container
+│   │           └── proportional_bubble_scrollbar.dart # Slim rail styling
+│   ├── life_counter/presentation/
+│   │   ├── dialogs/pregame_setup_sheet.dart         # Seating picker, snap slider, OLED & immersive toggles
+│   │   └── widgets/pod_scaffold_widget.dart         # OLED true black background handling
+│   ├── symbology/domain/mana_text_parser.dart       # Italicized reminder text (...) parsing
+│   └── vault/presentation/
+│       ├── screens/vault_screen.dart                # Two-row switcher layout, tile aspect ratio
+│       └── widgets/
+│           ├── card_detail_sheet.dart               # Variant binding, set identity, rulings, metadata bottom
+│           ├── full_screen_card_viewer.dart         # Horizontal swiping physics & zoom lockout fix
+│           ├── switch_printing_modal.dart           # Variant callback invocation
+│           ├── variant_price_chart.dart             # Full card preview thumbnail
+│           └── vault_collection_view_sliver.dart    # 2x2 grid & completion % sorting
 ```

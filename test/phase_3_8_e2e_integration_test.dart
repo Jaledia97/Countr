@@ -27,6 +27,14 @@ void main() {
     db = AppDatabase(NativeDatabase.memory());
     dao = db.vaultDao;
     await dao.seedDatabase();
+    await (db.delete(db.vaultItems)
+          ..where((t) => t.id.isNotIn(const [
+                'item-mtg-one-ring',
+                'item-pokemon-charizard',
+                'item-comic-fallout-4',
+                'item-sports-watt-rookie',
+              ])))
+        .go();
   });
 
   tearDown(() async {
@@ -132,10 +140,10 @@ void main() {
         expect(findHeaderMarketValue('\$45.50'), findsOneWidget);
         expect(find.text('Total Tracked Items: 1'), findsOneWidget);
 
-        // 3. Opens ManualAddBottomSheet via [ + Add Item ]
-        final addItemButton = find.byKey(const Key('vault_add_item_button'));
-        expect(addItemButton, findsOneWidget);
-        await tester.tap(addItemButton);
+        // 3. Opens ManualAddBottomSheet directly (Add Item button was removed from header)
+        expect(find.byKey(const Key('vault_add_item_button')), findsNothing);
+        final vaultContext = tester.element(find.byType(VaultScreen));
+        ManualAddBottomSheet.show(vaultContext);
         await tester.pumpAndSettle();
 
         expect(find.byType(ManualAddBottomSheet), findsOneWidget);
@@ -670,8 +678,9 @@ void main() {
         await tester.pumpWidget(buildE2EApp(database: db));
         await tester.pumpAndSettle();
 
-        // Open Manual Add Bottom Sheet
-        await tester.tap(find.byKey(const Key('vault_add_item_button')));
+        // Open Manual Add Bottom Sheet directly
+        final vaultContext = tester.element(find.byType(VaultScreen));
+        ManualAddBottomSheet.show(vaultContext);
         await tester.pumpAndSettle();
 
         // Stage Lightning Bolt to 1

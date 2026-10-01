@@ -126,7 +126,8 @@ void main() {
       expect(db.schemaVersion, greaterThanOrEqualTo(8));
 
       final items = await (db.select(db.vaultItems)).get();
-      expect(items.length, 50);
+      final testItems = items.where((it) => it.id.startsWith('card-')).toList();
+      expect(testItems.length, 50);
 
       for (int i = 0; i < 50; i++) {
         final item = items.firstWhere((it) => it.id == 'card-$i');

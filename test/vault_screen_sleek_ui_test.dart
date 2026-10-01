@@ -11,12 +11,12 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('Phase 3.8 Requirement R2: Vault Providers Defaults', () {
-    test('vaultViewModeProvider defaults to VaultViewMode.binders', () {
+    test('vaultViewModeProvider defaults to VaultViewMode.allVault', () {
       final container = ProviderContainer();
       addTearDown(container.dispose);
 
       final defaultViewMode = container.read(vaultViewModeProvider);
-      expect(defaultViewMode, equals(VaultViewMode.binders));
+      expect(defaultViewMode, equals(VaultViewMode.allVault));
     });
 
     test('cardDisplayLayoutProvider defaults to CardDisplayLayout.grid', () {
@@ -65,13 +65,23 @@ void main() {
       );
     }
 
-    testWidgets('VaultScreen opens in Binders mode with + New Binder FAB visible by default', (tester) async {
+    testWidgets('VaultScreen opens in Singles mode by default and switching to Binders shows + New Binder FAB', (tester) async {
       await tester.pumpWidget(createTestWidget());
       await tester.pumpAndSettle();
 
-      // View toggle shows Binders is active and Singles option is available
+      // View toggle shows Binders and Singles options are available
       expect(find.byKey(const Key('vault_view_binders_toggle')), findsOneWidget);
       expect(find.byKey(const Key('vault_view_singles_toggle')), findsOneWidget);
+
+      // In Singles view: FAB is hidden by default
+      expect(find.byKey(const Key('vault_new_binder_fab')), findsNothing);
+
+      // Cards grid exists by default upon launch
+      expect(find.byKey(const PageStorageKey<String>('vault_cards_sliver_grid')), findsOneWidget);
+
+      // Switch to Binders mode
+      await tester.tap(find.byKey(const Key('vault_view_binders_toggle')));
+      await tester.pumpAndSettle();
 
       // FloatingActionButton [ + New Binder ] is present in Binders view
       expect(find.byKey(const Key('vault_new_binder_fab')), findsOneWidget);
@@ -89,26 +99,26 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
     });
 
-    testWidgets('Switching between Binders and Singles conditionally shows/hides the FAB', (tester) async {
+    testWidgets('Switching between Singles and Binders conditionally shows/hides the FAB', (tester) async {
       await tester.pumpWidget(createTestWidget());
+      await tester.pumpAndSettle();
+
+      // In default Singles view: FAB is hidden
+      expect(find.byKey(const Key('vault_new_binder_fab')), findsNothing);
+
+      // Tap 'Binders' toggle
+      await tester.tap(find.byKey(const Key('vault_view_binders_toggle')));
       await tester.pumpAndSettle();
 
       // In Binders view: FAB is visible
       expect(find.byKey(const Key('vault_new_binder_fab')), findsOneWidget);
 
-      // Tap 'Singles' toggle
+      // Switch back to 'Singles'
       await tester.tap(find.byKey(const Key('vault_view_singles_toggle')));
       await tester.pumpAndSettle();
 
-      // In Singles view: FAB is hidden
+      // In Singles view: FAB is hidden again
       expect(find.byKey(const Key('vault_new_binder_fab')), findsNothing);
-
-      // Switch back to 'Binders'
-      await tester.tap(find.byKey(const Key('vault_view_binders_toggle')));
-      await tester.pumpAndSettle();
-
-      // FAB is visible again
-      expect(find.byKey(const Key('vault_new_binder_fab')), findsOneWidget);
 
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(milliseconds: 100));
@@ -259,8 +269,11 @@ void main() {
       await tester.enterText(searchTextFieldFinder, 'The One Ring');
       await tester.pumpAndSettle();
 
-      // Tap close button to collapse and clear
-      await tester.tap(collapseButtonFinder);
+      // 2-step single 'X' button: 1st tap clears query, 2nd tap collapses
+      await tester.tap(find.byKey(const Key('vault_search_clear_button')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('vault_search_collapse_button')));
       await tester.pumpAndSettle();
 
       // View toggles are restored to showFirst

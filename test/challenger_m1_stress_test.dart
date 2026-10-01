@@ -87,10 +87,10 @@ void main() {
       expect(item.isMisprint, isFalse);
       expect(item.isSigned, isFalse);
 
-      // Verify DAO queries work cleanly
+      // Verify DAO queries work cleanly (v1-card-1 plus canonical deck commander edgar-markov)
       final totals = await db.vaultDao.watchVaultTotals(collectionType: 'mtg').first;
-      expect(totals.totalCount, equals(1));
-      expect(totals.totalMarketValue, equals(25000.0));
+      expect(totals.totalCount, equals(2));
+      expect(totals.totalMarketValue, equals(25085.0));
 
       // Update item with flavor_name and verify indexed search
       await db.vaultDao.updateItemCardDetails(
@@ -509,9 +509,9 @@ void main() {
       expect(chunkCount, equals(5)); // 40 / 8 = 5 batches
       expect(receivedIds.length, equals(cardCount));
 
-      // Empirical verification: Check SQLite database content (accounting for initial 4 seed items on fresh db open)
+      // Empirical verification: Check SQLite database content (accounting for initial seed items on fresh db open)
       final allRows = await (db.select(db.vaultItems)).get();
-      final payloadRows = allRows.where((r) => r.id.startsWith('card-')).toList();
+      final payloadRows = allRows.where((r) => receivedIds.contains(r.id)).toList();
       expect(payloadRows.length, equals(cardCount));
 
       // Verify DFC cards

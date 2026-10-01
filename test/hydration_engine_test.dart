@@ -17,7 +17,7 @@ import 'package:countr/features/hydration/presentation/controllers/hydration_sta
 import 'package:countr/features/hydration/presentation/providers/hydration_providers.dart';
 import 'package:countr/features/hydration/presentation/widgets/hydration_progress_card.dart';
 import 'package:countr/features/vault/presentation/providers/vault_providers.dart';
-import 'package:countr/features/vault/presentation/screens/vault_screen.dart';
+import 'package:countr/features/command_center/presentation/widgets/morphing_command_center.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -436,8 +436,8 @@ void main() {
       expect(progressCalls, 3); // 1000 + 1000 + 500 = 3 chunks
 
       final allItems = await db.vaultDao.watchItemsByCollection('all').first;
-      // 4 seeded + 2500 bulk = 2504 items
-      expect(allItems.length, 2504);
+      // 16 seeded (7 owned starter + 5 catalog reference + 4 deck items) + 2500 bulk = 2516 items
+      expect(allItems.length, 2516);
     });
 
     test(
@@ -455,8 +455,8 @@ void main() {
       await container.read(vaultItemsStreamProvider.future);
       final initialSummary = container.read(vaultPortfolioSummaryProvider);
 
-      // Total owned items = 4 (from seed)
-      expect(initialSummary.totalItemCount, 4);
+      // Total owned items from seedDatabase (7 starter items + 4 deck items)
+      expect(initialSummary.totalItemCount, 11);
       final initialMarketValue = initialSummary.totalMarketValue;
       expect(initialMarketValue, greaterThan(0));
 
@@ -487,7 +487,7 @@ void main() {
       final updatedSummary = container.read(vaultPortfolioSummaryProvider);
 
       // Portfolio valuation MUST NOT change because catalog items have quantity == 0!
-      expect(updatedSummary.totalItemCount, 4);
+      expect(updatedSummary.totalItemCount, 11);
       expect(updatedSummary.totalMarketValue, initialMarketValue);
       expect(updatedSummary.totalCostBasis, initialSummary.totalCostBasis);
 
@@ -521,11 +521,11 @@ void main() {
       // Now call seedDatabase
       await unseededDb.vaultDao.seedDatabase();
 
-      // Verify that starter items (quantity > 0) are now seeded
+      // Verify that starter items (quantity > 0) are now seeded (7 starter items + 1 edgar deck item)
       final ownedItems = await (unseededDb.select(unseededDb.vaultItems)
             ..where((t) => t.quantity.isBiggerThanValue(0) & t.isDeleted.equals(false)))
           .get();
-      expect(ownedItems.length, 4);
+      expect(ownedItems.length, 8);
       expect(ownedItems.any((i) => i.id == 'item-mtg-one-ring'), isTrue);
 
       await unseededDb.close();
@@ -672,8 +672,15 @@ void main() {
       expect(find.text('Network timeout'), findsOneWidget);
     });
 
-    testWidgets('VaultScreen displays Hydrate action button and invokes controller',
+    testWidgets('MorphingCommandCenter displays Hydrate action button in Developer Tools card',
         (tester) async {
+      tester.view.physicalSize = const Size(1080, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
       final db = AppDatabase(NativeDatabase.memory());
       await db.vaultDao.seedDatabase();
 
@@ -688,16 +695,18 @@ void main() {
         UncontrolledProviderScope(
           container: container,
           child: const MaterialApp(
-            home: VaultScreen(),
+            home: Scaffold(
+              body: MorphingCommandCenter(),
+            ),
           ),
         ),
       );
 
       await tester.pumpAndSettle();
 
-      // Find the bolt hydration button in AppBar
-      final boltButton = find.byTooltip('Hydrate MTG Dictionary');
-      expect(boltButton, findsOneWidget);
+      // Find the bolt hydration button in Command Center developer tools card
+      final hydrateButton = find.byKey(const Key('command_center_hydrate_button'));
+      expect(hydrateButton, findsOneWidget);
 
       await db.close();
       container.dispose();

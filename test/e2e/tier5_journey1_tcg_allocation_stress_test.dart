@@ -9,6 +9,7 @@ import 'package:countr/features/decks/presentation/providers/deck_providers.dart
 import 'package:countr/features/decks/presentation/screens/deck_builder_screen.dart';
 import 'package:countr/features/decks/presentation/screens/decks_screen.dart';
 import 'package:countr/features/decks/presentation/widgets/conflict_resolution_modal.dart';
+import 'package:countr/features/decks/presentation/widgets/deck_setup_wizard_modal.dart';
 import 'package:countr/features/vault/data/daos/vault_dao.dart';
 import 'package:countr/features/vault/presentation/providers/vault_providers.dart';
 import 'package:countr/features/vault/presentation/widgets/multi_deck_allocation_sheet.dart';
@@ -135,23 +136,28 @@ void main() {
       await tester.tap(fab);
       await tester.pumpAndSettle();
 
-      // Tab count increments to 3
-      expect(find.text('All Decks (3)'), findsOneWidget);
-
-      // New deck is rendered with Pokémon Standard and 0/60
-      final newDeckCardFinder = find.textContaining('Pokémon Standard • 0/60');
-      expect(newDeckCardFinder, findsOneWidget);
-
-      // 5. Tap new deck card to inspect the instantiated Deck model
-      await tester.tap(newDeckCardFinder);
+      // Countr 4.8 launches DeckSetupWizardModal with pre-set domain
+      expect(find.byType(DeckSetupWizardModal), findsOneWidget);
+      await tester.enterText(find.byKey(const Key('deck_wizard_name_input')), 'Mewtwo VSTAR');
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('deck_wizard_create_button')));
       await tester.pumpAndSettle();
 
+      // 5. DeckSetupWizardModal opens DeckBuilderScreen directly with the created Deck model
       expect(find.byType(DeckBuilderScreen), findsOneWidget);
       final builderScreen = tester.widget<DeckBuilderScreen>(find.byType(DeckBuilderScreen));
       expect(builderScreen.deck.tcgDomain, equals('pokemon'));
       expect(builderScreen.deck.format, equals('Pokémon Standard'));
       expect(builderScreen.deck.isRegistered, isFalse);
       expect(builderScreen.deck.isCompetitive, isFalse);
+
+      // Return back to DecksScreen to inspect deck list and tab count
+      await tester.tap(find.byType(BackButton));
+      await tester.pumpAndSettle();
+
+      // Tab count increments to 3
+      expect(find.text('All Decks (3)'), findsOneWidget);
+      expect(find.textContaining('Pokémon Standard • 0/60'), findsOneWidget);
 
       // Clean unmount
       await tester.pumpWidget(const SizedBox());

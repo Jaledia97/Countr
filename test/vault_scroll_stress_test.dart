@@ -150,8 +150,8 @@ void main() {
       expect(container.read(vaultPaginationLimitProvider), equals(50));
       expect(container.read(vaultIsFetchingMoreProvider), isFalse);
 
-      // Tap 'Catalog (Ref)' FilterChip
-      final catalogChip = find.text('Catalog (Ref)');
+      // Tap 'All Cards' FilterChip
+      final catalogChip = find.text('All Cards');
       expect(catalogChip, findsOneWidget);
       await tester.tap(catalogChip);
       await tester.pumpAndSettle();

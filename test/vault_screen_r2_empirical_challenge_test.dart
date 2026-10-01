@@ -249,6 +249,12 @@ void main() {
             reason: 'RenderFlex overflow in Singles Grid at scale $scale, width $width px',
           );
 
+          String? overflowWidgetDetails;
+          final prevOnError = FlutterError.onError;
+          FlutterError.onError = (FlutterErrorDetails details) {
+            overflowWidgetDetails = details.toString();
+            prevOnError?.call(details);
+          };
           // 2.2.2 Singles List
           await tester.pumpWidget(
             buildVaultApp(
@@ -261,10 +267,19 @@ void main() {
             ),
           );
           await tester.pumpAndSettle();
+          FlutterError.onError = prevOnError;
+
+          if (overflowWidgetDetails != null) {
+            debugPrint('FULL_WIDGET_ERROR:\n$overflowWidgetDetails');
+          }
 
           expect(find.byKey(const PageStorageKey<String>('vault_cards_sliver_list')), findsOneWidget);
+          final exc = tester.takeException();
+          if (exc != null) {
+            debugPrint('DEEP_ERROR:\n${exc.toString()}');
+          }
           expect(
-            tester.takeException(),
+            exc,
             isNull,
             reason: 'RenderFlex overflow in Singles List at scale $scale, width $width px',
           );

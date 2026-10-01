@@ -131,6 +131,7 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
 
   List<ScryfallRuling> _cachedRulings = [];
   bool _isLoadingRulings = false;
+  bool _isRulingsExpanded = false;
   late final TextEditingController _notesController;
   bool _isSavingNotes = false;
 
@@ -190,7 +191,9 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
     } else if (widget.item != null &&
         (oldWidget.item?.id != widget.item?.id ||
             oldWidget.item?.dynamicData != widget.item?.dynamicData ||
-            (_cachedRulings.isEmpty && !_dynamicData.containsKey('cached_rulings')))) {
+            (_cachedRulings.isEmpty &&
+                !_dynamicData.containsKey('cached_rulings') &&
+                !_dynamicData.containsKey('rulings')))) {
       _items = [widget.item!];
       _currentIndex = 0;
       _syncCurrentItem();
@@ -207,6 +210,7 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
     _notesController.text = _currentItem.personalNotes ?? _currentItem.notes ?? '';
     _previewCandidate = null;
     _isFlipped = false;
+    _isRulingsExpanded = false;
     _flipController.reset();
     _parseDynamicData();
     _fetchAndCacheRulings();
@@ -223,6 +227,7 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
       _notesController.text = _currentItem.personalNotes ?? _currentItem.notes ?? '';
       _previewCandidate = null;
       _isFlipped = false;
+      _isRulingsExpanded = false;
       _flipController.reset();
       _parseDynamicData();
     });
@@ -286,19 +291,7 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
         } else {
           _deckHistory = [];
         }
-        final rawCached = _dynamicData['cached_rulings'];
-        if (rawCached is List) {
-          _cachedRulings = rawCached.map((e) {
-            if (e is Map<String, dynamic>) {
-              return ScryfallRuling.fromJson(e);
-            } else if (e is Map) {
-              return ScryfallRuling.fromJson(Map<String, dynamic>.from(e));
-            }
-            return ScryfallRuling(publishedAt: '', comment: e.toString());
-          }).toList();
-        } else {
-          _cachedRulings = [];
-        }
+        _cachedRulings = _getRulingsFromData(_dynamicData);
       } catch (e, stackTrace) {
         debugPrint('[CardDetailSheet.initState] Failed parsing dynamicData: $e\n$stackTrace');
         _dynamicData = {};
@@ -310,6 +303,21 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
       _deckHistory = [];
       _cachedRulings = [];
     }
+  }
+
+  List<ScryfallRuling> _getRulingsFromData(Map<String, dynamic> data) {
+    final raw = data['cached_rulings'] ?? data['rulings'];
+    if (raw is List) {
+      return raw.map((e) {
+        if (e is Map<String, dynamic>) {
+          return ScryfallRuling.fromJson(e);
+        } else if (e is Map) {
+          return ScryfallRuling.fromJson(Map<String, dynamic>.from(e));
+        }
+        return ScryfallRuling(publishedAt: '', comment: e.toString());
+      }).toList();
+    }
+    return const [];
   }
 
   Map<String, dynamic> _parseItemData(VaultItem item) {
@@ -528,6 +536,9 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
     if (_previewCandidate != null && _previewCandidate!.imageUrl.isNotEmpty) {
       return _previewCandidate!.imageUrl;
     }
+    if (_currentItem.imageUrl.isNotEmpty) {
+      return _currentItem.imageUrl;
+    }
     final faces = _dynamicData['card_faces'];
     if (faces is List && faces.isNotEmpty) {
       final frontFace = faces[0];
@@ -655,7 +666,10 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
 
   Future<void> _fetchAndCacheRulings() async {
     if (!mounted || !_isMtgCard()) return;
-    if (_isLoadingRulings || _cachedRulings.isNotEmpty || _dynamicData.containsKey('cached_rulings')) {
+    if (_isLoadingRulings ||
+        _cachedRulings.isNotEmpty ||
+        _dynamicData.containsKey('cached_rulings') ||
+        _dynamicData.containsKey('rulings')) {
       return;
     }
 
@@ -913,7 +927,10 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
     final power = activeFace?['power']?.toString() ?? itemData['power']?.toString();
     final toughness = activeFace?['toughness']?.toString() ?? itemData['toughness']?.toString();
     final loyalty = activeFace?['loyalty']?.toString() ?? itemData['loyalty']?.toString();
-    final rulings = itemData['rulings']?.toString() ?? itemData['use_cases']?.toString() ?? '';
+    final rawRulings = itemData['rulings'];
+    final rulings = (rawRulings is! List)
+        ? (rawRulings?.toString() ?? itemData['use_cases']?.toString() ?? '')
+        : (itemData['use_cases']?.toString() ?? '');
 
     String flavorText = activeFace?['flavor_text']?.toString() ?? '';
     if (flavorText.trim().isEmpty && itemData['flavor_text'] != null) {
@@ -951,131 +968,235 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
         : 0.0;
     final isProfit = delta >= 0;
     final isOwned = item.quantity > 0;
+    final cardName = item.flavorName != null && item.flavorName!.isNotEmpty
+        ? item.flavorName!
+        : (activeFace?['name']?.toString() ?? item.name);
+    final setCode = (itemData['set_code'] ?? itemData['set'] ?? '').toString().trim();
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isCompact = constraints.maxHeight < 250;
+        final isCompact = constraints.maxHeight < 400;
+        final isUltraCompact = constraints.maxHeight < 240;
+        final heroHeight = isUltraCompact ? 84.0 : (isCompact ? 119.0 : 154.0);
+        final heroArtWidth = isUltraCompact ? 60.0 : (isCompact ? 85.0 : 110.0);
         return Column(
           children: [
-            // Sheet Header Bar
+            // Sheet Header Bar (Outside pull-down section)
             Padding(
-              padding: EdgeInsets.fromLTRB(20, isCompact ? 2 : 4, 12, isCompact ? 2 : 12),
+              padding: EdgeInsets.fromLTRB(20, isUltraCompact ? 1 : (isCompact ? 2 : 4), 12, isUltraCompact ? 1 : (isCompact ? 2 : 4)),
               child: Row(
                 children: [
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        FittedBox(
-                          fit: BoxFit.scaleDown,
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            item.flavorName != null && item.flavorName!.isNotEmpty
-                                ? item.flavorName!
-                                : (activeFace?['name']?.toString() ?? item.name),
-                            style: AppTypography.heading1.copyWith(fontSize: isCompact ? 14 : 18),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        SizedBox(height: isCompact ? 1 : 2),
-                        isCompact
-                            ? FittedBox(
-                                fit: BoxFit.scaleDown,
-                                alignment: Alignment.centerLeft,
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    if (item.flavorName != null && item.flavorName!.isNotEmpty) ...[
-                                      Text(
-                                        '[${item.name}]',
-                                        style: AppTypography.caption.copyWith(
-                                          color: AppColors.accentCyan,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                      const Text(' • ', style: TextStyle(color: AppColors.textMuted)),
-                                    ] else if (hasMultiple && activeFace != null) ...[
-                                      Text(
-                                        'Face ${(isCurrent && _isFlipped) ? 2 : 1}/${cardFaces.length}',
-                                        style: AppTypography.caption.copyWith(
-                                          color: AppColors.accentCyan,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                      const Text(' • ', style: TextStyle(color: AppColors.textMuted)),
-                                    ],
-                                    Text(
-                                      item.setOrSeries,
-                                      style: AppTypography.caption.copyWith(
-                                        color: AppColors.textSecondary,
-                                      ),
-                                    ),
-                                    if (rarity.isNotEmpty) ...[
-                                      const Text(' • ', style: TextStyle(color: AppColors.textMuted)),
-                                      Text(
-                                        rarity.toUpperCase(),
-                                        style: AppTypography.caption.copyWith(
-                                          color: _getRarityColor(rarity),
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                    ],
-                                  ],
+                    child: hasMultiple && activeFace != null
+                        ? Text(
+                            'Face ${(isCurrent && _isFlipped) ? 2 : 1}/${cardFaces.length}',
+                            style: AppTypography.caption.copyWith(
+                              color: AppColors.accentCyan,
+                              fontWeight: FontWeight.w600,
+                              fontSize: isUltraCompact ? 10 : (isCompact ? 11 : 12),
+                            ),
+                          )
+                        : (item.flavorName != null && item.flavorName!.isNotEmpty
+                            ? Text(
+                                '[${item.name}]',
+                                style: AppTypography.caption.copyWith(
+                                  color: AppColors.accentCyan,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: isUltraCompact ? 10 : (isCompact ? 11 : 12),
                                 ),
                               )
-                            : Wrap(
-                                crossAxisAlignment: WrapCrossAlignment.center,
-                                spacing: 4,
-                                runSpacing: 2,
-                                children: [
-                                  if (item.flavorName != null && item.flavorName!.isNotEmpty) ...[
-                                    Text(
-                                      '[${item.name}]',
-                                      style: AppTypography.caption.copyWith(
-                                        color: AppColors.accentCyan,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                    const Text(' • ', style: TextStyle(color: AppColors.textMuted)),
-                                  ] else if (hasMultiple && activeFace != null) ...[
-                                    Text(
-                                      'Face ${(isCurrent && _isFlipped) ? 2 : 1}/${cardFaces.length}',
-                                      style: AppTypography.caption.copyWith(
-                                        color: AppColors.accentCyan,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                    const Text(' • ', style: TextStyle(color: AppColors.textMuted)),
-                                  ],
-                                  Text(
-                                    item.setOrSeries,
-                                    style: AppTypography.caption.copyWith(
-                                      color: AppColors.textSecondary,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  if (rarity.isNotEmpty) ...[
-                                    const Text(' • ', style: TextStyle(color: AppColors.textMuted)),
-                                    Text(
-                                      rarity.toUpperCase(),
-                                      style: AppTypography.caption.copyWith(
-                                        color: _getRarityColor(rarity),
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                  ],
-                                ],
-                              ),
-                      ],
-                    ),
+                            : const SizedBox.shrink()),
                   ),
                   IconButton(
                     tooltip: 'Close',
                     padding: isCompact ? EdgeInsets.zero : const EdgeInsets.all(8.0),
                     constraints: isCompact ? const BoxConstraints() : null,
-                    icon: Icon(Icons.close, color: AppColors.textSecondary, size: isCompact ? 18 : 24),
+                    visualDensity: isCompact ? VisualDensity.compact : null,
+                    style: isCompact
+                        ? IconButton.styleFrom(
+                            minimumSize: Size.zero,
+                            padding: EdgeInsets.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          )
+                        : null,
+                    icon: Icon(Icons.close, color: AppColors.textSecondary, size: isUltraCompact ? 16 : (isCompact ? 18 : 24)),
                     onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+            ),
+
+            // Top Hero Section: Artwork + Strict Info Hierarchy
+            Padding(
+              padding: EdgeInsets.fromLTRB(20, 0, 20, isCompact ? (isUltraCompact ? 2 : 4) : 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildCardArtwork(item, isCurrent, isCompact: isCompact, isUltraCompact: isUltraCompact),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: SizedBox(
+                      height: heroHeight,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.topLeft,
+                        child: SizedBox(
+                          width: math.max(160.0, constraints.maxWidth - 40 - heroArtWidth - 14.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // a. Card Name
+                              Text(
+                                cardName,
+                                style: AppTypography.heading1.copyWith(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              // b. Mana Cost
+                              if (manaCost.isNotEmpty) ...[
+                                const SizedBox(height: 4),
+                                ManaCostBar(
+                                  manaCost: manaCost,
+                                  symbolSize: 14.0,
+                                ),
+                              ],
+                              // c. Set Symbol & Set Name
+                              const SizedBox(height: 6),
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.style_rounded,
+                                    key: const Key('card_detail_set_symbol_icon'),
+                                    size: 14,
+                                    color: _getRarityColor(rarity),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    key: const Key('card_detail_set_code_badge'),
+                                    constraints: const BoxConstraints(maxWidth: 55),
+                                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: _getRarityColor(rarity).withValues(alpha: 0.18),
+                                      borderRadius: BorderRadius.circular(4),
+                                      border: Border.all(
+                                        color: _getRarityColor(rarity).withValues(alpha: 0.6),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      (setCode.isNotEmpty ? setCode : (rarity.isNotEmpty ? rarity : 'SET')).toUpperCase(),
+                                      style: TextStyle(
+                                        color: _getRarityColor(rarity),
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 9.5,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  if (item.setOrSeries.isNotEmpty) ...[
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text(
+                                        item.setOrSeries,
+                                        key: const Key('card_detail_set_name'),
+                                        style: AppTypography.caption.copyWith(
+                                          color: AppColors.textSecondary,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                              // d. Price
+                              const SizedBox(height: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: AppColors.accentAmber.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: AppColors.accentAmber.withValues(alpha: 0.4)),
+                                ),
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(
+                                    VaultPricingHelper.formatMarketHeaderLabel(
+                                      effectivePrice,
+                                      currency: _baseCurrency,
+                                      isPrivacyMode: _isPrivacyMode,
+                                    ),
+                                    style: const TextStyle(
+                                      color: AppColors.accentAmber,
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              // e. Type Line, Power/Toughness, Loyalty
+                              if (typeLine.isNotEmpty) ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                  typeLine,
+                                  style: AppTypography.heading2.copyWith(fontSize: 12.5),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                              if ((power != null && toughness != null && power.isNotEmpty) ||
+                                  (loyalty != null && loyalty.isNotEmpty)) ...[
+                                const SizedBox(height: 4),
+                                Wrap(
+                                  spacing: 6,
+                                  runSpacing: 4,
+                                  children: [
+                                    if (power != null && toughness != null && power.isNotEmpty)
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.surfaceRaised,
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: Text(
+                                          'P/T: $power / $toughness',
+                                          style: const TextStyle(
+                                            color: AppColors.textPrimary,
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 11,
+                                          ),
+                                        ),
+                                      ),
+                                    if (loyalty != null && loyalty.isNotEmpty)
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.surfaceRaised,
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: Text(
+                                          'Loyalty: $loyalty',
+                                          style: const TextStyle(
+                                            color: AppColors.accentViolet,
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 11,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -1084,7 +1205,40 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
             const Divider(height: 1, color: AppColors.surfaceBorderSubtle),
 
             // Segmented Tab Control: [ Details | Values ]
-            _buildSegmentedTabControl(isCompact: isCompact),
+            _buildSegmentedTabControl(isCompact: isCompact, isUltraCompact: isUltraCompact),
+
+            // Unowned Catalog Card Action Bar
+            if (!isOwned) ...[
+              Padding(
+                padding: EdgeInsets.fromLTRB(20, isUltraCompact ? 1 : (isCompact ? 2 : 4), 20, isUltraCompact ? 1 : (isCompact ? 2 : 6)),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: isUltraCompact ? 30 : (isCompact ? 36 : 44)),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      key: isCurrent ? const Key('card_detail_add_to_vault') : null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.accentCyan,
+                        foregroundColor: AppColors.textDark,
+                        padding: isCompact ? const EdgeInsets.symmetric(horizontal: 8, vertical: 0) : null,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      icon: Icon(Icons.add_shopping_cart_rounded, size: isUltraCompact ? 16 : 20),
+                      label: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          'Add to Vault',
+                          style: TextStyle(fontWeight: FontWeight.w800, fontSize: isUltraCompact ? 12 : 14.5),
+                        ),
+                      ),
+                      onPressed: isCurrent ? _addToVault : null,
+                    ),
+                  ),
+                ),
+              ),
+            ],
 
         // Content Area based on _selectedTab
         Expanded(
@@ -1132,14 +1286,14 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
 );
   }
 
-  Widget _buildSegmentedTabControl({bool isCompact = false}) {
+  Widget _buildSegmentedTabControl({bool isCompact = false, bool isUltraCompact = false}) {
     final isPrivacyActive = _isPrivacyMode;
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 20, vertical: isCompact ? 2 : 4),
+      padding: EdgeInsets.symmetric(horizontal: 20, vertical: isUltraCompact ? 1 : (isCompact ? 2 : 4)),
       child: Container(
         key: const Key('card_detail_segmented_control'),
-        height: isCompact ? 28 : 38,
-        padding: EdgeInsets.all(isCompact ? 2 : 3),
+        height: isUltraCompact ? 24 : (isCompact ? 28 : 38),
+        padding: EdgeInsets.all(isUltraCompact ? 1.5 : (isCompact ? 2 : 3)),
         decoration: BoxDecoration(
           color: AppColors.surfaceRaised,
           borderRadius: BorderRadius.circular(10),
@@ -1166,7 +1320,7 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
                     child: Text(
                       'Details',
                       style: TextStyle(
-                        fontSize: isCompact ? 11 : 13,
+                        fontSize: isUltraCompact ? 10 : (isCompact ? 11 : 13),
                         fontWeight: _selectedTab == CardDetailTab.details
                             ? FontWeight.w700
                             : FontWeight.w500,
@@ -1203,7 +1357,7 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
                         Text(
                           'Values',
                           style: TextStyle(
-                            fontSize: isCompact ? 11 : 13,
+                            fontSize: isUltraCompact ? 10 : (isCompact ? 11 : 13),
                             fontWeight: _selectedTab == CardDetailTab.valuesTab
                                 ? FontWeight.w700
                                 : FontWeight.w500,
@@ -1216,7 +1370,7 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
                           SizedBox(width: isCompact ? 2 : 4),
                           Icon(
                             Icons.lock_outline_rounded,
-                            size: isCompact ? 11 : 13,
+                            size: isUltraCompact ? 10 : (isCompact ? 11 : 13),
                             color: AppColors.textMuted,
                           ),
                         ],
@@ -1269,140 +1423,6 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
       cacheExtent: 450,
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
       children: [
-        // Card Artwork & Core Metadata Row
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildCardArtwork(item, isCurrent),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    typeLine,
-                    style: AppTypography.heading2.copyWith(fontSize: 13.5),
-                  ),
-                  const SizedBox(height: 6),
-                  if (manaCost.isNotEmpty) ...[
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceRaised,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: AppColors.surfaceBorder),
-                      ),
-                      child: ManaCostBar(
-                        manaCost: manaCost,
-                        symbolSize: 14.0,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                  ],
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: AppColors.accentAmber.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: AppColors.accentAmber.withValues(alpha: 0.4)),
-                    ),
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        VaultPricingHelper.formatMarketHeaderLabel(
-                          effectivePrice,
-                          currency: _baseCurrency,
-                          isPrivacyMode: _isPrivacyMode,
-                        ),
-                        style: const TextStyle(
-                          color: AppColors.accentAmber,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  if (power != null && toughness != null && power.isNotEmpty)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceRaised,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          'P/T: $power / $toughness',
-                          style: const TextStyle(
-                            color: AppColors.textPrimary,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                    ),
-                  if (loyalty != null && loyalty.isNotEmpty)
-                    Container(
-                      margin: const EdgeInsets.only(top: 4),
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceRaised,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          'Loyalty: $loyalty',
-                          style: const TextStyle(
-                            color: AppColors.accentViolet,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ],
-        ),
-
-        const SizedBox(height: 12),
-
-        // Unowned Catalog Card Action Bar
-        if (!isOwned) ...[
-          ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 48),
-            child: SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                key: isCurrent ? const Key('card_detail_add_to_vault') : null,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.accentCyan,
-                  foregroundColor: AppColors.textDark,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                icon: const Icon(Icons.add_shopping_cart_rounded, size: 20),
-                label: const FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    'Add to Vault / Inbox',
-                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5),
-                  ),
-                ),
-                onPressed: isCurrent ? _addToVault : null,
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-        ],
-
         // Section 1: Oracle & Rules Text
         Wrap(
           key: const Key('section_oracle_rules'),
@@ -1492,14 +1512,7 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
                         ),
                       ),
                     ],
-                    ManaText(
-                      oracleText.isNotEmpty ? oracleText : 'No rules text available for this card.',
-                      style: const TextStyle(
-                        color: AppColors.textPrimary,
-                        fontSize: 13.5,
-                        height: 1.45,
-                      ),
-                    ),
+                    _buildFormattedOracleText(oracleText),
                     if (flavorText.isNotEmpty) ...[
                       const SizedBox(height: 10),
                       Text(
@@ -1518,12 +1531,14 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
         // Card Mechanics & Rulings (Expandable Accordion)
         _buildCardMechanicsAndRulings(
           mechanics,
-          isCurrent ? _cachedRulings : const [],
+          isCurrent
+              ? (_cachedRulings.isNotEmpty ? _cachedRulings : _getRulingsFromData(itemData))
+              : _getRulingsFromData(itemData),
           isCurrent ? _isLoadingRulings : false,
         ),
 
         // Official Rulings Clarifications
-        if ((isCurrent ? _cachedRulings.isEmpty : true) && rulings.isNotEmpty) ...[
+        if ((isCurrent ? _cachedRulings.isEmpty : _getRulingsFromData(itemData).isEmpty) && rulings.isNotEmpty) ...[
           const SizedBox(height: 16),
           _buildSectionHeader(Icons.gavel_rounded, 'Rules Text Clarifications'),
           Container(
@@ -1566,7 +1581,24 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 ),
-                onPressed: () => SwitchPrintingModal.show(context, item),
+                onPressed: () => SwitchPrintingModal.show(
+                  context,
+                  _currentItem,
+                  onUpdated: (updatedItem) {
+                    setState(() {
+                      _currentItem = updatedItem;
+                      _previewCandidate = null;
+                      if (_items.isNotEmpty && _currentIndex < _items.length) {
+                        _items[_currentIndex] = updatedItem;
+                      }
+                      if (updatedItem.dynamicData.isNotEmpty) {
+                        try {
+                          _dynamicData = jsonDecode(updatedItem.dynamicData) as Map<String, dynamic>;
+                        } catch (_) {}
+                      }
+                    });
+                  },
+                ),
               ),
             ],
           ),
@@ -1866,102 +1898,68 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
           ),
         ),
 
-        // Section 4: Acquisition Tracking
-        _buildSectionHeader(Icons.receipt_long_outlined, 'Acquisition Tracking'),
-        Container(
-          key: const Key('section_acquisition_tracking'),
-          margin: const EdgeInsets.only(top: 6, bottom: 8),
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: AppColors.surfaceRaised,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.surfaceBorder),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Date Obtained Row
-              Row(
-                children: [
-                  const Icon(Icons.calendar_today_outlined, size: 14, color: AppColors.accentCyan),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Date Obtained: ${_formatDate(item.dateObtained ?? item.acquiredDate)}',
-                      style: const TextStyle(fontSize: 12.5, color: AppColors.textPrimary, fontWeight: FontWeight.w500),
-                      overflow: TextOverflow.ellipsis,
+        // Section 4: Acquisition Tracking (only for owned cards)
+        if (isOwned) ...[
+          _buildSectionHeader(Icons.receipt_long_outlined, 'Acquisition Tracking'),
+          Container(
+            key: const Key('section_acquisition_tracking'),
+            margin: const EdgeInsets.only(top: 6, bottom: 8),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceRaised,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.surfaceBorder),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Date Obtained Row
+                Row(
+                  children: [
+                    const Icon(Icons.calendar_today_outlined, size: 14, color: AppColors.accentCyan),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Date Obtained: ${_formatDate(item.dateObtained ?? item.acquiredDate)}',
+                        style: const TextStyle(fontSize: 12.5, color: AppColors.textPrimary, fontWeight: FontWeight.w500),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
+                  ],
+                ),
+                const SizedBox(height: 12),
 
-              // Acquired Price & P/L Metrics Row
-              Row(
-                children: [
-                  _buildMetricBox(
-                    'Acquired Price',
-                    VaultPricingHelper.formatAmount(
-                      item.purchasePrice ?? item.acquiredPrice,
-                      currency: _baseCurrency,
-                      isPrivacyMode: _isPrivacyMode,
-                      allowZero: true,
+                // Acquired Price & P/L Metrics Row
+                Row(
+                  children: [
+                    _buildMetricBox(
+                      'Acquired Price',
+                      VaultPricingHelper.formatAmount(
+                        item.purchasePrice ?? item.acquiredPrice,
+                        currency: _baseCurrency,
+                        isPrivacyMode: _isPrivacyMode,
+                        allowZero: true,
+                      ),
+                      AppColors.textSecondary,
                     ),
-                    AppColors.textSecondary,
-                  ),
-                  const SizedBox(width: 10),
-                  _buildMetricBox(
-                    'Profit / Loss',
-                    VaultPricingHelper.formatReturn(
-                      delta,
-                      pct,
-                      currency: _baseCurrency,
-                      isPrivacyMode: _isPrivacyMode,
-                      amountFirst: true,
+                    const SizedBox(width: 10),
+                    _buildMetricBox(
+                      'Profit / Loss',
+                      VaultPricingHelper.formatReturn(
+                        delta,
+                        pct,
+                        currency: _baseCurrency,
+                        isPrivacyMode: _isPrivacyMode,
+                        amountFirst: true,
+                      ),
+                      isProfit ? AppColors.accentEmerald : AppColors.accentRose,
                     ),
-                    isProfit ? AppColors.accentEmerald : AppColors.accentRose,
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-
-        // Section 5: Metadata & Pedigree
-        _buildSectionHeader(Icons.verified_outlined, 'Metadata & Pedigree'),
-        Container(
-          key: const Key('section_metadata_pedigree'),
-          margin: const EdgeInsets.only(top: 6, bottom: 8),
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: AppColors.surfaceRaised,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.surfaceBorder),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (artistName.isNotEmpty) ...[
-                OutlinedButton.icon(
-                  key: const Key('card_detail_artist_filter_button'),
-                  icon: const Icon(Icons.palette_outlined, size: 14, color: AppColors.accentCyan),
-                  label: Text('Artist: $artistName', style: const TextStyle(fontSize: 12, color: AppColors.accentCyan)),
-                  style: OutlinedButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
-                    side: const BorderSide(color: AppColors.accentCyan),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  ),
-                  onPressed: () {
-                    ref.read(vaultSearchQueryProvider.notifier).state = artistName;
-                    Navigator.of(context).pop();
-                  },
+                  ],
                 ),
               ],
-              _buildFrameBadges(itemData),
-            ],
+            ),
           ),
-        ),
+        ],
 
         // Section 6: Deck History & Assignment Ledger
         _buildSectionHeader(Icons.history_rounded, 'Deck Assignment History'),
@@ -2022,8 +2020,45 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
         ),
         const SizedBox(height: 8),
 
-        // Section 8: Format Legalities (moved to the very bottom, below Variant Chart)
+        // Section 8: Format Legalities (below Variant Chart)
         _buildFormatLegalities(),
+        const SizedBox(height: 16),
+
+        // Section 9: Metadata & Pedigree (moved to the very bottom)
+        _buildSectionHeader(Icons.verified_outlined, 'Metadata & Pedigree'),
+        Container(
+          key: const Key('section_metadata_pedigree'),
+          margin: const EdgeInsets.only(top: 6, bottom: 8),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: AppColors.surfaceRaised,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.surfaceBorder),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (artistName.isNotEmpty) ...[
+                OutlinedButton.icon(
+                  key: const Key('card_detail_artist_filter_button'),
+                  icon: const Icon(Icons.palette_outlined, size: 14, color: AppColors.accentCyan),
+                  label: Text('Artist: $artistName', style: const TextStyle(fontSize: 12, color: AppColors.accentCyan)),
+                  style: OutlinedButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    side: const BorderSide(color: AppColors.accentCyan),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  ),
+                  onPressed: () {
+                    ref.read(vaultSearchQueryProvider.notifier).state = artistName;
+                    Navigator.of(context).pop();
+                  },
+                ),
+              ],
+              _buildFrameBadges(itemData),
+            ],
+          ),
+        ),
       ],
     );
   }
@@ -2567,13 +2602,13 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
     );
   }
 
-  Widget _buildCardArtwork(VaultItem item, bool isCurrent) {
+  Widget _buildCardArtwork(VaultItem item, bool isCurrent, {bool isCompact = false, bool isUltraCompact = false}) {
     if (!isCurrent) {
       final frontUrl = item.imageUrl.isNotEmpty ? item.imageUrl : '';
       return Hero(
         key: Key('card_artwork_${item.id}'),
         tag: 'card_artwork_${item.id}',
-        child: _buildCardFaceContainer(frontUrl, cardName: item.name),
+        child: _buildCardFaceContainer(frontUrl, cardName: item.name, isCompact: isCompact, isUltraCompact: isUltraCompact),
       );
     }
 
@@ -2598,9 +2633,9 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
                 ? Transform(
                     alignment: Alignment.center,
                     transform: Matrix4.identity()..rotateY(math.pi),
-                    child: _buildCardFaceContainer(currentUrl, cardName: item.name),
+                    child: _buildCardFaceContainer(currentUrl, cardName: item.name, isCompact: isCompact, isUltraCompact: isUltraCompact),
                   )
-                : _buildCardFaceContainer(currentUrl, cardName: item.name),
+                : _buildCardFaceContainer(currentUrl, cardName: item.name, isCompact: isCompact, isUltraCompact: isUltraCompact),
           );
         },
       ),
@@ -2705,10 +2740,12 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
     );
   }
 
-  Widget _buildCardFaceContainer(String imageUrl, {String? cardName}) {
+  Widget _buildCardFaceContainer(String imageUrl, {String? cardName, bool isCompact = false, bool isUltraCompact = false}) {
+    final w = isUltraCompact ? 60.0 : (isCompact ? 85.0 : 110.0);
+    final h = isUltraCompact ? 84.0 : (isCompact ? 119.0 : 154.0);
     return Container(
-      width: 110,
-      height: 154,
+      width: w,
+      height: h,
       decoration: BoxDecoration(
         color: AppColors.surfaceRaised,
         borderRadius: BorderRadius.circular(10),
@@ -2735,21 +2772,59 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
   Widget _buildPlaceholderArt({String? cardName}) {
     return Container(
       color: AppColors.surfaceRaised,
-      padding: const EdgeInsets.all(8),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.image_outlined, size: 32, color: AppColors.textMuted),
-          const SizedBox(height: 6),
-          Text(
-            cardName ?? _currentItem.name,
-            style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
+      padding: const EdgeInsets.all(6),
+      child: Center(
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.image_outlined, size: 28, color: AppColors.textMuted),
+              const SizedBox(height: 4),
+              SizedBox(
+                width: 70,
+                child: Text(
+                  cardName ?? _currentItem.name,
+                  style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFormattedOracleText(String text) {
+    final rawText = text.isNotEmpty ? text : 'No rules text available for this card.';
+    final paragraphs = rawText
+        .split('\n')
+        .where((p) => p.trim().isNotEmpty)
+        .toList();
+    if (paragraphs.isEmpty) {
+      paragraphs.add(rawText);
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (int i = 0; i < paragraphs.length; i++) ...[
+          if (i > 0) const SizedBox(height: 6),
+          ManaText(
+            paragraphs[i],
+            style: const TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 13.5,
+              height: 1.45,
+            ),
           ),
         ],
-      ),
+      ],
     );
   }
 
@@ -3006,14 +3081,7 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
         ],
         if (text0.isNotEmpty) ...[
           const SizedBox(height: 8),
-          ManaText(
-            text0,
-            style: const TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 13.5,
-              height: 1.45,
-            ),
-          ),
+          _buildFormattedOracleText(text0),
         ],
 
         // Divider banner between Main Spell and Adventure Spell
@@ -3119,14 +3187,7 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
         ],
         if (text1.isNotEmpty) ...[
           const SizedBox(height: 8),
-          ManaText(
-            text1,
-            style: const TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 13.5,
-              height: 1.45,
-            ),
-          ),
+          _buildFormattedOracleText(text1),
         ],
 
         // Flavor Text
@@ -3169,35 +3230,78 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Keywords list
+              // Keywords attribute badge chips at top of section
               if (keywords.isNotEmpty) ...[
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    for (final keyword in keywords)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+                        decoration: BoxDecoration(
+                          color: AppColors.accentCyan.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: AppColors.accentCyan.withValues(alpha: 0.4)),
+                        ),
+                        child: Text(
+                          keyword,
+                          style: const TextStyle(
+                            color: AppColors.accentCyan,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 11.5,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+
+                // Follow with glossary definitions: [ Mechanic ] Definition
                 for (int i = 0; i < keywords.length; i++) ...[
-                  if (i > 0) const SizedBox(height: 12),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppColors.accentCyan.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: AppColors.accentCyan.withValues(alpha: 0.4)),
-                    ),
-                    child: Text(
-                      keywords[i],
-                      style: const TextStyle(
-                        color: AppColors.accentCyan,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 12,
+                  if (MtgKeywordGlossary.dictionary.containsKey(keywords[i])) ...[
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Flexible(
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: AppColors.surface,
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(color: AppColors.surfaceBorder),
+                                ),
+                                child: Text(
+                                  '[ ${keywords[i]} ]',
+                                  style: const TextStyle(
+                                    color: AppColors.accentCyan,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              MtgKeywordGlossary.dictionary[keywords[i]]!,
+                              style: const TextStyle(
+                                color: AppColors.textSecondary,
+                                fontSize: 12.5,
+                                height: 1.35,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 5),
-                  Text(
-                    MtgKeywordGlossary.dictionary[keywords[i]] ?? '',
-                    style: const TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 12.5,
-                      height: 1.35,
-                    ),
-                  ),
+                  ],
                 ],
               ],
 
@@ -3231,41 +3335,55 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
                       ),
                       children: [
                         const SizedBox(height: 6),
-                        for (int i = 0; i < rulings.length; i++) ...[
-                          if (i > 0)
-                            const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 8),
-                              child: Divider(height: 1, color: AppColors.surfaceBorderSubtle),
-                            ),
-                          if (rulings[i].publishedAt.isNotEmpty) ...[
-                            Row(
-                              children: [
-                                const Icon(Icons.calendar_today_outlined, size: 11, color: AppColors.textMuted),
-                                const SizedBox(width: 4),
-                                Flexible(
-                                  child: FittedBox(
-                                    fit: BoxFit.scaleDown,
-                                    alignment: Alignment.centerLeft,
-                                    child: Text(
-                                      rulings[i].publishedAt,
-                                      style: const TextStyle(
-                                        color: AppColors.textMuted,
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 11,
+                        // First ruling is always displayed
+                        _buildRulingItem(rulings[0]),
+                        // Remaining rulings (progressive disclosure)
+                        if (_isRulingsExpanded) ...[
+                          for (int i = 1; i < rulings.length; i++)
+                            _buildRulingItem(rulings[i], showDivider: true),
+                        ],
+                        // "See All" / "Hide Additional Rulings" toggle button
+                        if (rulings.length > 1) ...[
+                          const SizedBox(height: 10),
+                          InkWell(
+                            key: const Key('card_detail_rulings_see_all_button'),
+                            borderRadius: BorderRadius.circular(6),
+                            onTap: () {
+                              setState(() {
+                                _isRulingsExpanded = !_isRulingsExpanded;
+                              });
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Flexible(
+                                    child: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      alignment: Alignment.centerLeft,
+                                      child: Text(
+                                        _isRulingsExpanded
+                                            ? 'Hide Additional Rulings'
+                                            : 'See All (${rulings.length}) Rulings',
+                                        style: const TextStyle(
+                                          color: AppColors.accentCyan,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                        ),
                                       ),
                                     ),
                                   ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 3),
-                          ],
-                          ManaText(
-                            rulings[i].comment,
-                            style: const TextStyle(
-                              color: AppColors.textSecondary,
-                              fontSize: 12.5,
-                              height: 1.4,
+                                  const SizedBox(width: 4),
+                                  Icon(
+                                    _isRulingsExpanded
+                                        ? Icons.expand_less
+                                        : Icons.expand_more,
+                                    size: 16,
+                                    color: AppColors.accentCyan,
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ],
@@ -3275,6 +3393,51 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
                 ),
               ],
             ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRulingItem(ScryfallRuling ruling, {bool showDivider = false}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (showDivider)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: Divider(height: 1, color: AppColors.surfaceBorderSubtle),
+          ),
+        if (ruling.publishedAt.isNotEmpty) ...[
+          Row(
+            children: [
+              const Icon(Icons.calendar_today_outlined, size: 11, color: AppColors.textMuted),
+              const SizedBox(width: 4),
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    ruling.publishedAt,
+                    style: const TextStyle(
+                      color: AppColors.textMuted,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 11,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 3),
+        ],
+        ManaText(
+          ruling.comment,
+          style: const TextStyle(
+            color: AppColors.textSecondary,
+            fontSize: 12.5,
+            height: 1.4,
           ),
         ),
       ],

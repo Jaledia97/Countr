@@ -700,7 +700,8 @@ void main() {
       final iv = tester.widget<InteractiveViewer>(ivFinder);
       expect(iv.minScale, equals(0.5));
       expect(iv.maxScale, equals(4.0));
-      expect(iv.panEnabled, isTrue);
+      // Calibrated in Countr 4.8: panEnabled is false when unzoomed to eliminate drag resistance
+      expect(iv.panEnabled, isFalse);
       expect(iv.scaleEnabled, isTrue);
     });
 
@@ -915,7 +916,7 @@ void main() {
         of: find.byKey(const PageStorageKey<String>('vault_custom_scroll_view')),
         matching: find.byWidgetPredicate((w) => w is Scrollable && w.axisDirection == AxisDirection.down),
       );
-      final scrollable = tester.state<ScrollableState>(scrollableFinder);
+      final scrollable = tester.state<ScrollableState>(scrollableFinder.first);
       expect(scrollable.position.pixels, equals(0.0));
 
       // Tap card 0 to open CardDetailSheet
@@ -964,7 +965,7 @@ void main() {
         of: find.byKey(const PageStorageKey<String>('vault_custom_scroll_view')),
         matching: find.byWidgetPredicate((w) => w is Scrollable && w.axisDirection == AxisDirection.down),
       );
-      final scrollable = tester.state<ScrollableState>(scrollableFinder);
+      final scrollable = tester.state<ScrollableState>(scrollableFinder.first);
       expect(scrollable.position.pixels, equals(0.0));
 
       // Tap card 0 thumbnail to open CardDetailSheet
@@ -1013,7 +1014,7 @@ void main() {
         of: find.byKey(const PageStorageKey<String>('vault_custom_scroll_view')),
         matching: find.byWidgetPredicate((w) => w is Scrollable && w.axisDirection == AxisDirection.down),
       );
-      final scrollable = tester.state<ScrollableState>(scrollableFinder);
+      final scrollable = tester.state<ScrollableState>(scrollableFinder.first);
 
       // Scroll down initially
       scrollable.position.jumpTo(250.0);

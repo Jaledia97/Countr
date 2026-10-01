@@ -349,6 +349,10 @@ void main() {
     });
 
     testWidgets('cached rulings in dynamicData survive sheet close and re-open without new network calls', (tester) async {
+      tester.view.physicalSize = const Size(800, 1200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
       int networkCallCount = 0;
       final mockClient = MockClient((request) async {
         networkCallCount++;
@@ -433,6 +437,16 @@ void main() {
       expect(networkCallCount, 1);
       expect(find.text('Card Mechanics & Rulings'), findsOneWidget);
       expect(find.text('First official durable ruling for this card.'), findsOneWidget);
+
+      await tester.drag(find.text('Card Mechanics & Rulings'), const Offset(0, -300));
+      await tester.pumpAndSettle();
+
+      final seeAllButton1 = find.byKey(const Key('card_detail_rulings_see_all_button'));
+      if (seeAllButton1.evaluate().isNotEmpty) {
+        await tester.tap(seeAllButton1);
+        await tester.pumpAndSettle();
+      }
+
       expect(find.text('Second official durable ruling for this card.'), findsOneWidget);
 
       // 2. Verify SQLite database was updated with cached_rulings
@@ -464,6 +478,16 @@ void main() {
       expect(networkCallCount, 1); // Strictly 1, zero new network requests!
       expect(find.text('Card Mechanics & Rulings'), findsOneWidget);
       expect(find.text('First official durable ruling for this card.'), findsOneWidget);
+
+      await tester.drag(find.text('Card Mechanics & Rulings'), const Offset(0, -300));
+      await tester.pumpAndSettle();
+
+      final seeAllButton2 = find.byKey(const Key('card_detail_rulings_see_all_button'));
+      if (seeAllButton2.evaluate().isNotEmpty) {
+        await tester.tap(seeAllButton2);
+        await tester.pumpAndSettle();
+      }
+
       expect(find.text('Second official durable ruling for this card.'), findsOneWidget);
 
       // 6. Close sheet again

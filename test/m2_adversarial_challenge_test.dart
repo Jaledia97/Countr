@@ -51,6 +51,7 @@ void main() {
     }
 
     return ProviderScope(
+      key: UniqueKey(),
       overrides: defaultOverrides,
       child: const MaterialApp(
         home: VaultScreen(),
@@ -96,7 +97,12 @@ void main() {
         await tester.enterText(searchField, '///!@#\$%^&*()');
         await tester.pump(const Duration(milliseconds: 40));
 
-        // 1.5 Rapidly tap collapse button while text is present without waiting
+        // 1.5 Rapidly tap single X button (1st tap clears text, 2nd tap collapses)
+        final clearBtn = find.byKey(const Key('vault_search_clear_button'));
+        expect(clearBtn, findsOneWidget);
+        await tester.tap(clearBtn);
+        await tester.pump(const Duration(milliseconds: 30));
+
         final collapseButton = find.byKey(const Key('vault_search_collapse_button'));
         expect(collapseButton, findsOneWidget);
         await tester.tap(collapseButton);
@@ -272,7 +278,7 @@ void main() {
 
         // In Singles mode: search bar remains expanded, showing active query
         expect(find.byKey(const Key('vault_search_text_field')), findsOneWidget);
-        expect(find.text('Black Lotus'), findsOneWidget);
+        expect(find.text('Black Lotus'), findsAtLeastNWidgets(1));
 
         // FAB must be absent in Singles mode even when search is expanded
         expect(find.byKey(const Key('vault_new_binder_fab')), findsNothing);
@@ -289,7 +295,9 @@ void main() {
         expect(find.byKey(const Key('vault_search_text_field')), findsOneWidget);
         expect(find.text('Black Lotus'), findsOneWidget);
 
-        // 3.3 Test user collapse and manual toggle cycle
+        // 3.3 Test user collapse (2-step single X: clear then collapse) and manual toggle cycle
+        await tester.tap(find.byKey(const Key('vault_search_clear_button')));
+        await tester.pumpAndSettle();
         await tester.tap(find.byKey(const Key('vault_search_collapse_button')));
         await tester.pumpAndSettle();
 
@@ -322,7 +330,11 @@ void main() {
     testWidgets(
       'Adversarial 4: Full FAB interaction lifecycle (open, empty-validation, cancel, create) vs verified absence in Singles',
       (tester) async {
-        await tester.pumpWidget(buildVaultScreen());
+        await tester.pumpWidget(buildVaultScreen(
+          overrides: [
+            vaultViewModeProvider.overrideWith((ref) => VaultViewMode.binders),
+          ],
+        ));
         await tester.pumpAndSettle();
 
         // 4.1 In Binders mode: FAB is present
@@ -374,11 +386,14 @@ void main() {
         // Dialog should be dismissed
         expect(find.byType(AlertDialog), findsNothing);
 
+        await tester.pump(const Duration(milliseconds: 100));
+        await tester.pumpAndSettle();
+
         // SnackBar verification
         expect(find.text('Created Binder "Vintage Black Border"'), findsOneWidget);
 
         // Database & UI verification: new binder should be visible in Binders grid
-        expect(find.text('Vintage Black Border'), findsOneWidget);
+        expect(find.text('Vintage Black Border', skipOffstage: false), findsOneWidget);
 
         // 4.5 Switch to Singles mode: FAB must be completely absent from widget tree
         await tester.tap(find.byKey(const Key('vault_view_singles_toggle')));

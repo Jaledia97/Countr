@@ -82,7 +82,7 @@ void main() {
 
       final unownedBadge = find.byKey(Key('vault_tile_unowned_badge_${item.id}'));
       expect(unownedBadge, findsOneWidget);
-      expect(find.text('REF'), findsOneWidget);
+      expect(find.text('UNOWNED'), findsOneWidget);
     });
 
     testWidgets('Boundary 1: Single copy (quantity == 1) strictly omits BOTH duplicate badge and unowned badge', (tester) async {
@@ -94,7 +94,7 @@ void main() {
       expect(find.byKey(Key('vault_tile_duplicate_badge_${item.id}')), findsNothing);
       expect(find.byKey(Key('vault_tile_unowned_badge_${item.id}')), findsNothing);
       expect(find.text('1x'), findsNothing);
-      expect(find.text('REF'), findsNothing);
+      expect(find.text('UNOWNED'), findsNothing);
     });
 
     testWidgets('Boundary 2: Minimal duplicate (quantity == 2) renders "2x" duplicate badge', (tester) async {
@@ -307,7 +307,7 @@ void main() {
           matching: find.byType(Text),
         ),
       );
-      expect(textWidget.data, equals('REF'));
+      expect(textWidget.data, equals('UNOWNED'));
       expect(textWidget.style?.fontWeight, equals(FontWeight.w800));
       expect(textWidget.style?.color, equals(AppColors.accentAmber));
     });

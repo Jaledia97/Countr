@@ -272,56 +272,56 @@ class MockDeckData {
 
   static final Map<String, Map<String, String>> _cardArtLookup = {
     'blood-artist': {
-      'normal': 'https://cards.scryfall.io/normal/front/6/9/693dd112-d04a-4404-8fce-74f7e5497312.jpg',
-      'art_crop': 'https://cards.scryfall.io/art_crop/front/6/9/693dd112-d04a-4404-8fce-74f7e5497312.jpg',
+      'normal': 'https://api.scryfall.com/cards/named?exact=Blood%20Artist&format=image&version=normal',
+      'art_crop': 'https://api.scryfall.com/cards/named?exact=Blood%20Artist&format=image&version=art_crop',
     },
     'cruel-celebrant': {
-      'normal': 'https://cards.scryfall.io/normal/front/8/7/87fed6cb-2802-4228-868d-d27385e35f7e.jpg',
-      'art_crop': 'https://cards.scryfall.io/art_crop/front/8/7/87fed6cb-2802-4228-868d-d27385e35f7e.jpg',
+      'normal': 'https://api.scryfall.com/cards/named?exact=Cruel%20Celebrant&format=image&version=normal',
+      'art_crop': 'https://api.scryfall.com/cards/named?exact=Cruel%20Celebrant&format=image&version=art_crop',
     },
     'cordial-vampire': {
-      'normal': 'https://cards.scryfall.io/normal/front/8/c/8c841474-761d-450e-a86d-0a37750976d1.jpg',
-      'art_crop': 'https://cards.scryfall.io/art_crop/front/8/c/8c841474-761d-450e-a86d-0a37750976d1.jpg',
+      'normal': 'https://api.scryfall.com/cards/named?exact=Cordial%20Vampire&format=image&version=normal',
+      'art_crop': 'https://api.scryfall.com/cards/named?exact=Cordial%20Vampire&format=image&version=art_crop',
     },
     'viscera-seer': {
-      'normal': 'https://cards.scryfall.io/normal/front/4/8/486fb84c-2234-4b55-a222-3a36db5e1730.jpg',
-      'art_crop': 'https://cards.scryfall.io/art_crop/front/4/8/486fb84c-2234-4b55-a222-3a36db5e1730.jpg',
+      'normal': 'https://api.scryfall.com/cards/named?exact=Viscera%20Seer&format=image&version=normal',
+      'art_crop': 'https://api.scryfall.com/cards/named?exact=Viscera%20Seer&format=image&version=art_crop',
     },
     'twilight-prophet': {
-      'normal': 'https://cards.scryfall.io/normal/front/7/2/72225695-1774-4b82-901c-69532822ca9d.jpg',
-      'art_crop': 'https://cards.scryfall.io/art_crop/front/7/2/72225695-1774-4b82-901c-69532822ca9d.jpg',
+      'normal': 'https://api.scryfall.com/cards/named?exact=Twilight%20Prophet&format=image&version=normal',
+      'art_crop': 'https://api.scryfall.com/cards/named?exact=Twilight%20Prophet&format=image&version=art_crop',
     },
     'elenda-the-dusk-rose': {
-      'normal': 'https://cards.scryfall.io/normal/front/2/5/25e34147-588b-4fd5-8895-340b04123518.jpg',
-      'art_crop': 'https://cards.scryfall.io/art_crop/front/2/5/25e34147-588b-4fd5-8895-340b04123518.jpg',
+      'normal': 'https://api.scryfall.com/cards/named?exact=Elenda%2C%20the%20Dusk%20Rose&format=image&version=normal',
+      'art_crop': 'https://api.scryfall.com/cards/named?exact=Elenda%2C%20the%20Dusk%20Rose&format=image&version=art_crop',
     },
     'sol-ring': {
-      'normal': 'https://cards.scryfall.io/normal/front/4/c/4c565076-5db2-47ea-8ee0-4a4fd7bb353d.jpg',
-      'art_crop': 'https://cards.scryfall.io/art_crop/front/4/c/4c565076-5db2-47ea-8ee0-4a4fd7bb353d.jpg',
+      'normal': 'https://api.scryfall.com/cards/named?exact=Sol%20Ring&format=image&version=normal',
+      'art_crop': 'https://api.scryfall.com/cards/named?exact=Sol%20Ring&format=image&version=art_crop',
     },
     'arcane-signet': {
-      'normal': 'https://cards.scryfall.io/normal/front/0/4/04397b98-bc92-437e-b0e2-640df2323ffb.jpg',
-      'art_crop': 'https://cards.scryfall.io/art_crop/front/0/4/04397b98-bc92-437e-b0e2-640df2323ffb.jpg',
+      'normal': 'https://api.scryfall.com/cards/named?exact=Arcane%20Signet&format=image&version=normal',
+      'art_crop': 'https://api.scryfall.com/cards/named?exact=Arcane%20Signet&format=image&version=art_crop',
     },
     'swords-to-plowshares': {
-      'normal': 'https://cards.scryfall.io/normal/front/7/c/7c85d415-460d-4074-b5a1-778ea2ca2c48.jpg',
-      'art_crop': 'https://cards.scryfall.io/art_crop/front/7/c/7c85d415-460d-4074-b5a1-778ea2ca2c48.jpg',
+      'normal': 'https://api.scryfall.com/cards/named?exact=Swords%20to%20Plowshares&format=image&version=normal',
+      'art_crop': 'https://api.scryfall.com/cards/named?exact=Swords%20to%20Plowshares&format=image&version=art_crop',
     },
     'demonic-tutor': {
-      'normal': 'https://cards.scryfall.io/normal/front/3/b/3bdbc231-5316-4abd-9d8d-d87cff2c9847.jpg',
-      'art_crop': 'https://cards.scryfall.io/art_crop/front/3/b/3bdbc231-5316-4abd-9d8d-d87cff2c9847.jpg',
+      'normal': 'https://api.scryfall.com/cards/named?exact=Demonic%20Tutor&format=image&version=normal',
+      'art_crop': 'https://api.scryfall.com/cards/named?exact=Demonic%20Tutor&format=image&version=art_crop',
     },
     'skullclamp': {
-      'normal': 'https://cards.scryfall.io/normal/front/a/3/a3652ec2-5907-41a4-a367-192a43507d34.jpg',
-      'art_crop': 'https://cards.scryfall.io/art_crop/front/a/3/a3652ec2-5907-41a4-a367-192a43507d34.jpg',
+      'normal': 'https://api.scryfall.com/cards/named?exact=Skullclamp&format=image&version=normal',
+      'art_crop': 'https://api.scryfall.com/cards/named?exact=Skullclamp&format=image&version=art_crop',
     },
     'teferis-protection': {
-      'normal': 'https://cards.scryfall.io/normal/front/4/8/483fa1cb-1e35-44f2-a143-98c0f107f5ca.jpg',
-      'art_crop': 'https://cards.scryfall.io/art_crop/front/4/8/483fa1cb-1e35-44f2-a143-98c0f107f5ca.jpg',
+      'normal': 'https://api.scryfall.com/cards/named?exact=Teferi%27s%20Protection&format=image&version=normal',
+      'art_crop': 'https://api.scryfall.com/cards/named?exact=Teferi%27s%20Protection&format=image&version=art_crop',
     },
     'command-tower': {
-      'normal': 'https://cards.scryfall.io/normal/front/0/5/05364120-218b-4338-b856-a1c8a0430c9a.jpg',
-      'art_crop': 'https://cards.scryfall.io/art_crop/front/0/5/05364120-218b-4338-b856-a1c8a0430c9a.jpg',
+      'normal': 'https://api.scryfall.com/cards/named?exact=Command%20Tower&format=image&version=normal',
+      'art_crop': 'https://api.scryfall.com/cards/named?exact=Command%20Tower&format=image&version=art_crop',
     },
   };
 
@@ -347,6 +347,7 @@ class MockDeckData {
     String? normalUrl,
     String? smallUrl,
     String setOrSeries = 'CMM',
+    String? oracleText,
     Map<String, dynamic>? extraDynamicData,
   }) {
     final String resolvedArtCropUrl;
@@ -358,21 +359,21 @@ class MockDeckData {
       resolvedNormalUrl = normalUrl ?? imageUrl ?? artCropUrl ?? smallUrl!;
       resolvedSmallUrl = smallUrl ?? imageUrl ?? normalUrl ?? artCropUrl!;
     } else if (id == 'edgar-markov') {
-      resolvedArtCropUrl =
-          'https://cards.scryfall.io/art_crop/front/8/d/8d94b8ec-ecda-45c8-a90d-10b6394c3904.jpg';
-      resolvedNormalUrl =
-          'https://cards.scryfall.io/normal/front/8/d/8d94b8ec-ecda-45c8-a90d-10b6394c3904.jpg';
-      resolvedSmallUrl =
-          'https://cards.scryfall.io/small/front/8/d/8d94b8ec-ecda-45c8-a90d-10b6394c3904.jpg';
+      const encoded = 'Edgar%20Markov';
+      resolvedArtCropUrl = 'https://api.scryfall.com/cards/named?exact=$encoded&format=image&version=art_crop';
+      resolvedNormalUrl = 'https://api.scryfall.com/cards/named?exact=$encoded&format=image&version=normal';
+      resolvedSmallUrl = 'https://api.scryfall.com/cards/named?exact=$encoded&format=image&version=small';
     } else if (_cardArtLookup.containsKey(id)) {
       final lookup = _cardArtLookup[id]!;
       resolvedArtCropUrl = lookup['art_crop'] ?? lookup['normal']!;
       resolvedNormalUrl = lookup['normal']!;
       resolvedSmallUrl = lookup['small'] ?? lookup['normal']!;
     } else {
-      resolvedArtCropUrl = 'https://cards.scryfall.io/art_crop/back.jpg';
-      resolvedNormalUrl = 'https://cards.scryfall.io/normal/back.jpg';
-      resolvedSmallUrl = 'https://cards.scryfall.io/small/back.jpg';
+      final cleanName = name.contains('//') ? name.split('//').first.trim() : name.trim();
+      final encodedName = Uri.encodeComponent(cleanName);
+      resolvedArtCropUrl = 'https://api.scryfall.com/cards/named?exact=$encodedName&format=image&version=art_crop';
+      resolvedNormalUrl = 'https://api.scryfall.com/cards/named?exact=$encodedName&format=image&version=normal';
+      resolvedSmallUrl = 'https://api.scryfall.com/cards/named?exact=$encodedName&format=image&version=small';
     }
 
     final dyn = <String, dynamic>{
@@ -384,6 +385,7 @@ class MockDeckData {
       'produced_mana': producedMana,
       'finishes': finishes,
       'promo': isPromo,
+      'oracle_text': ?oracleText,
       'legalities': {
         'commander': 'legal',
         'mtg commander': 'legal',
@@ -444,6 +446,8 @@ class MockDeckData {
       colors: ['W', 'B', 'R'],
       finishes: ['foil', 'etched'],
       isGraded: true,
+      oracleText:
+          'Eminence — As long as Edgar Markov is in the command zone or on the battlefield, whenever you cast another Vampire spell, create a 1/1 black Vampire creature token.\nFirst strike, haste\nWhenever Edgar Markov attacks, put a +1/+1 counter on each Vampire you control.',
     ),
 
     // -------------------------------------------------------------------------
@@ -462,6 +466,8 @@ class MockDeckData {
       colors: ['B'],
       finishes: ['foil'],
       isSigned: true,
+      oracleText:
+          'Whenever Blood Artist or another creature dies, target player loses 1 life and you gain 1 life.',
     ),
     _makeCard(
       id: 'cruel-celebrant',
@@ -953,6 +959,8 @@ class MockDeckData {
       rarity: 'rare',
       colors: ['W'],
       finishes: ['foil'],
+      oracleText:
+          'Until your next turn, your life total can\'t change and you gain protection from everything. All permanents you control phase out. Exile Teferi\'s Protection.',
     ),
     _makeCard(
       id: 'deadly-rollick',
@@ -1107,6 +1115,7 @@ class MockDeckData {
       colors: [],
       producedMana: ['C'],
       finishes: ['foil'],
+      oracleText: '{T}: Add {C}{C}.',
     ),
     _makeCard(
       id: 'arcane-signet',
@@ -1293,6 +1302,8 @@ class MockDeckData {
       colors: [],
       producedMana: ['W', 'B', 'R'],
       finishes: ['foil'],
+      oracleText:
+          '{T}: Add one mana of any color in your commander\'s color identity.',
     ),
     _makeCard(
       id: 'nomad-outpost',
@@ -1679,9 +1690,9 @@ class MockDeckData {
       finishes: ['foil'],
       setOrSeries: '2XM',
       imageUrl:
-          'https://cards.scryfall.io/normal/front/d/0/d0a13423-11e1-4466-80d6-bc570f25ebd8.jpg',
+          'https://api.scryfall.com/cards/named?exact=Wurmcoil%20Engine&format=image&version=normal',
       artCropUrl:
-          'https://cards.scryfall.io/art_crop/front/d/0/d0a13423-11e1-4466-80d6-bc570f25ebd8.jpg',
+          'https://api.scryfall.com/cards/named?exact=Wurmcoil%20Engine&format=image&version=art_crop',
     ),
     _makeCard(
       id: 'tron-urzas-tower',
@@ -1697,9 +1708,9 @@ class MockDeckData {
       producedMana: ['C'],
       setOrSeries: '2XM',
       imageUrl:
-          'https://cards.scryfall.io/normal/front/9/e/9e369f3f-354b-42bf-9b2f-2c1914068393.jpg',
+          'https://api.scryfall.com/cards/named?exact=Urza%27s%20Tower&format=image&version=normal',
       artCropUrl:
-          'https://cards.scryfall.io/art_crop/front/9/e/9e369f3f-354b-42bf-9b2f-2c1914068393.jpg',
+          'https://api.scryfall.com/cards/named?exact=Urza%27s%20Tower&format=image&version=art_crop',
     ),
   ];
 }

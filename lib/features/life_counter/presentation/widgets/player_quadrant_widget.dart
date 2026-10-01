@@ -34,11 +34,15 @@ class PlayerQuadrantWidget extends StatefulWidget {
   final VoidCallback? onArtOverride;
   final VoidCallback? onToggleEliminated;
 
+  /// OLED True Black mode toggle (#000000).
+  final bool isOledMode;
+
   const PlayerQuadrantWidget({
     super.key,
     required this.player,
     required this.isTablet,
     required this.opponents,
+    this.isOledMode = false,
     this.onLifeDelta,
     this.onCommanderDamage,
     this.onManaDelta,
@@ -117,20 +121,31 @@ class _PlayerQuadrantWidgetState extends State<PlayerQuadrantWidget> {
         final quadrantHeight = constraints.maxHeight;
         final maxDrawerHeight = (quadrantHeight - 56.0).clamp(60.0, double.infinity);
 
+        final Color baseColor = widget.isOledMode
+            ? const Color(0xFF000000)
+            : const Color(0xFF1E1E2C);
+
         return Container(
           decoration: BoxDecoration(
             color: isLethal
                 ? Colors.red.shade900.withValues(alpha: 0.3)
-                : const Color(0xFF1E1E2C),
+                : baseColor,
             border: player.hasAnyLethalCommanderDamage
                 ? Border.all(color: Colors.redAccent, width: 3)
-                : Border.all(color: Colors.white10, width: 0.5),
+                : Border.all(
+                    color: widget.isOledMode
+                        ? Colors.white.withValues(alpha: 0.08)
+                        : Colors.white10,
+                    width: 0.5,
+                  ),
           ),
           child: Stack(
             children: [
               // Commander Art Backdrop with dark vignette gradient (Feature 30)
+              // Hidden in OLED True Black Mode for maximum battery saving and true black pixels
               if (player.commanderArtCropUrl != null &&
-                  player.commanderArtCropUrl!.isNotEmpty)
+                  player.commanderArtCropUrl!.isNotEmpty &&
+                  !widget.isOledMode)
                 Positioned.fill(
                   child: CommanderArtBackdrop(
                     imageUrl: player.commanderArtCropUrl,

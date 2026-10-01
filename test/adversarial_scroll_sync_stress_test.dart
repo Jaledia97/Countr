@@ -346,7 +346,7 @@ void main() {
         of: find.byType(CustomScrollView),
         matching: find.byWidgetPredicate((w) => w is Scrollable && w.axisDirection == AxisDirection.down),
       );
-      final scrollable = tester.state<ScrollableState>(scrollableFinder);
+      final scrollable = tester.state<ScrollableState>(scrollableFinder.first);
       expect(scrollable.position.pixels, equals(0.0), reason: 'Initial scroll offset must be 0.0');
 
       // Tap card 0 to open CardDetailSheet
@@ -432,7 +432,7 @@ void main() {
         of: find.byType(CustomScrollView),
         matching: find.byWidgetPredicate((w) => w is Scrollable && w.axisDirection == AxisDirection.down),
       );
-      final scrollable = tester.state<ScrollableState>(scrollableFinder);
+      final scrollable = tester.state<ScrollableState>(scrollableFinder.first);
       expect(scrollable.position.pixels, equals(0.0));
 
       // Tap card 0 to open CardDetailSheet
@@ -516,7 +516,7 @@ void main() {
         of: find.byType(CustomScrollView),
         matching: find.byWidgetPredicate((w) => w is Scrollable && w.axisDirection == AxisDirection.down),
       );
-      final scrollable = tester.state<ScrollableState>(scrollableFinder);
+      final scrollable = tester.state<ScrollableState>(scrollableFinder.first);
       expect(scrollable.position.pixels, equals(0.0));
 
       // Open sheet
@@ -571,7 +571,7 @@ void main() {
         of: find.byType(CustomScrollView),
         matching: find.byWidgetPredicate((w) => w is Scrollable && w.axisDirection == AxisDirection.down),
       );
-      final scrollable = tester.state<ScrollableState>(scrollableFinder);
+      final scrollable = tester.state<ScrollableState>(scrollableFinder.first);
 
       // Open sheet
       await tester.tap(find.byType(VaultItemTile).hitTestable().first);

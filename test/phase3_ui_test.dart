@@ -22,11 +22,13 @@ void main() {
     await db.close();
   });
 
-  Widget createTestWidget(Widget child) {
+  Widget createTestWidget(Widget child, {VaultViewMode? viewMode}) {
     return ProviderScope(
       overrides: [
         appDatabaseProvider.overrideWithValue(db),
         vaultDaoProvider.overrideWithValue(db.vaultDao),
+        if (viewMode != null)
+          vaultViewModeProvider.overrideWith((ref) => viewMode),
       ],
       child: MaterialApp(
         home: child,
@@ -210,7 +212,7 @@ void main() {
 
   group('VaultScreen Binders Grid Tests', () {
     testWidgets('toggles between Singles and Binders view', (tester) async {
-      await tester.pumpWidget(createTestWidget(const VaultScreen()));
+      await tester.pumpWidget(createTestWidget(const VaultScreen(), viewMode: VaultViewMode.binders));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 
@@ -250,7 +252,7 @@ void main() {
         tester.view.resetDevicePixelRatio();
       });
 
-      await tester.pumpWidget(createTestWidget(const VaultScreen()));
+      await tester.pumpWidget(createTestWidget(const VaultScreen(), viewMode: VaultViewMode.binders));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 

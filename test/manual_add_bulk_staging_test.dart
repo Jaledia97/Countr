@@ -10,6 +10,7 @@ import 'package:countr/features/vault/data/daos/vault_dao.dart';
 import 'package:countr/features/vault/presentation/providers/vault_providers.dart';
 import 'package:countr/features/vault/presentation/screens/vault_screen.dart';
 import 'package:countr/features/vault/presentation/widgets/manual_add_bottom_sheet.dart';
+import 'package:countr/features/vault/presentation/widgets/vault_import_bottom_sheet.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -21,6 +22,14 @@ void main() {
     db = AppDatabase(NativeDatabase.memory());
     dao = db.vaultDao;
     await dao.seedDatabase();
+    await (db.delete(db.vaultItems)
+          ..where((t) => t.id.isNotIn(const [
+                'item-mtg-one-ring',
+                'item-pokemon-charizard',
+                'item-comic-fallout-4',
+                'item-sports-watt-rookie',
+              ])))
+        .go();
 
     // Insert additional unowned catalog reference card (quantity = 0)
     await db.into(db.vaultItems).insert(
@@ -62,6 +71,7 @@ void main() {
               'type': 'Artifact',
             }),
           ),
+          mode: drift.InsertMode.insertOrReplace,
         );
   });
 
@@ -465,7 +475,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
     });
 
-    testWidgets('VaultScreen Add Item button opens ManualAddBottomSheet',
+    testWidgets('VaultScreen Import button is present and opens VaultImportBottomSheet while Add Item button is removed',
         (WidgetTester tester) async {
       tester.view.physicalSize = const Size(1080, 2400);
       tester.view.devicePixelRatio = 1.0;
@@ -490,16 +500,19 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Find and tap the Add Item button in portfolio summary card
-      final addButton = find.byKey(const Key('vault_add_item_button'));
-      expect(addButton, findsOneWidget);
+      // Ensure Add Item button is removed from portfolio summary card
+      expect(find.byKey(const Key('vault_add_item_button')), findsNothing);
 
-      await tester.tap(addButton);
+      // Find and tap the Import button in portfolio summary card
+      final importButton = find.byKey(const Key('vault_import_button'));
+      expect(importButton, findsOneWidget);
+
+      await tester.tap(importButton);
       await tester.pumpAndSettle();
 
       // Sheet is opened
-      expect(find.byType(ManualAddBottomSheet), findsOneWidget);
-      expect(find.text('Add Cards to Vault'), findsOneWidget);
+      expect(find.byType(VaultImportBottomSheet), findsOneWidget);
+      expect(find.text('Import Cards to Vault'), findsOneWidget);
 
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(milliseconds: 100));

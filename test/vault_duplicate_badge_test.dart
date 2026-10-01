@@ -270,10 +270,10 @@ void main() {
       await tester.pumpAndSettle();
 
       // Verify real counts from seed database:
-      // Seed contains 4 cards total (1 MTG, 1 Pokemon, 1 Comic, 1 Sports Card)
-      expect(find.text('1 Card'), findsNWidgets(3)); // MTG, Pokemon, Sports
+      expect(find.text('1 Card'), findsNWidgets(2)); // Pokemon, Sports
+      expect(find.text('8 Cards'), findsOneWidget); // MTG
       expect(find.text('1 Issue'), findsOneWidget); // Comic
-      expect(find.text('4 Items'), findsOneWidget); // All Collections
+      expect(find.text('11 Items'), findsOneWidget); // All Collections
 
       // Legacy hardcoded dummy counts must NOT exist anywhere!
       expect(find.text('524 Items'), findsNothing);

@@ -72,6 +72,8 @@ VaultItemsCompanion mapScryfallCardToCompanion(Map<String, dynamic> card) {
           if (face['loyalty'] != null) 'loyalty': face['loyalty']?.toString(),
           'image_url': faceImg,
           if (face['image_uris'] is Map) 'image_uris': face['image_uris'],
+          if (face['colors'] is List) 'colors': face['colors'],
+          if (face['color_indicator'] is List) 'color_indicator': face['color_indicator'],
         });
       }
     }
@@ -231,6 +233,9 @@ VaultItemsCompanion mapScryfallCardToCompanion(Map<String, dynamic> card) {
     'set_code': setCode,
     'set_name': setName,
     if (oracleId != null && oracleId.isNotEmpty) 'oracle_id': oracleId,
+    if (card['colors'] is List) 'colors': card['colors'],
+    if (card['color_identity'] is List) 'color_identity': card['color_identity'],
+    if (card['legalities'] is Map) 'legalities': card['legalities'],
     'finishes': finishes,
     'finish': finish,
   });

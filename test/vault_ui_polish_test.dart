@@ -146,7 +146,7 @@ void main() {
       // Unowned reference badge must be present
       final unownedBadgeFinder = find.byKey(Key('vault_tile_unowned_badge_${unownedItem.id}'));
       expect(unownedBadgeFinder, findsOneWidget);
-      expect(find.text('REF'), findsOneWidget);
+      expect(find.text('UNOWNED'), findsOneWidget);
 
       // Verify top-right positioning
       final positioned = tester.widget<Positioned>(
@@ -296,7 +296,7 @@ void main() {
       expect(find.text('1x'), findsNothing);
       // No unowned badge
       expect(find.byKey(Key('vault_tile_unowned_badge_${item.id}')), findsNothing);
-      expect(find.text('REF'), findsNothing);
+      expect(find.text('UNOWNED'), findsNothing);
     });
 
     testWidgets('M3.1.7: Duplicate badge scales cleanly for large quantities without overflow', (tester) async {

@@ -162,8 +162,8 @@ void main() {
       final summaries = await dao.getDeckSummaries();
 
       // Verify soft-deleted deck is omitted
-      expect(summaries.length, equals(1));
-      final edgarSummary = summaries.first;
+      expect(summaries.any((s) => s.id == 'deck-deleted'), isFalse);
+      final edgarSummary = summaries.firstWhere((s) => s.id == 'deck-1');
 
       expect(edgarSummary.id, equals('deck-1'));
       expect(edgarSummary.name, equals('Edgar Markov Aristocrats'));
@@ -381,10 +381,10 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Check [ Import + ] button exists
+      // Check [ Import ] button exists
       expect(find.byKey(const Key('vault_import_button')), findsOneWidget);
-      // Retains backward-compatible add item button
-      expect(find.byKey(const Key('vault_add_item_button')), findsOneWidget);
+      // Streamlined UI removes header '+' add item button
+      expect(find.byKey(const Key('vault_add_item_button')), findsNothing);
     });
 
     testWidgets('3.2: VaultImportBottomSheet parses bulk text into destination binder', (tester) async {

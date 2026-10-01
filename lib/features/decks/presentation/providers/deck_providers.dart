@@ -47,8 +47,13 @@ final deckItemsProvider =
     final dao = ref.watch(vaultDaoProvider);
     final deck = await dao.getDeck(deckId);
     if (deck != null) {
-      // Real deck persisted in SQLite: emit real items even if empty []
-      yield* dao.watchDeckItems(deckId);
+      // Real deck persisted in SQLite: emit real items unless only starter placeholder exists
+      yield* dao.watchDeckItems(deckId).map((items) {
+        if (deckId == MockDeckData.edgarMarkovDeckId && items.length <= 1 && MockDeckData.getDeckItems(deckId).isNotEmpty) {
+          return MockDeckData.getDeckItems(deckId);
+        }
+        return items;
+      });
     } else {
       // Non-persisted mock deck: emit mock items
       yield* dao.watchDeckItems(deckId).map((items) {

@@ -1,6 +1,6 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:countr/core/cache/parsed_json_cache.dart';
 import 'package:countr/core/database/app_database.dart';
 import 'package:countr/features/symbology/data/scryfall_symbol_catalog.dart';
 
@@ -313,14 +313,29 @@ class MtgFilterState {
 
   /// Determines whether a [VaultItem] matches this filter state.
   bool matches(VaultItem item) {
-    Map<String, dynamic> dyn = {};
-    if (item.dynamicData.isNotEmpty) {
-      try {
-        dyn = jsonDecode(item.dynamicData) as Map<String, dynamic>;
-      } catch (e, stackTrace) {
-        debugPrint('[MtgFilterState] Failed to decode dynamicData: $e\n$stackTrace');
-      }
-    }
+    final dyn = ParsedJsonCache.parse(item.dynamicData);
+
+    // 0. Default Exclusions & Special Cards
+    final layout = (dyn['layout']?.toString() ?? 'normal').toLowerCase();
+    final isArtSeries = layout == 'art_series';
+    final isUnplayable = layout == 'token' ||
+        layout == 'double_faced_token' ||
+        layout == 'emblem' ||
+        layout == 'planar' ||
+        layout == 'scheme' ||
+        layout == 'vanguard';
+
+    final allowsArtCards = rarities.contains('art_card') ||
+        rarities.contains('art card') ||
+        layouts.contains('art_series');
+    final allowsSpecialCards = rarities.contains('special') ||
+        rarities.contains('special_card') ||
+        rarities.contains('special card') ||
+        layouts.any((l) => ['token', 'double_faced_token', 'emblem', 'planar', 'scheme', 'vanguard'].contains(l.toLowerCase()));
+
+    // Exclude Art Series and unplayable cards by default unless requested
+    if (isArtSeries && !allowsArtCards) return false;
+    if (isUnplayable && !allowsSpecialCards && !allowsArtCards) return false;
 
     // 1. Universes Beyond filter
     if (isUniversesBeyond != null) {
@@ -351,9 +366,17 @@ class MtgFilterState {
     // 4. Rarities filter
     if (rarities.isNotEmpty) {
       final cardRarity = (dyn['rarity']?.toString() ?? '').toLowerCase();
-      if (!rarities.map((r) => r.toLowerCase()).contains(cardRarity)) {
-        return false;
-      }
+      final matchesAnyRarity = rarities.any((r) {
+        final clean = r.toLowerCase().trim();
+        if (clean == 'art_card' || clean == 'art card') {
+          return isArtSeries || cardRarity == 'art_card';
+        }
+        if (clean == 'special_card' || clean == 'special card') {
+          return cardRarity == 'special' || cardRarity == 'bonus' || isUnplayable;
+        }
+        return cardRarity == clean;
+      });
+      if (!matchesAnyRarity) return false;
     }
 
     // 4b. Formats filter (evaluates dynamicData['legalities'])
@@ -374,14 +397,30 @@ class MtgFilterState {
     // 5. Finishes filter
     if (finishes.isNotEmpty) {
       final rawFinishes = dyn['finishes'];
-      Set<String> cardFinishes = {};
+      final cardFinishes = <String>{};
       if (rawFinishes is List) {
-        cardFinishes =
-            rawFinishes.map((f) => f.toString().toLowerCase()).toSet();
+        cardFinishes.addAll(
+            rawFinishes.map((f) => f.toString().toLowerCase().replaceAll('-', '_')));
       } else if (rawFinishes is String) {
-        cardFinishes = {rawFinishes.toLowerCase()};
+        cardFinishes.add(rawFinishes.toLowerCase().replaceAll('-', '_'));
       }
-      final targetFinishes = finishes.map((f) => f.toLowerCase()).toSet();
+      if (dyn['finish'] != null) {
+        cardFinishes.add(dyn['finish'].toString().toLowerCase().replaceAll('-', '_'));
+      }
+      if (dyn['treatment'] != null) {
+        cardFinishes.add(dyn['treatment'].toString().toLowerCase().replaceAll('-', '_'));
+      }
+      if (dyn['frame_effects'] is List) {
+        for (final fe in dyn['frame_effects'] as List) {
+          cardFinishes.add(fe.toString().toLowerCase().replaceAll('-', '_'));
+        }
+      }
+      if (dyn['promo_types'] is List) {
+        for (final pt in dyn['promo_types'] as List) {
+          cardFinishes.add(pt.toString().toLowerCase().replaceAll('-', '_'));
+        }
+      }
+      final targetFinishes = finishes.map((f) => f.toLowerCase().replaceAll('-', '_')).toSet();
       if (!cardFinishes.any(targetFinishes.contains)) {
         return false;
       }
@@ -504,11 +543,14 @@ class MtgFilterState {
       final isCardColorless = cardColors.isEmpty ||
           (cardColors.length == 1 && cardColors.contains('C'));
       final filterOnlyC = colors.length == 1 && colors.contains('C');
+      final filterHasC = colors.contains('C');
 
       switch (colorMatchMode) {
         case ColorMatchMode.exactly:
           if (filterOnlyC) {
             if (!isCardColorless) return false;
+          } else if (filterHasC) {
+            if (!setEquals(cardColors, colors)) return false;
           } else {
             if (isCardColorless) return false;
             final effectiveCard =
@@ -522,6 +564,8 @@ class MtgFilterState {
         case ColorMatchMode.atMost:
           if (filterOnlyC) {
             if (!isCardColorless) return false;
+          } else if (filterHasC) {
+            if (!colors.containsAll(cardColors)) return false;
           } else {
             if (!isCardColorless) {
               final effectiveCard =
@@ -536,6 +580,8 @@ class MtgFilterState {
         case ColorMatchMode.including:
           if (filterOnlyC) {
             if (!isCardColorless) return false;
+          } else if (filterHasC) {
+            if (!cardColors.containsAll(colors)) return false;
           } else {
             if (isCardColorless) return false;
             final effectiveCard =
@@ -658,13 +704,12 @@ class MtgFilterState {
       colorList = dyn['colors'] as List<dynamic>?;
     }
 
-    if (colorList != null && colorList.isNotEmpty) {
-      return colorList.map((c) => c.toString().toUpperCase()).toSet();
-    }
+    final result = <String>{};
 
-    // Check card_faces if root colors was empty
-    if (dyn['card_faces'] is List) {
-      final faceColors = <String>{};
+    if (colorList != null && colorList.isNotEmpty) {
+      result.addAll(colorList.map((c) => c.toString().toUpperCase()));
+    } else if (dyn['card_faces'] is List) {
+      // Check card_faces if root colors was empty
       for (final face in dyn['card_faces'] as List) {
         if (face is Map) {
           final list = (target == ColorTarget.colorIdentity
@@ -672,12 +717,25 @@ class MtgFilterState {
                   : face['colors']) as List<dynamic>?;
           if (list != null) {
             for (final c in list) {
-              faceColors.add(c.toString().toUpperCase());
+              result.add(c.toString().toUpperCase());
             }
           }
         }
       }
-      if (faceColors.isNotEmpty) return faceColors;
+    }
+
+    // Check for explicit colorless mana symbol {C} in cost or oracle text
+    final manaCost = (dyn['mana_cost']?.toString() ?? '');
+    final oracleText = (dyn['oracle_text']?.toString() ?? '');
+    final hasExplicitC = manaCost.contains('{C}') ||
+        (target == ColorTarget.colorIdentity && oracleText.contains('{C}'));
+
+    if (hasExplicitC) {
+      result.add('C');
+    }
+
+    if (result.isNotEmpty) {
+      return result;
     }
 
     // Fallback: derive from mana_cost symbols
@@ -692,15 +750,15 @@ class MtgFilterState {
         }
       }
     }
-    final cost = costBuf.toString();
-    final derived = <String>{};
-    if (cost.contains('W')) derived.add('W');
-    if (cost.contains('U')) derived.add('U');
-    if (cost.contains('B')) derived.add('B');
-    if (cost.contains('R')) derived.add('R');
-    if (cost.contains('G')) derived.add('G');
-    if (derived.isEmpty) derived.add('C');
-    return derived;
+    final cost = costBuf.toString().toUpperCase();
+    if (cost.contains('W')) result.add('W');
+    if (cost.contains('U')) result.add('U');
+    if (cost.contains('B')) result.add('B');
+    if (cost.contains('R')) result.add('R');
+    if (cost.contains('G')) result.add('G');
+    if (cost.contains('{C}')) result.add('C');
+    if (result.isEmpty) result.add('C');
+    return result;
   }
 
   static int _resolveColorCount(Set<String> cardColors) {

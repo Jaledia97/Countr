@@ -8,6 +8,7 @@ import 'package:countr/features/vault/domain/models/card_availability.dart';
 import 'package:countr/features/vault/domain/models/vault_totals.dart';
 import 'package:countr/features/vault/domain/vault_variant_helper.dart';
 import 'package:countr/features/vault/presentation/providers/mtg_filter_state.dart';
+import 'package:countr/features/vault/domain/models/vault_set_collection.dart';
 
 /// Database singleton provider
 final appDatabaseProvider = Provider<AppDatabase>((ref) {
@@ -170,14 +171,15 @@ final vaultPortfolioSummaryProvider = Provider<VaultPortfolioSummary>((ref) {
   );
 });
 
-/// View mode for Vault screen (All Vault vs Binders View)
+/// View mode for Vault screen (Singles vs Binders vs Collections View)
 enum VaultViewMode {
   allVault,
   binders,
+  collections,
 }
 
 final vaultViewModeProvider =
-    StateProvider<VaultViewMode>((ref) => VaultViewMode.binders);
+    StateProvider<VaultViewMode>((ref) => VaultViewMode.allVault);
 
 /// Reactive StreamProvider for items staged in the Inbox
 final inboxItemsStreamProvider = StreamProvider<List<VaultItem>>((ref) {
@@ -212,6 +214,24 @@ final collectionItemCountsProvider = StreamProvider<Map<String, int>>((ref) {
   final dao = ref.watch(vaultDaoProvider);
   return dao.watchCollectionItemCounts();
 });
+
+/// Reactive StreamProvider for set collections grouped by setOrSeries
+final vaultSetCollectionsStreamProvider =
+    StreamProvider<List<VaultSetCollection>>((ref) {
+  final activeGame = ref.watch(activeGameContextProvider);
+  final searchQuery = ref.watch(vaultSearchQueryProvider).trim();
+  final dao = ref.watch(vaultDaoProvider);
+  return dao.watchSetCollections(
+    collectionType: activeGame,
+    searchQuery: searchQuery.isNotEmpty ? searchQuery : null,
+  );
+});
+
+/// Alias for vaultSetCollectionsStreamProvider
+final vaultSetCollectionsProvider = vaultSetCollectionsStreamProvider;
+
+/// Selected or expanded collection set name
+final selectedCollectionSetProvider = StateProvider<String?>((ref) => null);
 
 /// Reactive StreamProvider fetching a single VaultItem by ID.
 final vaultItemProvider = StreamProvider.family<VaultItem?, String>((ref, id) async* {

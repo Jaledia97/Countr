@@ -35,6 +35,11 @@ class _PlayerSetupEntry {
   }
 }
 
+/// Riverpod state providers for Match Setup Preferences.
+final podSeatingOrientationProvider = StateProvider<String>((ref) => 'opposed');
+final podOledModeProvider = StateProvider<bool>((ref) => false);
+final podImmersiveModeProvider = StateProvider<bool>((ref) => false);
+
 /// Pre-game Deck Selection & Pod Setup Modal Bottom Sheet (Feature 29).
 ///
 /// Features:
@@ -45,8 +50,10 @@ class _PlayerSetupEntry {
 ///   3. Commander `art_crop` URL for dynamic backdrop rendering.
 ///   4. Recommended starting life preset based on format (40 for Commander, 20 for Standard, 30 for Brawl).
 /// - Dynamic player count selection (2-player 1v1, 3P, 4P 2x2, 5P, 6P 2x3).
+/// - Pod table seating orientation picker (Opposed, Standard, Radial).
 /// - Format selector (Commander, Standard, Brawl, Draft, Custom).
-/// - Starting life presets (20, 30, 40, Custom numeric stepper).
+/// - Starting life slider with format snap points (20, 30, 40) + stepper.
+/// - OLED True Black (#000000) & Immersive gameplay modes.
 /// - Full decoupling for testing: accepts optional [injectedDecks] and [onStartMatch] callback.
 /// - Produces a validated [PodState] ready for instant match initialization.
 class PregameSetupSheet extends ConsumerStatefulWidget {
@@ -68,6 +75,24 @@ class PregameSetupSheet extends ConsumerStatefulWidget {
   /// Callback executed when the match setup is finalized.
   final void Function(PodState podState)? onStartMatch;
 
+  /// Optional active TCG context (e.g. 'Magic: The Gathering', 'Pokémon', 'Disney Lorcana').
+  final String? initialTcg;
+
+  /// Table seating orientation ('opposed', 'standard', 'radial').
+  final String initialSeatingOrientation;
+
+  /// OLED True Black mode toggle.
+  final bool initialOledMode;
+
+  /// Immersive full-screen gameplay mode toggle.
+  final bool initialImmersiveMode;
+
+  /// Static trackers preserving user match setup preferences across navigation.
+  static String lastSeatingOrientation = 'opposed';
+  static bool lastOledMode = false;
+  static bool lastImmersiveMode = false;
+  static String? lastTcg;
+
   const PregameSetupSheet({
     super.key,
     this.initialPlayerCount = 4,
@@ -76,6 +101,10 @@ class PregameSetupSheet extends ConsumerStatefulWidget {
     this.initialPlayers,
     this.injectedDecks,
     this.onStartMatch,
+    this.initialTcg,
+    this.initialSeatingOrientation = 'opposed',
+    this.initialOledMode = false,
+    this.initialImmersiveMode = false,
   });
 
   /// Static helper to display the [PregameSetupSheet] bottom modal.
@@ -87,6 +116,10 @@ class PregameSetupSheet extends ConsumerStatefulWidget {
     List<PlayerSetupConfig>? initialPlayers,
     List<DeckSummary>? injectedDecks,
     void Function(PodState podState)? onStartMatch,
+    String? initialTcg,
+    String initialSeatingOrientation = 'opposed',
+    bool initialOledMode = false,
+    bool initialImmersiveMode = false,
   }) {
     return showModalBottomSheet<PodState>(
       context: context,
@@ -99,6 +132,10 @@ class PregameSetupSheet extends ConsumerStatefulWidget {
         initialPlayers: initialPlayers,
         injectedDecks: injectedDecks,
         onStartMatch: onStartMatch,
+        initialTcg: initialTcg,
+        initialSeatingOrientation: initialSeatingOrientation,
+        initialOledMode: initialOledMode,
+        initialImmersiveMode: initialImmersiveMode,
       ),
     );
   }
@@ -111,6 +148,10 @@ class _PregameSetupSheetState extends ConsumerState<PregameSetupSheet> {
   late int _playerCount;
   late String _format;
   late int _startingLife;
+  late String _seatingOrientation;
+  late bool _isOledMode;
+  late bool _isImmersiveMode;
+  String? _tcg;
   final List<_PlayerSetupEntry> _players = [];
   bool _isCreatingSession = false;
 
@@ -128,6 +169,18 @@ class _PregameSetupSheetState extends ConsumerState<PregameSetupSheet> {
   void initState() {
     super.initState();
     _playerCount = widget.initialPlayerCount.clamp(2, 6);
+    _tcg = widget.initialTcg;
+    _seatingOrientation = widget.initialSeatingOrientation;
+    _isOledMode = widget.initialOledMode;
+    _isImmersiveMode = widget.initialImmersiveMode;
+
+    PregameSetupSheet.lastSeatingOrientation = _seatingOrientation;
+    PregameSetupSheet.lastOledMode = _isOledMode;
+    PregameSetupSheet.lastImmersiveMode = _isImmersiveMode;
+    if (_tcg != null) {
+      PregameSetupSheet.lastTcg = _tcg;
+    }
+
     _format = widget.initialFormat.toLowerCase();
     _startingLife = widget.initialStartingLife ??
         (_formatStartingLife[_format] ?? 40);
@@ -357,6 +410,18 @@ class _PregameSetupSheetState extends ConsumerState<PregameSetupSheet> {
       sequenceNumber: 0,
     );
 
+    // Persist setup preferences to static trackers and Riverpod providers
+    PregameSetupSheet.lastSeatingOrientation = _seatingOrientation;
+    PregameSetupSheet.lastOledMode = _isOledMode;
+    PregameSetupSheet.lastImmersiveMode = _isImmersiveMode;
+    PregameSetupSheet.lastTcg = _tcg;
+
+    try {
+      ref.read(podSeatingOrientationProvider.notifier).state = _seatingOrientation;
+      ref.read(podOledModeProvider.notifier).state = _isOledMode;
+      ref.read(podImmersiveModeProvider.notifier).state = _isImmersiveMode;
+    } catch (_) {}
+
     try {
       // 1. If parent provided an onStartMatch hook, call it
       widget.onStartMatch?.call(podState);
@@ -457,11 +522,19 @@ class _PregameSetupSheetState extends ConsumerState<PregameSetupSheet> {
                 _buildPlayerCountSection(),
                 const SizedBox(height: 16),
 
-                // 2. Format & Starting Life Selector
+                // 2. Pod Table Seating Orientation Picker (R5.1)
+                _buildSeatingOrientationSection(),
+                const SizedBox(height: 16),
+
+                // 3. Format & Starting Life Selector with Snap Slider (R5.2)
                 _buildFormatAndLifeSection(),
+                const SizedBox(height: 16),
+
+                // 4. OLED True Black & Immersive Gameplay Settings (R5.3 & R5.4)
+                _buildDisplayAndGameplaySettingsSection(),
                 const SizedBox(height: 20),
 
-                // 3. Player Seating & Deck Assignment List
+                // 5. Player Seating & Deck Assignment List
                 const Text(
                   'Players & Decks',
                   style: TextStyle(
@@ -567,7 +640,61 @@ class _PregameSetupSheetState extends ConsumerState<PregameSetupSheet> {
     );
   }
 
-  /// Format & starting life presets
+  /// Pod table seating orientation segmented control (R5.1)
+  Widget _buildSeatingOrientationSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Pod Seating Orientation',
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 13,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          child: SegmentedButton<String>(
+            key: const Key('pregame_seating_orientation_picker'),
+            style: SegmentedButton.styleFrom(
+              backgroundColor: const Color(0xFF1C222C),
+              selectedBackgroundColor: AppColors.accentGold,
+              selectedForegroundColor: Colors.black,
+              foregroundColor: Colors.white70,
+            ),
+            segments: const [
+              ButtonSegment(
+                value: 'opposed',
+                label: Text('Opposed'),
+                icon: Icon(Icons.swap_vert_rounded, size: 16),
+              ),
+              ButtonSegment(
+                value: 'standard',
+                label: Text('Standard'),
+                icon: Icon(Icons.crop_square_rounded, size: 16),
+              ),
+              ButtonSegment(
+                value: 'radial',
+                label: Text('Radial'),
+                icon: Icon(Icons.rotate_right_rounded, size: 16),
+              ),
+            ],
+            selected: {_seatingOrientation},
+            onSelectionChanged: (newSelection) {
+              setState(() {
+                _seatingOrientation = newSelection.first;
+                PregameSetupSheet.lastSeatingOrientation = _seatingOrientation;
+              });
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Format & starting life presets with interactive snap slider (R5.2)
   Widget _buildFormatAndLifeSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -615,6 +742,39 @@ class _PregameSetupSheetState extends ConsumerState<PregameSetupSheet> {
           ],
         ),
         const SizedBox(height: 6),
+        // Interactive Starting Life Slider with Snap Points (R5.2)
+        SliderTheme(
+          data: SliderTheme.of(context).copyWith(
+            activeTrackColor: AppColors.accentGold,
+            inactiveTrackColor: Colors.white24,
+            thumbColor: AppColors.accentGold,
+            overlayColor: AppColors.accentGold.withValues(alpha: 0.2),
+            valueIndicatorColor: AppColors.accentGold,
+            valueIndicatorTextStyle:
+                const TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+          ),
+          child: Slider(
+            key: const Key('pregame_starting_life_slider'),
+            min: 10.0,
+            max: 100.0,
+            divisions: 90,
+            value: _startingLife.toDouble().clamp(10.0, 100.0),
+            label: '$_startingLife Life',
+            onChanged: (val) {
+              int target = val.round();
+              // Format snap points: 40 Commander, 30 Brawl, 20 Standard
+              const snapNodes = [20, 30, 40];
+              for (final node in snapNodes) {
+                if ((target - node).abs() <= 2) {
+                  target = node;
+                  break;
+                }
+              }
+              _setStartingLife(target);
+            },
+          ),
+        ),
+        const SizedBox(height: 4),
         // Preset pills
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
@@ -655,6 +815,85 @@ class _PregameSetupSheetState extends ConsumerState<PregameSetupSheet> {
       ),
       side: BorderSide(
         color: isSelected ? AppColors.accentGold : Colors.white12,
+      ),
+    );
+  }
+
+  /// Display & gameplay settings (OLED mode & Immersive mode) (R5.3 & R5.4)
+  Widget _buildDisplayAndGameplaySettingsSection() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1C222C),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Display & Gameplay Preferences',
+            style: TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 4),
+          // OLED True Black Mode (R5.3)
+          SwitchListTile(
+            key: const Key('pregame_oled_mode_switch'),
+            contentPadding: EdgeInsets.zero,
+            dense: true,
+            title: const Text(
+              'OLED True Black Mode',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+              ),
+            ),
+            subtitle: const Text(
+              'True black (#000000) background for pure contrast and OLED battery savings',
+              style: TextStyle(color: Colors.white54, fontSize: 11),
+            ),
+            value: _isOledMode,
+            activeThumbColor: AppColors.accentGold,
+            onChanged: (val) {
+              setState(() {
+                _isOledMode = val;
+                PregameSetupSheet.lastOledMode = val;
+              });
+            },
+          ),
+          const Divider(color: Colors.white12, height: 1),
+          // Immersive Mode (R5.4)
+          SwitchListTile(
+            key: const Key('pregame_immersive_mode_switch'),
+            contentPadding: EdgeInsets.zero,
+            dense: true,
+            title: const Text(
+              'Immersive Mode',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+              ),
+            ),
+            subtitle: const Text(
+              'Hide system status and navigation bars during gameplay',
+              style: TextStyle(color: Colors.white54, fontSize: 11),
+            ),
+            value: _isImmersiveMode,
+            activeThumbColor: AppColors.accentGold,
+            onChanged: (val) {
+              setState(() {
+                _isImmersiveMode = val;
+                PregameSetupSheet.lastImmersiveMode = val;
+              });
+            },
+          ),
+        ],
       ),
     );
   }

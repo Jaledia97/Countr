@@ -21,7 +21,7 @@ void main() {
   });
 
   group('AppBar Privacy Mode Toggle Actions', () {
-    testWidgets('VaultScreen: Privacy toggle in AppBar updates state and switches icon', (tester) async {
+    testWidgets('VaultScreen: Privacy toggle is relocated from AppBar and privacy is controlled globally', (tester) async {
       final container = ProviderContainer(
         overrides: [
           appDatabaseProvider.overrideWithValue(db),
@@ -43,38 +43,21 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final toggleButton = find.byKey(const Key('vault_privacy_mode_button'));
-      expect(toggleButton, findsOneWidget);
+      // Privacy toggle is removed from VaultScreen AppBar
+      expect(find.byKey(const Key('vault_privacy_mode_button')), findsNothing);
 
-      // Verify layout buttons are preserved alongside privacy toggle
+      // Verify layout buttons are preserved
       expect(find.byKey(const Key('vault_layout_grid_button')), findsOneWidget);
       expect(find.byKey(const Key('vault_layout_list_button')), findsOneWidget);
 
-      // Initially visibility icon (privacy off)
-      expect(
-        find.descendant(of: toggleButton, matching: find.byIcon(Icons.visibility)),
-        findsOneWidget,
-      );
-
-      // Tap toggle -> activates privacy mode
-      await tester.tap(toggleButton);
+      // Verify privacyModeProvider state is independently/globally controlled
+      container.read(privacyModeProvider.notifier).state = true;
       await tester.pumpAndSettle();
-
       expect(container.read(privacyModeProvider), isTrue);
-      expect(
-        find.descendant(of: toggleButton, matching: find.byIcon(Icons.visibility_off)),
-        findsOneWidget,
-      );
 
-      // Tap toggle again -> deactivates privacy mode
-      await tester.tap(toggleButton);
+      container.read(privacyModeProvider.notifier).state = false;
       await tester.pumpAndSettle();
-
       expect(container.read(privacyModeProvider), isFalse);
-      expect(
-        find.descendant(of: toggleButton, matching: find.byIcon(Icons.visibility)),
-        findsOneWidget,
-      );
     });
 
     testWidgets('DecksScreen: Privacy toggle in AppBar updates state and switches icon', (tester) async {

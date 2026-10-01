@@ -154,8 +154,8 @@ void main() {
       await tester.pumpWidget(createSubject(deck: testDeck));
       await tester.pumpAndSettle();
 
-      // Tap Analytics icon in SliverAppBar actions
-      final analyticsButton = find.byIcon(Icons.analytics_rounded);
+      // Tap Modal button on InlineDeckAnalyticsCard
+      final analyticsButton = find.byKey(const Key('inline_analytics_expand_modal_button'));
       expect(analyticsButton, findsOneWidget);
       await tester.tap(analyticsButton);
       await tester.pumpAndSettle();

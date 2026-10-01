@@ -221,6 +221,13 @@ void main() {
       expect(accordionFinder, findsOneWidget);
       expect(find.text('Official Rulings (3)'), findsOneWidget);
 
+      // Progressive disclosure: tap "See All" to reveal subsequent rulings
+      final seeAllButton = find.byKey(const Key('card_detail_rulings_see_all_button'));
+      if (seeAllButton.evaluate().isNotEmpty) {
+        await tester.tap(seeAllButton);
+        await tester.pumpAndSettle();
+      }
+
       // Check dates
       expect(find.text('2023-01-15'), findsOneWidget);
       expect(find.text('2023-02-20'), findsOneWidget);

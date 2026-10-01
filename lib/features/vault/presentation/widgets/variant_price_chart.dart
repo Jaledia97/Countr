@@ -422,11 +422,11 @@ class _VariantPriceChartState extends ConsumerState<VariantPriceChart> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 1. Art crop thumbnail (ClipRRect with rounded top corners)
+            // 1. Full card preview thumbnail (~66% of container height)
             ClipRRect(
               borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
               child: SizedBox(
-                height: 68,
+                height: 110,
                 width: double.infinity,
                 child: Stack(
                   fit: StackFit.expand,
@@ -462,20 +462,20 @@ class _VariantPriceChartState extends ConsumerState<VariantPriceChart> {
             // Card metadata container
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(6, 5, 6, 6),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    // 2. Set Code badge & Collector number
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
-                      child: Row(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // 2. Set Code badge & Collector number
+                      Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0.5),
                             decoration: BoxDecoration(
                               color: AppColors.surface,
                               borderRadius: BorderRadius.circular(4),
@@ -488,7 +488,7 @@ class _VariantPriceChartState extends ConsumerState<VariantPriceChart> {
                             child: Text(
                               variant.setCode.toUpperCase(),
                               style: const TextStyle(
-                                fontSize: 9.5,
+                                fontSize: 9,
                                 fontWeight: FontWeight.bold,
                                 color: AppColors.accentCyan,
                               ),
@@ -498,53 +498,48 @@ class _VariantPriceChartState extends ConsumerState<VariantPriceChart> {
                           Text(
                             '#${variant.collectorNumber}',
                             style: const TextStyle(
-                              fontSize: 9.5,
+                              fontSize: 9,
                               color: AppColors.textMuted,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
                         ],
                       ),
-                    ),
+                      const SizedBox(height: 2),
 
-                    // 3. Finish / treatment pill
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                      decoration: BoxDecoration(
-                        color: finishBg,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
+                      // 3. Finish / treatment pill
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0.5),
+                        decoration: BoxDecoration(
+                          color: finishBg,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
                         child: Text(
                           finishLabel,
                           style: TextStyle(
-                            fontSize: 9,
+                            fontSize: 8.5,
                             fontWeight: FontWeight.w700,
                             color: finishColor,
                           ),
                         ),
                       ),
-                    ),
+                      const SizedBox(height: 2),
 
-                    // 4. Current Market Price
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
-                      child: Text(
+                      // 4. Current Market Price
+                      Text(
                         _isPrivacyMode
                             ? '****'
                             : (variant.marketPrice > 0
                                 ? '\$${variant.marketPrice.toStringAsFixed(2)}'
                                 : '—'),
                         style: const TextStyle(
-                          fontSize: 11.5,
+                          fontSize: 10.5,
                           fontWeight: FontWeight.w800,
                           color: AppColors.accentEmerald,
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -555,7 +550,9 @@ class _VariantPriceChartState extends ConsumerState<VariantPriceChart> {
   }
 
   Widget _buildThumbnailImage(CardPrintCandidate variant) {
-    final url = variant.artCropUrl ?? variant.imageUrl;
+    final url = variant.imageUrl.isNotEmpty
+        ? variant.imageUrl
+        : (variant.artCropUrl ?? '');
     if (url.isEmpty) {
       return Container(
         color: AppColors.surfaceHighlight,
@@ -566,7 +563,7 @@ class _VariantPriceChartState extends ConsumerState<VariantPriceChart> {
 
     return CountrCachedImage(
       imageUrl: url,
-      fit: BoxFit.cover,
+      fit: BoxFit.contain,
       errorWidget: Container(
         color: AppColors.surfaceHighlight,
         alignment: Alignment.center,

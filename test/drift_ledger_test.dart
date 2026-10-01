@@ -21,13 +21,13 @@ void main() {
   });
 
   group('Phase 2: Drift Ledger & Polymorphic Architecture Tests', () {
-    test('seedDatabase() inserts exactly 4 hyper-detailed mock records',
+    test('seedDatabase() inserts hyper-detailed mock records across collections',
         () async {
       final items = await db.vaultDao.watchItemsByCollection('all').first;
-      expect(items.length, 4);
+      expect(items.length, 16);
 
       // Verify MTG record
-      final mtg = items.firstWhere((i) => i.collectionType == 'mtg');
+      final mtg = items.firstWhere((i) => i.id == 'item-mtg-one-ring');
       expect(mtg.name, contains('The One Ring'));
       expect(mtg.acquiredPrice, 15.00);
       expect(mtg.currentMarketPrice, 45.50);
@@ -36,7 +36,7 @@ void main() {
       expect(mtg.dynamicData, contains('"mana":"{4}"'));
 
       // Verify Pokémon record
-      final pokemon = items.firstWhere((i) => i.collectionType == 'pokemon');
+      final pokemon = items.firstWhere((i) => i.id == 'item-pokemon-charizard');
       expect(pokemon.name, contains('Charizard ex'));
       expect(pokemon.acquiredPrice, 4.50);
       expect(pokemon.currentMarketPrice, 3.25);
@@ -67,31 +67,31 @@ void main() {
       // All collections
       final allItems =
           await db.vaultDao.watchItemsByCollection('All Collections').first;
-      expect(allItems.length, 4);
+      expect(allItems.length, 16);
 
       // Filter MTG
       final mtgItems =
           await db.vaultDao.watchItemsByCollection('Magic: The Gathering').first;
-      expect(mtgItems.length, 1);
-      expect(mtgItems.first.collectionType, 'mtg');
+      expect(mtgItems.isNotEmpty, isTrue);
+      expect(mtgItems.every((i) => i.collectionType == 'mtg'), isTrue);
 
       // Filter Pokémon
       final pokeItems =
           await db.vaultDao.watchItemsByCollection('Pokémon TCG').first;
-      expect(pokeItems.length, 1);
-      expect(pokeItems.first.collectionType, 'pokemon');
+      expect(pokeItems.isNotEmpty, isTrue);
+      expect(pokeItems.every((i) => i.collectionType == 'pokemon'), isTrue);
 
       // Filter Comic Books
       final comicItems =
           await db.vaultDao.watchItemsByCollection('Comic Books').first;
-      expect(comicItems.length, 1);
-      expect(comicItems.first.collectionType, 'comic');
+      expect(comicItems.isNotEmpty, isTrue);
+      expect(comicItems.every((i) => i.collectionType == 'comic'), isTrue);
 
       // Filter Sports Cards
       final sportsItems =
           await db.vaultDao.watchItemsByCollection('Sports Cards').first;
-      expect(sportsItems.length, 1);
-      expect(sportsItems.first.collectionType, 'sports_card');
+      expect(sportsItems.isNotEmpty, isTrue);
+      expect(sportsItems.every((i) => i.collectionType == 'sports_card'), isTrue);
     });
 
     test(
@@ -99,8 +99,7 @@ void main() {
         () async {
       // 1. Verify pre-existing seeded user item (The One Ring)
       final preItems = await db.vaultDao.watchItemsByCollection('mtg').first;
-      expect(preItems.length, 1);
-      final preMtg = preItems.first;
+      final preMtg = preItems.firstWhere((i) => i.id == 'item-mtg-one-ring');
       expect(preMtg.id, 'item-mtg-one-ring');
       expect(preMtg.quantity, 1);
       expect(preMtg.acquiredPrice, 15.00);
@@ -134,8 +133,7 @@ void main() {
 
       // 4. Verify the card in database
       final postItems = await db.vaultDao.watchItemsByCollection('mtg').first;
-      expect(postItems.length, 1);
-      final postMtg = postItems.first;
+      final postMtg = postItems.firstWhere((i) => i.id == 'item-mtg-one-ring');
 
       // Catalog fields MUST be updated:
       expect(postMtg.name, 'The One Ring (Updated Oracle Text)');

@@ -183,8 +183,9 @@ void main() {
   group('SQLite Migration & Collation / Case-Insensitivity Verification', () {
     late AppDatabase db;
 
-    setUp(() {
+    setUp(() async {
       db = AppDatabase(NativeDatabase.memory());
+      await db.delete(db.vaultItems).go();
     });
 
     tearDown(() async {

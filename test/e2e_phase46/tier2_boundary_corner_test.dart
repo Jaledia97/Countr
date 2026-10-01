@@ -1119,19 +1119,19 @@ void main() {
   group('Tier 2 - Feature 16: Context-Aware Filter Pills Boundary Cases', () {
     List<String> getContextFilters(String? activeGame) {
       if (activeGame == null || activeGame.isEmpty) {
-        return ['Owned', 'Catalog (Ref)', 'Graded Slabs', 'Raw Singles', 'High P/L'];
+        return ['Owned', 'All Cards', 'Graded Slabs', 'Raw Singles', 'High P/L'];
       }
       switch (activeGame) {
         case 'Magic: The Gathering':
-          return ['Owned', 'Catalog (Ref)', 'Graded Slabs', 'Raw Singles', 'High P/L', 'Commander Legal'];
+          return ['Owned', 'All Cards', 'Graded Slabs', 'Raw Singles', 'High P/L', 'Commander Legal'];
         case 'Pokémon TCG':
-          return ['Owned', 'Catalog (Ref)', 'Graded Slabs', 'Raw Singles', 'High P/L', 'Standard Legal'];
+          return ['Owned', 'All Cards', 'Graded Slabs', 'Raw Singles', 'High P/L', 'Standard Legal'];
         case 'Comic Books':
-          return ['Owned', 'Catalog (Ref)', 'Graded Slabs', 'Raw Issues', 'High P/L', 'Golden Age'];
+          return ['Owned', 'All Cards', 'Graded Slabs', 'Raw Issues', 'High P/L', 'Golden Age'];
         case 'Sports Cards':
-          return ['Owned', 'Catalog (Ref)', 'Graded Slabs', 'Raw Cards', 'High P/L', 'Rookie Cards'];
+          return ['Owned', 'All Cards', 'Graded Slabs', 'Raw Cards', 'High P/L', 'Rookie Cards'];
         default:
-          return ['Owned', 'Catalog (Ref)', 'Graded Slabs', 'Raw Singles', 'High P/L'];
+          return ['Owned', 'All Cards', 'Graded Slabs', 'Raw Singles', 'High P/L'];
       }
     }
 

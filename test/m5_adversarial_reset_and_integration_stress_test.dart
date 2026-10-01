@@ -16,6 +16,7 @@ import 'package:countr/features/life_counter/presentation/dialogs/randomizer_hub
 import 'package:countr/features/life_counter/presentation/widgets/center_hub_button.dart';
 import 'package:countr/features/life_counter/presentation/widgets/pod_scaffold_widget.dart';
 import 'package:countr/features/command_center/presentation/widgets/play_track_accordion.dart';
+import 'package:countr/features/life_counter/presentation/dialogs/pregame_setup_sheet.dart';
 import 'package:countr/features/decks/domain/models/deck_summary.dart';
 
 void main() {
@@ -883,15 +884,19 @@ void main() {
         expect(find.text('Play / Track +'), findsOneWidget);
         expect(find.text('MTG'), findsOneWidget);
 
-        // Expand MTG
+        // Tap MTG directly launches PregameSetupSheet
         await tester.tap(find.text('MTG'));
         await tester.pumpAndSettle();
 
-        expect(find.text('Commander'), findsOneWidget);
+        expect(find.byKey(const Key('pregame_setup_sheet')), findsOneWidget);
+
+        // Close the bottom sheet for next viewport
+        await tester.tap(find.byIcon(Icons.close).first);
+        await tester.pumpAndSettle();
       }
     });
 
-    testWidgets('T5.3: MTG format launch hooks: tapping Commander, Standard, and Draft correctly passes exact format strings', (tester) async {
+    testWidgets('T5.3: MTG format launch hooks: tapping MTG card directly invokes onLaunchMtgMode with Commander format', (tester) async {
       String? launchedFormat;
       int launchCount = 0;
 
@@ -912,27 +917,11 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Expand MTG
+      // Tap MTG directly
       await tester.tap(find.text('MTG'));
-      await tester.pumpAndSettle();
-
-      // 1. Tap Commander
-      await tester.tap(find.text('Commander'));
       await tester.pump();
       expect(launchedFormat, 'Commander');
       expect(launchCount, 1);
-
-      // 2. Tap Standard
-      await tester.tap(find.text('Standard'));
-      await tester.pump();
-      expect(launchedFormat, 'Standard');
-      expect(launchCount, 2);
-
-      // 3. Tap Draft
-      await tester.tap(find.text('Draft'));
-      await tester.pump();
-      expect(launchedFormat, 'Draft');
-      expect(launchCount, 3);
     });
 
     testWidgets('T5.4: Fallback launch presents PregameSetupSheet when onLaunchMtgMode is null', (tester) async {
@@ -989,27 +978,25 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Expand MTG
+      // Tap MTG directly launches PregameSetupSheet
       await tester.tap(find.text('MTG'));
-      await tester.pumpAndSettle();
-
-      // Tap Commander
-      await tester.tap(find.text('Commander'));
       await tester.pumpAndSettle();
 
       expect(modeSelectedCalled, isTrue);
       expect(find.byKey(const Key('pregame_setup_sheet')), findsOneWidget);
     });
 
-    testWidgets('T5.5: Non-MTG formats trigger onModeSelected and show format SnackBars', (tester) async {
+    testWidgets('T5.5: Non-MTG formats trigger onModeSelected and directly launch PregameSetupSheet with appropriate TCG context', (tester) async {
       bool modeSelectedCalled = false;
 
       await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: SingleChildScrollView(
-              child: PlayTrackAccordion(
-                onModeSelected: () => modeSelectedCalled = true,
+        ProviderScope(
+          child: MaterialApp(
+            home: Scaffold(
+              body: SingleChildScrollView(
+                child: PlayTrackAccordion(
+                  onModeSelected: () => modeSelectedCalled = true,
+                ),
               ),
             ),
           ),
@@ -1017,17 +1004,13 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Expand Lorcana
+      // Tap Lorcana directly
       await tester.tap(find.text('Lorcana'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Core / Standard'), findsOneWidget);
-
-      await tester.tap(find.text('Core / Standard'));
-      await tester.pump();
-
       expect(modeSelectedCalled, isTrue);
-      expect(find.text('Selected Play/Track mode: Lorcana - Core / Standard'), findsOneWidget);
+      expect(find.byKey(const Key('pregame_setup_sheet')), findsOneWidget);
+      expect(PregameSetupSheet.lastTcg, equals('Disney Lorcana'));
     });
   });
 }

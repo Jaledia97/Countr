@@ -1,6 +1,7 @@
 // Copyright (c) 2026 Countr. All rights reserved.
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'package:countr/features/life_counter/domain/models/pod_state.dart';
 import '../dialogs/randomizer_hub_modal.dart';
@@ -16,6 +17,16 @@ import 'pod_layout_engine.dart';
 /// provides an exit button, and seamlessly manages local or external pod state.
 class PodScaffoldWidget extends StatefulWidget {
   final PodState podState;
+
+  /// Seating layout orientation ('opposed', 'standard', 'radial').
+  final String seatingOrientation;
+
+  /// OLED True Black mode toggle (#000000).
+  final bool isOledMode;
+
+  /// Immersive full-screen gameplay mode (SystemUiMode.immersiveSticky).
+  final bool isImmersiveMode;
+
   final void Function(String playerId, int delta)? onLifeDelta;
   final void Function(String targetId, String sourceId, int delta)? onCommanderDamage;
   final void Function(String playerId, String color, int delta)? onManaDelta;
@@ -40,6 +51,9 @@ class PodScaffoldWidget extends StatefulWidget {
   const PodScaffoldWidget({
     super.key,
     required this.podState,
+    this.seatingOrientation = 'opposed',
+    this.isOledMode = false,
+    this.isImmersiveMode = false,
     this.onLifeDelta,
     this.onCommanderDamage,
     this.onManaDelta,
@@ -67,6 +81,17 @@ class _PodScaffoldWidgetState extends State<PodScaffoldWidget> {
   void initState() {
     super.initState();
     _activePodState = widget.podState;
+    if (widget.isImmersiveMode) {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    }
+  }
+
+  @override
+  void dispose() {
+    if (widget.isImmersiveMode) {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    }
+    super.dispose();
   }
 
   @override
@@ -152,11 +177,12 @@ class _PodScaffoldWidgetState extends State<PodScaffoldWidget> {
         .where((p) => p.id != player.id)
         .toList();
 
-    return PlayerQuadrantWidget(
+    Widget quadrant = PlayerQuadrantWidget(
       key: Key('quadrant_${player.id}'),
       player: player,
       isTablet: isTablet,
       opponents: opponents,
+      isOledMode: widget.isOledMode,
       onLifeDelta: (delta) {
         if (widget.onLifeDelta != null) {
           widget.onLifeDelta!(player.id, delta);
@@ -301,6 +327,16 @@ class _PodScaffoldWidgetState extends State<PodScaffoldWidget> {
         }
       },
     );
+
+    if (widget.seatingOrientation == 'standard' && isTopRow) {
+      // Counter-rotate top row so all players face upright in standard shared orientation
+      quadrant = RotatedBox(
+        quarterTurns: 2,
+        child: quadrant,
+      );
+    }
+
+    return quadrant;
   }
 
   /// Central crossroads floating hub button positioned at the exact table intersection.

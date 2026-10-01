@@ -51,15 +51,17 @@ void main() {
       expect(modeSelectedCalled, isFalse);
     });
 
-    testWidgets('2. Non-MTG formats trigger onModeSelected and display standard SnackBar', (tester) async {
+    testWidgets('2. Non-MTG formats trigger onModeSelected and directly launch PregameSetupSheet', (tester) async {
       bool modeSelectedCalled = false;
 
       await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: SingleChildScrollView(
-              child: PlayTrackAccordion(
-                onModeSelected: () => modeSelectedCalled = true,
+        ProviderScope(
+          child: MaterialApp(
+            home: Scaffold(
+              body: SingleChildScrollView(
+                child: PlayTrackAccordion(
+                  onModeSelected: () => modeSelectedCalled = true,
+                ),
               ),
             ),
           ),
@@ -67,21 +69,15 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Expand Pokémon accordion
+      // Tap Pokémon card directly without nested expansion (R4)
       await tester.tap(find.text('Pokémon'));
       await tester.pumpAndSettle();
 
-      expect(find.text('GLC'), findsOneWidget);
-
-      // Tap GLC mode
-      await tester.tap(find.text('GLC'));
-      await tester.pump();
-
       expect(modeSelectedCalled, isTrue);
-      expect(find.text('Selected Play/Track mode: Pokémon - GLC'), findsOneWidget);
+      expect(find.byKey(const Key('pregame_setup_sheet')), findsOneWidget);
     });
 
-    testWidgets('3. MTG formats invoke onLaunchMtgMode hook with exact format names', (tester) async {
+    testWidgets('3. MTG formats invoke onLaunchMtgMode hook directly without nested expansion', (tester) async {
       String? launchedFormat;
       bool modeSelectedCalled = false;
 
@@ -99,36 +95,12 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Expand MTG accordion
+      // Tap MTG card directly without nested expansion (R4)
       await tester.tap(find.text('MTG'));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Commander'), findsOneWidget);
-      expect(find.text('Standard'), findsOneWidget);
-      expect(find.text('Draft'), findsOneWidget);
-
-      // 3A. Tap Commander
-      await tester.tap(find.text('Commander'));
       await tester.pump();
 
       expect(modeSelectedCalled, isTrue);
       expect(launchedFormat, 'Commander');
-
-      // 3B. Tap Standard
-      modeSelectedCalled = false;
-      await tester.tap(find.text('Standard'));
-      await tester.pump();
-
-      expect(modeSelectedCalled, isTrue);
-      expect(launchedFormat, 'Standard');
-
-      // 3C. Tap Draft
-      modeSelectedCalled = false;
-      await tester.tap(find.text('Draft'));
-      await tester.pump();
-
-      expect(modeSelectedCalled, isTrue);
-      expect(launchedFormat, 'Draft');
     });
 
     testWidgets('4. Default launch opens PregameSetupSheet when onLaunchMtgMode is null', (tester) async {
@@ -185,12 +157,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Expand MTG
+      // Tap MTG directly without nested expansion (R4)
       await tester.tap(find.text('MTG'));
-      await tester.pumpAndSettle();
-
-      // Tap Commander mode
-      await tester.tap(find.text('Commander'));
       await tester.pumpAndSettle();
 
       expect(modeSelectedCalled, isTrue);

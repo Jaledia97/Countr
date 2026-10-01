@@ -21,6 +21,14 @@ void main() {
       db = AppDatabase(NativeDatabase.memory());
       dao = db.vaultDao;
       await dao.seedDatabase();
+      await (db.delete(db.vaultItems)
+            ..where((t) => t.id.isNotIn(const [
+                  'item-mtg-one-ring',
+                  'item-pokemon-charizard',
+                  'item-comic-fallout-4',
+                  'item-sports-watt-rookie',
+                ])))
+          .go();
     });
 
     tearDown(() async {
@@ -528,12 +536,13 @@ void main() {
 
       expect(find.text('Total Tracked Items: 1'), findsOneWidget);
 
-      // Tap 'Add Item' button 5 times
-      final addButtonFinder = find.byKey(const Key('vault_add_item_button'));
-      expect(addButtonFinder, findsOneWidget);
+      // Verify Import button does not mutate item count dummy state and add item button is removed
+      final importButtonFinder = find.byKey(const Key('vault_import_button'));
+      expect(importButtonFinder, findsOneWidget);
+      expect(find.byKey(const Key('vault_add_item_button')), findsNothing);
 
       for (int i = 0; i < 5; i++) {
-        await tester.tap(addButtonFinder, warnIfMissed: false);
+        await tester.tap(importButtonFinder, warnIfMissed: false);
         await tester.pump();
       }
       await tester.pumpAndSettle();

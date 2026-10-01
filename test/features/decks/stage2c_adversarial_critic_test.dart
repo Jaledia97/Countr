@@ -161,8 +161,7 @@ void main() {
       );
 
       final summaries = await dao.getDeckSummaries();
-      expect(summaries.length, equals(1));
-      final deckSummary = summaries.first;
+      final deckSummary = summaries.firstWhere((s) => s.id == 'deck-solo');
       // Because vi.is_deleted = 1, LEFT JOIN produces null for commander fields
       expect(deckSummary.commanderName, isNull);
       expect(deckSummary.commanderCardId, isNull);

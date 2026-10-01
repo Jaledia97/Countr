@@ -165,7 +165,7 @@ void main() {
 
       expect(tester.takeException(), isNull);
       expect(find.byKey(Key('vault_tile_unowned_badge_${item.id}')), findsOneWidget);
-      expect(find.text('REF'), findsOneWidget);
+      expect(find.text('UNOWNED'), findsOneWidget);
       expect(find.text('Unlisted'), findsOneWidget);
       expect(find.text('Check'), findsNothing);
     });
@@ -575,7 +575,7 @@ void main() {
 
       // Initial physics must allow scrolling
       final initialPageView = tester.widget<PageView>(pageViewFinder);
-      expect(initialPageView.physics, isA<PageScrollPhysics>());
+      expect(initialPageView.physics, isA<BouncingScrollPhysics>());
 
       // Zoom card via TransformationController scale simulation
       final interactiveViewerFinder = find.byKey(const Key('fullscreen_interactive_viewer'));
@@ -602,7 +602,7 @@ void main() {
       await tester.pumpAndSettle();
 
       final resetPageView = tester.widget<PageView>(pageViewFinder);
-      expect(resetPageView.physics, isA<PageScrollPhysics>());
+      expect(resetPageView.physics, isA<BouncingScrollPhysics>());
 
       // Now swipe or tap next to navigate to Card 2
       await tester.tap(find.byKey(const Key('fs_swipe_next_button')));
@@ -701,7 +701,7 @@ void main() {
         of: find.byKey(const PageStorageKey<String>('vault_custom_scroll_view')),
         matching: find.byWidgetPredicate((w) => w is Scrollable && w.axisDirection == AxisDirection.down),
       );
-      final scrollable = tester.state<ScrollableState>(scrollableFinder);
+      final scrollable = tester.state<ScrollableState>(scrollableFinder.first);
       expect(scrollable.position.pixels, equals(0.0));
 
       // Tap on item 0 to open CardDetailSheet

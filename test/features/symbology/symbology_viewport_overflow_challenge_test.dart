@@ -200,6 +200,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.byType(ManaCostBar), findsWidgets);
+        expect(find.byType(ManaText), findsWidgets);
         expect(tester.takeException(), isNull);
 
         final listFinder = find.byKey(PageStorageKey('card_detail_list_${card.id}'));
@@ -210,8 +211,6 @@ void main() {
           await tester.drag(listFinder, const Offset(0, -100));
           await tester.pumpAndSettle();
         }
-
-        expect(find.byType(ManaText), findsWidgets);
         expect(tester.takeException(), isNull);
 
         // Scroll back up
@@ -219,6 +218,7 @@ void main() {
           await tester.drag(listFinder, const Offset(0, 100));
           await tester.pumpAndSettle();
         }
+        expect(find.byType(ManaText), findsWidgets);
         expect(tester.takeException(), isNull);
       });
 
@@ -247,6 +247,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.byType(ManaCostBar), findsWidgets);
+        expect(find.byType(ManaText), findsWidgets);
         expect(tester.takeException(), isNull);
 
         // Scroll down systematically to render Oracle Text
@@ -257,7 +258,6 @@ void main() {
           await tester.pumpAndSettle();
         }
 
-        expect(find.byType(ManaText), findsWidgets);
         expect(tester.takeException(), isNull);
       });
 
@@ -342,6 +342,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.byType(ManaCostBar), findsWidgets);
+        expect(find.byType(ManaText), findsWidgets);
         expect(tester.takeException(), isNull);
 
         // Scroll down systematically to render Scryfall rulings
@@ -352,7 +353,6 @@ void main() {
           await tester.pumpAndSettle();
         }
 
-        expect(find.byType(ManaText), findsWidgets);
         expect(tester.takeException(), isNull);
       });
     }

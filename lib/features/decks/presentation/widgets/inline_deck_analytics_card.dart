@@ -11,6 +11,7 @@ class InlineDeckAnalyticsCard extends StatelessWidget {
   final bool isExpanded;
   final VoidCallback onToggleExpand;
   final VoidCallback onOpenModal;
+  final String? userNotes;
 
   const InlineDeckAnalyticsCard({
     super.key,
@@ -18,6 +19,7 @@ class InlineDeckAnalyticsCard extends StatelessWidget {
     required this.isExpanded,
     required this.onToggleExpand,
     required this.onOpenModal,
+    this.userNotes,
   });
 
   @override
@@ -96,6 +98,33 @@ class InlineDeckAnalyticsCard extends StatelessWidget {
             const SizedBox(height: 12),
             _buildSectionHeader('Deck Bling'),
             BlingMeterWidget(blingPercentage: analytics.blingPercentage),
+            const SizedBox(height: 14),
+            _buildSectionHeader('User Notes'),
+            Container(
+              key: const Key('inline_analytics_user_notes_container'),
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppColors.surfaceBorderSubtle),
+              ),
+              child: Text(
+                (userNotes != null && userNotes!.trim().isNotEmpty)
+                    ? userNotes!
+                    : 'No notes added for this deck yet. Open "Deck Details & Notes" to edit primer and strategy.',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: (userNotes != null && userNotes!.trim().isNotEmpty)
+                      ? AppColors.textPrimary
+                      : AppColors.textMuted,
+                  fontStyle: (userNotes != null && userNotes!.trim().isNotEmpty)
+                      ? FontStyle.normal
+                      : FontStyle.italic,
+                  height: 1.4,
+                ),
+              ),
+            ),
           ] else ...[
             const SizedBox(height: 6),
             _buildCollapsedSummary(context),

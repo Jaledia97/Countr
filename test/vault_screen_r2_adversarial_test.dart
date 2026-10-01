@@ -48,6 +48,7 @@ void main() {
           appDatabaseProvider.overrideWithValue(db),
           vaultDaoProvider.overrideWithValue(db.vaultDao),
           activeGameContextProvider.overrideWith((ref) => 'Magic: The Gathering'),
+          vaultViewModeProvider.overrideWith((ref) => VaultViewMode.binders),
           ...overrides,
         ],
         child: MaterialApp(
@@ -251,6 +252,10 @@ void main() {
         tester.view.physicalSize = const Size(844, 390);
         await tester.pumpAndSettle();
 
+        // Drag CustomScrollView to ensure sliver grid is built within 390px landscape viewport
+        await tester.drag(find.byType(CustomScrollView), const Offset(0, -300));
+        await tester.pumpAndSettle();
+
         // Verify columns updated to 4 in landscape
         grid = tester.widget<SliverGrid>(find.byKey(const PageStorageKey<String>('vault_cards_sliver_grid')));
         delegate = grid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount;
@@ -258,6 +263,9 @@ void main() {
 
         // Rotate back to Portrait
         tester.view.physicalSize = const Size(390, 844);
+        await tester.pumpAndSettle();
+
+        await tester.drag(find.byType(CustomScrollView), const Offset(0, 300));
         await tester.pumpAndSettle();
 
         grid = tester.widget<SliverGrid>(find.byKey(const PageStorageKey<String>('vault_cards_sliver_grid')));
@@ -355,7 +363,10 @@ void main() {
         final container = ProviderScope.containerOf(element);
         expect(container.read(vaultSearchQueryProvider), equals('Mox'));
 
-        // Tap collapse button
+        // 2-step single 'X' button: 1st tap clears query, 2nd tap collapses search bar
+        await tester.tap(find.byKey(const Key('vault_search_clear_button')));
+        await tester.pumpAndSettle();
+
         await tester.tap(find.byKey(const Key('vault_search_collapse_button')));
         await tester.pumpAndSettle();
 

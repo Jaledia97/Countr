@@ -75,7 +75,7 @@ void main() {
 
   group('PregameSetupSheet Widget Tests (Feature 29)', () {
     Future<void> setTestSize(WidgetTester tester) async {
-      tester.view.physicalSize = const Size(600, 1400);
+      tester.view.physicalSize = const Size(600, 2400);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() => tester.view.resetPhysicalSize());
     }
@@ -316,6 +316,155 @@ void main() {
       expect(p1.name, equals('Player 2'));
       expect(p1.deckId, isNull);
       expect(p1.commanderArtCropUrl, isNull);
+    });
+
+    testWidgets('T29.8: seating orientation picker toggles Opposed, Standard, and Radial layouts',
+        (tester) async {
+      await setTestSize(tester);
+      await tester.pumpWidget(
+        const ProviderScope(
+          child: MaterialApp(
+            home: Scaffold(
+              body: PregameSetupSheet(),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final pickerFinder = find.byKey(const Key('pregame_seating_orientation_picker'));
+      expect(pickerFinder, findsOneWidget);
+
+      // Default is Opposed
+      expect(find.text('Opposed'), findsOneWidget);
+      expect(find.text('Radial'), findsOneWidget);
+
+      // Select Standard orientation
+      await tester.tap(find.descendant(of: pickerFinder, matching: find.text('Standard')));
+      await tester.pumpAndSettle();
+
+      // Select Radial orientation
+      await tester.tap(find.descendant(of: pickerFinder, matching: find.text('Radial')));
+      await tester.pumpAndSettle();
+
+      // Tap Start Match to verify persistence to static state
+      await tester.tap(find.byKey(const Key('start_match_button')));
+      await tester.pumpAndSettle();
+
+      expect(PregameSetupSheet.lastSeatingOrientation, equals('radial'));
+    });
+
+    testWidgets('T29.9: starting life slider updates starting life value and format snap points',
+        (tester) async {
+      await setTestSize(tester);
+      await tester.pumpWidget(
+        const ProviderScope(
+          child: MaterialApp(
+            home: Scaffold(
+              body: PregameSetupSheet(),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final sliderFinder = find.byKey(const Key('pregame_starting_life_slider'));
+      expect(sliderFinder, findsOneWidget);
+
+      // Initial value is 40
+      expect(find.byKey(const Key('starting_life_value_text')), findsOneWidget);
+      expect(tester.widget<Text>(find.byKey(const Key('starting_life_value_text'))).data, equals('40'));
+
+      // Slider exists and is interactive
+      final slider = tester.widget<Slider>(sliderFinder);
+      expect(slider.min, equals(10));
+      expect(slider.max, equals(100));
+      expect(slider.value, equals(40.0));
+
+      // Programmatically invoke onChanged or drag to 21 (snaps to 20 Standard)
+      slider.onChanged!(21.0);
+      await tester.pumpAndSettle();
+      expect(tester.widget<Text>(find.byKey(const Key('starting_life_value_text'))).data, equals('20'));
+
+      // Change to 29 (snaps to 30 Brawl)
+      slider.onChanged!(29.0);
+      await tester.pumpAndSettle();
+      expect(tester.widget<Text>(find.byKey(const Key('starting_life_value_text'))).data, equals('30'));
+
+      // Change to 50 (no snap, displays 50)
+      slider.onChanged!(50.0);
+      await tester.pumpAndSettle();
+      expect(tester.widget<Text>(find.byKey(const Key('starting_life_value_text'))).data, equals('50'));
+    });
+
+    testWidgets('T29.10: OLED True Black mode switch toggles on and off and persists selection',
+        (tester) async {
+      await setTestSize(tester);
+      await tester.pumpWidget(
+        const ProviderScope(
+          child: MaterialApp(
+            home: Scaffold(
+              body: PregameSetupSheet(),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final oledSwitchFinder = find.byKey(const Key('pregame_oled_mode_switch'));
+      expect(oledSwitchFinder, findsOneWidget);
+
+      // Default is false
+      SwitchListTile oledTile = tester.widget<SwitchListTile>(oledSwitchFinder);
+      expect(oledTile.value, isFalse);
+
+      // Toggle to true
+      await tester.tap(oledSwitchFinder);
+      await tester.pumpAndSettle();
+
+      oledTile = tester.widget<SwitchListTile>(oledSwitchFinder);
+      expect(oledTile.value, isTrue);
+
+      // Tap Start Match to verify persistence to static state
+      await tester.tap(find.byKey(const Key('start_match_button')));
+      await tester.pumpAndSettle();
+
+      expect(PregameSetupSheet.lastOledMode, isTrue);
+    });
+
+    testWidgets('T29.11: Immersive mode switch toggles on and off and persists selection',
+        (tester) async {
+      await setTestSize(tester);
+      await tester.pumpWidget(
+        const ProviderScope(
+          child: MaterialApp(
+            home: Scaffold(
+              body: PregameSetupSheet(),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final immersiveSwitchFinder = find.byKey(const Key('pregame_immersive_mode_switch'));
+      expect(immersiveSwitchFinder, findsOneWidget);
+
+      // Default is false
+      SwitchListTile immersiveTile = tester.widget<SwitchListTile>(immersiveSwitchFinder);
+      expect(immersiveTile.value, isFalse);
+
+      // Toggle to true
+      await tester.tap(immersiveSwitchFinder);
+      await tester.pumpAndSettle();
+
+      immersiveTile = tester.widget<SwitchListTile>(immersiveSwitchFinder);
+      expect(immersiveTile.value, isTrue);
+
+      // Tap Start Match to verify persistence to static state
+      await tester.tap(find.byKey(const Key('start_match_button')));
+      await tester.pumpAndSettle();
+
+      expect(PregameSetupSheet.lastImmersiveMode, isTrue);
     });
   });
 }

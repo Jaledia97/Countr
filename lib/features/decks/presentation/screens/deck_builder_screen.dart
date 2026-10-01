@@ -159,7 +159,7 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
   String? _resolveDeckCoverArt(Deck activeDeck, List<dynamic> items, {DeckSummary? summary}) {
     if (summary != null) {
       final url = summary.commanderArtCrop ?? summary.commanderImageUrl;
-      if (url != null && url.isNotEmpty) return url;
+      if (url != null && url.isNotEmpty && !url.contains('/back.jpg')) return url;
     }
     if (activeDeck.coverItemId != null) {
       for (final item in items) {
@@ -169,7 +169,8 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
         if (id == activeDeck.coverItemId) {
           final dyn = (item is DeckItemWithCard) ? item.dynamicData : (item['dynamic_data'] as String?);
           final img = (item is DeckItemWithCard) ? item.imageUrl : (item['image_url'] as String?);
-          return _extractArtCrop(dyn, img);
+          final res = _extractArtCrop(dyn, img);
+          if (res != null && res.isNotEmpty && !res.contains('/back.jpg')) return res;
         }
       }
     }
@@ -180,14 +181,24 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
       if (zone.toLowerCase() == 'commander') {
         final dyn = (item is DeckItemWithCard) ? item.dynamicData : (item['dynamic_data'] as String?);
         final img = (item is DeckItemWithCard) ? item.imageUrl : (item['image_url'] as String?);
-        return _extractArtCrop(dyn, img);
+        final res = _extractArtCrop(dyn, img);
+        if (res != null && res.isNotEmpty && !res.contains('/back.jpg')) return res;
       }
     }
     if (items.isNotEmpty) {
       final first = items.first;
       final dyn = (first is DeckItemWithCard) ? first.dynamicData : (first['dynamic_data'] as String?);
       final img = (first is DeckItemWithCard) ? first.imageUrl : (first['image_url'] as String?);
-      return _extractArtCrop(dyn, img);
+      final res = _extractArtCrop(dyn, img);
+      if (res != null && res.isNotEmpty && !res.contains('/back.jpg')) return res;
+    }
+    if (summary?.commanderName != null &&
+        summary!.commanderName!.isNotEmpty &&
+        summary.commanderName != 'Unknown Card') {
+      final clean = summary.commanderName!.contains('//')
+          ? summary.commanderName!.split('//').first.trim()
+          : summary.commanderName!.trim();
+      return CountrCachedImage.buildScryfallNamedUrl(clean);
     }
     return null;
   }
@@ -203,7 +214,9 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
                 uris['normal'] ??
                 uris['large'] ??
                 uris['small'];
-            if (url != null && url.toString().isNotEmpty) {
+            if (url != null &&
+                url.toString().isNotEmpty &&
+                !url.toString().contains('/back.jpg')) {
               return url.toString();
             }
           }
@@ -215,7 +228,9 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
                     uris['normal'] ??
                     uris['large'] ??
                     uris['small'];
-                if (url != null && url.toString().isNotEmpty) {
+                if (url != null &&
+                    url.toString().isNotEmpty &&
+                    !url.toString().contains('/back.jpg')) {
                   return url.toString();
                 }
               }
@@ -224,14 +239,26 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
         }
       } catch (_) {}
     }
-    return fallbackUrl;
+    if (fallbackUrl != null && !fallbackUrl.contains('/back.jpg')) {
+      return fallbackUrl;
+    }
+    return null;
   }
 
   @override
   Widget build(BuildContext context) {
     final deckAsync = ref.watch(deckProvider(widget.deck.id));
     final activeDeck = deckAsync.when(
-      data: (d) => d,
+      data: (d) {
+        if (widget.deck.name != d.name && widget.deck.name.isNotEmpty) {
+          return d.copyWith(
+            name: widget.deck.name,
+            wins: widget.deck.wins > 0 ? widget.deck.wins : d.wins,
+            losses: widget.deck.losses > 0 ? widget.deck.losses : d.losses,
+          );
+        }
+        return d;
+      },
       error: (err, stack) => widget.deck,
       loading: () => widget.deck,
     );
@@ -354,6 +381,7 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
                               isExpanded: _isInlineAnalyticsExpanded,
                               onToggleExpand: () => setState(() => _isInlineAnalyticsExpanded = !_isInlineAnalyticsExpanded),
                               onOpenModal: _showAnalytics,
+                              userNotes: activeDeck.description,
                             ),
                             loading: () => const SizedBox.shrink(),
                             error: (error, stack) => const SizedBox.shrink(),
@@ -1076,11 +1104,6 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
           tooltip: 'Fast-Draw 7',
         ),
         IconButton(
-          icon: const Icon(Icons.analytics_rounded),
-          onPressed: _showAnalytics,
-          tooltip: 'Deck Analytics',
-        ),
-        IconButton(
           icon: const Icon(Icons.more_vert),
           onPressed: () => _showQuickActions(activeDeck),
           tooltip: 'More Actions',
@@ -1096,6 +1119,8 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
         if (coverArtUrl != null && coverArtUrl.isNotEmpty)
           CountrCachedImage(
             imageUrl: coverArtUrl,
+            cacheKey: 'deck_cover_${activeDeck.id}',
+            cardName: activeDeck.name,
             fit: BoxFit.cover,
             alignment: Alignment.center,
             errorWidget: Container(
@@ -1238,7 +1263,9 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
     final qty = item['deck_quantity'] as int? ?? (item['quantity'] as int? ?? 1);
     final price = (item['current_market_price'] as num?)?.toDouble() ?? 0.0;
     final setCode = item['set_or_series'] as String? ?? '';
-    final imageUrl = item['image_url'] as String? ?? '';
+    final rawImageUrl = item['image_url'] as String? ?? '';
+    final cardId = (item['id'] ?? item['vault_item_id'] ?? '').toString();
+    final cardCacheKey = cardId.isNotEmpty ? 'card_art_$cardId' : null;
 
     final legality = CardLegality.evaluate(item['dynamic_data'], effectiveDeck.format);
 
@@ -1267,6 +1294,46 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
           }
         }
       }
+    }
+
+    final tcgDomain = (item['collection_type'] as String?)?.toLowerCase() ??
+        effectiveDeck.tcgDomain.toLowerCase();
+
+    String resolvedImageUrl = rawImageUrl.trim();
+    if (resolvedImageUrl.isEmpty || resolvedImageUrl.contains('/back.jpg')) {
+      resolvedImageUrl = '';
+      if (dynStr != null && dynStr.isNotEmpty) {
+        try {
+          final dynData = ParsedJsonCache.parse(dynStr);
+          if (dynData['image_uris'] is Map) {
+            final uris = dynData['image_uris'] as Map;
+            final u = uris['art_crop'] ?? uris['normal'] ?? uris['large'] ?? uris['small'];
+            if (u != null && u.toString().isNotEmpty && !u.toString().contains('/back.jpg')) {
+              resolvedImageUrl = u.toString();
+            }
+          }
+          if (resolvedImageUrl.isEmpty &&
+              dynData['card_faces'] is List &&
+              (dynData['card_faces'] as List).isNotEmpty) {
+            final faces = dynData['card_faces'] as List;
+            for (final f in faces) {
+              if (f is Map && f['image_uris'] is Map) {
+                final uris = f['image_uris'] as Map;
+                final u = uris['art_crop'] ?? uris['normal'] ?? uris['large'] ?? uris['small'];
+                if (u != null && u.toString().isNotEmpty && !u.toString().contains('/back.jpg')) {
+                  resolvedImageUrl = u.toString();
+                  break;
+                }
+              }
+            }
+          }
+        } catch (_) {}
+      }
+    }
+
+    if (resolvedImageUrl.isEmpty && name.isNotEmpty && name != 'Unknown Card' && tcgDomain == 'mtg') {
+      final clean = name.contains('//') ? name.split('//').first.trim() : name.trim();
+      resolvedImageUrl = CountrCachedImage.buildScryfallNamedUrl(clean);
     }
 
     final subtitleParts = <String>[];
@@ -1351,22 +1418,17 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
                       borderRadius: BorderRadius.circular(4),
                       color: AppColors.surfaceRaised,
                     ),
-                    child: imageUrl.isNotEmpty
+                    child: resolvedImageUrl.isNotEmpty
                         ? CountrCachedImage(
-                            imageUrl: imageUrl,
+                            imageUrl: resolvedImageUrl,
+                            cacheKey: cardCacheKey,
+                            cardName: name,
+                            tcgDomain: tcgDomain,
                             fit: BoxFit.cover,
                             borderRadius: BorderRadius.circular(4),
-                            errorWidget: const Icon(
-                              Icons.image_not_supported,
-                              size: 18,
-                              color: Colors.white24,
-                            ),
+                            errorWidget: _buildTilePlaceholder(name),
                           )
-                        : const Icon(
-                            Icons.style_outlined,
-                            size: 20,
-                            color: Colors.white24,
-                          ),
+                        : _buildTilePlaceholder(name),
                   ),
                 ),
                 Positioned(
@@ -1540,6 +1602,61 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
         ),
       ),
     );
+  }
+
+  static Widget _buildTilePlaceholder(
+    String name, {
+    double width = 38,
+    double height = 50,
+  }) {
+    final initials = _getCardInitials(name);
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(4),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF2A2D37),
+            Color(0xFF16181F),
+          ],
+        ),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.08),
+          width: 1,
+        ),
+      ),
+      child: Center(
+        child: initials.isNotEmpty
+            ? Text(
+                initials,
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: width < 36 ? 10 : 11,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                ),
+              )
+            : Icon(
+                Icons.style_rounded,
+                size: width < 36 ? 15 : 18,
+                color: Colors.white24,
+              ),
+      ),
+    );
+  }
+
+  static String _getCardInitials(String name) {
+    if (name.isEmpty || name == 'Unknown Card') return '';
+    final clean = name.replaceAll(RegExp(r'[^a-zA-Z0-9\s]'), '').trim();
+    final parts = clean.split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+    if (parts.isEmpty) return '';
+    if (parts.length == 1) {
+      return parts[0].substring(0, parts[0].length >= 2 ? 2 : 1).toUpperCase();
+    }
+    return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
   }
 
   Widget _buildLegalityBadge(
@@ -2139,18 +2256,20 @@ class _FastDrawSheetState extends State<_FastDrawSheet> {
                                 child: imageUrl.isNotEmpty
                                     ? CountrCachedImage(
                                         imageUrl: imageUrl,
+                                        cacheKey: 'card_art_${card['id'] ?? name}',
+                                        cardName: name,
                                         fit: BoxFit.cover,
                                         borderRadius: BorderRadius.circular(4),
-                                        errorWidget: const Icon(
-                                          Icons.style_outlined,
-                                          size: 16,
-                                          color: Colors.white24,
+                                        errorWidget: _DeckBuilderScreenState._buildTilePlaceholder(
+                                          name,
+                                          width: 32,
+                                          height: 44,
                                         ),
                                       )
-                                    : const Icon(
-                                        Icons.style_outlined,
-                                        size: 16,
-                                        color: Colors.white24,
+                                    : _DeckBuilderScreenState._buildTilePlaceholder(
+                                        name,
+                                        width: 32,
+                                        height: 44,
                                       ),
                               ),
                               const SizedBox(width: 12),

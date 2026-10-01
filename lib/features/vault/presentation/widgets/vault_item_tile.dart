@@ -47,8 +47,14 @@ class VaultItemTile extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap ?? () => CardDetailSheet.show(context, item),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final maxCaptionHeight = constraints.hasBoundedHeight
+                ? constraints.maxHeight * 0.48
+                : double.infinity;
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // Card Artwork Container with Badges
             Expanded(
@@ -59,7 +65,7 @@ class VaultItemTile extends StatelessWidget {
                   item.imageUrl.isNotEmpty
                       ? CountrCachedImage(
                           imageUrl: item.imageUrl,
-                          fit: BoxFit.cover,
+                          fit: BoxFit.contain,
                           errorWidget: _buildPlaceholder(),
                         )
                       : _buildPlaceholder(),
@@ -181,10 +187,10 @@ class VaultItemTile extends StatelessWidget {
                             ? Container(
                                 key: Key('vault_tile_unowned_badge_${item.id}'),
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 5, vertical: 2),
+                                    horizontal: 2.0, vertical: 1.0),
                                 decoration: BoxDecoration(
                                   color: Colors.black.withValues(alpha: 0.88),
-                                  borderRadius: BorderRadius.circular(5),
+                                  borderRadius: BorderRadius.circular(4),
                                   border: Border.all(
                                     color: AppColors.accentAmber.withValues(alpha: 0.85),
                                     width: 1,
@@ -198,11 +204,12 @@ class VaultItemTile extends StatelessWidget {
                                   ],
                                 ),
                                 child: const Text(
-                                  'REF',
+                                  'UNOWNED',
                                   style: TextStyle(
                                     color: AppColors.accentAmber,
                                     fontWeight: FontWeight.w800,
-                                    fontSize: 9.5,
+                                    fontSize: 6.8,
+                                    letterSpacing: -0.5,
                                   ),
                                 ),
                               )
@@ -248,43 +255,54 @@ class VaultItemTile extends StatelessWidget {
             ),
 
             // Bottom Caption Info
-            Padding(
-              padding: const EdgeInsets.fromLTRB(8, 6, 8, 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.flavorName != null && item.flavorName!.isNotEmpty
-                        ? item.flavorName!
-                        : item.name,
-                    style: AppTypography.heading2.copyWith(fontSize: 12),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    item.flavorName != null && item.flavorName!.isNotEmpty
-                        ? '[${item.name}] • ${item.setOrSeries}'
-                        : item.setOrSeries,
-                    style: AppTypography.caption.copyWith(
-                      fontSize: 10,
-                      color: AppColors.textSecondary,
+            ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: maxCaptionHeight),
+              child: ClipRect(
+                child: SingleChildScrollView(
+                  physics: const NeverScrollableScrollPhysics(),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(8, 6, 8, 8),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item.flavorName != null && item.flavorName!.isNotEmpty
+                              ? item.flavorName!
+                              : item.name,
+                          style: AppTypography.heading2.copyWith(fontSize: 12),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          item.flavorName != null && item.flavorName!.isNotEmpty
+                              ? '[${item.name}] • ${item.setOrSeries}'
+                              : item.setOrSeries,
+                          style: AppTypography.caption.copyWith(
+                            fontSize: 10,
+                            color: AppColors.textSecondary,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        // Deck Badges
+                        _OptionalTileDeckBadges(item: item),
+                        // Availability Breakdown
+                        _OptionalTileAvailabilityBreakdown(item: item),
+                      ],
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 2),
-                  // Deck Badges
-                  _OptionalTileDeckBadges(item: item),
-                  // Availability Breakdown
-                  _OptionalTileAvailabilityBreakdown(item: item),
-                ],
+                ),
               ),
             ),
           ],
-        ),
-      ),
-    );
+        );
+      },
+    ),
+  ),
+);
   }
 
   double _getEffectiveMarketPrice() =>

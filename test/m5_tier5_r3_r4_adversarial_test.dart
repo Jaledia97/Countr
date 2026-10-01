@@ -1033,6 +1033,10 @@ void main() {
     });
 
     testWidgets('5.5: Dynamic privacy toggle immediately transitions between unlocked and locked state', (tester) async {
+      tester.view.physicalSize = const Size(800, 1200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
       final container = ProviderContainer(
         overrides: [
           privacyModeProvider.overrideWith((ref) => false),

@@ -219,10 +219,10 @@ void main() {
       await tester.pumpAndSettle();
 
       // Verify unowned card action button
-      expect(find.text('Add to Vault / Inbox'), findsOneWidget);
+      expect(find.text('Add to Vault'), findsOneWidget);
 
-      // Tap Add to Vault / Inbox
-      await tester.tap(find.text('Add to Vault / Inbox'));
+      // Tap Add to Vault
+      await tester.tap(find.text('Add to Vault'));
       await tester.pumpAndSettle();
 
       // Database should now have quantity = 1

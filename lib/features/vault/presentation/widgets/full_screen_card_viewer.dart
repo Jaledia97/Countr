@@ -179,7 +179,7 @@ class _FullScreenCardViewerState extends State<FullScreenCardViewer>
 
   void _onTransformationChanged() {
     final scale = _transformationController.value.getMaxScaleOnAxis();
-    final isZoomed = scale > 1.02;
+    final isZoomed = scale > 1.08;
     if (isZoomed != _isZoomed) {
       setState(() {
         _isZoomed = isZoomed;
@@ -592,7 +592,7 @@ class _FullScreenCardViewerState extends State<FullScreenCardViewer>
           controller: _pageController,
           physics: _isZoomed
               ? const NeverScrollableScrollPhysics()
-              : const PageScrollPhysics(),
+              : const BouncingScrollPhysics(parent: PageScrollPhysics()),
           itemCount: _items.length,
           onPageChanged: (index) {
             setState(() {
@@ -619,11 +619,27 @@ class _FullScreenCardViewerState extends State<FullScreenCardViewer>
                       : Key('fullscreen_interactive_viewer_$index'),
                   minScale: 0.5,
                   maxScale: 4.0,
-                  panEnabled: isCurrent,
+                  panEnabled: isCurrent && _isZoomed,
                   scaleEnabled: isCurrent,
-                  boundaryMargin: const EdgeInsets.all(60),
+                  boundaryMargin:
+                      _isZoomed ? const EdgeInsets.all(60) : EdgeInsets.zero,
                   clipBehavior: Clip.none,
-                  transformationController: isCurrent ? _transformationController : null,
+                  transformationController:
+                      isCurrent ? _transformationController : null,
+                  onInteractionEnd: (details) {
+                    if (isCurrent) {
+                      final scale =
+                          _transformationController.value.getMaxScaleOnAxis();
+                      if (scale < 1.08) {
+                        _transformationController.value = Matrix4.identity();
+                        if (_isZoomed) {
+                          setState(() {
+                            _isZoomed = false;
+                          });
+                        }
+                      }
+                    }
+                  },
                   child: Hero(
                     tag: 'card_artwork_${item.id}',
                     child: Center(

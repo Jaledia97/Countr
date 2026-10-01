@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_typography.dart';
 import '../../../../core/state/app_state.dart';
+import '../../../hydration/presentation/providers/hydration_providers.dart';
 import '../../../vault/presentation/providers/vault_providers.dart';
 
 /// Accordion 1: "Collections +"
@@ -171,6 +172,14 @@ class CollectionsAccordion extends ConsumerWidget {
                   onTap: () {
                     // 1. Update State Hook
                     ref.read(activeGameContextProvider.notifier).state = title;
+
+                    // 1.1 Trigger Auto-Hydration if MTG selected
+                    if (title.toLowerCase().contains('magic') ||
+                        title.toLowerCase() == 'mtg') {
+                      ref
+                          .read(mtgAutoHydrationCoordinatorProvider)
+                          .checkAndTriggerAutoHydration();
+                    }
 
                     // 2. Notify collection selected (e.g. route to Vault)
                     onCollectionSelected?.call(title);
