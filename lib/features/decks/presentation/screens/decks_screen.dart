@@ -10,7 +10,8 @@ import 'package:countr/features/symbology/presentation/widgets/mana_cost_bar.dar
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_typography.dart';
 import 'package:countr/core/cache/countr_cached_image.dart';
-import 'package:countr/core/state/settings_state.dart';
+import 'package:countr/core/state/app_state.dart';
+import 'package:countr/core/state/tcg_context_sync.dart';
 
 /// Decks Screen with top-level TCG context dropdown, list filtering, and FAB deck creation.
 class DecksScreen extends ConsumerStatefulWidget {
@@ -322,7 +323,18 @@ class _DecksScreenState extends ConsumerState<DecksScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final activeFilter = ref.watch(activeDeckTcgFilterProvider);
+    // Continuous synchronization from Vault game context to Decks filter
+    ref.listen<String>(activeGameContextProvider, (previous, next) {
+      if (previous != next) {
+        final targetDomain = TcgContextSync.gameToDomain(next);
+        if (ref.read(activeDeckTcgFilterProvider) != targetDomain) {
+          ref.read(activeDeckTcgFilterProvider.notifier).state = targetDomain;
+        }
+      }
+    });
+
+    final rawFilter = ref.watch(activeDeckTcgFilterProvider);
+    final activeFilter = TcgContextSync.gameToDomain(rawFilter);
     final isPrivacyMode = ref.watch(privacyModeProvider);
     final dbSummaries = ref.watch(deckSummariesProvider).value;
 
@@ -389,8 +401,14 @@ class _DecksScreenState extends ConsumerState<DecksScreen> {
                           side: const BorderSide(color: AppColors.surfaceBorder),
                         ),
                         onSelected: (String selected) {
+                          final domain = TcgContextSync.gameToDomain(selected);
                           ref.read(activeDeckTcgFilterProvider.notifier).state =
-                              selected;
+                              domain;
+                          final targetGame = TcgContextSync.domainToGame(domain);
+                          if (ref.read(activeGameContextProvider) != targetGame) {
+                            ref.read(activeGameContextProvider.notifier).state =
+                                targetGame;
+                          }
                         },
                         itemBuilder: (BuildContext context) {
                           return _tcgOptions.map((item) {

@@ -18,6 +18,43 @@ class MtgKeywordGlossary {
     'Hexproof': 'This creature cannot be targeted by spells or abilities your opponents control.',
   };
 
+  static const Set<String> _nonMtgKeywords = {
+    'electric',
+    'lightning',
+    'grass',
+    'fire',
+    'water',
+    'psychic',
+    'fighting',
+    'darkness',
+    'metal',
+    'colorless',
+    'fairy',
+    'dragon',
+    'trainer',
+    'energy',
+    'item',
+    'supporter',
+    'stadium',
+    'pokemon tool',
+    'poke-body',
+    'poke-power',
+    'vstar',
+    'vmax',
+    'ex',
+    'gx',
+    'lore',
+    'ink',
+    'inkwell',
+    'glimmer',
+    'storyborn',
+    'dreamborn',
+    'floodborn',
+    'action',
+    'song',
+    'location',
+  };
+
   /// Returns the definition for a given keyword if present in the dictionary.
   static String? getDefinition(String keyword) {
     if (dictionary.containsKey(keyword)) {
@@ -39,7 +76,23 @@ class MtgKeywordGlossary {
     List<dynamic>? keywords,
     String? oracleText,
   }) {
-    final result = <String>{};
+    final result = <String>[];
+    final seen = <String>{};
+
+    void addKeyword(String kw) {
+      final trimmed = kw.trim();
+      if (trimmed.isEmpty) return;
+      String canonical = trimmed;
+      for (final dictKey in dictionary.keys) {
+        if (dictKey.toLowerCase() == trimmed.toLowerCase()) {
+          canonical = dictKey;
+          break;
+        }
+      }
+      if (seen.add(canonical.toLowerCase())) {
+        result.add(canonical);
+      }
+    }
 
     // 1. Process keywords list
     if (keywords != null) {
@@ -48,10 +101,17 @@ class MtgKeywordGlossary {
         final raw = item.toString().trim();
         if (raw.isEmpty) continue;
 
+        bool matched = false;
         for (final canonical in dictionary.keys) {
           if (canonical.toLowerCase() == raw.toLowerCase() ||
               RegExp(r'\b' + RegExp.escape(canonical) + r'\b', caseSensitive: false).hasMatch(raw)) {
-            result.add(canonical);
+            addKeyword(canonical);
+            matched = true;
+          }
+        }
+        if (!matched) {
+          if (!_nonMtgKeywords.contains(raw.toLowerCase())) {
+            addKeyword(raw);
           }
         }
       }
@@ -70,10 +130,10 @@ class MtgKeywordGlossary {
       // Sort by position in oracle text to maintain natural reading order
       matches.sort((a, b) => a.key.compareTo(b.key));
       for (final entry in matches) {
-        result.add(entry.value);
+        addKeyword(entry.value);
       }
     }
 
-    return result.toList();
+    return result;
   }
 }

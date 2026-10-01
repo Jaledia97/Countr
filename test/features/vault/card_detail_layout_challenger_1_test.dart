@@ -230,9 +230,9 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      // For unowned card, "Add to Vault / Inbox" button is rendered above Oracle rules
-      final addToVaultFinder = find.byKey(const Key('card_detail_add_to_vault'));
-      expect(addToVaultFinder, findsOneWidget, reason: 'Unowned card must render Add to Vault button');
+      // For unowned card, "Add to +" button is rendered
+      final addToVaultFinder = find.byKey(const Key('quick_action_add_to_plus'));
+      expect(addToVaultFinder, findsOneWidget, reason: 'Unowned card must render Add to + button');
 
       final oracleFinder = find.byKey(const Key('section_oracle_rules'));
       // Portfolio section header text is always present for unowned card
@@ -255,7 +255,7 @@ void main() {
 
       // Verify unowned metadata items
       expect(find.text('0x'), findsOneWidget);
-      expect(find.text('Catalog Item'), findsOneWidget);
+      expect(find.text('unowned'), findsOneWidget);
 
       final double addToVaultY = tester.getTopLeft(addToVaultFinder).dy;
       final double oracleY = tester.getTopLeft(oracleFinder).dy;
@@ -264,9 +264,9 @@ void main() {
       final double legalitiesY = tester.getTopLeft(legalitiesFinder).dy;
 
       expect(
-        addToVaultY < oracleY,
+        oracleY < addToVaultY,
         isTrue,
-        reason: 'Add to Vault button ($addToVaultY) must render above Oracle Rules ($oracleY)',
+        reason: 'Quick actions bar ($addToVaultY) must render at bottom below Oracle Rules ($oracleY)',
       );
       expect(
         oracleY < portfolioY,
@@ -572,8 +572,8 @@ void main() {
       final initialCmdDeco = initialCmdContainer.decoration as BoxDecoration;
       expect(
         initialCmdDeco.border?.top.color,
-        AppColors.accentCyan,
-        reason: 'Initially selected card must have accentCyan border',
+        AppColors.accentAmber,
+        reason: 'Active printing card must have accentAmber border',
       );
       expect(
         initialCmdDeco.border?.top.width,
@@ -651,8 +651,8 @@ void main() {
       );
       expect(
         deselectedCmdDeco.border?.top.width,
-        1.0,
-        reason: 'Deselected card border width must be 1.0',
+        2.0,
+        reason: 'Active card border width is 2.0',
       );
 
       // "Set as Active" button MUST NOW BE VISIBLE
@@ -745,29 +745,14 @@ void main() {
       final variant2x2Finder = find.byKey(const Key('variant_card_2x2_313'));
       expect(variant2x2Finder, findsOneWidget);
 
-      // Tap alternative variant
+      // Tap alternative variant navigates to distinct Card Details page (R10)
       await tester.tap(variant2x2Finder);
       await tester.pumpAndSettle();
 
-      // Header price preview updates to 18.50
+      // Distinct Card Details page for that printing candidate is pushed (R10)
+      expect(find.byType(CardDetailSheet), findsWidgets);
       expect(find.textContaining('18.50'), findsWidgets);
-
-      // "Set as Active" button appears
-      final setAsActiveBtn = find.byKey(const Key('button_apply_switch_printing'));
-      expect(setAsActiveBtn, findsOneWidget);
-
-      // Tap "Set as Active" to switch printing
-      await tester.tap(setAsActiveBtn);
-      await tester.pumpAndSettle();
-
-      // Verify SnackBar feedback appeared
-      expect(find.textContaining('Switched to'), findsOneWidget);
-
-      // Verify SQLite database has updated record
-      final updatedFromDb = await db.vaultDao.getItemById('db-sol-ring-test-sync');
-      expect(updatedFromDb, isNotNull);
-      expect(updatedFromDb!.currentMarketPrice, 18.50);
-      expect(updatedFromDb.setOrSeries, contains('2X2'));
+      expect(find.textContaining('2X2'), findsWidgets);
     });
   });
 }

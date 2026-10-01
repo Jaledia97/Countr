@@ -30,6 +30,7 @@ void main() {
         id: 'deck-urza',
         name: 'Urza Commander Deck',
         format: 'Commander',
+        isAssembled: const drift.Value(true),
         createdAt: DateTime.now(),
       ));
 

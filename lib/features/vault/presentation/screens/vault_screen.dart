@@ -84,7 +84,14 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
     if (maxScroll > 0 && currentScroll >= maxScroll - 300 && !isFetchingMore) {
       final currentLimit = ref.read(vaultPaginationLimitProvider);
       final currentItems = ref.read(vaultItemsStreamProvider).valueOrNull ?? [];
-      if (currentItems.length >= (currentLimit * 0.7).floor()) {
+      final mtgFilter = ref.read(mtgFilterProvider);
+      final searchQuery = ref.read(vaultSearchQueryProvider);
+      final isFiltered = mtgFilter.isActive || searchQuery.trim().isNotEmpty;
+      final shouldFetchMore = isFiltered
+          ? currentItems.isNotEmpty
+          : currentItems.length >= (currentLimit * 0.7).floor();
+
+      if (shouldFetchMore) {
         ref.read(vaultIsFetchingMoreProvider.notifier).state = true;
         ref.read(vaultPaginationLimitProvider.notifier).update((l) => l + 50);
       }
@@ -118,6 +125,11 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
       'color': AppColors.accentAmber,
     },
     {
+      'title': 'Disney Lorcana',
+      'icon': Icons.auto_stories_rounded,
+      'color': AppColors.accentVioletLight,
+    },
+    {
       'title': 'Comic Books',
       'icon': Icons.menu_book_rounded,
       'color': AppColors.accentEmerald,
@@ -135,6 +147,8 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
         return 'MTG Vault';
       case 'Pokémon TCG':
         return 'Pokémon Vault';
+      case 'Disney Lorcana':
+        return 'Lorcana Vault';
       case 'Comic Books':
         return 'Comics Vault';
       case 'Sports Cards':

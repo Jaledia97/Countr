@@ -541,10 +541,12 @@ class _VaultCollectionCardItem extends StatelessWidget {
     final isOwned = item.quantity > 0;
 
     Widget artwork = item.imageUrl.isNotEmpty
-        ? CountrCachedImage(
-            imageUrl: item.imageUrl,
-            fit: BoxFit.cover,
-            errorWidget: _buildPlaceholder(),
+        ? IgnorePointer(
+            child: CountrCachedImage(
+              imageUrl: item.imageUrl,
+              fit: BoxFit.cover,
+              errorWidget: _buildPlaceholder(),
+            ),
           )
         : _buildPlaceholder();
 

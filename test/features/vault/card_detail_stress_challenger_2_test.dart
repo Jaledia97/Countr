@@ -898,7 +898,8 @@ void main() {
             );
             await tester.pumpAndSettle();
 
-            expect(find.text('Add to Vault'), findsOneWidget);
+            expect(find.text('Add to +'), findsOneWidget);
+            expect(find.text('Add to Vault'), findsNothing);
 
             final listFinder = find.byKey(
               PageStorageKey('card_detail_list_${catalogItem.id}'),
@@ -1003,7 +1004,7 @@ void main() {
     'Adversarial Category 6: Empirical Challenger 2 Stress Suite - Unowned vs Owned, Tab Toggle, DB Updates',
     () {
       testWidgets(
-        '6.1 Unowned card (quantity: 0) pre-existing in DB displays "Add to Vault", tapping updates DB quantity to 1, binder to INBOX, shows SnackBar, and pops sheet',
+        '6.1 Unowned card (quantity: 0) pre-existing in DB displays "Add to +" button and presents routing options',
         (tester) async {
           final catalogCard = createTestCard(
             id: 'db-unowned-catalog-1',
@@ -1069,32 +1070,28 @@ void main() {
           await tester.tap(find.text('Open Detail Sheet'));
           await tester.pumpAndSettle();
 
-          // Verify unowned card displays 'Add to Vault' button
+          // Verify unowned card displays 'Add to +' button and omits delete/standalone add to vault
           final addBtnFinder = find.byKey(
-            const Key('card_detail_add_to_vault'),
+            const Key('quick_action_add_to_plus'),
           );
           expect(addBtnFinder, findsOneWidget);
-          expect(find.text('Add to Vault'), findsOneWidget);
+          expect(find.text('Add to +'), findsOneWidget);
+          expect(find.text('Add to Vault'), findsNothing);
           expect(find.text('Add to Vault / Inbox'), findsNothing);
+          expect(find.byKey(const Key('quick_action_delete')), findsNothing);
 
-          // Tap 'Add to Vault'
+          // Tap 'Add to +'
           await tester.tap(addBtnFinder);
           await tester.pumpAndSettle();
 
-          // Sheet should be popped and SnackBar displayed
-          expect(find.byType(CardDetailSheet), findsNothing);
-          expect(find.text('Added "The One Ring" to Inbox'), findsOneWidget);
-
-          // Database quantity must now be updated to 1, binder to INBOX
-          final after = await db.vaultDao.getItemById('db-unowned-catalog-1');
-          expect(after, isNotNull);
-          expect(after!.quantity, equals(1));
-          expect(after.primaryBinderId, equals('INBOX'));
+          // Modal options appear (Binders / Decks)
+          expect(find.textContaining('Binders'), findsWidgets);
+          expect(find.textContaining('Decks'), findsWidgets);
         },
       );
 
       testWidgets(
-        '6.2 Unowned card (quantity: 0) not pre-existing in DB inserts new record with quantity 1 into INBOX upon tapping "Add to Vault"',
+        '6.2 Unowned card (quantity: 0) not pre-existing in DB displays "Add to +" button and opens routing modal upon tap',
         (tester) async {
           final unseededCard = createTestCard(
             id: 'new-unseeded-catalog-2',
@@ -1137,23 +1134,17 @@ void main() {
           await tester.pumpAndSettle();
 
           final addBtnFinder = find.byKey(
-            const Key('card_detail_add_to_vault'),
+            const Key('quick_action_add_to_plus'),
           );
           expect(addBtnFinder, findsOneWidget);
-          expect(find.text('Add to Vault'), findsOneWidget);
+          expect(find.text('Add to +'), findsOneWidget);
+          expect(find.text('Add to Vault'), findsNothing);
 
           await tester.tap(addBtnFinder);
           await tester.pumpAndSettle();
 
-          expect(find.byType(CardDetailSheet), findsNothing);
-          expect(find.text('Added "Mox Diamond" to Inbox'), findsOneWidget);
-
-          final inserted = await db.vaultDao.getItemById(
-            'new-unseeded-catalog-2',
-          );
-          expect(inserted, isNotNull);
-          expect(inserted!.quantity, equals(1));
-          expect(inserted.primaryBinderId, equals('INBOX'));
+          expect(find.textContaining('Binders'), findsWidgets);
+          expect(find.textContaining('Decks'), findsWidgets);
         },
       );
 
@@ -1412,7 +1403,7 @@ void main() {
       );
 
       testWidgets(
-        '6.7 Unowned card with \$0.00 price, missing dynamic fields, and long name adds to vault cleanly',
+        '6.7 Unowned card with \$0.00 price, missing dynamic fields, and long name displays "Add to +" and presents routing options cleanly',
         (tester) async {
           final edgeCard = createTestCard(
             id: 'edge-unowned-card',
@@ -1451,22 +1442,21 @@ void main() {
           await tester.pumpAndSettle();
 
           final addBtnFinder = find.byKey(
-            const Key('card_detail_add_to_vault'),
+            const Key('quick_action_add_to_plus'),
           );
           expect(addBtnFinder, findsOneWidget);
+          expect(find.text('Add to +'), findsOneWidget);
 
           await tester.tap(addBtnFinder);
           await tester.pumpAndSettle();
 
-          expect(find.byType(CardDetailSheet), findsNothing);
-          final item = await db.vaultDao.getItemById('edge-unowned-card');
-          expect(item, isNotNull);
-          expect(item!.quantity, equals(1));
+          expect(find.textContaining('Binders'), findsWidgets);
+          expect(find.textContaining('Decks'), findsWidgets);
         },
       );
 
       testWidgets(
-        '6.8 Unowned card on compact 320x568 viewport at 2.0x text scale renders Add to Vault and responds to tap without overflow',
+        '6.8 Unowned card on compact 320x568 viewport at 2.0x text scale renders Add to + and responds to tap without overflow',
         (tester) async {
           configureViewport(tester, width: 320, height: 568);
 
@@ -1518,9 +1508,10 @@ void main() {
             await tester.pumpAndSettle();
 
             final addBtnFinder = find.byKey(
-              const Key('card_detail_add_to_vault'),
+              const Key('quick_action_add_to_plus'),
             );
             expect(addBtnFinder, findsOneWidget);
+            expect(find.text('Add to +'), findsOneWidget);
 
             await tester.tap(addBtnFinder);
             await tester.pumpAndSettle();
@@ -1530,9 +1521,8 @@ void main() {
                 .toList();
             expect(overflows, isEmpty);
 
-            final item = await db.vaultDao.getItemById('unowned-compact-a11y');
-            expect(item, isNotNull);
-            expect(item!.quantity, equals(1));
+            expect(find.textContaining('Binders'), findsWidgets);
+            expect(find.textContaining('Decks'), findsWidgets);
           } finally {
             FlutterError.onError = originalOnError;
           }

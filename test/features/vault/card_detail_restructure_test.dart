@@ -233,7 +233,7 @@ void main() {
 
       final heroArtFinder = find.byKey(Key('card_artwork_${item.id}'));
       final segmentFinder = find.byKey(const Key('card_detail_segmented_control'));
-      final addToVaultFinder = find.byKey(const Key('card_detail_add_to_vault'));
+      final addToVaultFinder = find.byKey(const Key('quick_action_add_to_plus'));
       final oracleRulesFinder = find.byKey(const Key('section_oracle_rules'));
 
       expect(heroArtFinder, findsOneWidget);
@@ -242,17 +242,16 @@ void main() {
       expect(oracleRulesFinder, findsOneWidget);
 
       // Verify vertical layout sequence:
-      // Hero Bottom <= Segmented Control Top < Add to Vault Top < Oracle Rules Section Top
+      // Hero Bottom <= Segmented Control Top < Oracle Rules Section Top < Add to + Top
       final heroBottom = tester.getBottomLeft(heroArtFinder).dy;
       final segmentTop = tester.getTopLeft(segmentFinder).dy;
       final segmentBottom = tester.getBottomLeft(segmentFinder).dy;
       final addTop = tester.getTopLeft(addToVaultFinder).dy;
-      final addBottom = tester.getBottomLeft(addToVaultFinder).dy;
       final rulesTop = tester.getTopLeft(oracleRulesFinder).dy;
 
       expect(heroBottom, lessThanOrEqualTo(segmentTop), reason: 'Segmented control must be below Hero');
-      expect(segmentBottom, lessThanOrEqualTo(addTop), reason: 'Add to Vault must be below Segmented control');
-      expect(addBottom, lessThanOrEqualTo(rulesTop), reason: 'Tab content must be below Add to Vault');
+      expect(segmentBottom, lessThanOrEqualTo(rulesTop), reason: 'Tab content must be below Segmented control');
+      expect(rulesTop, lessThan(addTop), reason: 'Quick actions bar is below tab content');
     });
 
     testWidgets('4. Unowned catalog card (quantity == 0) renders exact "Add to Vault" button and adds to inbox', (tester) async {
@@ -288,24 +287,17 @@ void main() {
       await tester.pumpAndSettle();
 
       // Verify button key and text
-      final addButtonFinder = find.byKey(const Key('card_detail_add_to_vault'));
+      final addButtonFinder = find.byKey(const Key('quick_action_add_to_plus'));
       expect(addButtonFinder, findsOneWidget);
-      expect(find.text('Add to Vault'), findsOneWidget);
-      // Ensure old 'Add to Vault / Inbox' text is NOT present
-      expect(find.text('Add to Vault / Inbox'), findsNothing);
+      expect(find.text('Add to +'), findsOneWidget);
+      expect(find.text('Add to Vault'), findsNothing);
 
-      // Tap Add to Vault and verify action
+      // Tap Add to + and verify routing modal opens
       await tester.tap(addButtonFinder);
       await tester.pumpAndSettle();
 
-      // Sheet should be popped and snackbar shown
-      expect(find.byType(CardDetailSheet), findsNothing);
-      expect(find.text('Added "Urza, Lord High Artificer" to Inbox'), findsOneWidget);
-
-      // Verify in database that item was added with quantity 1
-      final inboxItem = await db.vaultDao.getItemById('unowned-item-99');
-      expect(inboxItem, isNotNull);
-      expect(inboxItem!.quantity, equals(1));
+      expect(find.textContaining('Binders'), findsWidgets);
+      expect(find.textContaining('Decks'), findsWidgets);
     });
 
     testWidgets('5. Owned card (quantity > 0) does NOT render "Add to Vault" button below segmented control', (tester) async {
@@ -319,8 +311,9 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      // Verify Add to Vault button is absent
-      expect(find.byKey(const Key('card_detail_add_to_vault')), findsNothing);
+      // Verify Add to + button is absent
+      expect(find.byKey(const Key('quick_action_add_to_plus')), findsNothing);
+      expect(find.text('Add to +'), findsNothing);
       expect(find.text('Add to Vault'), findsNothing);
       expect(find.text('Add to Vault / Inbox'), findsNothing);
 

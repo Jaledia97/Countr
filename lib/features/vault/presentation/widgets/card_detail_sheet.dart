@@ -119,7 +119,6 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
   ScrollController? _activeSheetScrollController;
 
   CardDetailTab _selectedTab = CardDetailTab.details;
-  late TextEditingController _deckTagController;
   late VaultItem _currentItem;
   Map<String, dynamic> _dynamicData = {};
   List<String> _deckHistory = [];
@@ -134,6 +133,7 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
   bool _isRulingsExpanded = false;
   late final TextEditingController _notesController;
   bool _isSavingNotes = false;
+  bool _isEditingNotes = false;
 
   @override
   void initState() {
@@ -151,7 +151,6 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
 
     _currentItem = _items.isNotEmpty ? _items[_currentIndex] : widget.item!;
     _pageController = PageController(initialPage: _currentIndex);
-    _deckTagController = TextEditingController();
     _notesController = TextEditingController(text: _currentItem.personalNotes ?? _currentItem.notes ?? '');
     _flipController = AnimationController(
       vsync: this,
@@ -172,7 +171,6 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
   @override
   void dispose() {
     _pageController.dispose();
-    _deckTagController.dispose();
     _notesController.dispose();
     _flipController.dispose();
     _activeSheetScrollController = null;
@@ -206,8 +204,8 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
     } else if (widget.item != null) {
       _currentItem = widget.item!;
     }
-    _deckTagController.clear();
     _notesController.text = _currentItem.personalNotes ?? _currentItem.notes ?? '';
+    _isEditingNotes = false;
     _previewCandidate = null;
     _isFlipped = false;
     _isRulingsExpanded = false;
@@ -223,8 +221,8 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
     setState(() {
       _currentIndex = index;
       _currentItem = _items[_currentIndex];
-      _deckTagController.clear();
       _notesController.text = _currentItem.personalNotes ?? _currentItem.notes ?? '';
+      _isEditingNotes = false;
       _previewCandidate = null;
       _isFlipped = false;
       _isRulingsExpanded = false;
@@ -740,47 +738,6 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
     }
   }
 
-  Future<void> _addDeckTag() async {
-    final tag = _deckTagController.text.trim();
-    if (tag.isEmpty || _deckHistory.contains(tag)) return;
-
-    setState(() {
-      _deckHistory.add(tag);
-      _deckTagController.clear();
-    });
-
-    final dao = ref.read(vaultDaoProvider);
-    await dao.updateItemNotesAndDecks(
-      _currentItem.id,
-      deckTags: _deckHistory,
-    );
-  }
-
-  Future<void> _removeDeckTag(String tag) async {
-    setState(() {
-      _deckHistory.remove(tag);
-    });
-
-    final dao = ref.read(vaultDaoProvider);
-    await dao.updateItemNotesAndDecks(
-      _currentItem.id,
-      deckTags: _deckHistory,
-    );
-  }
-
-  Future<void> _addToVault() async {
-    final dao = ref.read(vaultDaoProvider);
-    await dao.upsertScannedCardToInbox(_currentItem);
-    if (!mounted) return;
-    Navigator.of(context).pop();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Added "${_currentItem.name}" to Inbox'),
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 2),
-      ),
-    );
-  }
 
   bool get _isPrivacyMode {
     try {
@@ -979,270 +936,274 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
         final isUltraCompact = constraints.maxHeight < 240;
         final heroHeight = isUltraCompact ? 84.0 : (isCompact ? 119.0 : 154.0);
         final heroArtWidth = isUltraCompact ? 60.0 : (isCompact ? 85.0 : 110.0);
-        return Column(
-          children: [
-            // Sheet Header Bar (Outside pull-down section)
-            Padding(
-              padding: EdgeInsets.fromLTRB(20, isUltraCompact ? 1 : (isCompact ? 2 : 4), 12, isUltraCompact ? 1 : (isCompact ? 2 : 4)),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: hasMultiple && activeFace != null
-                        ? Text(
-                            'Face ${(isCurrent && _isFlipped) ? 2 : 1}/${cardFaces.length}',
-                            style: AppTypography.caption.copyWith(
-                              color: AppColors.accentCyan,
-                              fontWeight: FontWeight.w600,
-                              fontSize: isUltraCompact ? 10 : (isCompact ? 11 : 12),
-                            ),
-                          )
-                        : (item.flavorName != null && item.flavorName!.isNotEmpty
+        final totalHeroHeight = heroHeight + (isCompact ? (isUltraCompact ? 2.0 : 4.0) : 8.0);
+        final tabControlHeight = (isUltraCompact ? 26.0 : (isCompact ? 32.0 : 46.0)) + 1.0;
+
+        return NestedScrollView(
+          controller: activeScrollController,
+          headerSliverBuilder: (BuildContext context, bool innerBoxIsScrolled) {
+            return <Widget>[
+              // Sheet Header Bar (Outside pull-down section)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    20,
+                    isUltraCompact ? 1 : (isCompact ? 2 : 4),
+                    12,
+                    isUltraCompact ? 1 : (isCompact ? 2 : 4),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: hasMultiple && activeFace != null
                             ? Text(
-                                '[${item.name}]',
+                                'Face ${(isCurrent && _isFlipped) ? 2 : 1}/${cardFaces.length}',
                                 style: AppTypography.caption.copyWith(
                                   color: AppColors.accentCyan,
                                   fontWeight: FontWeight.w600,
                                   fontSize: isUltraCompact ? 10 : (isCompact ? 11 : 12),
                                 ),
                               )
-                            : const SizedBox.shrink()),
-                  ),
-                  IconButton(
-                    tooltip: 'Close',
-                    padding: isCompact ? EdgeInsets.zero : const EdgeInsets.all(8.0),
-                    constraints: isCompact ? const BoxConstraints() : null,
-                    visualDensity: isCompact ? VisualDensity.compact : null,
-                    style: isCompact
-                        ? IconButton.styleFrom(
-                            minimumSize: Size.zero,
-                            padding: EdgeInsets.zero,
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          )
-                        : null,
-                    icon: Icon(Icons.close, color: AppColors.textSecondary, size: isUltraCompact ? 16 : (isCompact ? 18 : 24)),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ],
-              ),
-            ),
-
-            // Top Hero Section: Artwork + Strict Info Hierarchy
-            Padding(
-              padding: EdgeInsets.fromLTRB(20, 0, 20, isCompact ? (isUltraCompact ? 2 : 4) : 8),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildCardArtwork(item, isCurrent, isCompact: isCompact, isUltraCompact: isUltraCompact),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: SizedBox(
-                      height: heroHeight,
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.topLeft,
-                        child: SizedBox(
-                          width: math.max(160.0, constraints.maxWidth - 40 - heroArtWidth - 14.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              // a. Card Name
-                              Text(
-                                cardName,
-                                style: AppTypography.heading1.copyWith(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              // b. Mana Cost
-                              if (manaCost.isNotEmpty) ...[
-                                const SizedBox(height: 4),
-                                ManaCostBar(
-                                  manaCost: manaCost,
-                                  symbolSize: 14.0,
-                                ),
-                              ],
-                              // c. Set Symbol & Set Name
-                              const SizedBox(height: 6),
-                              Row(
-                                children: [
-                                  Icon(
-                                    Icons.style_rounded,
-                                    key: const Key('card_detail_set_symbol_icon'),
-                                    size: 14,
-                                    color: _getRarityColor(rarity),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Container(
-                                    key: const Key('card_detail_set_code_badge'),
-                                    constraints: const BoxConstraints(maxWidth: 55),
-                                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: _getRarityColor(rarity).withValues(alpha: 0.18),
-                                      borderRadius: BorderRadius.circular(4),
-                                      border: Border.all(
-                                        color: _getRarityColor(rarity).withValues(alpha: 0.6),
-                                      ),
+                            : (item.flavorName != null && item.flavorName!.isNotEmpty
+                                ? Text(
+                                    '[${item.name}]',
+                                    style: AppTypography.caption.copyWith(
+                                      color: AppColors.accentCyan,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: isUltraCompact ? 10 : (isCompact ? 11 : 12),
                                     ),
-                                    child: Text(
-                                      (setCode.isNotEmpty ? setCode : (rarity.isNotEmpty ? rarity : 'SET')).toUpperCase(),
-                                      style: TextStyle(
-                                        color: _getRarityColor(rarity),
+                                  )
+                                : const SizedBox.shrink()),
+                      ),
+                      IconButton(
+                        key: const Key('card_detail_close_button'),
+                        tooltip: 'Close',
+                        padding: isCompact ? EdgeInsets.zero : const EdgeInsets.all(8.0),
+                        constraints: isCompact ? const BoxConstraints() : null,
+                        visualDensity: isCompact ? VisualDensity.compact : null,
+                        style: isCompact
+                            ? IconButton.styleFrom(
+                                minimumSize: Size.zero,
+                                padding: EdgeInsets.zero,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              )
+                            : null,
+                        icon: Icon(
+                          Icons.close,
+                          color: AppColors.textSecondary,
+                          size: isUltraCompact ? 16 : (isCompact ? 18 : 24),
+                        ),
+                        onPressed: () => Navigator.of(context).pop(),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // Top Hero Section: Artwork + Strict Info Hierarchy
+              SliverPersistentHeader(
+                pinned: false,
+                floating: false,
+                delegate: _CollapsibleCardArtHeaderDelegate(
+                  maxExtent: totalHeroHeight,
+                  minExtent: 0.0,
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(20, 0, 20, isCompact ? (isUltraCompact ? 2 : 4) : 8),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildCardArtwork(item, isCurrent, isCompact: isCompact, isUltraCompact: isUltraCompact),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: SizedBox(
+                            height: heroHeight,
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.topLeft,
+                              child: SizedBox(
+                                width: math.max(160.0, constraints.maxWidth - 40 - heroArtWidth - 14.0),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    // a. Card Name
+                                    Text(
+                                      cardName,
+                                      style: AppTypography.heading1.copyWith(
+                                        fontSize: 18,
                                         fontWeight: FontWeight.w800,
-                                        fontSize: 9.5,
                                       ),
-                                      maxLines: 1,
+                                      maxLines: 2,
                                       overflow: TextOverflow.ellipsis,
                                     ),
-                                  ),
-                                  if (item.setOrSeries.isNotEmpty) ...[
-                                    const SizedBox(width: 6),
-                                    Expanded(
-                                      child: Text(
-                                        item.setOrSeries,
-                                        key: const Key('card_detail_set_name'),
-                                        style: AppTypography.caption.copyWith(
-                                          color: AppColors.textSecondary,
-                                          fontWeight: FontWeight.w600,
+                                    // b. Mana Cost
+                                    if (manaCost.isNotEmpty) ...[
+                                      const SizedBox(height: 4),
+                                      ManaCostBar(
+                                        manaCost: manaCost,
+                                        symbolSize: 14.0,
+                                      ),
+                                    ],
+                                    // c. Set Symbol & Set Name
+                                    const SizedBox(height: 6),
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          Icons.style_rounded,
+                                          key: const Key('card_detail_set_symbol_icon'),
+                                          size: 14,
+                                          color: _getRarityColor(rarity),
                                         ),
+                                        const SizedBox(width: 6),
+                                        Container(
+                                          key: const Key('card_detail_set_code_badge'),
+                                          constraints: const BoxConstraints(maxWidth: 55),
+                                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: _getRarityColor(rarity).withValues(alpha: 0.18),
+                                            borderRadius: BorderRadius.circular(4),
+                                            border: Border.all(
+                                              color: _getRarityColor(rarity).withValues(alpha: 0.6),
+                                            ),
+                                          ),
+                                          child: Text(
+                                            (setCode.isNotEmpty ? setCode : (rarity.isNotEmpty ? rarity : 'SET')).toUpperCase(),
+                                            style: TextStyle(
+                                              color: _getRarityColor(rarity),
+                                              fontWeight: FontWeight.w800,
+                                              fontSize: 9.5,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        if (item.setOrSeries.isNotEmpty) ...[
+                                          const SizedBox(width: 6),
+                                          Expanded(
+                                            child: Text(
+                                              item.setOrSeries,
+                                              key: const Key('card_detail_set_name'),
+                                              style: AppTypography.caption.copyWith(
+                                                color: AppColors.textSecondary,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                    // d. Price
+                                    const SizedBox(height: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.accentAmber.withValues(alpha: 0.12),
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(color: AppColors.accentAmber.withValues(alpha: 0.4)),
+                                      ),
+                                      child: FittedBox(
+                                        fit: BoxFit.scaleDown,
+                                        alignment: Alignment.centerLeft,
+                                        child: Text(
+                                          VaultPricingHelper.formatMarketHeaderLabel(
+                                            effectivePrice,
+                                            currency: _baseCurrency,
+                                            isPrivacyMode: _isPrivacyMode,
+                                          ),
+                                          style: const TextStyle(
+                                            color: AppColors.accentAmber,
+                                            fontWeight: FontWeight.w800,
+                                            fontSize: 13,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    // e. Type Line, Power/Toughness, Loyalty
+                                    if (typeLine.isNotEmpty) ...[
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        typeLine,
+                                        style: AppTypography.heading2.copyWith(fontSize: 12.5),
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                       ),
-                                    ),
-                                  ],
-                                ],
-                              ),
-                              // d. Price
-                              const SizedBox(height: 6),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: AppColors.accentAmber.withValues(alpha: 0.12),
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(color: AppColors.accentAmber.withValues(alpha: 0.4)),
-                                ),
-                                child: FittedBox(
-                                  fit: BoxFit.scaleDown,
-                                  alignment: Alignment.centerLeft,
-                                  child: Text(
-                                    VaultPricingHelper.formatMarketHeaderLabel(
-                                      effectivePrice,
-                                      currency: _baseCurrency,
-                                      isPrivacyMode: _isPrivacyMode,
-                                    ),
-                                    style: const TextStyle(
-                                      color: AppColors.accentAmber,
-                                      fontWeight: FontWeight.w800,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              // e. Type Line, Power/Toughness, Loyalty
-                              if (typeLine.isNotEmpty) ...[
-                                const SizedBox(height: 4),
-                                Text(
-                                  typeLine,
-                                  style: AppTypography.heading2.copyWith(fontSize: 12.5),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ],
-                              if ((power != null && toughness != null && power.isNotEmpty) ||
-                                  (loyalty != null && loyalty.isNotEmpty)) ...[
-                                const SizedBox(height: 4),
-                                Wrap(
-                                  spacing: 6,
-                                  runSpacing: 4,
-                                  children: [
-                                    if (power != null && toughness != null && power.isNotEmpty)
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                        decoration: BoxDecoration(
-                                          color: AppColors.surfaceRaised,
-                                          borderRadius: BorderRadius.circular(4),
-                                        ),
-                                        child: Text(
-                                          'P/T: $power / $toughness',
-                                          style: const TextStyle(
-                                            color: AppColors.textPrimary,
-                                            fontWeight: FontWeight.w700,
-                                            fontSize: 11,
-                                          ),
-                                        ),
+                                    ],
+                                    if ((power != null && toughness != null && power.isNotEmpty) ||
+                                        (loyalty != null && loyalty.isNotEmpty)) ...[
+                                      const SizedBox(height: 4),
+                                      Wrap(
+                                        spacing: 6,
+                                        runSpacing: 4,
+                                        children: [
+                                          if (power != null && toughness != null && power.isNotEmpty)
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                              decoration: BoxDecoration(
+                                                color: AppColors.surfaceRaised,
+                                                borderRadius: BorderRadius.circular(4),
+                                              ),
+                                              child: Text(
+                                                'P/T: $power / $toughness',
+                                                style: const TextStyle(
+                                                  color: AppColors.textPrimary,
+                                                  fontWeight: FontWeight.w700,
+                                                  fontSize: 11,
+                                                ),
+                                              ),
+                                            ),
+                                          if (loyalty != null && loyalty.isNotEmpty)
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                              decoration: BoxDecoration(
+                                                color: AppColors.accentViolet,
+                                                borderRadius: BorderRadius.circular(4),
+                                              ),
+                                              child: Text(
+                                                'Loyalty: $loyalty',
+                                                style: const TextStyle(
+                                                  color: AppColors.accentViolet,
+                                                  fontWeight: FontWeight.w700,
+                                                  fontSize: 11,
+                                                ),
+                                              ),
+                                            ),
+                                        ],
                                       ),
-                                    if (loyalty != null && loyalty.isNotEmpty)
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                        decoration: BoxDecoration(
-                                          color: AppColors.surfaceRaised,
-                                          borderRadius: BorderRadius.circular(4),
-                                        ),
-                                        child: Text(
-                                          'Loyalty: $loyalty',
-                                          style: const TextStyle(
-                                            color: AppColors.accentViolet,
-                                            fontWeight: FontWeight.w700,
-                                            fontSize: 11,
-                                          ),
-                                        ),
-                                      ),
+                                    ],
                                   ],
                                 ),
-                              ],
-                            ],
+                              ),
+                            ),
                           ),
                         ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const Divider(height: 1, color: AppColors.surfaceBorderSubtle),
-
-            // Segmented Tab Control: [ Details | Values ]
-            _buildSegmentedTabControl(isCompact: isCompact, isUltraCompact: isUltraCompact),
-
-            // Unowned Catalog Card Action Bar
-            if (!isOwned) ...[
-              Padding(
-                padding: EdgeInsets.fromLTRB(20, isUltraCompact ? 1 : (isCompact ? 2 : 4), 20, isUltraCompact ? 1 : (isCompact ? 2 : 6)),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(minHeight: isUltraCompact ? 30 : (isCompact ? 36 : 44)),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      key: isCurrent ? const Key('card_detail_add_to_vault') : null,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.accentCyan,
-                        foregroundColor: AppColors.textDark,
-                        padding: isCompact ? const EdgeInsets.symmetric(horizontal: 8, vertical: 0) : null,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      icon: Icon(Icons.add_shopping_cart_rounded, size: isUltraCompact ? 16 : 20),
-                      label: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Text(
-                          'Add to Vault',
-                          style: TextStyle(fontWeight: FontWeight.w800, fontSize: isUltraCompact ? 12 : 14.5),
-                        ),
-                      ),
-                      onPressed: isCurrent ? _addToVault : null,
+                      ],
                     ),
                   ),
                 ),
               ),
-            ],
 
-        // Content Area based on _selectedTab
-        Expanded(
-          child: _selectedTab == CardDetailTab.details
+              // Segmented Tab Control: [ Details | Values ]
+              SliverPersistentHeader(
+                pinned: true,
+                delegate: _PinnedSegmentedTabDelegate(
+                  height: tabControlHeight,
+                  child: Container(
+                    color: AppColors.surface,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Divider(height: 1, color: AppColors.surfaceBorderSubtle),
+                        _buildSegmentedTabControl(isCompact: isCompact, isUltraCompact: isUltraCompact),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ];
+          },
+          body: _selectedTab == CardDetailTab.details
               ? _buildDetailsTab(
                   context,
                   item,
@@ -1267,7 +1228,7 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
                   isProfit,
                   isOwned,
                   isCurrent,
-                  activeScrollController,
+                  null,
                 )
               : _buildValuesTab(
                   context,
@@ -1277,13 +1238,11 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
                   pct,
                   isProfit,
                   isCurrent,
-                  null, // Isolate valuesTab from DraggableScrollableSheet controller
+                  null,
                 ),
-        ),
-      ],
+        );
+      },
     );
-  },
-);
   }
 
   Widget _buildSegmentedTabControl({bool isCompact = false, bool isUltraCompact = false}) {
@@ -1419,7 +1378,7 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
     return ListView(
       key: PageStorageKey('card_detail_list_${item.id}'),
       controller: activeScrollController,
-      primary: false,
+      primary: activeScrollController == null ? null : false,
       cacheExtent: 450,
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
       children: [
@@ -1706,9 +1665,13 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
             ),
             child: Row(
               children: [
-                _buildMetricBox('Owned Copies', '0x', AppColors.textMuted),
+                _buildMetricBox('Owned Copies', '${item.quantity > 0 ? item.quantity : 0}x', AppColors.textMuted),
                 const SizedBox(width: 10),
-                _buildMetricBox('Status', 'Catalog Item', AppColors.accentCyan),
+                _buildMetricBox(
+                  'Status',
+                  isOwned ? 'owned' : 'unowned',
+                  isOwned ? AppColors.accentEmerald : AppColors.accentCyan,
+                ),
                 const SizedBox(width: 10),
                 _buildMetricBox(
                   'Market Price',
@@ -1828,7 +1791,7 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  if (isCurrent)
+                  if (isCurrent && (_isEditingNotes || _notesController.text.trim().isNotEmpty || item.personalNotes?.trim().isNotEmpty == true || item.notes?.trim().isNotEmpty == true))
                     Flexible(
                       child: FittedBox(
                         fit: BoxFit.scaleDown,
@@ -1849,7 +1812,7 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
                 ],
               ),
               const SizedBox(height: 4),
-              isCurrent
+              isCurrent && (_isEditingNotes || _notesController.text.trim().isNotEmpty || item.personalNotes?.trim().isNotEmpty == true || item.notes?.trim().isNotEmpty == true)
                   ? Container(
                       decoration: BoxDecoration(
                         color: AppColors.surface,
@@ -1869,28 +1832,32 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
                         style: const TextStyle(color: AppColors.textPrimary, fontSize: 12.5),
                       ),
                     )
-                  : Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: AppColors.surface,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: AppColors.surfaceBorder),
-                      ),
-                      child: Text(
-                        (item.notes?.isNotEmpty == true)
-                            ? item.notes!
-                            : ((item.personalNotes?.isNotEmpty == true)
-                                ? item.personalNotes!
-                                : 'No personal notes recorded.'),
-                        style: TextStyle(
-                          color: (item.notes?.isNotEmpty == true || item.personalNotes?.isNotEmpty == true)
-                              ? AppColors.textPrimary
-                              : AppColors.textMuted,
-                          fontSize: 12.5,
-                          fontStyle: (item.notes?.isNotEmpty == true || item.personalNotes?.isNotEmpty == true)
-                              ? FontStyle.normal
-                              : FontStyle.italic,
+                  : InkWell(
+                      onTap: isCurrent ? () => setState(() => _isEditingNotes = true) : null,
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: AppColors.surfaceBorder),
+                        ),
+                        child: Text(
+                          (item.notes?.isNotEmpty == true)
+                              ? item.notes!
+                              : ((item.personalNotes?.isNotEmpty == true)
+                                  ? item.personalNotes!
+                                  : 'No personal notes recorded.'),
+                          style: TextStyle(
+                            color: (item.notes?.isNotEmpty == true || item.personalNotes?.isNotEmpty == true)
+                                ? AppColors.textPrimary
+                                : AppColors.textMuted,
+                            fontSize: 12.5,
+                            fontStyle: (item.notes?.isNotEmpty == true || item.personalNotes?.isNotEmpty == true)
+                                ? FontStyle.normal
+                                : FontStyle.italic,
+                          ),
                         ),
                       ),
                     ),
@@ -2138,7 +2105,7 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
       return ListView(
         key: const Key('card_detail_values_locked_container'),
         controller: activeScrollController,
-        primary: false,
+        primary: activeScrollController == null ? null : false,
         padding: const EdgeInsets.fromLTRB(20, 24, 20, 36),
         children: const [
           LockedValuesView(),
@@ -2149,7 +2116,7 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
     return ListView(
       key: PageStorageKey('card_detail_values_${item.id}'),
       controller: activeScrollController,
-      primary: false,
+      primary: activeScrollController == null ? null : false,
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 36),
       children: [
         // Valuation Summary Card with Market Valuation header & Live Sync badge
@@ -2460,25 +2427,42 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
   }
 
   Widget _buildDeckHistoryLedger(Map<String, dynamic> itemData, {required bool isCurrent}) {
-    final rawEntries = itemData['assignment_history'] ??
-        itemData['history_ledger'] ??
-        itemData['card_history'] ??
-        (isCurrent ? _deckHistory : (itemData['deck_history'] as List? ?? []));
-
     final entries = <String>[];
-    if (rawEntries is List) {
-      for (final e in rawEntries) {
-        if (e is String && e.trim().isNotEmpty) {
-          entries.add(e.trim());
-        } else if (e is Map) {
-          final type = (e['type'] ?? 'add').toString();
-          final target = (e['target'] ?? e['deck'] ?? e['name'] ?? 'Deck').toString();
-          final date = (e['date'] ?? e['timestamp'] ?? '').toString();
-          final glyph = type == 'swap' ? '<->' : (type == 'remove' ? '-' : '+');
-          entries.add(date.isNotEmpty ? '$glyph $target - $date' : '$glyph $target');
+    final seen = <String>{};
+
+    void addEntry(dynamic e) {
+      if (e is String && e.trim().isNotEmpty) {
+        final trimmed = e.trim();
+        if (seen.add(trimmed)) {
+          entries.add(trimmed);
+        }
+      } else if (e is Map) {
+        final type = (e['type'] ?? 'add').toString();
+        final target = (e['target'] ?? e['deck'] ?? e['name'] ?? 'Deck').toString();
+        final date = (e['date'] ?? e['timestamp'] ?? '').toString();
+        final glyph = type == 'swap' ? '<->' : (type == 'remove' ? '-' : '+');
+        final str = date.isNotEmpty ? '$glyph $target - $date' : '$glyph $target';
+        if (seen.add(str)) {
+          entries.add(str);
         }
       }
     }
+
+    void addSource(dynamic source) {
+      if (source is List) {
+        for (final item in source) {
+          addEntry(item);
+        }
+      }
+    }
+
+    addSource(itemData['assignment_history']);
+    addSource(itemData['history_ledger']);
+    addSource(itemData['card_history']);
+    if (isCurrent && _deckHistory.isNotEmpty) {
+      addSource(_deckHistory);
+    }
+    addSource(itemData['deck_history']);
 
     return SizedBox(
       key: const Key('card_history_ledger'),
@@ -2487,57 +2471,41 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (entries.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 8),
-              child: Text(
-                'No deck assignment history recorded yet.',
-                style: TextStyle(color: AppColors.textMuted, fontSize: 12.5),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: const [
+                  Text(
+                    'No recorded deck assignment history.',
+                    style: TextStyle(color: AppColors.textMuted, fontSize: 12.5),
+                  ),
+                  SizedBox(height: 2),
+                  Text(
+                    'No deck assignment history recorded yet.',
+                    style: TextStyle(color: AppColors.textMuted, fontSize: 11),
+                  ),
+                ],
               ),
             )
           else
             ...entries.map((raw) => _buildLedgerEntryRow(raw, isCurrent: isCurrent)),
-          if (isCurrent) ...[
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _deckTagController,
-                    decoration: InputDecoration(
-                      hintText: 'Add deck assignment...',
-                      hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 12),
-                      isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                      filled: true,
-                      fillColor: AppColors.surface,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(color: AppColors.surfaceBorder),
-                      ),
-                    ),
-                    onSubmitted: (_) => _addDeckTag(),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                IconButton(
-                  tooltip: 'Add assignment',
-                  icon: const Icon(Icons.add_circle, color: AppColors.accentCyan),
-                  onPressed: _addDeckTag,
-                ),
-              ],
-            ),
-          ],
         ],
       ),
     );
   }
 
   Widget _buildLedgerEntryRow(String raw, {required bool isCurrent}) {
-    String glyph = '+';
-    Color glyphColor = AppColors.accentEmerald;
-    String displayString = raw;
+    final isDraft = raw.startsWith('Drafted in');
+    String glyph;
+    Color glyphColor;
+    String displayString;
 
-    if (raw.startsWith('<->')) {
+    if (isDraft) {
+      glyph = 'Draft';
+      glyphColor = AppColors.accentVioletLight;
+      displayString = raw;
+    } else if (raw.startsWith('<->')) {
       glyph = '<->';
       glyphColor = AppColors.accentAmber;
       displayString = raw;
@@ -2556,12 +2524,15 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
     }
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: EdgeInsets.symmetric(vertical: isDraft ? 2.5 : 4),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            padding: EdgeInsets.symmetric(
+              horizontal: isDraft ? 5 : 6,
+              vertical: isDraft ? 1.5 : 2,
+            ),
             decoration: BoxDecoration(
               color: glyphColor.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(4),
@@ -2571,9 +2542,9 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
               glyph,
               style: TextStyle(
                 color: glyphColor,
-                fontSize: 11,
+                fontSize: isDraft ? 9.5 : 11,
                 fontWeight: FontWeight.w700,
-                fontFamily: 'monospace',
+                fontFamily: isDraft ? null : 'monospace',
               ),
             ),
           ),
@@ -2581,22 +2552,13 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
           Expanded(
             child: Text(
               displayString,
-              style: const TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 12.5,
-                fontWeight: FontWeight.w500,
+              style: TextStyle(
+                color: isDraft ? AppColors.textSecondary : AppColors.textPrimary,
+                fontSize: isDraft ? 11.5 : 12.5,
+                fontWeight: isDraft ? FontWeight.w500 : FontWeight.w600,
               ),
             ),
           ),
-          if (isCurrent)
-            IconButton(
-              icon: const Icon(Icons.close, size: 14, color: AppColors.textMuted),
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
-              splashRadius: 14,
-              tooltip: 'Remove',
-              onPressed: () => _removeDeckTag(raw),
-            ),
         ],
       ),
     );
@@ -2614,30 +2576,34 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
 
     final hasFlip = _hasFlipArt;
 
-    final artwork = GestureDetector(
-      onTap: hasFlip ? _toggleFlip : _openFullScreenViewer,
-      child: AnimatedBuilder(
-        animation: _flipAnimation,
-        builder: (context, child) {
-          final angle = _flipAnimation.value * math.pi;
-          final isUnder = angle > (math.pi / 2);
-          final backUrl = _getBackImageUrl();
-          final frontUrl = _getFrontImageUrl();
-          final currentUrl = isUnder ? (backUrl ?? frontUrl) : frontUrl;
-          return Transform(
-            transform: Matrix4.identity()
-              ..setEntry(3, 2, 0.001)
-              ..rotateY(angle),
-            alignment: Alignment.center,
-            child: isUnder
-                ? Transform(
-                    alignment: Alignment.center,
-                    transform: Matrix4.identity()..rotateY(math.pi),
-                    child: _buildCardFaceContainer(currentUrl, cardName: item.name, isCompact: isCompact, isUltraCompact: isUltraCompact),
-                  )
-                : _buildCardFaceContainer(currentUrl, cardName: item.name, isCompact: isCompact, isUltraCompact: isUltraCompact),
-          );
-        },
+    final artwork = Semantics(
+      button: true,
+      label: hasFlip ? 'Card artwork, tap to flip' : 'Card artwork, tap to view full screen',
+      child: GestureDetector(
+        onTap: hasFlip ? _toggleFlip : _openFullScreenViewer,
+        child: AnimatedBuilder(
+          animation: _flipAnimation,
+          builder: (context, child) {
+            final angle = _flipAnimation.value * math.pi;
+            final isUnder = angle > (math.pi / 2);
+            final backUrl = _getBackImageUrl();
+            final frontUrl = _getFrontImageUrl();
+            final currentUrl = isUnder ? (backUrl ?? frontUrl) : frontUrl;
+            return Transform(
+              transform: Matrix4.identity()
+                ..setEntry(3, 2, 0.001)
+                ..rotateY(angle),
+              alignment: Alignment.center,
+              child: isUnder
+                  ? Transform(
+                      alignment: Alignment.center,
+                      transform: Matrix4.identity()..rotateY(math.pi),
+                      child: _buildCardFaceContainer(currentUrl, cardName: item.name, isCompact: isCompact, isUltraCompact: isUltraCompact),
+                    )
+                  : _buildCardFaceContainer(currentUrl, cardName: item.name, isCompact: isCompact, isUltraCompact: isUltraCompact),
+            );
+          },
+        ),
       ),
     );
 
@@ -2849,6 +2815,14 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
   }
 
   Widget _buildMetricBox(String title, String value, Color valueColor) {
+    String displayValue = value;
+    Color displayColor = valueColor;
+    if (title.toLowerCase() == 'status' && (value.isEmpty || value == 'Catalog Item')) {
+      final isOwned = _currentItem.quantity > 0;
+      displayValue = isOwned ? 'owned' : 'unowned';
+      displayColor = isOwned ? AppColors.accentEmerald : AppColors.accentCyan;
+    }
+
     return Expanded(
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
@@ -2873,8 +2847,8 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
               fit: BoxFit.scaleDown,
               alignment: Alignment.centerLeft,
               child: Text(
-                value,
-                style: TextStyle(color: valueColor, fontWeight: FontWeight.w700, fontSize: 13),
+                displayValue,
+                style: TextStyle(color: displayColor, fontWeight: FontWeight.w700, fontSize: 13),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -3215,6 +3189,19 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
       return const SizedBox.shrink();
     }
 
+    final uniqueKeywords = <String>[];
+    final seen = <String>{};
+    for (final kw in keywords) {
+      final trimmed = kw.trim();
+      if (trimmed.isNotEmpty && seen.add(trimmed.toLowerCase())) {
+        uniqueKeywords.add(trimmed);
+      }
+    }
+
+    if (uniqueKeywords.isEmpty && rulings.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -3231,12 +3218,12 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Keywords attribute badge chips at top of section
-              if (keywords.isNotEmpty) ...[
+              if (uniqueKeywords.isNotEmpty) ...[
                 Wrap(
                   spacing: 6,
                   runSpacing: 6,
                   children: [
-                    for (final keyword in keywords)
+                    for (final keyword in uniqueKeywords)
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
                         decoration: BoxDecoration(
@@ -3258,8 +3245,8 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
                 const SizedBox(height: 12),
 
                 // Follow with glossary definitions: [ Mechanic ] Definition
-                for (int i = 0; i < keywords.length; i++) ...[
-                  if (MtgKeywordGlossary.dictionary.containsKey(keywords[i])) ...[
+                for (final keyword in uniqueKeywords) ...[
+                  if (MtgKeywordGlossary.getDefinition(keyword) != null) ...[
                     Padding(
                       padding: const EdgeInsets.only(bottom: 8),
                       child: Row(
@@ -3277,7 +3264,7 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
                                   border: Border.all(color: AppColors.surfaceBorder),
                                 ),
                                 child: Text(
-                                  '[ ${keywords[i]} ]',
+                                  '[ $keyword ]',
                                   style: const TextStyle(
                                     color: AppColors.accentCyan,
                                     fontWeight: FontWeight.w700,
@@ -3290,7 +3277,7 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              MtgKeywordGlossary.dictionary[keywords[i]]!,
+                              MtgKeywordGlossary.getDefinition(keyword)!,
                               style: const TextStyle(
                                 color: AppColors.textSecondary,
                                 fontSize: 12.5,
@@ -3306,7 +3293,7 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
               ],
 
               // Divider between keywords and rulings
-              if (keywords.isNotEmpty && rulings.isNotEmpty) ...[
+              if (uniqueKeywords.isNotEmpty && rulings.isNotEmpty) ...[
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 14),
                   child: Divider(height: 1, color: AppColors.surfaceBorderSubtle),
@@ -3451,6 +3438,7 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
   Widget _buildQuickActionBar(BuildContext context) {
     final isDeckContext = widget.deckId != null || widget.deck != null;
     final isBinderContext = widget.binderId != null || widget.binder != null;
+    final isOwned = _currentItem.quantity > 0;
 
     final actions = <Widget>[];
 
@@ -3474,15 +3462,17 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
         ),
       );
     } else {
-      actions.add(
-        _buildQuickActionButton(
-          key: const Key('quick_action_delete'),
-          icon: Icons.delete_outline_rounded,
-          label: 'Delete',
-          color: AppColors.accentRose,
-          onTap: _confirmDeleteItem,
-        ),
-      );
+      if (isOwned) {
+        actions.add(
+          _buildQuickActionButton(
+            key: const Key('quick_action_delete'),
+            icon: Icons.delete_outline_rounded,
+            label: 'Delete',
+            color: AppColors.accentRose,
+            onTap: _confirmDeleteItem,
+          ),
+        );
+      }
       if (isBinderContext) {
         actions.add(
           _buildQuickActionButton(
@@ -3494,15 +3484,27 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
           ),
         );
       }
-      actions.add(
-        _buildQuickActionButton(
-          key: const Key('quick_action_add_to_deck'),
-          icon: Icons.playlist_add_rounded,
-          label: 'Add to Deck',
-          color: AppColors.accentVioletLight,
-          onTap: _showAddToDeckDialog,
-        ),
-      );
+      if (isOwned) {
+        actions.add(
+          _buildQuickActionButton(
+            key: const Key('quick_action_add_to_deck'),
+            icon: Icons.playlist_add_rounded,
+            label: 'Add to Deck',
+            color: AppColors.accentVioletLight,
+            onTap: _showAddToDeckDialog,
+          ),
+        );
+      } else {
+        actions.add(
+          _buildQuickActionButton(
+            key: const Key('quick_action_add_to_plus'),
+            icon: Icons.add_circle_outline_rounded,
+            label: 'Add to +',
+            color: AppColors.accentCyan,
+            onTap: _showAddToSelectorModal,
+          ),
+        );
+      }
     }
 
     actions.add(
@@ -3983,6 +3985,66 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
     }
   }
 
+  Future<void> _showAddToSelectorModal() async {
+    if (!mounted) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (modalCtx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.add_circle_outline_rounded, color: AppColors.accentCyan),
+                      const SizedBox(width: 8),
+                      const Text('Add to...', style: AppTypography.heading2),
+                      const Spacer(),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: AppColors.textMuted),
+                        onPressed: () => Navigator.of(modalCtx).pop(),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(color: AppColors.surfaceBorder),
+                ListTile(
+                  key: const Key('add_to_binders_option'),
+                  leading: const Icon(Icons.folder_outlined, color: AppColors.accentCyan),
+                  title: const Text('Binders', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                  subtitle: const Text('Store in binders or inbox', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                  onTap: () {
+                    Navigator.of(modalCtx).pop();
+                    _showMoveBinderModal();
+                  },
+                ),
+                ListTile(
+                  key: const Key('add_to_decks_option'),
+                  leading: const Icon(Icons.playlist_add_rounded, color: AppColors.accentVioletLight),
+                  title: const Text('Decks', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                  subtitle: const Text('Add as proxy or active card to a deck', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                  onTap: () {
+                    Navigator.of(modalCtx).pop();
+                    _showAddToDeckDialog();
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _showAddToDeckDialog() async {
     if (!mounted) return;
     await showModalBottomSheet(
@@ -4333,5 +4395,78 @@ class _AddToDeckDialogContentState extends ConsumerState<_AddToDeckDialogContent
         ],
       ),
     );
+  }
+}
+
+class _CollapsibleCardArtHeaderDelegate extends SliverPersistentHeaderDelegate {
+  _CollapsibleCardArtHeaderDelegate({
+    required this.maxExtent,
+    this.minExtent = 0.0,
+    required this.child,
+  });
+
+  @override
+  final double maxExtent;
+
+  @override
+  final double minExtent;
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    final extent = maxExtent - minExtent;
+    final progress = extent > 0 ? (shrinkOffset / extent).clamp(0.0, 1.0) : 0.0;
+    if (progress >= 1.0) {
+      return const SizedBox.shrink();
+    }
+    final opacity = (1.0 - progress * 1.5).clamp(0.0, 1.0);
+
+    return ClipRect(
+      child: SizedBox.expand(
+        child: Opacity(
+          opacity: opacity,
+          child: OverflowBox(
+            minHeight: 0,
+            maxHeight: maxExtent,
+            alignment: Alignment.topCenter,
+            child: child,
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  bool shouldRebuild(covariant _CollapsibleCardArtHeaderDelegate oldDelegate) {
+    return oldDelegate.maxExtent != maxExtent ||
+        oldDelegate.minExtent != minExtent ||
+        oldDelegate.child != child;
+  }
+}
+
+class _PinnedSegmentedTabDelegate extends SliverPersistentHeaderDelegate {
+  _PinnedSegmentedTabDelegate({
+    required this.height,
+    required this.child,
+  });
+
+  final double height;
+  final Widget child;
+
+  @override
+  double get minExtent => height;
+
+  @override
+  double get maxExtent => height;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return SizedBox.expand(child: child);
+  }
+
+  @override
+  bool shouldRebuild(covariant _PinnedSegmentedTabDelegate oldDelegate) {
+    return oldDelegate.height != height || oldDelegate.child != child;
   }
 }

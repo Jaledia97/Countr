@@ -67,6 +67,11 @@ class CountrImageCacheManager extends CacheManager with ImageCacheManager {
     return fileInfo.file;
   }
 
+  /// Evicts a specific card image from cache to force re-fetch.
+  Future<void> evictCardArt(String cardId) async {
+    await removeFile(cardArtKey(cardId));
+  }
+
   /// Verifies if primary card art files exist on disk.
   /// If the cache was cleared or wiped (e.g. system settings, disk cleanup),
   /// returns false to signal that reproduction / re-caching is needed.

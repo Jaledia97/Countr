@@ -191,14 +191,18 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
       ]);
     }
 
-    if (limit != null) {
+    final hasActiveMtgFilter = mtgFilter != null && mtgFilter.isActive;
+    if (!hasActiveMtgFilter && limit != null) {
       query.limit(limit, offset: offset);
     }
 
     // Stage 2: In-memory stream mapping using mtgFilter.matches(item)
     return query.watch().map((items) {
-      if (mtgFilter == null || !mtgFilter.isActive) return items;
-      return items.where((item) => mtgFilter.matches(item)).toList();
+      if (!hasActiveMtgFilter) return items;
+      final filtered = items.where((item) => mtgFilter.matches(item));
+      final skipped = (offset != null && offset > 0) ? filtered.skip(offset) : filtered;
+      final limited = (limit != null) ? skipped.take(limit) : skipped;
+      return limited.toList();
     });
   }
 
@@ -281,18 +285,22 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
       ]);
     }
 
-    if (limit != null) {
+    final hasActiveMtgFilter = mtgFilter != null && mtgFilter.isActive;
+    if (!hasActiveMtgFilter && limit != null) {
       query.limit(limit, offset: offset);
     }
 
     final items = await query.get();
 
     // Stage 2: In-memory evaluation using mtgFilter.matches(item)
-    if (mtgFilter == null || !mtgFilter.isActive) {
+    if (!hasActiveMtgFilter) {
       return items;
     }
 
-    return items.where((item) => mtgFilter.matches(item)).toList();
+    final filtered = items.where((item) => mtgFilter.matches(item));
+    final skipped = (offset != null && offset > 0) ? filtered.skip(offset) : filtered;
+    final limited = (limit != null) ? skipped.take(limit) : skipped;
+    return limited.toList();
   }
 
   /// Generates a weighted search rank [Expression<int>] prioritizing:
@@ -542,13 +550,35 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
       final onlyC = filter.colors.length == 1 && filter.colors.contains('C');
       if (onlyC) {
         query.where((t) =>
+            const CustomExpression<bool>(
+              "CASE WHEN json_valid(vault_items.dynamic_data) = 1 THEN (json_extract(vault_items.dynamic_data, '\$.colors') = '[]') ELSE 0 END",
+            ) |
             t.dynamicData.like('%"colors":[]%') |
             t.dynamicData.like('%"colors": []%') |
             t.dynamicData.like('%"{C}"%'));
       } else if (filter.colorMatchMode == ColorMatchMode.including ||
           filter.colorMatchMode == ColorMatchMode.exactly) {
         for (final c in filter.colors.where((c) => c != 'C')) {
-          query.where((t) => t.dynamicData.like('%"$c"%'));
+          query.where((t) => CustomExpression<bool>(
+                "CASE WHEN json_valid(vault_items.dynamic_data) = 1 THEN ("
+                "json_extract(vault_items.dynamic_data, '\$.colors') GLOB '*\"$c\"*' OR "
+                "json_extract(vault_items.dynamic_data, '\$.card_faces[0].colors') GLOB '*\"$c\"*'"
+                ") ELSE 0 END",
+              ));
+        }
+      }
+    }
+
+    // 7. Formats pushdown
+    if (filter.formats.isNotEmpty) {
+      for (final fmt in filter.formats) {
+        final cleanFmt = fmt.toLowerCase().trim().replaceAll(RegExp(r'[^a-z0-9_]'), '');
+        if (cleanFmt.isNotEmpty) {
+          query.where((t) => CustomExpression<bool>(
+                "CASE WHEN json_valid(vault_items.dynamic_data) = 1 THEN ("
+                "json_extract(vault_items.dynamic_data, '\$.legalities.$cleanFmt') IN ('legal', 'restricted')"
+                ") ELSE 0 END",
+              ));
         }
       }
     }
@@ -890,6 +920,7 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     String? personalNotes,
     List<String>? deckTags,
     String? communityNotes,
+    List<String>? assignmentHistory,
   }) async {
     final existing =
         await (select(vaultItems)..where((t) => t.id.equals(id))).getSingleOrNull();
@@ -906,6 +937,9 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
 
     if (deckTags != null) {
       data['deck_history'] = deckTags;
+    }
+    if (assignmentHistory != null) {
+      data['assignment_history'] = assignmentHistory;
     }
     if (communityNotes != null) {
       data['use_cases'] = communityNotes;
@@ -2489,6 +2523,17 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
   Future<int> deleteDeck(String deckId) async {
     return transaction(() async {
       final now = DateTime.now();
+
+      // Collect all member vaultItemIds before/during soft-deletion
+      final versions = await (select(deckVersions)..where((t) => t.deckId.equals(deckId))).get();
+      final affectedVaultItemIds = <String>{};
+      for (final v in versions) {
+        final items = await (select(deckVersionItems)..where((t) => t.versionId.equals(v.id))).get();
+        for (final item in items) {
+          affectedVaultItemIds.add(item.vaultItemId);
+        }
+      }
+
       final count = await (update(decks)
             ..where((t) => t.id.equals(deckId) & t.isDeleted.equals(false)))
           .write(
@@ -2500,7 +2545,6 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
       if (count > 0) {
         await _recordSync('deck', deckId, 'DELETE', timestamp: now);
 
-        final versions = await (select(deckVersions)..where((t) => t.deckId.equals(deckId))).get();
         for (final v in versions) {
           await (update(deckVersions)..where((t) => t.id.equals(v.id))).write(
             DeckVersionsCompanion(
@@ -2520,6 +2564,11 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
             );
             await _recordSync('deck_version_item', item.id, 'DELETE', timestamp: now);
           }
+        }
+
+        // Cascade sync to all affected member cards
+        for (final vaultItemId in affectedVaultItemIds) {
+          await _syncItemDeckHistory(vaultItemId);
         }
       }
       return count;
@@ -3952,6 +4001,27 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     await addCardToDeck(targetDeckId, vaultItemId, isProxy: false);
   }
 
+  /// Cascades deck ledger synchronization to all member vault items.
+  Future<void> _cascadeSyncDeckMembers(String deckId) async {
+    final rows = await customSelect(
+      '''
+      SELECT DISTINCT dvi.vault_item_id
+      FROM deck_version_items dvi
+      INNER JOIN deck_versions dv ON dv.id = dvi.version_id
+      WHERE dv.deck_id = ? AND dv.is_active = 1
+        AND dvi.is_deleted = 0 AND dv.is_deleted = 0
+        AND dvi.vault_item_id IS NOT NULL
+      ''',
+      variables: [Variable.withString(deckId)],
+      readsFrom: {deckVersionItems, deckVersions},
+    ).get();
+
+    for (final row in rows) {
+      final vaultItemId = row.read<String>('vault_item_id');
+      await _syncItemDeckHistory(vaultItemId);
+    }
+  }
+
   /// Sets physical registration status of a deck (Draft vs Registered).
   Future<void> setDeckRegistered(String deckId, bool isRegistered) async {
     final now = DateTime.now();
@@ -3961,11 +4031,19 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
       updatedAt: Value(now),
     ));
     await _recordSync('deck', deckId, 'UPDATE', timestamp: now);
+    await _cascadeSyncDeckMembers(deckId);
   }
 
   /// Sets physical assembly status of a deck (Assembled vs Disassembled).
   Future<void> setDeckAssembled(String deckId, bool isAssembled) async {
-    await setDeckRegistered(deckId, isAssembled);
+    final now = DateTime.now();
+    await (update(decks)..where((t) => t.id.equals(deckId))).write(DecksCompanion(
+      isAssembled: Value(isAssembled),
+      isRegistered: Value(isAssembled),
+      updatedAt: Value(now),
+    ));
+    await _recordSync('deck', deckId, 'UPDATE', timestamp: now);
+    await _cascadeSyncDeckMembers(deckId);
   }
 
   /// Updates the custom cover image and optional crop rect for a deck.
@@ -4914,11 +4992,11 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     await _syncItemDeckHistory(vaultItemId);
   }
 
-  /// Synchronizes VaultItem dynamicData['deck_history'] with currently assigned decks.
+  /// Synchronizes VaultItem dynamicData['deck_history'] and assignment_history with currently assigned decks.
   Future<void> _syncItemDeckHistory(String vaultItemId) async {
     final activeDecks = await customSelect(
       '''
-      SELECT DISTINCT d.name
+      SELECT d.id, d.name, d.is_assembled, d.is_registered, dvi.updated_at
       FROM deck_version_items dvi
       INNER JOIN deck_versions dv ON dv.id = dvi.version_id
       INNER JOIN decks d ON d.id = dv.deck_id
@@ -4929,8 +5007,46 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
       readsFrom: {deckVersionItems, deckVersions, decks},
     ).get();
 
-    final deckNames = activeDecks.map((r) => r.read<String>('name')).toList();
-    await updateItemNotesAndDecks(vaultItemId, deckTags: deckNames);
+    final formalDeckNames = <String>[];
+    final draftEntries = <String>[];
+    final seenDecks = <String>{};
+
+    for (final row in activeDecks) {
+      final name = row.read<String>('name');
+      if (!seenDecks.add(name)) continue;
+
+      final rawAssembled = row.data['is_assembled'];
+      final rawRegistered = row.data['is_registered'];
+      final isAssembled = rawAssembled == 1 ||
+          rawAssembled == true ||
+          rawRegistered == 1 ||
+          rawRegistered == true;
+
+      if (isAssembled) {
+        formalDeckNames.add(name);
+      } else {
+        final rawDate = row.data['updated_at'];
+        DateTime dt = DateTime.now();
+        if (rawDate is DateTime) {
+          dt = rawDate;
+        } else if (rawDate is int) {
+          dt = DateTime.fromMillisecondsSinceEpoch(
+              rawDate * (rawDate < 10000000000 ? 1000 : 1));
+        } else if (rawDate is String) {
+          dt = DateTime.tryParse(rawDate) ?? DateTime.now();
+        }
+        final dateStr =
+            '${dt.year.toString().padLeft(4, '0')}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
+        draftEntries.add('Drafted in - $name - $dateStr');
+      }
+    }
+
+    final allAssignmentEntries = <String>[...formalDeckNames, ...draftEntries];
+    await updateItemNotesAndDecks(
+      vaultItemId,
+      deckTags: formalDeckNames,
+      assignmentHistory: allAssignmentEntries,
+    );
   }
 
   // ---------------------------------------------------------------------------

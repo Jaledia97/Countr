@@ -9,6 +9,7 @@ import 'package:countr/core/state/settings_state.dart';
 import 'package:countr/features/hydration/domain/isolate/scryfall_parser.dart';
 import 'package:countr/features/hydration/presentation/providers/hydration_providers.dart';
 import 'package:countr/features/vault/presentation/providers/vault_providers.dart';
+import 'package:countr/features/vault/presentation/widgets/card_detail_sheet.dart';
 import 'package:countr/features/vault/presentation/widgets/switch_printing_modal.dart';
 
 /// ManaBox-style horizontal scrolling list displaying all available card printings,
@@ -20,6 +21,7 @@ class VariantPriceChart extends ConsumerStatefulWidget {
   final List<CardPrintCandidate>? initialVariants;
   final bool enableOnlineFetch;
   final bool? isPrivacyMode;
+  final bool? enableNavigation;
 
   const VariantPriceChart({
     super.key,
@@ -29,6 +31,7 @@ class VariantPriceChart extends ConsumerStatefulWidget {
     this.initialVariants,
     this.enableOnlineFetch = true,
     this.isPrivacyMode,
+    this.enableNavigation,
   });
 
   @override
@@ -363,6 +366,56 @@ class _VariantPriceChartState extends ConsumerState<VariantPriceChart> {
     );
   }
 
+  Future<VaultItem> _resolveCandidateVaultItem(CardPrintCandidate candidate) async {
+    try {
+      final dao = ref.read(vaultDaoProvider);
+      final localItems = await dao.getCatalogPrintings(widget.item.name);
+      for (final item in localItems) {
+        if (_matchesItem(candidate, item)) {
+          return item;
+        }
+      }
+    } catch (e, stackTrace) {
+      debugPrint('[VariantPriceChart._resolveCandidateVaultItem] Failed resolving local printing: $e\n$stackTrace');
+    }
+
+    final dynData = Map<String, dynamic>.from(candidate.rawData);
+    dynData['set_code'] = candidate.setCode;
+    dynData['set'] = candidate.setCode;
+    dynData['collector_number'] = candidate.collectorNumber;
+    dynData['finishes'] = candidate.finishes;
+    dynData['frame_effects'] = candidate.frameEffects;
+    if (candidate.artCropUrl != null) {
+      dynData['image_uris'] = {
+        'art_crop': candidate.artCropUrl,
+        'normal': candidate.imageUrl,
+      };
+    }
+
+    return VaultItem(
+      id: (candidate.rawData['id'] as String?) ??
+          'catalog_${candidate.setCode.toLowerCase()}_${candidate.collectorNumber}',
+      collectionType: widget.item.collectionType,
+      name: (candidate.rawData['name'] as String?) ?? widget.item.name,
+      setOrSeries: candidate.setName.isNotEmpty
+          ? candidate.setName
+          : candidate.setCode.toUpperCase(),
+      imageUrl: candidate.imageUrl,
+      acquiredPrice: 0.0,
+      acquiredDate: DateTime.now(),
+      quantity: 0,
+      condition: 'NM',
+      isGraded: false,
+      isAltered: false,
+      isMisprint: false,
+      isSigned: false,
+      isDeleted: false,
+      currentMarketPrice: candidate.marketPrice,
+      lastPriceUpdate: DateTime.now(),
+      dynamicData: jsonEncode(dynData),
+    );
+  }
+
   Widget _buildVariantCard(
     BuildContext context,
     CardPrintCandidate variant, {
@@ -393,6 +446,21 @@ class _VariantPriceChartState extends ConsumerState<VariantPriceChart> {
           _selectedVariant = variant;
         });
         widget.onPrintingSelected?.call(variant);
+
+        final shouldNavigate = widget.enableNavigation ??
+            (context.findAncestorWidgetOfExactType<CardDetailSheet>() != null);
+
+        if (shouldNavigate && !isActivePrinting) {
+          _resolveCandidateVaultItem(variant).then((targetItem) {
+            if (context.mounted) {
+              CardDetailSheet.show(
+                context,
+                targetItem,
+                fetchOnlinePrintings: widget.enableOnlineFetch,
+              );
+            }
+          });
+        }
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
@@ -404,10 +472,10 @@ class _VariantPriceChartState extends ConsumerState<VariantPriceChart> {
               : AppColors.surfaceRaised,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: isSelected
-                ? AppColors.accentCyan
-                : (isActivePrinting ? AppColors.accentAmber : AppColors.surfaceBorder),
-            width: isSelected ? 2.0 : 1.0,
+            color: isActivePrinting
+                ? AppColors.accentAmber
+                : (isSelected ? AppColors.accentCyan : AppColors.surfaceBorder),
+            width: (isSelected || isActivePrinting) ? 2.0 : 1.0,
           ),
           boxShadow: isSelected
               ? [
@@ -561,13 +629,15 @@ class _VariantPriceChartState extends ConsumerState<VariantPriceChart> {
       );
     }
 
-    return CountrCachedImage(
-      imageUrl: url,
-      fit: BoxFit.contain,
-      errorWidget: Container(
-        color: AppColors.surfaceHighlight,
-        alignment: Alignment.center,
-        child: const Icon(Icons.broken_image_outlined, size: 22, color: AppColors.textMuted),
+    return IgnorePointer(
+      child: CountrCachedImage(
+        imageUrl: url,
+        fit: BoxFit.contain,
+        errorWidget: Container(
+          color: AppColors.surfaceHighlight,
+          alignment: Alignment.center,
+          child: const Icon(Icons.broken_image_outlined, size: 22, color: AppColors.textMuted),
+        ),
       ),
     );
   }

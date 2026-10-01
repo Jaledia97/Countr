@@ -35,6 +35,23 @@ void main() {
         equals("https://api.scryfall.com/cards/named?exact=Urza's%20Tower&format=image&version=art_crop"),
       );
     });
+
+    test('effectiveCacheKey resolves correctly from cardId using CountrImageCacheManager.cardArtKey', () {
+      const widget = CountrCachedImage(
+        imageUrl: 'https://example.com/art.jpg',
+        cardId: 'card-abc-123',
+      );
+      expect(widget.effectiveCacheKey, equals('card_art_card-abc-123'));
+    });
+
+    test('effectiveCacheKey prioritizes explicit cacheKey over cardId', () {
+      const widget = CountrCachedImage(
+        imageUrl: 'https://example.com/art.jpg',
+        cardId: 'card-abc-123',
+        cacheKey: 'custom_key_456',
+      );
+      expect(widget.effectiveCacheKey, equals('custom_key_456'));
+    });
   });
 
   group('CountrCachedImage Widget Tests', () {
@@ -173,6 +190,32 @@ void main() {
       // Verify that the ugly broken icon is replaced with the elegant placeholder initials
       expect(find.byIcon(Icons.image_not_supported), findsNothing);
       expect(find.text('VN'), findsOneWidget);
+    });
+
+    testWidgets('Tapping styled card placeholder or error widget triggers manual retry', (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: CountrCachedImage(
+              imageUrl: '',
+              cardName: 'Gilded Lotus',
+              tcgDomain: 'other',
+              width: 100,
+              height: 140,
+            ),
+          ),
+        ),
+      );
+
+      expect(find.byType(CountrCachedImage), findsOneWidget);
+      expect(find.text('GL'), findsOneWidget);
+
+      // Tap on placeholder to trigger manual retry
+      await tester.tap(find.text('GL'));
+      await tester.pump();
+
+      // Still renders cleanly after retry tap
+      expect(find.text('GL'), findsOneWidget);
     });
   });
 }

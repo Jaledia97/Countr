@@ -138,21 +138,17 @@ void main() {
       await tester.pumpAndSettle();
 
       // Check button existence, key, and copy
-      final addButtonFinder = find.byKey(const Key('card_detail_add_to_vault'));
+      final addButtonFinder = find.byKey(const Key('quick_action_add_to_plus'));
       expect(addButtonFinder, findsOneWidget);
-      expect(find.text('Add to Vault'), findsOneWidget);
+      expect(find.text('Add to +'), findsOneWidget);
 
-      // Tap 'Add to Vault'
+      // Tap 'Add to +'
       await tester.tap(addButtonFinder);
       await tester.pumpAndSettle();
 
-      // Verify sheet popped
-      expect(find.byType(CardDetailSheet), findsNothing);
-      expect(find.text('Added "Mox Diamond" to Inbox'), findsOneWidget);
-
-      // Verify DB record updated to quantity = 1
-      final itemInDb = await (db.select(db.vaultItems)..where((t) => t.id.equals('unowned-mox-diamond'))).getSingle();
-      expect(itemInDb.quantity, equals(1));
+      // Verify routing modal options appear
+      expect(find.textContaining('Binders'), findsWidgets);
+      expect(find.textContaining('Decks'), findsWidgets);
     });
 
     testWidgets('2. Owned card: Add to Vault button is absent and cannot be triggered', (tester) async {
@@ -167,7 +163,8 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      expect(find.byKey(const Key('card_detail_add_to_vault')), findsNothing);
+      expect(find.byKey(const Key('quick_action_add_to_plus')), findsNothing);
+      expect(find.text('Add to +'), findsNothing);
       expect(find.text('Add to Vault'), findsNothing);
       expect(find.text('Add to Vault / Inbox'), findsNothing);
     });
@@ -232,7 +229,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.byKey(const Key('card_detail_segmented_control')), findsOneWidget);
-        expect(find.byKey(const Key('card_detail_add_to_vault')), findsOneWidget);
+        expect(find.byKey(const Key('quick_action_add_to_plus')), findsOneWidget);
 
         final overflows = errors.where((e) => e.exceptionAsString().contains('overflowed')).toList();
         expect(overflows, isEmpty, reason: 'Zero overflows allowed in compact viewport (<400px)');
@@ -264,7 +261,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.byKey(const Key('card_detail_segmented_control')), findsOneWidget);
-        expect(find.byKey(const Key('card_detail_add_to_vault')), findsOneWidget);
+        expect(find.byKey(const Key('quick_action_add_to_plus')), findsOneWidget);
 
         final overflows = errors.where((e) => e.exceptionAsString().contains('overflowed')).toList();
         expect(overflows, isEmpty, reason: 'Zero overflows allowed in ultra compact viewport (<240px)');
@@ -295,12 +292,12 @@ void main() {
       );
       expect(artworkInList, findsNothing, reason: 'Artwork must be in Top Hero, not duplicated in Details list');
 
-      // Ensure Add to Vault is NOT inside the list
+      // Ensure Add to + is NOT inside the list
       final addInList = find.descendant(
         of: listFinder,
-        matching: find.byKey(const Key('card_detail_add_to_vault')),
+        matching: find.byKey(const Key('quick_action_add_to_plus')),
       );
-      expect(addInList, findsNothing, reason: 'Add to Vault must be outside Details list');
+      expect(addInList, findsNothing, reason: 'Add to + must be outside Details list');
 
       // Section 1 is indeed oracle rules
       expect(

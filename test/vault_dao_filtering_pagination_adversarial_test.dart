@@ -604,6 +604,179 @@ void main() {
       final needleEmpty = await dao.getItemsByCollection('mtg', mtgFilter: needleFilter, limit: 1, offset: 2);
       expect(needleEmpty, isEmpty);
     });
+
+    test('2.5 Red Mana Color Filter Starvation Regression Test: 60 non-red cards followed by 40 red cards', () async {
+      final baseDate = DateTime(2026, 1, 1);
+
+      // Seed 60 non-red cards (Blue/Green with lowercase 'r' like rarity: rare, reprint: true)
+      for (int i = 1; i <= 60; i++) {
+        final date = baseDate.add(Duration(days: 300 - i));
+        await dao.into(dao.vaultItems).insert(
+          createTestCard(
+            id: 'non-red-$i',
+            name: 'Blue Green Card $i',
+            acquiredDate: date,
+            dynamicDataMap: {
+              'colors': ['U', 'G'],
+              'rarity': 'rare',
+              'reprint': true,
+              'oracle_text': 'Draw a card.',
+            },
+          ),
+        );
+      }
+
+      // Seed 40 red cards (colors: ['R'])
+      for (int i = 1; i <= 40; i++) {
+        final date = baseDate.add(Duration(days: 100 - i));
+        await dao.into(dao.vaultItems).insert(
+          createTestCard(
+            id: 'red-$i',
+            name: 'Red Spell $i',
+            acquiredDate: date,
+            dynamicDataMap: {
+              'colors': ['R'],
+              'rarity': 'uncommon',
+              'reprint': false,
+              'oracle_text': 'Deal 3 damage to any target.',
+            },
+          ),
+        );
+      }
+
+      final redFilter = const MtgFilterState(colors: {'R'});
+
+      // Query with limit = 50. Must return all 40 red cards, NOT a choked 0 or 12 cards!
+      final results = await dao.getItemsByCollection('mtg', mtgFilter: redFilter, limit: 50);
+      expect(results.length, equals(40),
+          reason: 'Must return all 40 red cards without choking on SQLite LIMIT or case-insensitive LIKE');
+      expect(results.every((c) => c.id.startsWith('red-')), isTrue);
+    });
+
+    test('2.6 Stream pagination for Red Mana Filter emits full matching window without stalling', () async {
+      final baseDate = DateTime(2026, 1, 1);
+
+      // Seed 30 non-red cards (Blue/Green)
+      for (int i = 1; i <= 30; i++) {
+        final date = baseDate.add(Duration(days: 200 - i));
+        await dao.into(dao.vaultItems).insert(
+          createTestCard(
+            id: 'stream-non-red-$i',
+            name: 'Non Red $i',
+            acquiredDate: date,
+            dynamicDataMap: {
+              'colors': ['U'],
+              'rarity': 'rare',
+              'reprint': true,
+            },
+          ),
+        );
+      }
+
+      // Seed 20 red cards (colors: ['R'])
+      for (int i = 1; i <= 20; i++) {
+        final date = baseDate.add(Duration(days: 80 - i));
+        await dao.into(dao.vaultItems).insert(
+          createTestCard(
+            id: 'stream-red-$i',
+            name: 'Stream Red $i',
+            acquiredDate: date,
+            dynamicDataMap: {
+              'colors': ['R'],
+              'rarity': 'common',
+            },
+          ),
+        );
+      }
+
+      final redFilter = const MtgFilterState(colors: {'R'});
+      final stream = dao.watchItemsByCollection('mtg', mtgFilter: redFilter, limit: 50);
+
+      final firstEmission = await stream.first;
+      expect(firstEmission.length, equals(20),
+          reason: 'Reactive stream must emit all 20 matching cards');
+      expect(firstEmission.every((item) {
+        final dyn = jsonDecode(item.dynamicData) as Map<String, dynamic>;
+        return (dyn['colors'] as List).contains('R');
+      }), isTrue);
+    });
+
+    test('2.7 Format legality pushdown & starvation: 50 non-Standard followed by 30 Standard cards with limit 20', () async {
+      final baseDate = DateTime(2026, 1, 1);
+
+      // Seed 50 non-Standard cards
+      for (int i = 1; i <= 50; i++) {
+        final date = baseDate.add(Duration(days: 200 - i));
+        await dao.into(dao.vaultItems).insert(
+          createTestCard(
+            id: 'legacy-only-$i',
+            name: 'Legacy Card $i',
+            acquiredDate: date,
+            dynamicDataMap: {
+              'legalities': {
+                'standard': 'not_legal',
+                'legacy': 'legal',
+              },
+            },
+          ),
+        );
+      }
+
+      // Seed 30 Standard-legal cards
+      for (int i = 1; i <= 30; i++) {
+        final date = baseDate.add(Duration(days: 80 - i));
+        await dao.into(dao.vaultItems).insert(
+          createTestCard(
+            id: 'standard-card-$i',
+            name: 'Standard Card $i',
+            acquiredDate: date,
+            dynamicDataMap: {
+              'legalities': {
+                'standard': 'legal',
+                'commander': 'legal',
+              },
+            },
+          ),
+        );
+      }
+
+      final standardFilter = const MtgFilterState(formats: {'standard'});
+      final results = await dao.getItemsByCollection('mtg', mtgFilter: standardFilter, limit: 20);
+
+      expect(results.length, equals(20),
+          reason: 'Must return exactly 20 Standard-legal cards from post-filtering pagination');
+      expect(results.every((c) => c.id.startsWith('standard-card-')), isTrue);
+    });
+
+    test('2.8 Multi-faced card colors pushdown via card_faces matches correctly', () async {
+      final baseDate = DateTime(2026, 1, 1);
+
+      await dao.into(dao.vaultItems).insert(
+        createTestCard(
+          id: 'mdfc-red-card',
+          name: 'Birgi, God of Storytelling // Harnfel, Horn of Bounty',
+          acquiredDate: baseDate,
+          dynamicDataMap: {
+            'colors': <String>[], // root colors empty in some exports
+            'card_faces': [
+              {
+                'name': 'Birgi, God of Storytelling',
+                'colors': ['R'],
+              },
+              {
+                'name': 'Harnfel, Horn of Bounty',
+                'colors': ['R'],
+              },
+            ],
+          },
+        ),
+      );
+
+      final redFilter = const MtgFilterState(colors: {'R'});
+      final results = await dao.getItemsByCollection('mtg', mtgFilter: redFilter, limit: 10);
+      expect(results.any((c) => c.id == 'mdfc-red-card'), isTrue,
+          reason: 'Multi-faced card with colors in card_faces must match Red filter pushdown');
+    });
   });
 
   group('3. Multi-Game Collection Isolation & Robustness', () {

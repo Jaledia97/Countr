@@ -62,13 +62,15 @@ class VaultItemTile extends StatelessWidget {
                 fit: StackFit.expand,
                 children: [
                   // Image
-                  item.imageUrl.isNotEmpty
-                      ? CountrCachedImage(
-                          imageUrl: item.imageUrl,
-                          fit: BoxFit.contain,
-                          errorWidget: _buildPlaceholder(),
-                        )
-                      : _buildPlaceholder(),
+                  IgnorePointer(
+                    child: item.imageUrl.isNotEmpty
+                        ? CountrCachedImage(
+                            imageUrl: item.imageUrl,
+                            fit: BoxFit.contain,
+                            errorWidget: _buildPlaceholder(),
+                          )
+                        : _buildPlaceholder(),
+                  ),
 
                   // Gradient scrim at bottom of image
                   Positioned(

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:countr/core/cache/countr_cached_image.dart';
+import 'package:countr/core/cache/countr_image_cache_manager.dart';
 import 'package:countr/core/cache/parsed_json_cache.dart';
 import 'package:countr/core/constants/app_colors.dart';
 import 'package:countr/core/database/app_database.dart';
@@ -124,6 +125,9 @@ class CatalogCardListTile extends StatelessWidget {
                 child: imageUrl.isNotEmpty
                     ? CountrCachedImage(
                         imageUrl: imageUrl,
+                        cacheKey: CountrImageCacheManager.cardArtKey(card.id),
+                        cardName: card.name,
+                        tcgDomain: card.collectionType,
                         fit: BoxFit.cover,
                         errorWidget: Container(
                           color: AppColors.surfaceBorder.withValues(alpha: 0.3),

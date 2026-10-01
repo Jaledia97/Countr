@@ -1,119 +1,89 @@
-# TEST_READY: Phase 4.7 "Variant 1" Lifetap MTG Life Counter
+# TEST_READY — Countr Patch 4.9 Comprehensive E2E Test Suite
 
-## Test Execution Summary
-- **Primary E2E Test Suite**: `test/e2e_life_counter_variant1_test.dart`
-- **Contract & Test Harness**: `test/life_counter_test_contracts.dart`
-- **Total Test Cases in Suite**: 74 tests
-- **Passed Tests**: 74 tests
-- **Failed Tests**: 0 tests
-- **Pass Rate**: 100%
-- **Expected Exit Code**: 0
-- **Actual Exit Code**: 0
-- **Static Analysis**: `dart analyze --fatal-infos` passes with 0 errors, 0 warnings, and 0 infos.
+## Overview
+Authoritative regression and end-to-end test suite for Countr Patch 4.9 across all 11 core requirements (R1 through R11) specified in `ORIGINAL_REQUEST.md`, `PROJECT.md`, and `TEST_INFRA.md`.
+
+All test files are written with **Progressive Testability & Independence**, category-partition boundary analysis, pairwise feature interactions, and real-world user workflows across Tiers 1 through 4.
+
+Static analysis status: **100% clean (`flutter analyze` reports 0 issues across all 8 test files)**.
 
 ---
 
-## Test Runner Commands
+## Suite Summary & Requirement Mapping
 
-### Single E2E Suite Invocation
+| # | Requirement | Scope | Test File Path | Tests | Static Analysis | Pass/Fail Status |
+|---|-------------|-------|----------------|:-----:|:---------------:|:----------------:|
+| 1 | **R1**: Full Scryfall Catalog Filtering | Dual-stage SQLite color pushdown (`GLOB`/`json_extract`), decoupling SQLite `LIMIT` from in-memory stream `.take()`, 60 non-red + 40 red card 12-item choke fix, dual-faced cards, multi-color modes (`exactly`, `atMost`, `including`), reactive VaultScreen UI filter update | `test/features/vault/vault_patch49_filtering_pagination_test.dart` | 14 | 0 issues | **14 / 14 PASS (100%)** |
+| 2 | **R2**: Cross-Screen TCG Context Sync | Bidirectional context mapping between `activeGameContextProvider` and `activeDeckTcgFilterProvider`, Lorcana normalization, non-TCG fallback, ping-pong prevention, rapid alternating updates, multi-screen navigation persistence | `test/features/decks/tcg_context_sync_patch49_test.dart` | 14 | 0 issues | **14 / 14 PASS (100%)** |
+| 3 | **R3**: Collapsible Card Art Header | `NestedScrollView` / sliver architecture, hero art initial render size, Details and Values scroll collapse, pinned `[ Details \| Values ]` tab bar, rapid fling stress, top fling recovery, tab switching mid-scroll, minimal text card boundary, compact viewport sizing | `test/features/vault/card_detail_collapsible_header_patch49_test.dart` | 13 | 0 issues | **13 / 13 PASS (100%)** |
+| 4 | **R4**: Card Mechanics Tag Deduplication | Case-insensitive Set deduplication in `extractKeywords`, UI Wrap chips deduplication, 50x duplicate stress, multi-word boundary keywords (`First Strike`), substring collision protection, Danitha Capashen multi-keyword scenario, rebuild stability | `test/features/vault/card_mechanics_dedup_patch49_test.dart` | 14 | 0 issues | **14 / 14 PASS (100%)** |
+| 5, 6, 7 | **R5, R6, R7**: Inventory Status Metrics & Unowned Routing | R5 ("owned" vs "unowned" status metrics replacing static "Catalog Item"), R6 (omitting `quick_action_delete` on unowned reference cards, retaining for owned cards), R7 (`quick_action_add_to_plus` routing to Binders/Decks modal, proxy warning flow, omitting standalone `card_detail_add_to_vault`) | `test/features/vault/unowned_card_metrics_actions_patch49_test.dart` | 23 | 0 issues | M3 In-Progress (Ready for Track B verification) |
+| 8, 9 | **R8, R9**: Automated Deck Assignment Lifecycle Ledger | R8 (removal of manual `TextField` and add button from history ledger), R9 (cards in non-assembled decks displaying `Drafted in - [Deck Name] - [Date]`, assembled decks displaying formal assignments, cascade sync on `setDeckAssembled`, soft delete exclusion) | `test/features/decks/automated_deck_ledger_lifecycle_patch49_test.dart` | 19 | 0 issues | M4 In-Progress (Ready for Track B verification) |
+| 10 | **R10**: Versions & Printings Navigation | Candidate list rendering with set code, collector number, finish, and price; tapping alternate candidate pushes distinct `CardDetailSheet` route; target candidate resolution from database or synthesis with `quantity: 0`; nested navigation chaining; popping returns to root | `test/features/vault/card_detail_printings_navigation_patch49_test.dart` | 14 | 0 issues | **14 / 14 PASS (100%)** |
+| 11 | **R11**: Resilient Image Caching & Recovery | Self-healing `CountrCachedImage`, unified `cardArtKey(cardId)` cache key resolution, transient retry with exponential backoff, Scryfall named redirect URL building and 404 `/back.jpg` fallback, non-MTG styled card initials placeholder, fast-scroll 50-card stress resilience | `test/core/cache/countr_cached_image_resilience_patch49_test.dart` | 15 | 0 issues | **15 / 15 PASS (100%)** |
+
+**Total Tests**: 126 tests across 8 test suites.
+**Currently Passing**: 84 tests in verified suites (R1, R2, R3, R4, R10, R11).
+**Pending Track B Feature Completion**: 42 tests in M3/M4 suites (R5, R6, R7, R8, R9) ready to validate Track B implementation.
+
+---
+
+## Test Execution Commands
+
+### 1. Static Analysis Verification
 ```bash
-flutter test test/e2e_life_counter_variant1_test.dart
+flutter analyze \
+  test/features/vault/vault_patch49_filtering_pagination_test.dart \
+  test/features/decks/tcg_context_sync_patch49_test.dart \
+  test/features/vault/card_detail_collapsible_header_patch49_test.dart \
+  test/features/vault/card_mechanics_dedup_patch49_test.dart \
+  test/features/vault/unowned_card_metrics_actions_patch49_test.dart \
+  test/features/decks/automated_deck_ledger_lifecycle_patch49_test.dart \
+  test/features/vault/card_detail_printings_navigation_patch49_test.dart \
+  test/core/cache/countr_cached_image_resilience_patch49_test.dart
 ```
 
-### Static Analysis Verification
+### 2. Run All Completed Milestone Test Suites (R1, R2, R3, R4, R10, R11)
 ```bash
-dart analyze --fatal-infos test/e2e_life_counter_variant1_test.dart test/life_counter_test_contracts.dart
+flutter test \
+  test/features/vault/vault_patch49_filtering_pagination_test.dart \
+  test/features/decks/tcg_context_sync_patch49_test.dart \
+  test/features/vault/card_detail_collapsible_header_patch49_test.dart \
+  test/features/vault/card_mechanics_dedup_patch49_test.dart \
+  test/features/vault/card_detail_printings_navigation_patch49_test.dart \
+  test/core/cache/countr_cached_image_resilience_patch49_test.dart
 ```
 
----
-
-## Tier Breakdown & Test Counts
-
-| Tier | Test Group Description | Tests Implemented | Tests Passed | Status |
-|:---:|------------------------|:-----------------:|:------------:|:------:|
-| **Tier 1** | **Feature Coverage** | **37** | **37** | **PASSED** |
-| 1.1 | Persistence, DB Schema v10 & Recovery (Sessions, Events, Life/Counter CRUD, Reset) | 5 | 5 | PASSED |
-| 1.2 | Local Offline P2P Mesh Networking (Packets, Mesh, SyncEngine, Life, Cmd Dmg, Reset) | 5 | 5 | PASSED |
-| 1.3 | Dynamic Pod Layouts (1v1, 3P, 4P, 5P, 6P, Inversion, Phone Drawers vs Tablet Tool Rails) | 6 | 6 | PASSED |
-| 1.4 | Life Display, Touch Zones, Delta Badge, Hold-to-Accelerate & Crossroads Hub | 5 | 5 | PASSED |
-| 1.5 | Commander Damage Matrix, 21 Lethal Alert, 10 Poison Alert & Secondary Counters | 5 | 5 | PASSED |
-| 1.6 | Floating Mana Drawer (WUBRGC, Steppers, Storm Counter & One-Tap Clear Pool) | 5 | 5 | PASSED |
-| 1.7 | Randomizer Hub (Coin, D4..D100, Presets, Recovery Dialog & Strict Timer Omission) | 6 | 6 | PASSED |
-| **Tier 2** | **Boundary & Corner Cases** | **25** | **25** | **PASSED** |
-| 2.1 | Persistence Limits (Solo 1P, Max 6P, Rapid Event Bursts, Abandon & Corrupt JSON) | 5 | 5 | PASSED |
-| 2.2 | Network Edge Cases (Disconnect Throw, Reconnection Resumption, Zero Delta, Neg Seq) | 5 | 5 | PASSED |
-| 2.3 | Responsive Viewport Thresholds (599dp Phone vs 600dp Tablet, 99999 Life, Negative Life, 0 Life) | 5 | 5 | PASSED |
-| 2.4 | Commander Damage & Poison Thresholds (20 vs 21 Lethal, 9 vs 10 Poison, Dual Lethal) | 5 | 5 | PASSED |
-| 2.5 | Mana Pool & Randomizer Boundaries (Negative Mana Clamp, Clear Empty, D4/D100 Bounds) | 5 | 5 | PASSED |
-| **Tier 3** | **Cross-Feature Interactions & Combinations** | **7** | **7** | **PASSED** |
-| 3.1 | P2P Sync + Life Touch + DB Ledger Continuous Transaction Writing | 1 | 1 | PASSED |
-| 3.2 | Tablet Tool Rail + Commander Damage 21 Alert + Defeat Border Status | 1 | 1 | PASSED |
-| 3.3 | Floating Mana Pool + Storm Counter + Clear Pool Preserves Life Unchanged | 1 | 1 | PASSED |
-| 3.4 | Pod-wide Monarch and Initiative Exclusive Token Claiming & Stealing | 1 | 1 | PASSED |
-| 3.5 | Crash Recovery Dialog Restores Board State, Poison, and Damage History | 1 | 1 | PASSED |
-| 3.6 | Global "Reset Game" Preserves Seating, Pod Structure, and Decks | 1 | 1 | PASSED |
-| 3.7 | Strict Turn Logic & Timer Omission Verification Across Domain State & UI | 1 | 1 | PASSED |
-| **Tier 4** | **Real-World MTG Game Scenarios** | **5** | **5** | **PASSED** |
-| 4.1 | Scenario 1: 4-Player EDH Pod with Atraxa Infect (10 poison) and Edgar Markov Commander Defeat (21) | 1 | 1 | PASSED |
-| 4.2 | Scenario 2: 1v1 Competitive Modern Match with Fetchland (-1) and Shockland (-2) Life Loss | 1 | 1 | PASSED |
-| 4.3 | Scenario 3: Storm Combo Turn with WUBRGC Mana Accumulation, Storm Count 15 & Clear Pool | 1 | 1 | PASSED |
-| 4.4 | Scenario 4: 6-Player Chaos Pod with Day/Night Sync, Inverted Top Row & Contested Tokens | 1 | 1 | PASSED |
-| 4.5 | Scenario 5: P2P Mesh Sync with Network Interruption, Reconnect Catch-Up & State Consistency | 1 | 1 | PASSED |
-| **Total** | **Comprehensive Opaque-Box E2E Suite** | **74** | **74** | **100% PASS** |
-
----
-
-## Feature Verification Matrix
-
-Mapping all 48 inventoried features from `PROJECT.md` § Feature Inventory:
-
-| # | Feature | Requirements Source | Milestone | Verified By Group | Status |
-|---|---------|-------------------|:---------:|-------------------|:------:|
-| 1 | Drift Schema v10 Upgrade | R3, R7 | M1 | Group 1.1, Group 2.1 | PASSED |
-| 2 | `MatchSessions` Table | R3, R7 | M1 | Group 1.1, Group 2.1 | PASSED |
-| 3 | `MatchPlayers` Table | R3, R7 | M1 | Group 1.1, Group 2.1 | PASSED |
-| 4 | `MatchEvents` Table | R3, R7 | M1 | Group 1.1, Group 3.1 | PASSED |
-| 5 | `MatchDao` Implementation | R3, R7 | M1 | Group 1.1, Group 2.1, Group 3.1 | PASSED |
-| 6 | Continuous DB Logging | R3 | M1 | Group 1.1, Group 3.1 | PASSED |
-| 7 | Session State Recovery | R3 | M1 | Group 1.7, Group 3.5 | PASSED |
-| 8 | Defensive DB Runtime Migration | R7 | M1 | Group 1.1, Group 2.1 | PASSED |
-| 9 | P2P Protocol Packet Schemas | R2 | M2 | Group 1.2, Group 2.2 | PASSED |
-| 10 | `P2pTransport` & `InMemoryP2pMesh` | R2 | M2 | Group 1.2, Group 2.2, Group 4.5 | PASSED |
-| 11 | Host WebSocket Server | R2 | M2 | Group 1.2, Group 3.1, Group 4.5 | PASSED |
-| 12 | Client WebSocket Connection | R2 | M2 | Group 1.2, Group 2.2, Group 4.5 | PASSED |
-| 13 | UDP Subnet Discovery | R2 | M2 | Group 1.2, Group 2.2 | PASSED |
-| 14 | Room Code & QR Direct Connect | R2 | M2 | Group 1.1, Group 2.2 | PASSED |
-| 15 | Delta-Based Conflict Resolution | R2 | M2 | Group 1.2, Group 3.1 | PASSED |
-| 16 | 1v1 Split Pod Layout | R2 | M3 | Group 1.3, Group 4.2 | PASSED |
-| 17 | 3-Player Asymmetric Pod Layout | R2 | M3 | Group 1.3 | PASSED |
-| 18 | 4-Player 2x2 Quadrant Layout | R2 | M3 | Group 1.3, Group 4.1 | PASSED |
-| 19 | 5-Player Hybrid Pod Layout | R2 | M3 | Group 1.3 | PASSED |
-| 20 | 6-Player 2x3 Grid Layout | R2 | M3 | Group 1.3, Group 4.4 | PASSED |
-| 21 | Opposing Player Inversion | R2 | M3 | Group 1.3, Group 4.4 | PASSED |
-| 22 | Phone Pull-Out Drawers | R2 | M3 | Group 1.3, Group 2.3 | PASSED |
-| 23 | Tablet Perpetual Tool Rails | R2 | M3 | Group 1.3, Group 2.3, Group 3.2 | PASSED |
-| 24 | Center Hub Floating Button | R5 | M3 | Group 1.4, Group 1.7 | PASSED |
-| 25 | Primary Life Numeric Display | R4 | M4 | Group 1.4, Group 2.3 | PASSED |
-| 26 | Split Touch Hitboxes | R4 | M4 | Group 1.4, Group 3.1, Group 4.2 | PASSED |
-| 27 | Transient Delta Indicator Badge | R4 | M4 | Group 1.4 | PASSED |
-| 28 | Hold-to-Accelerate Gesture Ticker | R4 | M4 | Group 1.4 | PASSED |
-| 29 | Pre-Game Deck Selection | R1 | M4 | Group 1.1, Group 4.1 | PASSED |
-| 30 | Dynamic Commander Art Backdrop | R1 | M4 | Group 1.4, Group 4.1 | PASSED |
-| 31 | Scryfall Catalog Art Override | R1 | M4 | Group 1.4 | PASSED |
-| 32 | Commander Damage Ledger | R4 | M4 | Group 1.5, Group 3.2, Group 4.1 | PASSED |
-| 33 | Opposing Commander Avatars | R4 | M4 | Group 1.5, Group 3.2 | PASSED |
-| 34 | 21-Point Lethal Damage Alert | R4 | M4 | Group 1.5, Group 2.4, Group 3.2, Group 4.1 | PASSED |
-| 35 | Poison / Infect Lethal Tracker | R4 | M4 | Group 1.5, Group 2.4, Group 4.1 | PASSED |
-| 36 | Energy & Experience Counters | R4 | M4 | Group 1.1, Group 1.5 | PASSED |
-| 37 | Commander Tax Calculator | R4 | M4 | Group 1.1 | PASSED |
-| 38 | Monarch & Initiative Tokens | R4 | M4 | Group 1.5, Group 3.4, Group 4.4 | PASSED |
-| 39 | Pod-Wide Shared Day/Night Toggle | R4 | M4 | Group 1.2, Group 4.4 | PASSED |
-| 40 | Floating Mana Drawer | R6 | M4 | Group 1.6, Group 3.3, Group 4.3 | PASSED |
-| 41 | One-Tap "Clear Pool" Action | R6 | M4 | Group 1.6, Group 3.3, Group 4.3 | PASSED |
-| 42 | Animated 3D Coin Flip | R5 | M5 | Group 1.7 | PASSED |
-| 43 | Polyhedral Dice Roller Suite | R5 | M5 | Group 1.7, Group 2.5 | PASSED |
-| 44 | Random Player Roulette Highlight | R5 | M5 | Group 1.7, Group 2.5 | PASSED |
-| 45 | Starting Life Templates | R5 | M5 | Group 1.7 | PASSED |
-| 46 | Global "Reset Game" Action | R5 | M5 | Group 1.1, Group 1.2, Group 3.6 | PASSED |
-| 47 | Command Center Launch Hook | R1 | M5 | Group 1.1, Group 1.7 | PASSED |
-| 48 | Strict Turn Logic Omission | R7 | M5 | Group 1.7, Group 3.7 | PASSED |
+### 3. Run Individual Requirement Suites
+- **R1 (Filtering & Pagination)**:
+  ```bash
+  flutter test test/features/vault/vault_patch49_filtering_pagination_test.dart
+  ```
+- **R2 (TCG Context Sync)**:
+  ```bash
+  flutter test test/features/decks/tcg_context_sync_patch49_test.dart
+  ```
+- **R3 (Collapsible Card Art Header)**:
+  ```bash
+  flutter test test/features/vault/card_detail_collapsible_header_patch49_test.dart
+  ```
+- **R4 (Card Mechanics Deduplication)**:
+  ```bash
+  flutter test test/features/vault/card_mechanics_dedup_patch49_test.dart
+  ```
+- **R5, R6, R7 (Metrics, Delete, Add to +)**:
+  ```bash
+  flutter test test/features/vault/unowned_card_metrics_actions_patch49_test.dart
+  ```
+- **R8, R9 (Automated Deck Ledger Lifecycle)**:
+  ```bash
+  flutter test test/features/decks/automated_deck_ledger_lifecycle_patch49_test.dart
+  ```
+- **R10 (Versions & Printings Navigation)**:
+  ```bash
+  flutter test test/features/vault/card_detail_printings_navigation_patch49_test.dart
+  ```
+- **R11 (Resilient Image Caching)**:
+  ```bash
+  flutter test test/core/cache/countr_cached_image_resilience_patch49_test.dart
+  ```

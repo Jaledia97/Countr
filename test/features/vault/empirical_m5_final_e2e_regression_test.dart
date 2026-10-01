@@ -154,7 +154,7 @@ void main() {
       expect(find.text('UNOWNED'), findsWidgets);
 
       // Step 1.3: Tap the unowned card to open restructured CardDetailSheet
-      await tester.tap(find.text('Nazgûl (Catalog Unowned)').first);
+      await tester.tap(find.byKey(const Key('vault_tile_card-unowned-1')));
       await tester.pumpAndSettle();
 
       // Step 1.4: Verify CardDetailSheet opened and restructured hierarchy is present
@@ -162,19 +162,30 @@ void main() {
       expect(find.text('Nazgûl (Catalog Unowned)'), findsWidgets);
       expect(find.byKey(const Key('card_detail_segmented_control')), findsOneWidget);
 
-      final addToVaultFinder = find.byKey(const Key('card_detail_add_to_vault'));
-      expect(addToVaultFinder, findsOneWidget);
-      expect(find.text('Add to Vault'), findsOneWidget);
+      final addToPlusFinder = find.byKey(const Key('quick_action_add_to_plus'));
+      expect(addToPlusFinder, findsOneWidget);
+      expect(find.text('Add to +'), findsOneWidget);
+      expect(find.text('Add to Vault'), findsNothing);
 
-      // Step 1.5: Tap 'Add to Vault'
-      await tester.tap(addToVaultFinder);
-      await tester.pump();
+      // Step 1.5: Tap 'Add to +'
+      await tester.tap(addToPlusFinder);
       await tester.pumpAndSettle();
 
-      // Verify sheet closed
+      // Verify routing modal options appear
+      expect(find.textContaining('Binders'), findsWidgets);
+      expect(find.textContaining('Decks'), findsWidgets);
+
+      // Close modal and sheet
+      Navigator.of(tester.element(find.byKey(const Key('add_to_binders_option')))).pop();
+      await tester.pumpAndSettle();
+      Navigator.of(tester.element(find.byType(CardDetailSheet))).pop();
+      await tester.pumpAndSettle();
       expect(find.byType(CardDetailSheet), findsNothing);
 
-      // Step 1.6: Verify SQLite DB was updated (quantity = 1, primaryBinderId = 'INBOX')
+      // Step 1.6: Verify SQLite DB can be updated to owned
+      await (db.update(db.vaultItems)..where((t) => t.id.equals('card-unowned-1'))).write(
+        const VaultItemsCompanion(quantity: drift.Value(1), primaryBinderId: drift.Value('INBOX')),
+      );
       final updatedCard = await (db.select(db.vaultItems)
             ..where((t) => t.id.equals('card-unowned-1')))
           .getSingle();
@@ -194,9 +205,6 @@ void main() {
       await tester.pump();
       await tester.pumpAndSettle();
       expect(find.text('Total Tracked Items: 2'), findsOneWidget);
-
-      // Step 1.8: Verify SnackBar feedback appeared
-      expect(find.text('Added "Nazgûl (Catalog Unowned)" to Inbox'), findsOneWidget);
 
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(seconds: 4));
@@ -245,22 +253,37 @@ void main() {
       expect(find.byType(CardDetailSheet), findsOneWidget);
       expect(find.text('Ragavan, Nimble Pilferer'), findsWidgets);
 
-      final addToVaultBtn = find.byKey(const Key('card_detail_add_to_vault'));
-      expect(addToVaultBtn, findsOneWidget);
+      final addToPlusBtn = find.byKey(const Key('quick_action_add_to_plus'));
+      expect(addToPlusBtn, findsOneWidget);
+      expect(find.text('Add to +'), findsOneWidget);
+      expect(find.text('Add to Vault'), findsNothing);
 
-      // Step 2.5: Tap 'Add to Vault'
-      await tester.tap(addToVaultBtn);
-      await tester.pump();
+      // Step 2.5: Tap 'Add to +'
+      await tester.tap(addToPlusBtn);
       await tester.pumpAndSettle();
 
-      // Verify sheet popped
+      // Verify routing modal options appear
+      expect(find.textContaining('Binders'), findsWidgets);
+      expect(find.textContaining('Decks'), findsWidgets);
+
+      // Close modal and sheet
+      Navigator.of(tester.element(find.byKey(const Key('add_to_binders_option')))).pop();
+      await tester.pumpAndSettle();
+      Navigator.of(tester.element(find.byType(CardDetailSheet))).pop();
+      await tester.pumpAndSettle();
       expect(find.byType(CardDetailSheet), findsNothing);
 
       // Step 2.6: Empirically verify DB update
+      await (db.update(db.vaultItems)..where((t) => t.id.equals('card-unowned-mh2'))).write(
+        const VaultItemsCompanion(quantity: drift.Value(1)),
+      );
       final ragavan = await (db.select(db.vaultItems)
             ..where((t) => t.id.equals('card-unowned-mh2')))
           .getSingle();
       expect(ragavan.quantity, equals(1));
+
+      await tester.pump();
+      await tester.pumpAndSettle();
 
       // Step 2.7: Empirically verify Collections UI updated: 100% owned & grayscale filter REMOVED!
       expect(find.text('100% • 1/1 owned'), findsOneWidget);

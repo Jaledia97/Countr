@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:countr/core/cache/countr_cached_image.dart';
+import 'package:countr/core/cache/countr_image_cache_manager.dart';
 import 'package:countr/core/cache/parsed_json_cache.dart';
 import 'package:countr/core/constants/app_colors.dart';
 import 'package:countr/core/constants/app_typography.dart';
@@ -1102,12 +1103,17 @@ class _VaultItemCardState extends State<VaultItemCard> {
           ),
         ),
         clipBehavior: Clip.antiAlias,
-        child: CountrCachedImage(
-          imageUrl: thumbUrl,
-          fit: BoxFit.cover,
-          width: width,
-          height: height,
-          errorWidget: _buildFallbackTypeIcon(width: width, height: height, borderRadius: borderRadius),
+        child: IgnorePointer(
+          child: CountrCachedImage(
+            imageUrl: thumbUrl,
+            cacheKey: CountrImageCacheManager.cardArtKey(item.id),
+            cardName: item.name,
+            tcgDomain: item.collectionType,
+            fit: BoxFit.cover,
+            width: width,
+            height: height,
+            errorWidget: _buildFallbackTypeIcon(width: width, height: height, borderRadius: borderRadius),
+          ),
         ),
       );
     }

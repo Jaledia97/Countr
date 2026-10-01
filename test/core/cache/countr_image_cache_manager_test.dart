@@ -32,5 +32,10 @@ void main() {
       expect(CountrImageCacheManager.deckCoverKey('deck-1'), equals('deck_cover_deck-1'));
       expect(CountrImageCacheManager.deckCoverKey('deck-edgar-markov'), equals('deck_cover_deck-edgar-markov'));
     });
+
+    test('generateCardKey alias produces identical result to cardArtKey', () {
+      final manager = CountrImageCacheManager();
+      expect(manager.generateCardKey('card-xyz'), equals(CountrImageCacheManager.cardArtKey('card-xyz')));
+    });
   });
 }

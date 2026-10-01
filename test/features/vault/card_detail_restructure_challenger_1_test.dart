@@ -123,7 +123,7 @@ void main() {
       final setFinder = find.text('MH1');
       final priceFinder = find.text('Market: \$38.50');
       final toggleFinder = find.byKey(const Key('card_detail_segmented_control'));
-      final addToVaultFinder = find.byKey(const Key('card_detail_add_to_vault'));
+      final addToVaultFinder = find.byKey(const Key('quick_action_add_to_plus'));
 
       expect(nameFinder, findsOneWidget);
       expect(manaFinder, findsOneWidget);
@@ -172,7 +172,7 @@ void main() {
       final setFinder = find.text('ST');
       final priceFinder = find.text('Market: \$650.00');
       final toggleFinder = find.byKey(const Key('card_detail_segmented_control'));
-      final addToVaultFinder = find.byKey(const Key('card_detail_add_to_vault'));
+      final addToVaultFinder = find.byKey(const Key('quick_action_add_to_plus'));
 
       expect(nameFinder, findsOneWidget);
       expect(find.byType(ManaCostBar), findsNothing);
@@ -221,7 +221,7 @@ void main() {
       final manaFinder = find.byType(ManaCostBar);
       final setFinder = find.text('ZNR');
       final toggleFinder = find.byKey(const Key('card_detail_segmented_control'));
-      final addToVaultFinder = find.byKey(const Key('card_detail_add_to_vault'));
+      final addToVaultFinder = find.byKey(const Key('quick_action_add_to_plus'));
 
       expect(nameFinder, findsOneWidget);
       expect(manaFinder, findsOneWidget);
@@ -261,7 +261,7 @@ void main() {
       expect(tester.takeException(), isNull, reason: 'Zero RenderFlex overflows expected at 2.0x text scale on 320x568 with long title');
 
       final toggleFinder = find.byKey(const Key('card_detail_segmented_control'));
-      final addToVaultFinder = find.byKey(const Key('card_detail_add_to_vault'));
+      final addToVaultFinder = find.byKey(const Key('quick_action_add_to_plus'));
       expect(toggleFinder, findsOneWidget);
       expect(addToVaultFinder, findsOneWidget);
 
@@ -298,7 +298,7 @@ void main() {
 
       expect(tester.takeException(), isNull, reason: 'Zero RenderFlex overflows on ultra compact viewport (320x220) at 2.0x text scale');
       expect(find.byKey(const Key('card_detail_segmented_control')), findsOneWidget);
-      expect(find.byKey(const Key('card_detail_add_to_vault')), findsOneWidget);
+      expect(find.byKey(const Key('quick_action_add_to_plus')), findsOneWidget);
     });
   });
 }
