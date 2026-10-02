@@ -290,13 +290,13 @@ class BinderDetailScreen extends ConsumerWidget {
               // Virtualized Cards View: 3x3 Grid or List
               if (viewMode == BinderViewMode.grid3x3)
                 SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                  padding: const EdgeInsets.fromLTRB(2, 0, 2, 24),
                   sliver: SliverGrid.builder(
                     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 3,
                       childAspectRatio: 5 / 7,
-                      crossAxisSpacing: 8,
-                      mainAxisSpacing: 8,
+                      crossAxisSpacing: 2.0,
+                      mainAxisSpacing: 2.0,
                     ),
                     itemCount: items.length,
                     itemBuilder: (context, index) {

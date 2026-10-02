@@ -384,12 +384,12 @@ class _DeckThumbnailPickerModalState
         }
 
         return GridView.builder(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.fromLTRB(3, 4, 3, 12),
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 3,
             childAspectRatio: 0.72,
-            crossAxisSpacing: 8,
-            mainAxisSpacing: 8,
+            crossAxisSpacing: 3.0,
+            mainAxisSpacing: 3.0,
           ),
           itemCount: items.length,
           itemBuilder: (context, index) {
@@ -477,12 +477,12 @@ class _DeckThumbnailPickerModalState
         else
           Expanded(
             child: GridView.builder(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.fromLTRB(3, 4, 3, 12),
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 3,
                 childAspectRatio: 0.72,
-                crossAxisSpacing: 8,
-                mainAxisSpacing: 8,
+                crossAxisSpacing: 3.0,
+                mainAxisSpacing: 3.0,
               ),
               itemCount: _searchResults.length,
               itemBuilder: (context, index) {

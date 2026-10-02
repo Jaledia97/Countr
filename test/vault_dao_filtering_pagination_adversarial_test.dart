@@ -1311,4 +1311,313 @@ void main() {
       expect(catalogItems.map((c) => c.id).toSet(), equals({'owned-card', 'unowned-card'}));
     });
   });
+
+  group('5. Color and Color Identity Filtering Adversarial Invariants', () {
+    test('5.1 Multi-faced card matching color on Face 1 evaluates correctly in SQLite and in-memory', () async {
+      // Seed a transform/MDFC card where root colors is omitted/empty and Face 1 is Red
+      await dao.into(dao.vaultItems).insert(
+        createTestCard(
+          id: 'mdfc-face1-red',
+          name: 'Brutal Cathar // Moonrage Brute',
+          dynamicDataMap: {
+            'colors': <String>[],
+            'color_identity': ['W', 'R'],
+            'card_faces': [
+              {
+                'name': 'Brutal Cathar',
+                'mana_cost': '{2}{W}',
+                'colors': ['W'],
+                'type_line': 'Creature — Human Werewolf',
+              },
+              {
+                'name': 'Moonrage Brute',
+                'mana_cost': '',
+                'colors': ['R'],
+                'type_line': 'Creature — Werewolf',
+              },
+            ],
+          },
+        ),
+      );
+
+      // Card that is only White on both faces
+      await dao.into(dao.vaultItems).insert(
+        createTestCard(
+          id: 'card-mono-white',
+          name: 'Loyal Cathar // Bellstriker',
+          dynamicDataMap: {
+            'colors': <String>[],
+            'color_identity': ['W'],
+            'card_faces': [
+              {'name': 'Face 1', 'colors': ['W'], 'mana_cost': '{W}{W}'},
+              {'name': 'Face 2', 'colors': ['W'], 'mana_cost': ''},
+            ],
+          },
+        ),
+      );
+
+      // Filtering by Red must match the MDFC card whose Face 1 is Red
+      final redFilter = const MtgFilterState(
+        colors: {'R'},
+        colorTarget: ColorTarget.cardColor,
+        colorMatchMode: ColorMatchMode.including,
+      );
+      final redResults = await dao.getItemsByCollection('mtg', mtgFilter: redFilter);
+      expect(redResults.map((c) => c.id).toList(), equals(['mdfc-face1-red']),
+          reason: 'Multi-faced card with Red on Face 1 must be matched when filtering by Red');
+
+      // Filtering by White must match both cards
+      final whiteFilter = const MtgFilterState(
+        colors: {'W'},
+        colorTarget: ColorTarget.cardColor,
+        colorMatchMode: ColorMatchMode.including,
+      );
+      final whiteResults = await dao.getItemsByCollection('mtg', mtgFilter: whiteFilter);
+      expect(whiteResults.map((c) => c.id).toSet(), equals({'mdfc-face1-red', 'card-mono-white'}));
+
+      // Filtering by Blue must match neither
+      final blueFilter = const MtgFilterState(
+        colors: {'U'},
+        colorTarget: ColorTarget.cardColor,
+        colorMatchMode: ColorMatchMode.including,
+      );
+      final blueResults = await dao.getItemsByCollection('mtg', mtgFilter: blueFilter);
+      expect(blueResults, isEmpty);
+    });
+
+    test('5.2 Colorless card and land with colored identity (Mountain, Bosh) match under ColorTarget.colorIdentity', () async {
+      // 1. Basic Mountain: no casting colors, but Red identity
+      await dao.into(dao.vaultItems).insert(
+        createTestCard(
+          id: 'land-mountain',
+          name: 'Mountain',
+          dynamicDataMap: {
+            'colors': <String>[],
+            'color_identity': ['R'],
+            'mana_cost': '',
+            'type_line': 'Basic Land — Mountain',
+          },
+        ),
+      );
+
+      // 2. Bosh, Iron Golem: colorless cost {8}, but Red identity due to rules text
+      await dao.into(dao.vaultItems).insert(
+        createTestCard(
+          id: 'artifact-bosh',
+          name: 'Bosh, Iron Golem',
+          dynamicDataMap: {
+            'colors': <String>[],
+            'color_identity': ['R'],
+            'mana_cost': '{8}',
+            'oracle_text': '{3}{R}, Sacrifice an artifact: Bosh deals damage equal to the sacrificed artifact\'s mana value to any target.',
+            'type_line': 'Legendary Artifact Creature — Golem',
+          },
+        ),
+      );
+
+      // 3. Sol Ring: colorless cost and colorless identity
+      await dao.into(dao.vaultItems).insert(
+        createTestCard(
+          id: 'artifact-sol-ring',
+          name: 'Sol Ring',
+          dynamicDataMap: {
+            'colors': <String>[],
+            'color_identity': <String>[],
+            'mana_cost': '{1}',
+            'oracle_text': '{T}: Add {C}{C}.',
+            'type_line': 'Artifact',
+          },
+        ),
+      );
+
+      // Query ColorTarget.colorIdentity for Red
+      final redIdentityFilter = const MtgFilterState(
+        colors: {'R'},
+        colorTarget: ColorTarget.colorIdentity,
+        colorMatchMode: ColorMatchMode.including,
+      );
+      final results = await dao.getItemsByCollection('mtg', mtgFilter: redIdentityFilter);
+      final ids = results.map((c) => c.id).toSet();
+
+      expect(ids, equals({'land-mountain', 'artifact-bosh'}),
+          reason: 'Both Mountain and Bosh must match Red color identity filter');
+      expect(ids.contains('artifact-sol-ring'), isFalse,
+          reason: 'Sol Ring has colorless identity and must not match Red identity');
+    });
+
+    test('5.3 ColorTarget.cardColor vs ColorTarget.colorIdentity behavior contrast', () async {
+      await dao.into(dao.vaultItems).insert(
+        createTestCard(
+          id: 'land-mountain-2',
+          name: 'Mountain',
+          dynamicDataMap: {
+            'colors': <String>[],
+            'color_identity': ['R'],
+            'mana_cost': '',
+            'type_line': 'Basic Land — Mountain',
+          },
+        ),
+      );
+      await dao.into(dao.vaultItems).insert(
+        createTestCard(
+          id: 'artifact-bosh-2',
+          name: 'Bosh, Iron Golem',
+          dynamicDataMap: {
+            'colors': <String>[],
+            'color_identity': ['R'],
+            'mana_cost': '{8}',
+            'type_line': 'Legendary Artifact Creature — Golem',
+          },
+        ),
+      );
+      await dao.into(dao.vaultItems).insert(
+        createTestCard(
+          id: 'creature-goblin-guide',
+          name: 'Goblin Guide',
+          dynamicDataMap: {
+            'colors': ['R'],
+            'color_identity': ['R'],
+            'mana_cost': '{R}',
+            'type_line': 'Creature — Goblin Scout',
+          },
+        ),
+      );
+      await dao.into(dao.vaultItems).insert(
+        createTestCard(
+          id: 'artifact-sol-ring-2',
+          name: 'Sol Ring',
+          dynamicDataMap: {
+            'colors': <String>[],
+            'color_identity': <String>[],
+            'mana_cost': '{1}',
+            'type_line': 'Artifact',
+          },
+        ),
+      );
+
+      // 1. Under ColorTarget.cardColor:
+      // Red card color matches Goblin Guide ONLY (Mountain and Bosh are colorless cards)
+      final cardColorRedFilter = const MtgFilterState(
+        colors: {'R'},
+        colorTarget: ColorTarget.cardColor,
+        colorMatchMode: ColorMatchMode.including,
+      );
+      final cardColorResults = await dao.getItemsByCollection('mtg', mtgFilter: cardColorRedFilter);
+      expect(cardColorResults.map((c) => c.id).toList(), equals(['creature-goblin-guide']),
+          reason: 'In cardColor mode, Mountain and Bosh have no casting colors and must not match Red');
+
+      // Colorless in cardColor mode matches Mountain, Bosh, and Sol Ring
+      final cardColorColorlessFilter = const MtgFilterState(
+        colors: {'C'},
+        colorTarget: ColorTarget.cardColor,
+      );
+      final colorlessResults = await dao.getItemsByCollection('mtg', mtgFilter: cardColorColorlessFilter);
+      expect(colorlessResults.map((c) => c.id).toSet(),
+          equals({'land-mountain-2', 'artifact-bosh-2', 'artifact-sol-ring-2'}));
+
+      // 2. Under ColorTarget.colorIdentity:
+      // Red color identity matches Mountain, Bosh, and Goblin Guide
+      final identityRedFilter = const MtgFilterState(
+        colors: {'R'},
+        colorTarget: ColorTarget.colorIdentity,
+        colorMatchMode: ColorMatchMode.including,
+      );
+      final identityRedResults = await dao.getItemsByCollection('mtg', mtgFilter: identityRedFilter);
+      expect(identityRedResults.map((c) => c.id).toSet(),
+          equals({'land-mountain-2', 'artifact-bosh-2', 'creature-goblin-guide'}));
+
+      // Colorless identity matches ONLY Sol Ring (Mountain and Bosh have Red identity)
+      final identityColorlessFilter = const MtgFilterState(
+        colors: {'C'},
+        colorTarget: ColorTarget.colorIdentity,
+      );
+      final identityColorlessResults = await dao.getItemsByCollection('mtg', mtgFilter: identityColorlessFilter);
+      expect(identityColorlessResults.map((c) => c.id).toList(), equals(['artifact-sol-ring-2']),
+          reason: 'In colorIdentity mode, Mountain and Bosh have Red identity so only Sol Ring is colorless');
+    });
+
+    test('5.4 Case-insensitive and normalized color queries match accurately', () async {
+      await dao.into(dao.vaultItems).insert(
+        createTestCard(
+          id: 'card-red-bolt',
+          name: 'Lightning Bolt',
+          dynamicDataMap: {
+            'colors': ['R'],
+            'color_identity': ['R'],
+            'mana_cost': '{R}',
+            'cmc': 1,
+          },
+        ),
+      );
+      await dao.into(dao.vaultItems).insert(
+        createTestCard(
+          id: 'card-gruul-spell',
+          name: 'Manamorphose',
+          dynamicDataMap: {
+            'colors': ['R', 'G'],
+            'color_identity': ['R', 'G'],
+            'mana_cost': '{1}{R/G}',
+            'cmc': 2,
+          },
+        ),
+      );
+
+      // Lowercase 'r'
+      final lowercaseRed = const MtgFilterState(
+        colors: {'r'},
+        colorMatchMode: ColorMatchMode.including,
+      );
+      final lowerResults = await dao.getItemsByCollection('mtg', mtgFilter: lowercaseRed);
+      expect(lowerResults.map((c) => c.id).toSet(), equals({'card-red-bolt', 'card-gruul-spell'}),
+          reason: "Lowercase 'r' query must be normalized and match 'R' cards");
+
+      // Mixed case {'r', 'G'}
+      final mixedFilter = const MtgFilterState(
+        colors: {'r', 'G'},
+        colorMatchMode: ColorMatchMode.including,
+      );
+      final mixedResults = await dao.getItemsByCollection('mtg', mtgFilter: mixedFilter);
+      expect(mixedResults.map((c) => c.id).toList(), equals(['card-gruul-spell']),
+          reason: "Mixed case {'r', 'G'} must match RG cards");
+
+      // Lowercase 'c' for colorless
+      await dao.into(dao.vaultItems).insert(
+        createTestCard(
+          id: 'card-colorless-rock',
+          name: 'Mind Stone',
+          dynamicDataMap: {
+            'colors': <String>[],
+            'color_identity': <String>[],
+            'mana_cost': '{2}',
+          },
+        ),
+      );
+      final lowercaseC = const MtgFilterState(colors: {'c'});
+      final cResults = await dao.getItemsByCollection('mtg', mtgFilter: lowercaseC);
+      expect(cResults.any((c) => c.id == 'card-colorless-rock'), isTrue,
+          reason: "Lowercase 'c' must normalize and match colorless items");
+    });
+
+    test('5.5 Mana cost fallback matches when JSON colors array is omitted', () async {
+      await dao.into(dao.vaultItems).insert(
+        createTestCard(
+          id: 'card-missing-colors-array',
+          name: 'Red Spell Without Colors Array',
+          dynamicDataMap: {
+            // 'colors' omitted
+            'mana_cost': '{1}{R}',
+            'cmc': 2,
+          },
+        ),
+      );
+
+      final filter = const MtgFilterState(
+        colors: {'R'},
+        colorMatchMode: ColorMatchMode.including,
+      );
+      final results = await dao.getItemsByCollection('mtg', mtgFilter: filter);
+      expect(results.any((c) => c.id == 'card-missing-colors-array'), isTrue,
+          reason: 'Cards without explicit colors array must match via mana_cost fallback in Stage 1 pushdown and Stage 2');
+    });
+  });
 }

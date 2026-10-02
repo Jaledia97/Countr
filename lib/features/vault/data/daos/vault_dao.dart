@@ -160,9 +160,13 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
       });
     }
 
+    final effectiveMtgFilter = (mtgFilter != null && mtgFilter.colors.isNotEmpty)
+        ? mtgFilter.copyWith(colors: mtgFilter.colors.map((c) => c.toUpperCase()).toSet())
+        : mtgFilter;
+
     // Stage 1: Push down direct SQLite column where clauses
-    if (mtgFilter != null && mtgFilter.isActive) {
-      _applyMtgFilterStage1(query, mtgFilter);
+    if (effectiveMtgFilter != null && effectiveMtgFilter.isActive) {
+      _applyMtgFilterStage1(query, effectiveMtgFilter);
     } else {
       _applyDefaultMemorabiliaExclusion(query);
     }
@@ -191,7 +195,7 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
       ]);
     }
 
-    final hasActiveMtgFilter = mtgFilter != null && mtgFilter.isActive;
+    final hasActiveMtgFilter = effectiveMtgFilter != null && effectiveMtgFilter.isActive;
     if (!hasActiveMtgFilter && limit != null) {
       query.limit(limit, offset: offset);
     }
@@ -199,7 +203,7 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     // Stage 2: In-memory stream mapping using mtgFilter.matches(item)
     return query.watch().map((items) {
       if (!hasActiveMtgFilter) return items;
-      final filtered = items.where((item) => mtgFilter.matches(item));
+      final filtered = items.where((item) => effectiveMtgFilter.matches(item));
       final skipped = (offset != null && offset > 0) ? filtered.skip(offset) : filtered;
       final limited = (limit != null) ? skipped.take(limit) : skipped;
       return limited.toList();
@@ -254,9 +258,13 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
       });
     }
 
+    final effectiveMtgFilter = (mtgFilter != null && mtgFilter.colors.isNotEmpty)
+        ? mtgFilter.copyWith(colors: mtgFilter.colors.map((c) => c.toUpperCase()).toSet())
+        : mtgFilter;
+
     // Stage 1: Push down direct SQLite column where clauses
-    if (mtgFilter != null && mtgFilter.isActive) {
-      _applyMtgFilterStage1(query, mtgFilter);
+    if (effectiveMtgFilter != null && effectiveMtgFilter.isActive) {
+      _applyMtgFilterStage1(query, effectiveMtgFilter);
     } else {
       _applyDefaultMemorabiliaExclusion(query);
     }
@@ -285,7 +293,7 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
       ]);
     }
 
-    final hasActiveMtgFilter = mtgFilter != null && mtgFilter.isActive;
+    final hasActiveMtgFilter = effectiveMtgFilter != null && effectiveMtgFilter.isActive;
     if (!hasActiveMtgFilter && limit != null) {
       query.limit(limit, offset: offset);
     }
@@ -297,7 +305,7 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
       return items;
     }
 
-    final filtered = items.where((item) => mtgFilter.matches(item));
+    final filtered = items.where((item) => effectiveMtgFilter.matches(item));
     final skipped = (offset != null && offset > 0) ? filtered.skip(offset) : filtered;
     final limited = (limit != null) ? skipped.take(limit) : skipped;
     return limited.toList();
@@ -545,24 +553,35 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
       });
     }
 
-    // 6. Colors pushdown
+    // 6. Colors pushdown (Robust multi-target & multi-faced support)
     if (filter.colors.isNotEmpty) {
-      final onlyC = filter.colors.length == 1 && filter.colors.contains('C');
+      final isColorIdentity = filter.colorTarget == ColorTarget.colorIdentity;
+      final targetKey = isColorIdentity ? 'color_identity' : 'colors';
+      final normalizedColors = filter.colors.map((c) => c.toUpperCase()).toSet();
+
+      final onlyC = normalizedColors.length == 1 && normalizedColors.contains('C');
       if (onlyC) {
         query.where((t) =>
-            const CustomExpression<bool>(
-              "CASE WHEN json_valid(vault_items.dynamic_data) = 1 THEN (json_extract(vault_items.dynamic_data, '\$.colors') = '[]') ELSE 0 END",
+            CustomExpression<bool>(
+              "CASE WHEN json_valid(vault_items.dynamic_data) = 1 THEN ("
+              "json_extract(vault_items.dynamic_data, '\$.$targetKey') = '[]' OR "
+              "json_extract(vault_items.dynamic_data, '\$.$targetKey') IS NULL"
+              ") ELSE 0 END",
             ) |
-            t.dynamicData.like('%"colors":[]%') |
-            t.dynamicData.like('%"colors": []%') |
+            t.dynamicData.like('%"$targetKey":[]%') |
+            t.dynamicData.like('%"$targetKey": []%') |
             t.dynamicData.like('%"{C}"%'));
       } else if (filter.colorMatchMode == ColorMatchMode.including ||
           filter.colorMatchMode == ColorMatchMode.exactly) {
-        for (final c in filter.colors.where((c) => c != 'C')) {
+        for (final upperC in normalizedColors.where((c) => c != 'C')) {
           query.where((t) => CustomExpression<bool>(
                 "CASE WHEN json_valid(vault_items.dynamic_data) = 1 THEN ("
-                "json_extract(vault_items.dynamic_data, '\$.colors') GLOB '*\"$c\"*' OR "
-                "json_extract(vault_items.dynamic_data, '\$.card_faces[0].colors') GLOB '*\"$c\"*'"
+                "json_extract(vault_items.dynamic_data, '\$.$targetKey') GLOB '*\"$upperC\"*' OR "
+                "json_extract(vault_items.dynamic_data, '\$.card_faces[0].$targetKey') GLOB '*\"$upperC\"*' OR "
+                "json_extract(vault_items.dynamic_data, '\$.card_faces[1].$targetKey') GLOB '*\"$upperC\"*' OR "
+                "json_extract(vault_items.dynamic_data, '\$.mana_cost') GLOB '*{*$upperC*}*' OR "
+                "json_extract(vault_items.dynamic_data, '\$.card_faces[0].mana_cost') GLOB '*{*$upperC*}*' OR "
+                "json_extract(vault_items.dynamic_data, '\$.card_faces[1].mana_cost') GLOB '*{*$upperC*}*'"
                 ") ELSE 0 END",
               ));
         }

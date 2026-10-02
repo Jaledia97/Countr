@@ -1538,14 +1538,18 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
         final columns = _calculateGridColumns(screenWidth, textScale);
         final dynamicAspectRatio = _calculateChildAspectRatio(context);
 
+        final double horizontalPadding = columns <= 3 ? 2.0 : 16.0;
+        final double crossSpacing = columns <= 3 ? 2.0 : 10.0;
+        final double mainSpacing = columns <= 3 ? 2.0 : 10.0;
+
         return SliverPadding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          padding: EdgeInsets.fromLTRB(horizontalPadding, 0, horizontalPadding, 16),
           sliver: SliverGrid(
             key: const PageStorageKey<String>('vault_cards_sliver_grid'),
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: columns,
-              crossAxisSpacing: 10,
-              mainAxisSpacing: 10,
+              crossAxisSpacing: crossSpacing,
+              mainAxisSpacing: mainSpacing,
               childAspectRatio: dynamicAspectRatio,
             ),
             delegate: SliverChildBuilderDelegate(
@@ -1753,12 +1757,15 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
           ? mediaQuery.textScaler.scale(1.0)
           : 1.0;
       final columns = _calculateGridColumns(screenWidth, textScale);
-      final totalSpacing = (columns - 1) * 10.0;
-      final gridWidth = screenWidth - 32.0; // 16px horizontal margins
+      final double horizontalPadding = columns <= 3 ? 2.0 : 16.0;
+      final double crossSpacing = columns <= 3 ? 2.0 : 10.0;
+      final double mainSpacing = columns <= 3 ? 2.0 : 10.0;
+      final totalSpacing = (columns - 1) * crossSpacing;
+      final gridWidth = screenWidth - (horizontalPadding * 2);
       final itemWidth = (gridWidth - totalSpacing) / columns;
       final aspectRatio = _calculateChildAspectRatio(context);
       final itemHeight = itemWidth / aspectRatio;
-      final rowHeight = itemHeight + 10.0; // mainAxisSpacing: 10.0
+      final rowHeight = itemHeight + mainSpacing;
       final rowIndex = index ~/ columns;
       targetOffset = rowIndex == 0
           ? 0.0

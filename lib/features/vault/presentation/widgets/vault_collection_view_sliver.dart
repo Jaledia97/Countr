@@ -290,7 +290,7 @@ class _VaultCollectionViewSliverState
               }
 
               return Padding(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.fromLTRB(3, 4, 3, 6),
                 child: GridView.builder(
                   key: Key('vault_collection_grid_${collection.setCode}'),
                   shrinkWrap: true,
@@ -299,8 +299,8 @@ class _VaultCollectionViewSliverState
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 3,
                     childAspectRatio: 0.68,
-                    crossAxisSpacing: 8,
-                    mainAxisSpacing: 8,
+                    crossAxisSpacing: 3.0,
+                    mainAxisSpacing: 3.0,
                   ),
                   itemBuilder: (context, index) {
                     final card = cards[index];
