@@ -332,6 +332,7 @@ void main() {
         id: 'deck-one',
         name: 'Pioneer Spirits',
         format: 'Pioneer',
+        isAssembled: const drift.Value(true),
         createdAt: DateTime.now(),
       ));
 
@@ -339,6 +340,7 @@ void main() {
         id: 'deck-two',
         name: 'Modern Humans',
         format: 'Modern',
+        isAssembled: const drift.Value(true),
         createdAt: DateTime.now(),
       ));
 

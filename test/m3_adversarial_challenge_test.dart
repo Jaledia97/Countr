@@ -458,6 +458,9 @@ void main() {
       expect(cachedList.length, 2);
 
       // 3. Close the sheet (pop from Navigator)
+      await tester.drag(find.byType(CardDetailSheet), const Offset(0, 1000), warnIfMissed: false);
+      await tester.pumpAndSettle();
+
       final closeButton = find.byType(IconButton).first;
       await tester.tap(closeButton);
       await tester.pumpAndSettle();
@@ -491,6 +494,8 @@ void main() {
       expect(find.text('Second official durable ruling for this card.'), findsOneWidget);
 
       // 6. Close sheet again
+      await tester.drag(find.byType(CardDetailSheet), const Offset(0, 1000), warnIfMissed: false);
+      await tester.pumpAndSettle();
       final closeButton2 = find.byType(IconButton).first;
       await tester.tap(closeButton2);
       await tester.pumpAndSettle();

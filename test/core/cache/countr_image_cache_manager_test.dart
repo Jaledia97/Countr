@@ -1,8 +1,31 @@
+import 'dart:io';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:countr/core/cache/countr_image_cache_manager.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  late Directory mockCacheDir;
+  const pathChannel = MethodChannel('plugins.flutter.io/path_provider');
+
+  setUpAll(() {
+    mockCacheDir = Directory.systemTemp.createTempSync('countr_cache_test_root_');
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(pathChannel, (MethodCall methodCall) async {
+      return mockCacheDir.path;
+    });
+  });
+
+  tearDownAll(() async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(pathChannel, null);
+    if (mockCacheDir.existsSync()) {
+      try {
+        mockCacheDir.deleteSync(recursive: true);
+      } catch (_) {}
+    }
+  });
 
   group('CountrImageCacheManager Unit Tests', () {
     test('Configures long-term disk cache duration of 30+ days and high object limit', () {

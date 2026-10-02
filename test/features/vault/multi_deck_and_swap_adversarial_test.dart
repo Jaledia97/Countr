@@ -33,6 +33,7 @@ void main() {
         id: 'deck-alpha',
         name: 'Deck Alpha',
         format: 'Commander',
+        isAssembled: const drift.Value(true),
         createdAt: DateTime.now(),
       ));
 
@@ -726,6 +727,7 @@ void main() {
         id: 'deck-history-swap',
         name: 'History Swap Deck',
         format: 'Commander',
+        isAssembled: const drift.Value(true),
         createdAt: DateTime.now(),
       ));
 
@@ -1027,6 +1029,7 @@ void main() {
           id: 'deck-hist-$i',
           name: deckNames[i],
           format: 'Modern',
+          isAssembled: const drift.Value(true),
           createdAt: DateTime.now(),
         ));
       }

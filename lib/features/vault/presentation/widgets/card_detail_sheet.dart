@@ -2565,12 +2565,23 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
   }
 
   Widget _buildCardArtwork(VaultItem item, bool isCurrent, {bool isCompact = false, bool isUltraCompact = false}) {
+    final itemIndex = _items.indexOf(item);
+    final targetIndex = itemIndex >= 0 ? itemIndex : null;
+
     if (!isCurrent) {
       final frontUrl = item.imageUrl.isNotEmpty ? item.imageUrl : '';
       return Hero(
         key: Key('card_artwork_${item.id}'),
         tag: 'card_artwork_${item.id}',
-        child: _buildCardFaceContainer(frontUrl, cardName: item.name, isCompact: isCompact, isUltraCompact: isUltraCompact),
+        child: Semantics(
+          button: true,
+          label: 'Card artwork, tap to view full screen',
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => _openFullScreenViewer(targetItem: item, targetIndex: targetIndex),
+            child: _buildCardFaceContainer(frontUrl, cardName: item.name, isCompact: isCompact, isUltraCompact: isUltraCompact),
+          ),
+        ),
       );
     }
 
@@ -2580,7 +2591,8 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
       button: true,
       label: hasFlip ? 'Card artwork, tap to flip' : 'Card artwork, tap to view full screen',
       child: GestureDetector(
-        onTap: hasFlip ? _toggleFlip : _openFullScreenViewer,
+        behavior: HitTestBehavior.opaque,
+        onTap: hasFlip ? _toggleFlip : () => _openFullScreenViewer(targetItem: item, targetIndex: targetIndex),
         child: AnimatedBuilder(
           animation: _flipAnimation,
           builder: (context, child) {
@@ -2623,7 +2635,7 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
                 color: Colors.transparent,
                 child: InkWell(
                   key: const Key('card_art_expand_overlay'),
-                  onTap: _openFullScreenViewer,
+                  onTap: () => _openFullScreenViewer(targetItem: item, targetIndex: targetIndex),
                   borderRadius: BorderRadius.circular(20),
                   child: Container(
                     width: 32,
@@ -2726,10 +2738,12 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
       ),
       clipBehavior: Clip.antiAlias,
       child: imageUrl.isNotEmpty
-          ? CountrCachedImage(
-              imageUrl: imageUrl,
-              fit: BoxFit.cover,
-              errorWidget: _buildPlaceholderArt(cardName: cardName),
+          ? IgnorePointer(
+              child: CountrCachedImage(
+                imageUrl: imageUrl,
+                fit: BoxFit.cover,
+                errorWidget: _buildPlaceholderArt(cardName: cardName),
+              ),
             )
           : _buildPlaceholderArt(cardName: cardName),
     );
@@ -3959,12 +3973,19 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
     }
   }
 
-  Future<void> _openFullScreenViewer() async {
+  Future<void> _openFullScreenViewer({VaultItem? targetItem, int? targetIndex}) async {
+    final effectiveItem = targetItem ?? _currentItem;
+    final effectiveIndex = targetIndex ??
+        (targetItem != null ? _items.indexOf(targetItem) : _currentIndex);
+    final validIndex = effectiveIndex >= 0 && effectiveIndex < _items.length
+        ? effectiveIndex
+        : _currentIndex;
+
     final returnedIndex = await FullScreenCardViewer.show(
       context,
-      _currentItem,
+      effectiveItem,
       items: _items,
-      initialIndex: _currentIndex,
+      initialIndex: validIndex,
       onPageChanged: (newIdx) {
         if (newIdx != _currentIndex && newIdx >= 0 && newIdx < _items.length) {
           if (_pageController.hasClients && _pageController.page?.round() != newIdx) {

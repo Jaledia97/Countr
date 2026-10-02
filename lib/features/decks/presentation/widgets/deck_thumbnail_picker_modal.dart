@@ -563,6 +563,7 @@ class _DeckThumbnailPickerModalState
 
     return GestureDetector(
       key: Key('cover_card_tile_$cardId'),
+      behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
@@ -577,10 +578,12 @@ class _DeckThumbnailPickerModalState
           fit: StackFit.expand,
           children: [
             if (artUrl != null && artUrl.isNotEmpty)
-              CountrCachedImage(
-                imageUrl: artUrl,
-                fit: BoxFit.cover,
-                errorWidget: placeholder,
+              IgnorePointer(
+                child: CountrCachedImage(
+                  imageUrl: artUrl,
+                  fit: BoxFit.cover,
+                  errorWidget: placeholder,
+                ),
               )
             else
               placeholder,

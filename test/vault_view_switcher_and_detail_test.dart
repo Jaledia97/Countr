@@ -218,16 +218,18 @@ void main() {
       await tester.tap(find.text('Open Sheet'));
       await tester.pumpAndSettle();
 
-      // Verify unowned card action button
-      expect(find.text('Add to Vault'), findsOneWidget);
+      // Verify unowned card action button ("Add to +" modal router per Patch 4.9 R7)
+      expect(find.byKey(const Key('quick_action_add_to_plus')), findsOneWidget);
+      expect(find.text('Add to +'), findsOneWidget);
 
-      // Tap Add to Vault
-      await tester.tap(find.text('Add to Vault'));
+      // Tap Add to + to open modal router
+      await tester.tap(find.byKey(const Key('quick_action_add_to_plus')));
       await tester.pumpAndSettle();
 
-      // Database should now have quantity = 1
-      final updated = await (db.select(db.vaultItems)..where((t) => t.id.equals('catalog-card-1'))).getSingle();
-      expect(updated.quantity, equals(1));
+      // Verify Add to... modal router options (Binders and Decks)
+      expect(find.text('Add to...'), findsOneWidget);
+      expect(find.byKey(const Key('add_to_binders_option')), findsOneWidget);
+      expect(find.byKey(const Key('add_to_decks_option')), findsOneWidget);
 
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(seconds: 4));

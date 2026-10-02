@@ -687,9 +687,13 @@ class _FullScreenCardViewerState extends State<FullScreenCardViewer>
 
     Widget cardFace;
     if (isCurrent && hasFlip) {
-      cardFace = GestureDetector(
-        onTap: _toggleFlip,
-        child: AnimatedBuilder(
+      cardFace = Semantics(
+        button: true,
+        label: 'Card artwork, tap to flip',
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: _toggleFlip,
+          child: AnimatedBuilder(
           animation: _flipAnimation,
           builder: (context, child) {
             final angle = _flipAnimation.value * math.pi;
@@ -712,7 +716,8 @@ class _FullScreenCardViewerState extends State<FullScreenCardViewer>
             );
           },
         ),
-      );
+      ),
+    );
     } else {
       final frontUrl = _getFrontImageUrlFor(item, itemData);
       cardFace = _buildFaceImage(frontUrl, item);

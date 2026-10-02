@@ -19,6 +19,7 @@ class MtgKeywordGlossary {
   };
 
   static const Set<String> _nonMtgKeywords = {
+    'pikachu',
     'electric',
     'lightning',
     'grass',
@@ -109,7 +110,7 @@ class MtgKeywordGlossary {
             matched = true;
           }
         }
-        if (!matched) {
+        if (!matched && oracleText != null) {
           if (!_nonMtgKeywords.contains(raw.toLowerCase())) {
             addKeyword(raw);
           }

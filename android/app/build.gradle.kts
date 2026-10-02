@@ -42,3 +42,7 @@ android {
 flutter {
     source = "../.."
 }
+
+dependencies {
+    implementation("eu.simonbinder:sqlite3-native-library:3.52.0")
+}

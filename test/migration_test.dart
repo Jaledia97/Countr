@@ -148,5 +148,109 @@ void main() {
 
       await migratedDb.close();
     });
+
+    test('safely upgrades intermediate v6 schema with pre-existing tcg_domain column without aborting other columns', () async {
+      final rawDb = NativeDatabase.memory(setup: (raw) {
+        raw.execute('PRAGMA user_version = 6;');
+        raw.execute('''
+          CREATE TABLE decks (
+            id TEXT NOT NULL PRIMARY KEY,
+            name TEXT NOT NULL,
+            format TEXT NOT NULL,
+            created_at INTEGER NOT NULL,
+            wins INTEGER NOT NULL DEFAULT 0,
+            losses INTEGER NOT NULL DEFAULT 0,
+            draws INTEGER NOT NULL DEFAULT 0,
+            is_deleted INTEGER NOT NULL DEFAULT 0,
+            tcg_domain TEXT NOT NULL DEFAULT 'mtg'
+          );
+        ''');
+        raw.execute('''
+          INSERT INTO decks (id, name, format, created_at, tcg_domain)
+          VALUES ('deck-v6-intermediate', 'Commander Test', 'Commander', 1600000000, 'mtg');
+        ''');
+      });
+
+      final migratedDb = AppDatabase(rawDb);
+
+      // Verify PRAGMA table_info contains all v7 columns: tcg_domain, is_registered, is_competitive
+      final tableInfo = await migratedDb.customSelect('PRAGMA table_info("decks");').get();
+      final columns = tableInfo.map((r) => r.read<String>('name')).toSet();
+      expect(columns, containsAll(['tcg_domain', 'is_registered', 'is_competitive']));
+
+      // Verify existing deck survived and was migrated
+      final deck = await (migratedDb.select(migratedDb.decks)..where((t) => t.id.equals('deck-v6-intermediate'))).getSingle();
+      expect(deck.name, 'Commander Test');
+      expect(deck.tcgDomain, 'mtg');
+      expect(deck.isRegistered, false);
+      expect(deck.isCompetitive, false);
+
+      await migratedDb.close();
+    });
+
+    test('safely upgrades intermediate v7 schema with pre-existing date_obtained and backfills legacy fields', () async {
+      final rawDb = NativeDatabase.memory(setup: (raw) {
+        raw.execute('PRAGMA user_version = 7;');
+        raw.execute('''
+          CREATE TABLE vault_items (
+            id TEXT NOT NULL PRIMARY KEY,
+            collection_type TEXT NOT NULL,
+            name TEXT NOT NULL,
+            set_or_series TEXT NOT NULL,
+            image_url TEXT NOT NULL,
+            acquired_price REAL NOT NULL,
+            acquired_date INTEGER NOT NULL,
+            quantity INTEGER NOT NULL DEFAULT 1,
+            condition TEXT NOT NULL,
+            is_graded INTEGER NOT NULL DEFAULT 0,
+            is_altered INTEGER NOT NULL DEFAULT 0,
+            is_misprint INTEGER NOT NULL DEFAULT 0,
+            is_signed INTEGER NOT NULL DEFAULT 0,
+            flavor_name TEXT,
+            personal_notes TEXT,
+            primary_binder_id TEXT,
+            current_market_price REAL NOT NULL,
+            last_price_update INTEGER NOT NULL,
+            dynamic_data TEXT NOT NULL,
+            date_obtained INTEGER
+          );
+        ''');
+        raw.execute('''
+          INSERT INTO vault_items (
+            id, collection_type, name, set_or_series, image_url,
+            acquired_price, acquired_date, quantity, condition,
+            personal_notes, current_market_price, last_price_update, dynamic_data, date_obtained
+          ) VALUES (
+            'v7-item-1', 'mtg', 'Mox Diamond', 'Stronghold', 'https://example.com/mox.jpg',
+            500.0, 1600000000, 1, 'NM',
+            'Strong investment', 650.0, 1600000000, '{}', NULL
+          );
+        ''');
+      });
+
+      final migratedDb = AppDatabase(rawDb);
+
+      // Verify PRAGMA table_info contains all v8 columns
+      final tableInfo = await migratedDb.customSelect('PRAGMA table_info("vault_items");').get();
+      final columns = tableInfo.map((r) => r.read<String>('name')).toSet();
+      expect(columns, containsAll([
+        'date_obtained',
+        'purchase_price',
+        'binder_page',
+        'binder_slot',
+        'notes',
+        'protection_status',
+      ]));
+
+      // Verify legacy backfill applied accurately despite intermediate schema
+      final item = await (migratedDb.select(migratedDb.vaultItems)..where((t) => t.id.equals('v7-item-1'))).getSingle();
+      expect(item.name, 'Mox Diamond');
+      expect(item.dateObtained, DateTime.fromMillisecondsSinceEpoch(1600000000 * 1000));
+      expect(item.purchasePrice, 500.0);
+      expect(item.notes, 'Strong investment');
+      expect(item.protectionStatus, 'Sleeved');
+
+      await migratedDb.close();
+    });
   });
 }

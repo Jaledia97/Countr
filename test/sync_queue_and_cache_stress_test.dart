@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:flutter/services.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:countr/core/database/app_database.dart';
@@ -6,6 +8,27 @@ import 'package:countr/core/cache/countr_image_cache_manager.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  late Directory mockCacheDir;
+  const pathChannel = MethodChannel('plugins.flutter.io/path_provider');
+
+  setUpAll(() {
+    mockCacheDir = Directory.systemTemp.createTempSync('countr_sync_cache_test_');
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(pathChannel, (MethodCall methodCall) async {
+      return mockCacheDir.path;
+    });
+  });
+
+  tearDownAll(() async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(pathChannel, null);
+    if (mockCacheDir.existsSync()) {
+      try {
+        mockCacheDir.deleteSync(recursive: true);
+      } catch (_) {}
+    }
+  });
 
   group('Adversarial Stress Test: SyncQueue Outbox & Image Cache Policy', () {
     late AppDatabase db;

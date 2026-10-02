@@ -906,12 +906,12 @@ void main() {
       expect(reExpandedY2, closeTo(initialY2, 1.0));
 
       // Drag scroll up
-      await tester.drag(find.byKey(const Key('section_oracle_rules')), const Offset(0, -300), warnIfMissed: false);
+      await tester.drag(find.byType(CardDetailSheet), const Offset(0, -300), warnIfMissed: false);
       await tester.pump();
       expect(tester.takeException(), isNull, reason: 'Dragging list upwards must not throw exceptions');
 
       // Drag scroll down
-      await tester.drag(find.byKey(const Key('section_oracle_rules')), const Offset(0, 300), warnIfMissed: false);
+      await tester.drag(find.byType(CardDetailSheet), const Offset(0, 300), warnIfMissed: false);
       await tester.pump();
       expect(tester.takeException(), isNull, reason: 'Dragging list downwards must not throw exceptions');
     });

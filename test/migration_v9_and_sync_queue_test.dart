@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:flutter/services.dart';
 import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -6,6 +8,27 @@ import 'package:countr/core/cache/countr_image_cache_manager.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  late Directory mockCacheDir;
+  const pathChannel = MethodChannel('plugins.flutter.io/path_provider');
+
+  setUpAll(() {
+    mockCacheDir = Directory.systemTemp.createTempSync('countr_migration_cache_test_');
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(pathChannel, (MethodCall methodCall) async {
+      return mockCacheDir.path;
+    });
+  });
+
+  tearDownAll(() async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(pathChannel, null);
+    if (mockCacheDir.existsSync()) {
+      try {
+        mockCacheDir.deleteSync(recursive: true);
+      } catch (_) {}
+    }
+  });
 
   group('Drift Schema v9 Migration, Soft Deletes & SyncQueue Outbox Tests', () {
     test('upgrades from schema v8 to v9, creates sync_queue table and soft delete columns', () async {

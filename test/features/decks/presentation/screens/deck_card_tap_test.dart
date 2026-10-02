@@ -105,6 +105,10 @@ void main() {
 
       expect(find.text('Market Valuation'), findsOneWidget);
 
+      // Scroll back up to reveal header
+      await tester.drag(find.byType(CardDetailSheet), const Offset(0, 1000), warnIfMissed: false);
+      await tester.pumpAndSettle();
+
       // Close the bottom sheet
       final closeButton = find.byTooltip('Close');
       expect(closeButton, findsOneWidget);

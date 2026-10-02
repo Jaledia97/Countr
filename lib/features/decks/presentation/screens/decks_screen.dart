@@ -334,7 +334,7 @@ class _DecksScreenState extends ConsumerState<DecksScreen> {
     });
 
     final rawFilter = ref.watch(activeDeckTcgFilterProvider);
-    final activeFilter = TcgContextSync.gameToDomain(rawFilter);
+    final activeFilter = rawFilter;
     final isPrivacyMode = ref.watch(privacyModeProvider);
     final dbSummaries = ref.watch(deckSummariesProvider).value;
 

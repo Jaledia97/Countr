@@ -144,11 +144,6 @@ class _CountrCachedImageState extends State<CountrCachedImage> {
   }
 
   Widget _buildDefaultLoadingPlaceholder() {
-    if (widget.cardName != null &&
-        widget.cardName!.trim().isNotEmpty &&
-        widget.cardName!.trim() != 'Unknown Card') {
-      return _buildCardPlaceholder(context);
-    }
     return Container(
       width: widget.width,
       height: widget.height,
@@ -338,23 +333,8 @@ class _CountrCachedImageState extends State<CountrCachedImage> {
           if (loadingProgress == null) return child;
           return widget.placeholder ?? _buildDefaultLoadingPlaceholder();
         },
-        errorBuilder: (context, error, stackTrace) {
-          if (!_useFallback &&
-              candidateFallback != null &&
-              candidateFallback.isNotEmpty &&
-              candidateFallback != effectiveUrl) {
-            return Image(
-              image: NetworkImage(candidateFallback),
-              fit: widget.fit,
-              width: widget.width,
-              height: widget.height,
-              alignment: widget.alignment,
-              errorBuilder: (ctx, err, stack) =>
-                  _buildEffectiveErrorWidget(context),
-            );
-          }
-          return _buildEffectiveErrorWidget(context);
-        },
+        errorBuilder: (context, error, stackTrace) =>
+            _buildEffectiveErrorWidget(context),
       );
       if (widget.borderRadius != null) {
         return ClipRRect(

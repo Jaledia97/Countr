@@ -106,48 +106,77 @@ class AppDatabase extends _$AppDatabase {
             await m.createTable(deckSynergies);
           } catch (_) {}
         }
-        if (from < 7) {
+        Future<void> safeAddColumn(TableInfo table, GeneratedColumn column) async {
           try {
-            await m.addColumn(decks, decks.tcgDomain);
-            await m.addColumn(decks, decks.isRegistered);
-            await m.addColumn(decks, decks.isCompetitive);
-          } catch (error, stackTrace) {
-            debugPrint('[AppDatabase.onUpgrade] Migration to v7 warning: $error\n$stackTrace');
+            final tableCheck = await customSelect(
+              "SELECT name FROM sqlite_master WHERE type='table' AND name=?;",
+              variables: [Variable.withString(table.actualTableName)],
+            ).get();
+            if (tableCheck.isEmpty) return;
+
+            final existingCols = await customSelect(
+              'PRAGMA table_info("${table.actualTableName}");',
+            ).get();
+            final exists = existingCols.any((row) => row.data['name'] == column.name);
+            if (!exists) {
+              await m.addColumn(table, column);
+            }
+          } catch (error) {
+            try {
+              await m.addColumn(table, column);
+            } catch (innerError) {
+              debugPrint('[AppDatabase.onUpgrade] Safe add column ${table.actualTableName}.${column.name} warning: $innerError');
+            }
           }
         }
-        if (from < 8) {
-          try {
-            await m.addColumn(vaultItems, vaultItems.dateObtained);
-            await m.addColumn(vaultItems, vaultItems.purchasePrice);
-            await m.addColumn(vaultItems, vaultItems.binderPage);
-            await m.addColumn(vaultItems, vaultItems.binderSlot);
-            await m.addColumn(vaultItems, vaultItems.notes);
-            await m.addColumn(vaultItems, vaultItems.protectionStatus);
 
-            // Safe non-destructive legacy backfill during migration:
-            await customStatement('''
-              UPDATE "vault_items"
-              SET "date_obtained" = "acquired_date"
-              WHERE "date_obtained" IS NULL AND "acquired_date" IS NOT NULL AND "quantity" > 0;
-            ''');
-            await customStatement('''
-              UPDATE "vault_items"
-              SET "purchase_price" = "acquired_price"
-              WHERE "purchase_price" IS NULL AND "acquired_price" IS NOT NULL AND "quantity" > 0;
-            ''');
-            await customStatement('''
-              UPDATE "vault_items"
-              SET "notes" = "personal_notes"
-              WHERE "notes" IS NULL AND "personal_notes" IS NOT NULL AND "quantity" > 0;
-            ''');
-            await customStatement('''
-              UPDATE "vault_items"
-              SET "protection_status" = 'Sleeved'
-              WHERE ("protection_status" IS NULL OR "protection_status" = '') AND "quantity" > 0;
-            ''');
-          } catch (error, stackTrace) {
-            debugPrint('[AppDatabase.onUpgrade] Migration to v8 warning: $error\n$stackTrace');
+        if (from < 7) {
+          await safeAddColumn(decks, decks.tcgDomain);
+          await safeAddColumn(decks, decks.isRegistered);
+          await safeAddColumn(decks, decks.isCompetitive);
+        }
+        if (from < 8) {
+          await safeAddColumn(vaultItems, vaultItems.dateObtained);
+          await safeAddColumn(vaultItems, vaultItems.purchasePrice);
+          await safeAddColumn(vaultItems, vaultItems.binderPage);
+          await safeAddColumn(vaultItems, vaultItems.binderSlot);
+          await safeAddColumn(vaultItems, vaultItems.notes);
+          await safeAddColumn(vaultItems, vaultItems.protectionStatus);
+
+          Future<void> safeBackfill(String sql) async {
+            try {
+              final tableCheck = await customSelect(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='vault_items';",
+              ).get();
+              if (tableCheck.isEmpty) return;
+
+              await customStatement(sql);
+            } catch (error, stackTrace) {
+              debugPrint('[AppDatabase.onUpgrade] Migration v8 backfill warning: $error\n$stackTrace');
+            }
           }
+
+          // Safe non-destructive legacy backfill during migration:
+          await safeBackfill('''
+            UPDATE "vault_items"
+            SET "date_obtained" = "acquired_date"
+            WHERE "date_obtained" IS NULL AND "acquired_date" IS NOT NULL AND "quantity" > 0;
+          ''');
+          await safeBackfill('''
+            UPDATE "vault_items"
+            SET "purchase_price" = "acquired_price"
+            WHERE "purchase_price" IS NULL AND "acquired_price" IS NOT NULL AND "quantity" > 0;
+          ''');
+          await safeBackfill('''
+            UPDATE "vault_items"
+            SET "notes" = "personal_notes"
+            WHERE "notes" IS NULL AND "personal_notes" IS NOT NULL AND "quantity" > 0;
+          ''');
+          await safeBackfill('''
+            UPDATE "vault_items"
+            SET "protection_status" = 'Sleeved'
+            WHERE ("protection_status" IS NULL OR "protection_status" = '') AND "quantity" > 0;
+          ''');
         }
         if (from < 9) {
           try {
