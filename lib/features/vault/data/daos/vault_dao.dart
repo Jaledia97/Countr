@@ -585,6 +585,21 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
                 ") ELSE 0 END",
               ));
         }
+      } else if (filter.colorMatchMode == ColorMatchMode.atMost ||
+          filter.colorMatchMode == ColorMatchMode.commander) {
+        final excludedColors = {'W', 'U', 'B', 'R', 'G'}
+            .difference(normalizedColors.where((c) => c != 'C').toSet());
+        for (final ex in excludedColors) {
+          query.where((t) => CustomExpression<bool>(
+                "CASE WHEN json_valid(vault_items.dynamic_data) = 1 THEN ("
+                "json_extract(vault_items.dynamic_data, '\$.$targetKey') NOT GLOB '*\"$ex\"*' AND "
+                "(json_extract(vault_items.dynamic_data, '\$.card_faces[0].$targetKey') IS NULL OR "
+                "json_extract(vault_items.dynamic_data, '\$.card_faces[0].$targetKey') NOT GLOB '*\"$ex\"*') AND "
+                "(json_extract(vault_items.dynamic_data, '\$.card_faces[1].$targetKey') IS NULL OR "
+                "json_extract(vault_items.dynamic_data, '\$.card_faces[1].$targetKey') NOT GLOB '*\"$ex\"*')"
+                ") ELSE 1 END",
+              ));
+        }
       }
     }
 
@@ -600,6 +615,30 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
               ));
         }
       }
+    }
+
+    // 8. CMC (Mana Value) range pushdown
+    if (filter.cmcRange.start > 0 || filter.cmcRange.end < 16) {
+      final minCmc = filter.cmcRange.start;
+      final maxCmc = filter.cmcRange.end;
+      query.where((t) => CustomExpression<bool>(
+            "CASE WHEN json_valid(vault_items.dynamic_data) = 1 THEN ("
+            "CAST(json_extract(vault_items.dynamic_data, '\$.cmc') AS REAL) >= $minCmc AND "
+            "CAST(json_extract(vault_items.dynamic_data, '\$.cmc') AS REAL) <= $maxCmc"
+            ") ELSE 1 END",
+          ));
+    }
+
+    // 9. Languages pushdown
+    if (filter.languages.isNotEmpty) {
+      final langCodes = filter.languages
+          .map((l) => "'${l.toLowerCase().trim()}'")
+          .join(',');
+      query.where((t) => CustomExpression<bool>(
+            "CASE WHEN json_valid(vault_items.dynamic_data) = 1 THEN ("
+            "lower(json_extract(vault_items.dynamic_data, '\$.lang')) IN ($langCodes)"
+            ") ELSE 1 END",
+          ));
     }
   }
 

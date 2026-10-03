@@ -39,6 +39,25 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
   bool _isLoadingTimedOut = false;
   int _selectedFilterIndex = 0;
   bool _isSearchExpanded = false;
+  List<VaultItem>? _lastFilteredItems;
+  Set<String> _cachedMultiVariantKeys = const {};
+
+  Set<String> _getMultiVariantKeys(List<VaultItem> items) {
+    if (identical(_lastFilteredItems, items)) {
+      return _cachedMultiVariantKeys;
+    }
+    _lastFilteredItems = items;
+    final cardKeyCounts = <String, int>{};
+    for (final item in items) {
+      final key = VaultVariantHelper.resolveAbstractCardKey(item);
+      cardKeyCounts[key] = (cardKeyCounts[key] ?? 0) + 1;
+    }
+    _cachedMultiVariantKeys = {
+      for (final entry in cardKeyCounts.entries)
+        if (entry.value > 1) entry.key,
+    };
+    return _cachedMultiVariantKeys;
+  }
 
   @override
   void initState() {
@@ -1422,14 +1441,15 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
       final items = asyncItems.value!;
       // Apply local search query
       final query = _searchController.text.toLowerCase().trim();
-      var filtered = items.where((item) {
-        if (query.isEmpty) return true;
-        return item.name.toLowerCase().contains(query) ||
-            (item.flavorName?.toLowerCase().contains(query) ?? false) ||
-            item.setOrSeries.toLowerCase().contains(query) ||
-            item.condition.toLowerCase().contains(query) ||
-            item.dynamicData.toLowerCase().contains(query);
-      }).toList();
+      var filtered = query.isEmpty
+          ? items
+          : items.where((item) {
+              return item.name.toLowerCase().contains(query) ||
+                  (item.flavorName?.toLowerCase().contains(query) ?? false) ||
+                  item.setOrSeries.toLowerCase().contains(query) ||
+                  item.condition.toLowerCase().contains(query) ||
+                  item.dynamicData.toLowerCase().contains(query);
+            }).toList();
 
       // Apply polymorphic quick filter chips when NOT in MTG
       final isMtg = activeGame.toLowerCase().contains('magic') || activeGame.toLowerCase() == 'mtg';
@@ -1522,15 +1542,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
       }
 
       final cardLayout = ref.watch(cardDisplayLayoutProvider);
-      final cardKeyCounts = <String, int>{};
-      for (final item in filtered) {
-        final key = VaultVariantHelper.resolveAbstractCardKey(item);
-        cardKeyCounts[key] = (cardKeyCounts[key] ?? 0) + 1;
-      }
-      final multiVariantKeys = {
-        for (final entry in cardKeyCounts.entries)
-          if (entry.value > 1) entry.key,
-      };
+      final multiVariantKeys = _getMultiVariantKeys(filtered);
 
       if (cardLayout == CardDisplayLayout.grid) {
         final screenWidth = MediaQuery.of(context).size.width;

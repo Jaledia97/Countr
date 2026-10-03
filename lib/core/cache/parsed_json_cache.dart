@@ -9,7 +9,7 @@ class ParsedJsonCache {
   ParsedJsonCache._();
 
   static final Map<String, Map<String, dynamic>> _cache = {};
-  static const int maxCapacity = 2000;
+  static const int maxCapacity = 50000;
 
   /// Retrieves a memoized [Map<String, dynamic>] from [jsonString], or parses
   /// and caches it if not already present.

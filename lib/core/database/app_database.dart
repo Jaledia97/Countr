@@ -688,6 +688,18 @@ class AppDatabase extends _$AppDatabase {
               ON "vault_items" ("is_deleted", "collection_type", "quantity");
             ''');
             await customStatement('''
+              CREATE INDEX IF NOT EXISTS "idx_vault_items_set_series"
+              ON "vault_items" ("set_or_series");
+            ''');
+            await customStatement('''
+              CREATE INDEX IF NOT EXISTS "idx_vault_items_condition"
+              ON "vault_items" ("condition");
+            ''');
+            await customStatement('''
+              CREATE INDEX IF NOT EXISTS "idx_vault_items_flags"
+              ON "vault_items" ("is_graded", "is_altered", "is_misprint", "is_signed");
+            ''');
+            await customStatement('''
               CREATE INDEX IF NOT EXISTS "idx_decks_active"
               ON "decks" ("is_deleted");
             ''');
