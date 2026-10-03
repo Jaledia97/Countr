@@ -6,8 +6,11 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_typography.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/state/app_state.dart';
+import 'app_settings_dialog.dart';
 import 'collections_accordion.dart';
 import 'play_track_accordion.dart';
+
+export 'app_settings_dialog.dart';
 import '../../../../features/life_counter/presentation/dialogs/pregame_setup_sheet.dart';
 import '../../../../features/life_counter/presentation/widgets/pod_scaffold_widget.dart';
 import '../../../../features/hydration/presentation/controllers/hydration_state.dart';
@@ -47,7 +50,10 @@ class MorphingCommandCenter extends ConsumerStatefulWidget {
           ),
           child: ScaleTransition(
             alignment: Alignment.bottomRight,
-            scale: Tween<double>(begin: 0.15, end: 1.0).animate(curvedAnimation),
+            scale: Tween<double>(
+              begin: 0.15,
+              end: 1.0,
+            ).animate(curvedAnimation),
             child: FadeTransition(
               opacity: Tween<double>(begin: 0.0, end: 1.0).animate(
                 CurvedAnimation(
@@ -70,6 +76,7 @@ class MorphingCommandCenter extends ConsumerStatefulWidget {
 
 class _MorphingCommandCenterState extends ConsumerState<MorphingCommandCenter> {
   late final ScrollController _scrollController;
+  bool _isSettingsDialogOpen = false;
 
   @override
   void initState() {
@@ -86,9 +93,6 @@ class _MorphingCommandCenterState extends ConsumerState<MorphingCommandCenter> {
   @override
   Widget build(BuildContext context) {
     final activeGame = ref.watch(activeGameContextProvider);
-    final isPrivacyMode = ref.watch(privacyModeProvider);
-    final baseCurrency = ref.watch(baseCurrencyProvider);
-    final streamerSecurityEnabled = ref.watch(streamerSecurityEnabledProvider);
     final size = MediaQuery.of(context).size;
 
     return SafeArea(
@@ -173,8 +177,10 @@ class _MorphingCommandCenterState extends ConsumerState<MorphingCommandCenter> {
                 ),
                 actions: [
                   IconButton(
-                    icon: const Icon(Icons.close_rounded,
-                        color: AppColors.textPrimary),
+                    icon: const Icon(
+                      Icons.close_rounded,
+                      color: AppColors.textPrimary,
+                    ),
                     tooltip: 'Close Menu',
                     onPressed: () => Navigator.of(context).pop(),
                   ),
@@ -187,10 +193,14 @@ class _MorphingCommandCenterState extends ConsumerState<MorphingCommandCenter> {
                 children: [
                   // Active Context Status Indicator
                   Container(
-                    margin:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 6,
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
                     decoration: BoxDecoration(
                       color: AppColors.surfaceRaised,
                       borderRadius: BorderRadius.circular(12),
@@ -232,9 +242,13 @@ class _MorphingCommandCenterState extends ConsumerState<MorphingCommandCenter> {
                         ),
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 3),
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
                           decoration: BoxDecoration(
-                            color: AppColors.accentViolet.withValues(alpha: 0.2),
+                            color: AppColors.accentViolet.withValues(
+                              alpha: 0.2,
+                            ),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: const Text(
@@ -245,274 +259,6 @@ class _MorphingCommandCenterState extends ConsumerState<MorphingCommandCenter> {
                               color: AppColors.accentVioletLight,
                               letterSpacing: 1,
                             ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // App Settings Section Card
-                  Container(
-                    key: const Key('command_center_app_settings_card'),
-                    margin:
-                        const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppColors.surface,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: AppColors.surfaceBorder),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Header
-                        Row(
-                          children: [
-                            const Icon(
-                              Icons.tune_rounded,
-                              size: 16,
-                              color: AppColors.accentCyan,
-                            ),
-                            const SizedBox(width: 8),
-                            const Expanded(
-                              child: Text(
-                                'APP SETTINGS',
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: 0.8,
-                                  color: AppColors.textSecondary,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: isPrivacyMode
-                                    ? AppColors.accentAmber
-                                        .withValues(alpha: 0.2)
-                                    : AppColors.surfaceRaised,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                isPrivacyMode ? 'PRIVACY' : 'STANDARD',
-                                style: TextStyle(
-                                  fontSize: 8.5,
-                                  fontWeight: FontWeight.w800,
-                                  color: isPrivacyMode
-                                      ? AppColors.accentAmber
-                                      : AppColors.textSecondary,
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-
-                        // 1. Global Privacy Mode Toggle
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: AppColors.surfaceRaised,
-                            borderRadius: BorderRadius.circular(10),
-                            border:
-                                Border.all(color: AppColors.surfaceBorderSubtle),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                isPrivacyMode
-                                    ? Icons.visibility_off
-                                    : Icons.visibility,
-                                size: 20,
-                                color: isPrivacyMode
-                                    ? AppColors.accentAmber
-                                    : AppColors.textSecondary,
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: const [
-                                    Text(
-                                      'Global Privacy Mode',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w700,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                    SizedBox(height: 2),
-                                    Text(
-                                      'Redact values and card prices',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        color: AppColors.textSecondary,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Switch.adaptive(
-                                key: const Key(
-                                    'command_center_privacy_mode_toggle'),
-                                value: isPrivacyMode,
-                                activeTrackColor: AppColors.accentAmber,
-                                onChanged: (val) {
-                                  ref
-                                      .read(privacyModeProvider.notifier)
-                                      .state = val;
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-
-                        // 2. Base Currency Dropdown
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: AppColors.surfaceRaised,
-                            borderRadius: BorderRadius.circular(10),
-                            border:
-                                Border.all(color: AppColors.surfaceBorderSubtle),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.currency_exchange_rounded,
-                                size: 20,
-                                color: AppColors.accentEmerald,
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: const [
-                                    Text(
-                                      'Base Currency',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w700,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                    SizedBox(height: 2),
-                                    Text(
-                                      'Normalized valuation engine',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        color: AppColors.textSecondary,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Container(
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 8),
-                                decoration: BoxDecoration(
-                                  color: AppColors.surface,
-                                  borderRadius: BorderRadius.circular(8),
-                                  border:
-                                      Border.all(color: AppColors.surfaceBorder),
-                                ),
-                                child: DropdownButtonHideUnderline(
-                                  child: DropdownButton<AppCurrency>(
-                                    key: const Key(
-                                        'command_center_base_currency_dropdown'),
-                                    value: baseCurrency,
-                                    dropdownColor: AppColors.surfaceRaised,
-                                    icon: const Icon(Icons.arrow_drop_down,
-                                        color: AppColors.accentCyan),
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w700,
-                                      color: Colors.white,
-                                    ),
-                                    items: AppCurrency.values.map((currency) {
-                                      return DropdownMenuItem<AppCurrency>(
-                                        value: currency,
-                                        child: Text(
-                                            '${currency.code} (${currency.symbol})'),
-                                      );
-                                    }).toList(),
-                                    onChanged: (newCurrency) {
-                                      if (newCurrency != null) {
-                                        ref
-                                            .read(baseCurrencyProvider.notifier)
-                                            .state = newCurrency;
-                                      }
-                                    },
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-
-                        // 3. Streamer Security Toggle
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: AppColors.surfaceRaised,
-                            borderRadius: BorderRadius.circular(10),
-                            border:
-                                Border.all(color: AppColors.surfaceBorderSubtle),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.security_rounded,
-                                size: 20,
-                                color: AppColors.accentVioletLight,
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: const [
-                                    Text(
-                                      'Streamer Security',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w700,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                    SizedBox(height: 2),
-                                    Text(
-                                      'Auto-enable privacy on background',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        color: AppColors.textSecondary,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Switch.adaptive(
-                                key: const Key(
-                                    'command_center_streamer_security_toggle'),
-                                value: streamerSecurityEnabled,
-                                activeTrackColor: AppColors.accentVioletLight,
-                                onChanged: (val) {
-                                  ref
-                                      .read(streamerSecurityEnabledProvider
-                                          .notifier)
-                                      .state = val;
-                                },
-                              ),
-                            ],
                           ),
                         ),
                       ],
@@ -540,7 +286,8 @@ class _MorphingCommandCenterState extends ConsumerState<MorphingCommandCenter> {
                     },
                     onLaunchMtgMode: (mode) async {
                       // 1. Open pregame setup on root navigator context (modal already dismissed by onModeSelected)
-                      final rootContext = rootNavigatorKey.currentContext ?? context;
+                      final rootContext =
+                          rootNavigatorKey.currentContext ?? context;
                       final podState = await PregameSetupSheet.show(
                         rootContext,
                         initialFormat: mode.toLowerCase(),
@@ -548,11 +295,13 @@ class _MorphingCommandCenterState extends ConsumerState<MorphingCommandCenter> {
 
                       // 3. When setup completes and returns podState, push PodScaffoldWidget
                       if (podState != null) {
-                        final navContext = rootNavigatorKey.currentContext ?? rootContext;
+                        final navContext =
+                            rootNavigatorKey.currentContext ?? rootContext;
                         if (navContext.mounted) {
                           Navigator.of(navContext).push(
                             MaterialPageRoute(
-                              builder: (_) => PodScaffoldWidget(podState: podState),
+                              builder: (_) =>
+                                  PodScaffoldWidget(podState: podState),
                             ),
                           );
                         }
@@ -565,7 +314,10 @@ class _MorphingCommandCenterState extends ConsumerState<MorphingCommandCenter> {
                   // Test & Developer Tools Section Card
                   Container(
                     key: const Key('command_center_developer_tools_card'),
-                    margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 6,
+                    ),
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: AppColors.surface,
@@ -596,9 +348,14 @@ class _MorphingCommandCenterState extends ConsumerState<MorphingCommandCenter> {
                               ),
                             ),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
                               decoration: BoxDecoration(
-                                color: AppColors.accentCyan.withValues(alpha: 0.15),
+                                color: AppColors.accentCyan.withValues(
+                                  alpha: 0.15,
+                                ),
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: const Text(
@@ -617,15 +374,24 @@ class _MorphingCommandCenterState extends ConsumerState<MorphingCommandCenter> {
 
                         // 1. Hydration Engine Action Trigger
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 8,
+                          ),
                           decoration: BoxDecoration(
                             color: AppColors.surfaceRaised,
                             borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: AppColors.surfaceBorderSubtle),
+                            border: Border.all(
+                              color: AppColors.surfaceBorderSubtle,
+                            ),
                           ),
                           child: Row(
                             children: [
-                              const Icon(Icons.bolt_rounded, size: 20, color: AppColors.accentCyan),
+                              const Icon(
+                                Icons.bolt_rounded,
+                                size: 20,
+                                color: AppColors.accentCyan,
+                              ),
                               const SizedBox(width: 10),
                               Expanded(
                                 child: Column(
@@ -633,14 +399,26 @@ class _MorphingCommandCenterState extends ConsumerState<MorphingCommandCenter> {
                                   children: [
                                     const Text(
                                       'Hydration Engine',
-                                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white),
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                        color: Colors.white,
+                                      ),
                                     ),
                                     const SizedBox(height: 2),
                                     Text(
-                                      ref.watch(hydrationControllerProvider).status == HydrationStatus.idle
+                                      ref
+                                                  .watch(
+                                                    hydrationControllerProvider,
+                                                  )
+                                                  .status ==
+                                              HydrationStatus.idle
                                           ? 'Hydrate MTG Dictionary from Scryfall'
                                           : 'Status: ${ref.watch(hydrationControllerProvider).status.name}',
-                                      style: const TextStyle(fontSize: 10, color: AppColors.textSecondary),
+                                      style: const TextStyle(
+                                        fontSize: 10,
+                                        color: AppColors.textSecondary,
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -650,19 +428,34 @@ class _MorphingCommandCenterState extends ConsumerState<MorphingCommandCenter> {
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: AppColors.accentCyan,
                                   foregroundColor: AppColors.textDark,
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 6,
+                                  ),
                                   minimumSize: Size.zero,
                                 ),
                                 onPressed: () {
-                                  ref.read(hydrationControllerProvider.notifier).startHydration();
+                                  ref
+                                      .read(
+                                        hydrationControllerProvider.notifier,
+                                      )
+                                      .startHydration();
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
                                       behavior: SnackBarBehavior.floating,
-                                      content: Text('Starting MTG bulk hydration...'),
+                                      content: Text(
+                                        'Starting MTG bulk hydration...',
+                                      ),
                                     ),
                                   );
                                 },
-                                child: const Text('Hydrate', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+                                child: const Text(
+                                  'Hydrate',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
                               ),
                             ],
                           ),
@@ -671,15 +464,24 @@ class _MorphingCommandCenterState extends ConsumerState<MorphingCommandCenter> {
 
                         // 2. Database Verification Action Trigger
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 8,
+                          ),
                           decoration: BoxDecoration(
                             color: AppColors.surfaceRaised,
                             borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: AppColors.surfaceBorderSubtle),
+                            border: Border.all(
+                              color: AppColors.surfaceBorderSubtle,
+                            ),
                           ),
                           child: Row(
                             children: [
-                              const Icon(Icons.sync_rounded, size: 20, color: AppColors.accentEmerald),
+                              const Icon(
+                                Icons.sync_rounded,
+                                size: 20,
+                                color: AppColors.accentEmerald,
+                              ),
                               const SizedBox(width: 10),
                               Expanded(
                                 child: Column(
@@ -687,36 +489,58 @@ class _MorphingCommandCenterState extends ConsumerState<MorphingCommandCenter> {
                                   children: const [
                                     Text(
                                       'Database Verification',
-                                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white),
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                        color: Colors.white,
+                                      ),
                                     ),
                                     SizedBox(height: 2),
                                     Text(
                                       'Verify SQLite schema and reseed catalog',
-                                      style: TextStyle(fontSize: 10, color: AppColors.textSecondary),
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: AppColors.textSecondary,
+                                      ),
                                     ),
                                   ],
                                 ),
                               ),
                               ElevatedButton(
-                                key: const Key('command_center_verify_database_button'),
+                                key: const Key(
+                                  'command_center_verify_database_button',
+                                ),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: AppColors.accentEmerald,
                                   foregroundColor: AppColors.textDark,
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 6,
+                                  ),
                                   minimumSize: Size.zero,
                                 ),
                                 onPressed: () async {
-                                  await ref.read(vaultDaoProvider).seedDatabase();
+                                  await ref
+                                      .read(vaultDaoProvider)
+                                      .seedDatabase();
                                   if (context.mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
                                         behavior: SnackBarBehavior.floating,
-                                        content: Text('Database verified and seeded.'),
+                                        content: Text(
+                                          'Database verified and seeded.',
+                                        ),
                                       ),
                                     );
                                   }
                                 },
-                                child: const Text('Verify', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+                                child: const Text(
+                                  'Verify',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
                               ),
                             ],
                           ),
@@ -762,7 +586,9 @@ class _MorphingCommandCenterState extends ConsumerState<MorphingCommandCenter> {
                                 Navigator.of(context).pop();
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
-                                    content: Text('Local-first storage in sync'),
+                                    content: Text(
+                                      'Local-first storage in sync',
+                                    ),
                                   ),
                                 );
                               },
@@ -770,15 +596,20 @@ class _MorphingCommandCenterState extends ConsumerState<MorphingCommandCenter> {
                           ),
                           Expanded(
                             child: _QuickActionItem(
+                              key: const Key(
+                                'command_center_settings_quick_action',
+                              ),
                               icon: Icons.settings_outlined,
                               label: 'Settings',
-                              onTap: () {
-                                if (_scrollController.hasClients) {
-                                  _scrollController.animateTo(
-                                    0,
-                                    duration: const Duration(milliseconds: 300),
-                                    curve: Curves.easeInOut,
-                                  );
+                              onTap: () async {
+                                if (_isSettingsDialogOpen) return;
+                                _isSettingsDialogOpen = true;
+                                try {
+                                  await AppSettingsDialog.show(context);
+                                } finally {
+                                  if (mounted) {
+                                    _isSettingsDialogOpen = false;
+                                  }
                                 }
                               },
                             ),
@@ -803,6 +634,7 @@ class _QuickActionItem extends StatelessWidget {
   final VoidCallback onTap;
 
   const _QuickActionItem({
+    super.key,
     required this.icon,
     required this.label,
     required this.onTap,
