@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
@@ -9,8 +8,8 @@ import 'package:countr/core/constants/app_colors.dart';
 
 /// Managed, offline-first cached image widget replacing unmanaged [Image.network].
 /// Backed by [CountrImageCacheManager] for 35+ day local disk persistence.
-/// Provides resilient self-healing retry logic on transient errors, exponential backoff,
-/// and smooth placeholder-to-art cross-fade transitions.
+/// Provides resilient error locking via [FailedImageRegistry], deterministic ValueKey,
+/// zero-layout-shift dimensional containers, and responsive adaptive placeholders.
 class CountrCachedImage extends StatefulWidget {
   final String imageUrl;
   final String? cacheKey;
@@ -57,10 +56,14 @@ class CountrCachedImage extends StatefulWidget {
     return 'https://api.scryfall.com/cards/named?exact=${Uri.encodeComponent(clean)}&format=image&version=$version';
   }
 
-  /// Resolves the standardized cache key using CountrImageCacheManager.cardArtKey.
+  /// Resolves the standardized cache key using CountrImageCacheManager.cardArtKey
+  /// or deckCoverKey, falling back to null if neither is provided.
   String? get effectiveCacheKey {
     if (cacheKey != null && cacheKey!.isNotEmpty) return cacheKey;
     if (cardId != null && cardId!.isNotEmpty) {
+      if (cardId!.startsWith('deck-')) {
+        return CountrImageCacheManager.deckCoverKey(cardId!);
+      }
       return CountrImageCacheManager.cardArtKey(cardId!);
     }
     return null;
@@ -71,9 +74,7 @@ class CountrCachedImage extends StatefulWidget {
 }
 
 class _CountrCachedImageState extends State<CountrCachedImage> {
-  int _retryCount = 0;
-  Timer? _retryTimer;
-  Key _loadKey = UniqueKey();
+  int _retryRevision = 0;
   bool _useFallback = false;
 
   @override
@@ -83,44 +84,49 @@ class _CountrCachedImageState extends State<CountrCachedImage> {
         oldWidget.cacheKey != widget.cacheKey ||
         oldWidget.cardId != widget.cardId ||
         oldWidget.cardName != widget.cardName) {
-      _retryTimer?.cancel();
-      _retryTimer = null;
-      _retryCount = 0;
       _useFallback = false;
-      _loadKey = UniqueKey();
+      _retryRevision = 0;
     }
   }
 
-  @override
-  void dispose() {
-    _retryTimer?.cancel();
-    _retryTimer = null;
-    super.dispose();
+  /// Deterministic, stable ValueKey based on effective key/URL and manual retry revision.
+  /// Eliminates volatile UniqueKey() element destruction and remount loops.
+  Key _buildStableKey(String url, String? key) {
+    final base = key ?? url;
+    return ValueKey('${base}_rev$_retryRevision');
   }
 
-  void _scheduleRetry() {
-    if (_retryTimer?.isActive ?? false) return;
-    if (_retryCount >= widget.maxRetries) return;
-
-    final delay = widget.initialRetryDelay * (1 << _retryCount);
-    _retryTimer = Timer(delay, () {
-      if (mounted) {
-        setState(() {
-          _retryCount++;
-          _loadKey = UniqueKey();
-        });
-      }
-    });
-  }
-
+  /// User-initiated tap to retry a failed image load.
+  /// Clears FailedImageRegistry, evicts potentially corrupt cache entries,
+  /// and increments _retryRevision to cleanly re-mount CachedNetworkImage.
   void manualRetry() {
-    _retryTimer?.cancel();
-    _retryTimer = null;
+    // 1. Reset failure in global registry
+    FailedImageRegistry.instance.reset(
+      widget.imageUrl,
+      cacheKey: widget.effectiveCacheKey,
+    );
+    final fallback = _resolveCandidateFallback();
+    if (fallback != null) {
+      FailedImageRegistry.instance.reset(fallback);
+    }
+
+    // 2. Evict cache entries from disk
+    final manager = widget.cacheManager ?? CountrImageCacheManager.instance;
+    if (widget.cardId != null) {
+      CountrImageCacheManager.instance.evictCardArt(widget.cardId!).ignore();
+    }
+    if (widget.effectiveCacheKey != null) {
+      manager.removeFile(widget.effectiveCacheKey!).ignore();
+    }
+    if (widget.imageUrl.isNotEmpty) {
+      manager.removeFile(widget.imageUrl).ignore();
+    }
+
+    // 3. Increment revision to trigger clean remount
     if (mounted) {
       setState(() {
-        _retryCount = 0;
         _useFallback = false;
-        _loadKey = UniqueKey();
+        _retryRevision++;
       });
     }
   }
@@ -143,18 +149,35 @@ class _CountrCachedImageState extends State<CountrCachedImage> {
     return null;
   }
 
-  Widget _buildDefaultLoadingPlaceholder() {
-    return Container(
+  /// Wraps widgets in identical dimensional containers and border radius
+  /// to ensure zero layout shift between placeholder, image, and error states.
+  Widget _wrapWithDimensions({required Widget child}) {
+    Widget result = SizedBox(
       width: widget.width,
       height: widget.height,
-      color: AppColors.surfaceRaised,
-      child: const Center(
-        child: SizedBox(
-          width: 16,
-          height: 16,
-          child: CircularProgressIndicator(
-            strokeWidth: 1.5,
-            color: AppColors.accentCyan,
+      child: child,
+    );
+    if (widget.borderRadius != null) {
+      result = ClipRRect(
+        borderRadius: widget.borderRadius!,
+        child: result,
+      );
+    }
+    return result;
+  }
+
+  Widget _buildDefaultLoadingPlaceholder() {
+    return _wrapWithDimensions(
+      child: Container(
+        color: AppColors.surfaceRaised,
+        child: const Center(
+          child: SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(
+              strokeWidth: 1.5,
+              color: AppColors.accentCyan,
+            ),
           ),
         ),
       ),
@@ -164,7 +187,6 @@ class _CountrCachedImageState extends State<CountrCachedImage> {
   Widget _buildEffectiveErrorWidget(BuildContext context) {
     Widget child;
     if (widget.errorWidget != null) {
-      // Intercept Icons.image_not_supported or broken image icons and replace with styled placeholder
       if (widget.errorWidget is Icon) {
         final icon = (widget.errorWidget as Icon).icon;
         if (icon == Icons.image_not_supported ||
@@ -182,89 +204,99 @@ class _CountrCachedImageState extends State<CountrCachedImage> {
       child = _buildCardPlaceholder(context);
     }
 
-    return GestureDetector(
-      onTap: manualRetry,
-      behavior: HitTestBehavior.translucent,
-      child: child,
+    return _wrapWithDimensions(
+      child: GestureDetector(
+        onTap: manualRetry,
+        behavior: HitTestBehavior.opaque,
+        child: child,
+      ),
     );
   }
 
-  /// Elegant styled card placeholder with subtle dark gradient and card initials / name.
+  /// Elegant styled card placeholder with adaptive sizing via LayoutBuilder.
+  /// Prevents RenderFlex overflow across narrow viewports and compact 3x3 grids.
   Widget _buildCardPlaceholder(BuildContext context) {
     final name = widget.cardName?.trim() ?? '';
     final initials = _getInitials(name);
-    final isSmall = (widget.width != null && widget.width! < 60) ||
-        (widget.height != null && widget.height! < 70);
 
-    final placeholderContent = Container(
-      width: widget.width,
-      height: widget.height,
-      decoration: BoxDecoration(
-        borderRadius: widget.borderRadius,
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF2A2D37),
-            Color(0xFF16181F),
-          ],
-        ),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.08),
-          width: 1,
-        ),
-      ),
-      child: Center(
-        child: initials.isNotEmpty
-            ? Column(
-                mainAxisSize: MainAxisSize.min,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    initials,
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontWeight: FontWeight.bold,
-                      fontSize: isSmall ? 11 : 16,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                  if (!isSmall &&
-                      name.isNotEmpty &&
-                      (widget.height == null || widget.height! >= 90)) ...[
-                    const SizedBox(height: 4),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: Text(
-                        name,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: Colors.white38,
-                          fontSize: 9,
-                          fontWeight: FontWeight.w500,
-                        ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final effectiveW = widget.width ??
+            (constraints.hasBoundedWidth ? constraints.maxWidth : double.infinity);
+        final effectiveH = widget.height ??
+            (constraints.hasBoundedHeight ? constraints.maxHeight : double.infinity);
+
+        final isTiny = effectiveW < 45 || effectiveH < 55;
+        final isSmall = effectiveW < 70 || effectiveH < 80;
+        final showSubtitle = !isSmall && (effectiveH >= 95);
+
+        return Container(
+          decoration: BoxDecoration(
+            borderRadius: widget.borderRadius,
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                 Color(0xFF2A2D37),
+                 Color(0xFF16181F),
+              ],
+            ),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.08),
+              width: 1,
+            ),
+          ),
+          child: Center(
+            child: initials.isNotEmpty
+                ? FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Padding(
+                      padding: const EdgeInsets.all(4.0),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            initials,
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontWeight: FontWeight.bold,
+                              fontSize: isTiny ? 9 : (isSmall ? 11 : 16),
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                          if (showSubtitle && name.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            SizedBox(
+                              width: (effectiveW.isFinite ? effectiveW - 8 : 120.0)
+                                  .clamp(40.0, 200.0)
+                                  .toDouble(),
+                              child: Text(
+                                name,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  color: Colors.white38,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ),
-                  ],
-                ],
-              )
-            : Icon(
-                Icons.style_rounded,
-                size: isSmall ? 18 : 24,
-                color: Colors.white24,
-              ),
-      ),
+                  )
+                : Icon(
+                    Icons.style_rounded,
+                    size: isTiny ? 14 : (isSmall ? 18 : 24),
+                    color: Colors.white24,
+                  ),
+          ),
+        );
+      },
     );
-
-    if (widget.borderRadius != null) {
-      return ClipRRect(
-        borderRadius: widget.borderRadius!,
-        child: placeholderContent,
-      );
-    }
-    return placeholderContent;
   }
 
   String _getInitials(String name) {
@@ -294,36 +326,45 @@ class _CountrCachedImageState extends State<CountrCachedImage> {
         errorBuilder: (context, error, stackTrace) =>
             _buildEffectiveErrorWidget(context),
       );
-      if (widget.borderRadius != null) {
-        return ClipRRect(
-          borderRadius: widget.borderRadius!,
-          child: fileWidget,
-        );
-      }
-      return fileWidget;
+      return _wrapWithDimensions(child: fileWidget);
     }
 
-    // 2. Resolve candidate fallback URL for MTG or specified fallback
+    // 2. Link keys in FailedImageRegistry for bidirectional lookup
+    if (widget.effectiveCacheKey != null && widget.imageUrl.isNotEmpty) {
+      FailedImageRegistry.instance.linkKeys(widget.imageUrl, widget.effectiveCacheKey!);
+    }
+
+    // 3. Resolve candidate fallback URL
     final candidateFallback = _resolveCandidateFallback();
 
-    // 3. Detect invalid or empty initial image URL
+    // 4. Determine if initial URL is invalid or already failed in registry
     final isInvalidInitialUrl = widget.imageUrl.trim().isEmpty ||
         widget.imageUrl.contains('/art_crop/back.jpg') ||
         widget.imageUrl.contains('/normal/back.jpg') ||
         widget.imageUrl.contains('/small/back.jpg');
 
-    final effectiveUrl = (isInvalidInitialUrl || _useFallback) && candidateFallback != null
-        ? candidateFallback
-        : widget.imageUrl.trim();
+    final isPrimaryFailed = isInvalidInitialUrl ||
+        FailedImageRegistry.instance.isFailed(widget.imageUrl, cacheKey: widget.effectiveCacheKey);
 
-    if (effectiveUrl.isEmpty) {
+    // 5. Select effective URL deterministically
+    String effectiveUrl = widget.imageUrl.trim();
+    if ((isPrimaryFailed || _useFallback) &&
+        candidateFallback != null &&
+        candidateFallback.isNotEmpty &&
+        candidateFallback != widget.imageUrl) {
+      effectiveUrl = candidateFallback;
+    }
+
+    // 6. Immediate Short-Circuit: If effectiveUrl is empty or failed in registry, return error widget instantly
+    if (effectiveUrl.isEmpty ||
+        FailedImageRegistry.instance.isFailed(effectiveUrl, cacheKey: widget.effectiveCacheKey)) {
       return _buildEffectiveErrorWidget(context);
     }
 
-    // 4. Test environment headless rendering
+    // 7. Test environment headless rendering
     if (!kIsWeb && Platform.environment.containsKey('FLUTTER_TEST')) {
       final testWidget = Image(
-        key: _loadKey,
+        key: _buildStableKey(effectiveUrl, widget.effectiveCacheKey),
         image: NetworkImage(effectiveUrl),
         fit: widget.fit,
         width: widget.width,
@@ -336,25 +377,19 @@ class _CountrCachedImageState extends State<CountrCachedImage> {
         errorBuilder: (context, error, stackTrace) =>
             _buildEffectiveErrorWidget(context),
       );
-      if (widget.borderRadius != null) {
-        return ClipRRect(
-          borderRadius: widget.borderRadius!,
-          child: testWidget,
-        );
-      }
-      return testWidget;
+      return _wrapWithDimensions(child: testWidget);
     }
 
-    // 5. Production cached network image backed by CountrImageCacheManager
+    // 8. Production CachedNetworkImage backed by CountrImageCacheManager
     final effectiveKey = _useFallback
         ? (widget.effectiveCacheKey != null ? '${widget.effectiveCacheKey}_fallback' : null)
         : widget.effectiveCacheKey;
 
     final cachedImage = CachedNetworkImage(
-      key: _loadKey,
+      key: _buildStableKey(effectiveUrl, effectiveKey),
       imageUrl: effectiveUrl,
       cacheKey: effectiveKey,
-      cacheManager: widget.cacheManager ?? CountrImageCacheManager(),
+      cacheManager: widget.cacheManager ?? CountrImageCacheManager.instance,
       fit: widget.fit,
       width: widget.width,
       height: widget.height,
@@ -365,39 +400,30 @@ class _CountrCachedImageState extends State<CountrCachedImage> {
       placeholder: (context, url) =>
           widget.placeholder ?? _buildDefaultLoadingPlaceholder(),
       errorWidget: (context, url, error) {
-        if (!_useFallback &&
-            candidateFallback != null &&
-            candidateFallback.isNotEmpty &&
-            candidateFallback != effectiveUrl) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) {
-              setState(() {
-                _useFallback = true;
-                _retryCount = 0;
-                _loadKey = UniqueKey();
-              });
-            }
-          });
-          return widget.placeholder ?? _buildDefaultLoadingPlaceholder();
-        }
+        FailedImageRegistry.instance.recordAttempt(
+          url,
+          cacheKey: widget.effectiveCacheKey,
+          error: error,
+        );
 
-        if (_retryCount < widget.maxRetries) {
-          _scheduleRetry();
-          return widget.placeholder ?? _buildCardPlaceholder(context);
+        if (error is HttpExceptionWithStatus) {
+          if (error.statusCode == 404 ||
+              (error.statusCode >= 400 && error.statusCode < 500 && error.statusCode != 429)) {
+            FailedImageRegistry.instance.markTerminal(
+              url,
+              cacheKey: widget.effectiveCacheKey,
+              statusCode: error.statusCode,
+              type: error.statusCode == 404
+                  ? ImageFailureType.terminalNotFound
+                  : ImageFailureType.terminalClientError,
+            );
+          }
         }
 
         return _buildEffectiveErrorWidget(context);
       },
     );
 
-    if (widget.borderRadius != null) {
-      return ClipRRect(
-        borderRadius: widget.borderRadius!,
-        child: cachedImage,
-      );
-    }
-
-    return cachedImage;
+    return _wrapWithDimensions(child: cachedImage);
   }
 }
-

@@ -66,6 +66,9 @@ class VaultItemTile extends StatelessWidget {
                     child: item.imageUrl.isNotEmpty
                         ? CountrCachedImage(
                             imageUrl: item.imageUrl,
+                            cardId: item.id,
+                            cardName: item.name,
+                            tcgDomain: item.collectionType,
                             fit: BoxFit.contain,
                             errorWidget: _buildPlaceholder(),
                           )

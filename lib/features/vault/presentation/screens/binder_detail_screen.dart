@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cached_network_image/cached_network_image.dart';
-import 'package:countr/core/cache/countr_image_cache_manager.dart';
+import 'package:countr/core/cache/countr_cached_image.dart';
 import 'package:countr/core/cache/parsed_json_cache.dart';
 import 'package:countr/core/constants/app_colors.dart';
 import 'package:countr/core/constants/app_typography.dart';
@@ -392,14 +391,13 @@ class BinderGridCardTile extends StatelessWidget {
             fit: StackFit.expand,
             children: [
               // Card Image
-              CachedNetworkImage(
+              CountrCachedImage(
                 imageUrl: imgUrl,
-                cacheManager: CountrImageCacheManager.instance,
+                cardId: item.id,
+                cardName: item.name,
+                tcgDomain: item.collectionType,
                 fit: BoxFit.cover,
-                placeholder: (context, url) => Container(
-                  color: AppColors.surfaceRaised,
-                ),
-                errorWidget: (context, url, error) => Container(
+                errorWidget: Container(
                   color: AppColors.surface,
                   padding: const EdgeInsets.all(6),
                   alignment: Alignment.center,

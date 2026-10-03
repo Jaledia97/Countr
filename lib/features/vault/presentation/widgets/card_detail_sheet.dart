@@ -2579,7 +2579,14 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: () => _openFullScreenViewer(targetItem: item, targetIndex: targetIndex),
-            child: _buildCardFaceContainer(frontUrl, cardName: item.name, isCompact: isCompact, isUltraCompact: isUltraCompact),
+            child: _buildCardFaceContainer(
+              frontUrl,
+              cardId: item.id,
+              cardName: item.name,
+              tcgDomain: item.collectionType,
+              isCompact: isCompact,
+              isUltraCompact: isUltraCompact,
+            ),
           ),
         ),
       );
@@ -2610,9 +2617,23 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
                   ? Transform(
                       alignment: Alignment.center,
                       transform: Matrix4.identity()..rotateY(math.pi),
-                      child: _buildCardFaceContainer(currentUrl, cardName: item.name, isCompact: isCompact, isUltraCompact: isUltraCompact),
+                      child: _buildCardFaceContainer(
+                        currentUrl,
+                        cardId: item.id,
+                        cardName: item.name,
+                        tcgDomain: item.collectionType,
+                        isCompact: isCompact,
+                        isUltraCompact: isUltraCompact,
+                      ),
                     )
-                  : _buildCardFaceContainer(currentUrl, cardName: item.name, isCompact: isCompact, isUltraCompact: isUltraCompact),
+                  : _buildCardFaceContainer(
+                      currentUrl,
+                      cardId: item.id,
+                      cardName: item.name,
+                      tcgDomain: item.collectionType,
+                      isCompact: isCompact,
+                      isUltraCompact: isUltraCompact,
+                    ),
             );
           },
         ),
@@ -2718,7 +2739,14 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
     );
   }
 
-  Widget _buildCardFaceContainer(String imageUrl, {String? cardName, bool isCompact = false, bool isUltraCompact = false}) {
+  Widget _buildCardFaceContainer(
+    String imageUrl, {
+    String? cardId,
+    String? cardName,
+    String? tcgDomain,
+    bool isCompact = false,
+    bool isUltraCompact = false,
+  }) {
     final w = isUltraCompact ? 60.0 : (isCompact ? 85.0 : 110.0);
     final h = isUltraCompact ? 84.0 : (isCompact ? 119.0 : 154.0);
     return Container(
@@ -2741,6 +2769,9 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
           ? IgnorePointer(
               child: CountrCachedImage(
                 imageUrl: imageUrl,
+                cardId: cardId,
+                cardName: cardName,
+                tcgDomain: tcgDomain,
                 fit: BoxFit.cover,
                 errorWidget: _buildPlaceholderArt(cardName: cardName),
               ),

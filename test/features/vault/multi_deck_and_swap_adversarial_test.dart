@@ -957,6 +957,13 @@ void main() {
     });
 
     testWidgets('SwitchPrintingModal UI respects and persists treatment changes', (tester) async {
+      tester.view.physicalSize = const Size(1080, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
       await db.into(db.vaultItems).insert(VaultItemsCompanion.insert(
         id: 'item-demonic',
         collectionType: 'mtg',

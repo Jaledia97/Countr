@@ -581,6 +581,8 @@ class _DeckThumbnailPickerModalState
               IgnorePointer(
                 child: CountrCachedImage(
                   imageUrl: artUrl,
+                  cardId: cardId,
+                  cardName: cardName,
                   fit: BoxFit.cover,
                   errorWidget: placeholder,
                 ),

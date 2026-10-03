@@ -101,7 +101,7 @@ class MtgAutoHydrationCoordinator {
         )
         .ignore();
     cacheManager
-        .precacheCardArt(
+        .precacheDeckCover(
           'deck-edgar-markov',
           'https://cards.scryfall.io/art_crop/front/8/d/8d94b8ec-ecda-43c8-a60e-1ba33e6a54a4.jpg',
         )

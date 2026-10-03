@@ -89,6 +89,13 @@ void main() {
     });
 
     testWidgets('SwitchPrintingModal opens, displays card, allows treatment change and applies switch', (tester) async {
+      tester.view.physicalSize = const Size(1080, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
       // 1. Insert item in DB
       await db.into(db.vaultItems).insert(VaultItemsCompanion.insert(
         id: 'item-crypt-1',
@@ -146,6 +153,7 @@ void main() {
       expect(find.text('Foil'), findsOneWidget);
 
       // Select 'Foil' treatment
+      await tester.ensureVisible(find.text('Foil'));
       await tester.tap(find.text('Foil'));
       await tester.pumpAndSettle();
 
