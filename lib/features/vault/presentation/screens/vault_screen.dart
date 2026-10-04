@@ -298,6 +298,59 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
     final isPrivacyMode = ref.watch(privacyModeProvider);
     final baseCurrency = ref.watch(baseCurrencyProvider);
 
+    final showCatalog = ref.watch(vaultShowCatalogProvider);
+    final isCatalog = showCatalog || _selectedFilterIndex == 1;
+    final isMtg = activeGame.toLowerCase().contains('magic') ||
+        activeGame.toLowerCase() == 'mtg';
+    final mtgFilterActive = isMtg && ref.watch(isMtgFilterActiveProvider);
+    final polymorphicFilterActive = !isMtg && _selectedFilterIndex >= 2;
+    final searchActive = _searchController.text.trim().isNotEmpty ||
+        ref.watch(vaultSearchQueryProvider).trim().isNotEmpty;
+    final hasActiveFilters =
+        mtgFilterActive || polymorphicFilterActive || searchActive;
+
+    // Filter candidate items synchronously for both header stats and content slivers
+    List<VaultItem> filteredItems = const [];
+    if (asyncItems.hasValue) {
+      final items = asyncItems.value!;
+      final query = _searchController.text.toLowerCase().trim();
+      var filtered = query.isEmpty
+          ? items
+          : items.where((item) {
+              return item.name.toLowerCase().contains(query) ||
+                  (item.flavorName?.toLowerCase().contains(query) ?? false) ||
+                  item.setOrSeries.toLowerCase().contains(query) ||
+                  item.condition.toLowerCase().contains(query) ||
+                  item.dynamicData.toLowerCase().contains(query);
+            }).toList();
+
+      if (!isMtg) {
+        if (_selectedFilterIndex == 2) {
+          filtered = filtered.where((i) => i.isGraded).toList();
+        } else if (_selectedFilterIndex == 3) {
+          filtered = filtered.where((i) => !i.isGraded).toList();
+        } else if (_selectedFilterIndex == 4) {
+          filtered = filtered.where((i) => i.collectionType == 'comic').toList();
+        } else if (_selectedFilterIndex == 5) {
+          filtered =
+              filtered.where((i) => i.collectionType == 'sports_card').toList();
+        } else if (_selectedFilterIndex == 6) {
+          filtered = filtered
+              .where((i) => i.currentMarketPrice > i.acquiredPrice)
+              .toList();
+        }
+      }
+      filteredItems = filtered;
+    }
+
+    final filteredCount = filteredItems.length;
+    double filteredMarketValue = 0.0;
+    for (final item in filteredItems) {
+      if (item.quantity <= 0) continue;
+      filteredMarketValue +=
+          (VaultPricingHelper.resolveEffectiveMarketPrice(item) * item.quantity);
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: Theme(
@@ -404,7 +457,34 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
             ),
           ),
         ),
-        actions: const [],
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: Center(
+              child: ElevatedButton.icon(
+                key: const Key('vault_import_button'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.accentCyan,
+                  foregroundColor: AppColors.textDark,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                icon: const Icon(Icons.file_download_outlined, size: 16),
+                label: const Text(
+                  'Import',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                ),
+                onPressed: () {
+                  VaultImportBottomSheet.show(context);
+                },
+              ),
+            ),
+          ),
+        ],
       ),
       floatingActionButton: viewMode == VaultViewMode.binders
           ? FloatingActionButton.extended(
@@ -422,38 +502,64 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
         physics: const AlwaysScrollableScrollPhysics(),
         cacheExtent: 500,
         slivers: [
+          // MTG Bulk Hydration Engine Live Status
+          if (hydrationState.status != HydrationStatus.idle)
+            const SliverPadding(
+              padding: EdgeInsets.fromLTRB(16, 12, 16, 8),
+              sliver: SliverToBoxAdapter(
+                child: HydrationProgressCard(),
+              ),
+            ),
+
+          // Dynamic Portfolio Summary Ledger Card (R1, R2, R4)
+          // Completely hidden in "All Cards" catalog reference mode (R1)
+          if (!isCatalog)
+            SliverPersistentHeader(
+              pinned: false,
+              floating: false,
+              delegate: _CollapsibleVaultValueHeaderDelegate(
+                summary: summary,
+                currency: baseCurrency,
+                isPrivacyMode: isPrivacyMode,
+                isFiltered: hasActiveFilters,
+                filteredValue: filteredMarketValue,
+                filteredCount: filteredCount,
+                isSticky: false,
+              ),
+            ),
+
+          // Animated Full-Width Search & View Controls Bar + Category Chips + Dynamic Results Counter (R5)
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            padding: EdgeInsets.fromLTRB(
+              16,
+              isCatalog ? 8.0 : 4.0,
+              16,
+              12,
+            ),
             sliver: SliverToBoxAdapter(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // MTG Bulk Hydration Engine Live Status
-                  if (hydrationState.status != HydrationStatus.idle) ...[
-                    const HydrationProgressCard(),
-                    const SizedBox(height: 16),
-                  ],
-
-                  // Dynamic Portfolio Summary Ledger Card
-                  _buildPortfolioSummaryCard(
-                    summary,
-                    allVaultCards: asyncItems.asData?.value ?? const [],
-                    isPrivacyMode: isPrivacyMode,
-                    currency: baseCurrency,
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // Animated Full-Width Search & View Controls Bar
                   _buildSearchAndControlsBar(viewMode),
-
-                  // Category Filter Chips with persistent left-anchored layout switcher (when Singles/All Vault is active)
                   if (viewMode == VaultViewMode.allVault) ...[
                     const SizedBox(height: 12),
                     _buildCategoryFilterChips(cardLayout),
                   ],
-
-                  const SizedBox(height: 16),
+                  if (hasActiveFilters) ...[
+                    const SizedBox(height: 8),
+                    Padding(
+                      padding: const EdgeInsets.only(left: 2),
+                      child: Text(
+                        'showing $filteredCount ${filteredCount == 1 ? "result" : "results"}',
+                        key: const Key('vault_showing_results_counter'),
+                        style: AppTypography.caption.copyWith(
+                          color: AppColors.textSecondary,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 11.5,
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -465,7 +571,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
           else if (viewMode == VaultViewMode.collections)
             _buildCollectionsViewSliver(context, activeGame)
           else
-            _buildVaultCardsSliver(asyncItems, activeGame),
+            _buildVaultCardsSliver(asyncItems, activeGame, filteredCards: filteredItems),
 
           // Bottom subtle loading spinner when fetching more items
           if (isFetchingMore || (asyncItems.isLoading && asyncItems.hasValue))
@@ -1436,35 +1542,42 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
   }
 
   Widget _buildVaultCardsSliver(
-      AsyncValue<List<VaultItem>> asyncItems, String activeGame) {
+      AsyncValue<List<VaultItem>> asyncItems, String activeGame,
+      {List<VaultItem>? filteredCards}) {
     if (asyncItems.hasValue) {
       final items = asyncItems.value!;
-      // Apply local search query
-      final query = _searchController.text.toLowerCase().trim();
-      var filtered = query.isEmpty
-          ? items
-          : items.where((item) {
-              return item.name.toLowerCase().contains(query) ||
-                  (item.flavorName?.toLowerCase().contains(query) ?? false) ||
-                  item.setOrSeries.toLowerCase().contains(query) ||
-                  item.condition.toLowerCase().contains(query) ||
-                  item.dynamicData.toLowerCase().contains(query);
-            }).toList();
+      final List<VaultItem> filtered;
+      if (filteredCards != null) {
+        filtered = filteredCards;
+      } else {
+        // Apply local search query
+        final query = _searchController.text.toLowerCase().trim();
+        var list = query.isEmpty
+            ? items
+            : items.where((item) {
+                return item.name.toLowerCase().contains(query) ||
+                    (item.flavorName?.toLowerCase().contains(query) ?? false) ||
+                    item.setOrSeries.toLowerCase().contains(query) ||
+                    item.condition.toLowerCase().contains(query) ||
+                    item.dynamicData.toLowerCase().contains(query);
+              }).toList();
 
-      // Apply polymorphic quick filter chips when NOT in MTG
-      final isMtg = activeGame.toLowerCase().contains('magic') || activeGame.toLowerCase() == 'mtg';
-      if (!isMtg) {
-        if (_selectedFilterIndex == 2) {
-          filtered = filtered.where((i) => i.isGraded).toList();
-        } else if (_selectedFilterIndex == 3) {
-          filtered = filtered.where((i) => !i.isGraded).toList();
-        } else if (_selectedFilterIndex == 4) {
-          filtered = filtered.where((i) => i.collectionType == 'comic').toList();
-        } else if (_selectedFilterIndex == 5) {
-          filtered = filtered.where((i) => i.collectionType == 'sports_card').toList();
-        } else if (_selectedFilterIndex == 6) {
-          filtered = filtered.where((i) => i.currentMarketPrice > i.acquiredPrice).toList();
+        // Apply polymorphic quick filter chips when NOT in MTG
+        final isMtg = activeGame.toLowerCase().contains('magic') || activeGame.toLowerCase() == 'mtg';
+        if (!isMtg) {
+          if (_selectedFilterIndex == 2) {
+            list = list.where((i) => i.isGraded).toList();
+          } else if (_selectedFilterIndex == 3) {
+            list = list.where((i) => !i.isGraded).toList();
+          } else if (_selectedFilterIndex == 4) {
+            list = list.where((i) => i.collectionType == 'comic').toList();
+          } else if (_selectedFilterIndex == 5) {
+            list = list.where((i) => i.collectionType == 'sports_card').toList();
+          } else if (_selectedFilterIndex == 6) {
+            list = list.where((i) => i.currentMarketPrice > i.acquiredPrice).toList();
+          }
         }
+        filtered = list;
       }
 
       if (filtered.isEmpty) {
@@ -1759,9 +1872,23 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
     final screenWidth = mediaQuery?.size.width ?? 390.0;
     final screenHeight = mediaQuery?.size.height ?? 844.0;
 
-    // Header offset comprises top padding (16) + portfolio summary card (~140) +
-    // search & controls bar (~52) + category filter chips (~48) + vertical gaps (48)
-    const double headerOffset = 288.0;
+    // Adapt header offset dynamically based on active header configuration:
+    // - In catalog mode: portfolio card is hidden (~116-136dp)
+    // - In filtered owned mode: compact summary row is active (~184dp)
+    // - In unfiltered owned mode: collapsible header is active (~216dp)
+    final showCatalog = ref.read(vaultShowCatalogProvider);
+    final isCatalog = showCatalog || _selectedFilterIndex == 1;
+    final activeGame = ref.read(activeGameContextProvider);
+    final isMtg = activeGame.toLowerCase().contains('magic') || activeGame.toLowerCase() == 'mtg';
+    final mtgFilterActive = isMtg && ref.read(isMtgFilterActiveProvider);
+    final polymorphicFilterActive = !isMtg && _selectedFilterIndex >= 2;
+    final searchActive = _searchController.text.trim().isNotEmpty ||
+        ref.read(vaultSearchQueryProvider).trim().isNotEmpty;
+    final hasActiveFilters = mtgFilterActive || polymorphicFilterActive || searchActive;
+
+    final double headerOffset = isCatalog
+        ? (hasActiveFilters ? 136.0 : 116.0)
+        : (hasActiveFilters ? 184.0 : 216.0);
 
     double targetOffset;
     if (cardLayout == CardDisplayLayout.grid) {
@@ -2390,153 +2517,276 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
     );
   }
 
-  Widget _buildPortfolioSummaryCard(
-    VaultPortfolioSummary summary, {
-    List<VaultItem> allVaultCards = const [],
-    bool isPrivacyMode = false,
-    AppCurrency currency = AppCurrency.usd,
-  }) {
-    final isProfit = summary.isProfitable;
-    final pLColor = isProfit ? AppColors.accentEmerald : AppColors.accentRose;
-    final totalCount = summary.totalItemCount;
+}
 
-    return Container(
-      key: const Key('vault_portfolio_summary_card'),
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [
-            Color(0xFF1F2633),
-            Color(0xFF141923),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: AppColors.accentCyan.withValues(alpha: 0.3),
+/// Responsive collapsible sliver header delegate for Vault portfolio value (R2, R3, R4).
+class _CollapsibleVaultValueHeaderDelegate
+    extends SliverPersistentHeaderDelegate {
+  _CollapsibleVaultValueHeaderDelegate({
+    required this.summary,
+    required this.currency,
+    required this.isPrivacyMode,
+    required this.isFiltered,
+    required this.filteredValue,
+    required this.filteredCount,
+    this.isSticky = false,
+  });
+
+  final VaultPortfolioSummary summary;
+  final AppCurrency currency;
+  final bool isPrivacyMode;
+  final bool isFiltered;
+  final double filteredValue;
+  final int filteredCount;
+  final bool isSticky;
+
+  @override
+  double get maxExtent => isFiltered ? 52.0 : 98.0;
+
+  @override
+  double get minExtent =>
+      isFiltered ? (isSticky ? 52.0 : 0.0) : (isSticky ? 48.0 : 0.0);
+
+  @override
+  Widget build(
+      BuildContext context, double shrinkOffset, bool overlapsContent) {
+    final extent = maxExtent - minExtent;
+    final progress = extent > 0 ? (shrinkOffset / extent).clamp(0.0, 1.0) : 0.0;
+    final curvedProgress = Curves.easeOutCubic.transform(progress);
+
+    if (minExtent == 0.0 && progress >= 1.0) {
+      return const SizedBox.shrink();
+    }
+
+    return RepaintBoundary(
+      child: ClipRect(
+        child: OverflowBox(
+          minHeight: 0,
+          maxHeight: maxExtent,
+          alignment: Alignment.topCenter,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            child: isFiltered
+                ? _buildCompactFilteredRow(progress)
+                : _buildCollapsibleHeroCard(curvedProgress),
+          ),
         ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Flexible(
-                flex: 3,
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    'ESTIMATED VAULT VALUE',
-                    style: TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.2,
-                    ),
-                    overflow: TextOverflow.ellipsis,
+    );
+  }
+
+  Widget _buildCompactFilteredRow(double progress) {
+    final opacity = minExtent == 0.0 ? (1.0 - progress).clamp(0.0, 1.0) : 1.0;
+    final formattedAmount = VaultPricingHelper.formatAmount(
+      filteredValue,
+      currency: currency,
+      isPrivacyMode: isPrivacyMode,
+      allowZero: true,
+    );
+    final totalCount = summary.totalItemCount;
+
+    return Opacity(
+      opacity: opacity,
+      child: Container(
+        key: const Key('vault_portfolio_summary_card'),
+        height: 44,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceRaised,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: AppColors.accentCyan.withValues(alpha: 0.35),
+            width: 1.0,
+          ),
+        ),
+        child: Row(
+          children: [
+            const Icon(
+              Icons.tune_rounded,
+              size: 16,
+              color: AppColors.accentCyan,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              flex: 3,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Filtered Value: $formattedAmount',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13,
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
-              Flexible(
-                flex: 2,
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerRight,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: pLColor.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(
-                        color: pLColor.withValues(alpha: 0.4),
-                        width: 0.8,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              flex: 2,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerRight,
+                child: Text(
+                  'Total Tracked Items: $totalCount',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: AppColors.textSecondary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCollapsibleHeroCard(double t) {
+    final isProfit = summary.isProfitable;
+    final pLColor = isProfit ? AppColors.accentEmerald : AppColors.accentRose;
+    final totalCount = summary.totalItemCount;
+    final overallOpacity = minExtent == 0.0 ? (1.0 - t).clamp(0.0, 1.0) : 1.0;
+
+    return Opacity(
+      opacity: overallOpacity,
+      child: Container(
+        key: const Key('vault_portfolio_summary_card'),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF1F2633), Color(0xFF141923)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: AppColors.accentCyan.withValues(alpha: 0.3),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Flexible(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'ESTIMATED VAULT VALUE',
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.1,
                       ),
                     ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerRight,
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(
-                          isProfit ? Icons.trending_up_rounded : Icons.trending_down_rounded,
-                          color: pLColor,
-                          size: 13,
-                        ),
-                        const SizedBox(width: 4),
                         Text(
-                          VaultPricingHelper.formatReturn(
-                            summary.totalProfitLoss,
-                            summary.profitLossPercentage,
-                            currency: currency,
-                            isPrivacyMode: isPrivacyMode,
-                            amountFirst: false,
-                          ),
-                          style: TextStyle(
-                            color: pLColor,
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w800,
+                          'Total Tracked Items: $totalCount',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: AppColors.textSecondary,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
+                        const SizedBox(width: 8),
+                        _buildPlPill(pLColor, isProfit),
                       ],
                     ),
                   ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: Text(
-              VaultPricingHelper.formatAmount(
-                summary.totalMarketValue,
-                currency: currency,
-                isPrivacyMode: isPrivacyMode,
-                allowZero: true,
-              ),
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 30,
-                fontWeight: FontWeight.w900,
-                letterSpacing: -0.5,
+              ],
+            ),
+            const SizedBox(height: 4),
+            Flexible(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  VaultPricingHelper.formatAmount(
+                    summary.totalMarketValue,
+                    currency: currency,
+                    isPrivacyMode: isPrivacyMode,
+                    allowZero: true,
+                  ),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 30,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.5,
+                  ),
+                ),
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPlPill(Color pLColor, bool isProfit) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+      decoration: BoxDecoration(
+        color: pLColor.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: pLColor.withValues(alpha: 0.4),
+          width: 0.8,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            isProfit ? Icons.trending_up_rounded : Icons.trending_down_rounded,
+            color: pLColor,
+            size: 12,
           ),
-          const SizedBox(height: 12),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Total Tracked Items: $totalCount',
-                  style: AppTypography.bodySecondary,
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton.icon(
-                  key: const Key('vault_import_button'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.accentCyan,
-                    foregroundColor: AppColors.textDark,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    minimumSize: Size.zero,
-                  ),
-                  icon: const Icon(Icons.file_download_outlined, size: 16),
-                  label: const Text('Import',
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
-                  onPressed: () {
-                    VaultImportBottomSheet.show(context);
-                  },
-                ),
-              ],
+          const SizedBox(width: 3),
+          Text(
+            VaultPricingHelper.formatReturn(
+              summary.totalProfitLoss,
+              summary.profitLossPercentage,
+              currency: currency,
+              isPrivacyMode: isPrivacyMode,
+              amountFirst: false,
+            ),
+            style: TextStyle(
+              color: pLColor,
+              fontSize: 10.5,
+              fontWeight: FontWeight.w800,
             ),
           ),
         ],
       ),
     );
+  }
+
+  @override
+  bool shouldRebuild(
+      covariant _CollapsibleVaultValueHeaderDelegate oldDelegate) {
+    return oldDelegate.summary != summary ||
+        oldDelegate.currency != currency ||
+        oldDelegate.isPrivacyMode != isPrivacyMode ||
+        oldDelegate.isFiltered != isFiltered ||
+        oldDelegate.filteredValue != filteredValue ||
+        oldDelegate.filteredCount != filteredCount ||
+        oldDelegate.isSticky != isSticky;
   }
 }

@@ -273,10 +273,11 @@ void main() {
           expect(find.byKey(const Key('vault_portfolio_summary_card')), findsOneWidget);
           expect(find.byKey(const Key('vault_import_button')), findsOneWidget);
 
-          // Verify AppBar actions is clean (no buttons in app bar)
+          // Verify AppBar actions contains relocated Import button
           final scaffold = tester.widget<Scaffold>(find.byType(Scaffold));
           final appBar = scaffold.appBar as AppBar;
-          expect(appBar.actions, isEmpty);
+          expect(appBar.actions?.length, equals(1));
+          expect(find.descendant(of: find.byType(AppBar), matching: find.byKey(const Key('vault_import_button'))), findsOneWidget);
 
           // Verify search expand/collapse under 1.5x
           final searchExpandBtn = find.byKey(const Key('vault_search_expand_button'));

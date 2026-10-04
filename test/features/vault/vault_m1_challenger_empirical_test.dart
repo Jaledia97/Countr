@@ -404,14 +404,15 @@ void main() {
         expect(find.byType(VaultImportBottomSheet), findsNothing);
       });
 
-      testWidgets('AppBar.actions is completely empty: privacy mode, hydration, db verification, and redundant filter buttons are removed', (tester) async {
+      testWidgets('AppBar.actions contains only the relocated Import button: privacy mode, hydration, db verification, and redundant filter buttons are removed', (tester) async {
         await tester.pumpWidget(createTestApp());
         await tester.pumpAndSettle();
 
         final appBarFinder = find.byType(AppBar);
         expect(appBarFinder, findsOneWidget);
         final appBar = tester.widget<AppBar>(appBarFinder);
-        expect(appBar.actions, isEmpty);
+        expect(appBar.actions?.length, equals(1));
+        expect(find.descendant(of: appBarFinder, matching: find.byKey(const Key('vault_import_button'))), findsOneWidget);
 
         expect(find.byKey(const Key('vault_privacy_mode_button')), findsNothing);
         expect(find.byKey(const Key('vault_appbar_filter_button')), findsNothing);
