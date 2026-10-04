@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart';
@@ -68,7 +69,9 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
   bool _isFoilMode = false;
   bool _isExposureLocked = false;
   bool _isGreenFlash = false;
-  bool _isProcessing = false;
+  bool _isTracking = false;
+  bool _isMatching = false;
+  DateTime? _lastMatchAttempt;
   int _frameCount = 0;
   Rect? _detectedCardBounds;
   DateTime? _lastCardDetectedTime;
@@ -201,7 +204,8 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
       return;
     }
 
-    _isProcessing = false;
+    _isTracking = false;
+    _isMatching = false;
 
     if (_cameraController != null && _cameraController!.value.isInitialized) {
       try {
@@ -264,84 +268,63 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
     }
   }
 
-  /// Evaluates each camera stream frame with deterministic frame skipping
-  /// (1 in 10 frames, ~3-6 FPS) and strict asynchronous lock to prevent CPU/GPU choking
-  /// and permanent camera stream freezes.
+  /// Evaluates each camera stream frame with decoupled fast visual tracking (~15 FPS, every 2 frames)
+  /// and throttled asynchronous catalog matching (400ms cooldown).
   Future<void> _processCameraFrame(CameraImage image) async {
     _frameCount++;
-    if (_frameCount % 8 != 0 || _isProcessing || _isScanningPaused) {
+    if (_isScanningPaused) return;
+
+    // Fast visual tracking cadence: every 2 frames (~15 FPS on 30 FPS stream)
+    if (_frameCount % 2 != 0 || _isTracking) {
       return;
     }
-    _isProcessing = true;
+    _isTracking = true;
 
     try {
       final camera = _cameraController?.description;
       if (camera == null) return;
 
-      final dao = ref.read(vaultDaoProvider);
-
-      debugPrint(
-          '[Countr Scanner] Auto-detect cascade matching across available collectible profiles...');
-
-      final cascadeResult = await _coordinator.processFrame(
-        cameraImage: image,
-        dao: dao,
-        textRecognizer: _textRecognizer,
-      );
-
-      final result = cascadeResult.$1;
-      final corners = cascadeResult.$2;
+      // 1. Fast isolate edge detection (~15ms)
+      final isolateResult = await _coordinator.detectPerimeter(cameraImage: image);
+      final corners = isolateResult.$3;
 
       if (!mounted || _isScanningPaused) return;
 
+      // 2. Immediate screen-space coordinate mapping & smoothing
       if (corners != null && corners.length == 8) {
-        final xs = [corners[0], corners[2], corners[4], corners[6]];
-        final ys = [corners[1], corners[3], corners[5], corners[7]];
-        xs.sort();
-        ys.sort();
-        Rect imageRect = Rect.fromLTRB(xs.first, ys.first, xs.last, ys.last);
-        
-        Size imageSize = Size(image.width.toDouble(), image.height.toDouble());
+        final xs = [corners[0], corners[2], corners[4], corners[6]]..sort();
+        final ys = [corners[1], corners[3], corners[5], corners[7]]..sort();
+        final rawRect = Rect.fromLTRB(xs.first, ys.first, xs.last, ys.last);
+        final rawSize = Size(image.width.toDouble(), image.height.toDouble());
         final rotation = CameraImageConverter.calculateRotation(camera, null);
-        
-        // Rotate the unrotated OpenCV rect into upright screen coordinates
-        if (rotation == InputImageRotation.rotation90deg) {
-          imageRect = Rect.fromLTRB(
-            imageSize.height - imageRect.bottom,
-            imageRect.left,
-            imageSize.height - imageRect.top,
-            imageRect.right,
-          );
-          imageSize = Size(imageSize.height, imageSize.width);
-        } else if (rotation == InputImageRotation.rotation270deg) {
-          imageRect = Rect.fromLTRB(
-            imageRect.top,
-            imageSize.width - imageRect.right,
-            imageRect.bottom,
-            imageSize.width - imageRect.left,
-          );
-          imageSize = Size(imageSize.height, imageSize.width);
-        } else if (rotation == InputImageRotation.rotation180deg) {
-          imageRect = Rect.fromLTRB(
-            imageSize.width - imageRect.right,
-            imageSize.height - imageRect.bottom,
-            imageSize.width - imageRect.left,
-            imageSize.height - imageRect.top,
-          );
-        }
-        
+
+        final (uprightRect, uprightSize) = CardPerimeterCalculator.rotateImageRect(
+          imageRect: rawRect,
+          imageSize: rawSize,
+          rotation: rotation,
+        );
+
         final screenSize = MediaQuery.of(context).size;
-        _detectedCardBounds = CardPerimeterCalculator.mapImageRectToScreen(
-          imageRect: imageRect,
-          imageSize: imageSize,
+        final screenRect = CardPerimeterCalculator.mapImageRectToScreen(
+          imageRect: uprightRect,
+          imageSize: uprightSize,
           screenSize: screenSize,
         );
+
+        _detectedCardBounds = CardPerimeterCalculator.smoothRect(
+          _detectedCardBounds,
+          screenRect,
+        );
         _lastCardDetectedTime = DateTime.now();
+        setState(() {}); // Instant visual feedback at ~15 FPS
       } else {
         if (_lastCardDetectedTime == null ||
             DateTime.now().difference(_lastCardDetectedTime!) >
-                const Duration(milliseconds: 1200)) {
-          _detectedCardBounds = null;
+                const Duration(milliseconds: 700)) {
+          if (_detectedCardBounds != null) {
+            _detectedCardBounds = null;
+            setState(() {});
+          }
         }
 
         final now = DateTime.now();
@@ -352,6 +335,71 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
               '[Countr Scanner] Video stream active (${image.width}x${image.height}): awaiting card in frame...');
         }
       }
+
+      // 3. Asynchronous throttled matching loop (400ms cooldown)
+      final now = DateTime.now();
+      final canMatch = !_isMatching &&
+          (_lastMatchAttempt == null ||
+              now.difference(_lastMatchAttempt!) > const Duration(milliseconds: 400));
+
+      if (canMatch) {
+        _isMatching = true;
+        _lastMatchAttempt = now;
+        unawaited(_runAsyncCatalogMatch(
+          image: image,
+          camera: camera,
+        ));
+      }
+    } catch (e, stack) {
+      debugPrint('[Countr Scanner ERROR] Tracking stream exception: $e\n$stack');
+    } finally {
+      _isTracking = false;
+    }
+  }
+
+  /// Asynchronous matching loop executing OCR and SQLite catalog queries in the background
+  /// without blocking the fast visual tracking loop.
+  Future<void> _runAsyncCatalogMatch({
+    required CameraImage image,
+    required CameraDescription camera,
+  }) async {
+    try {
+      final dao = ref.read(vaultDaoProvider);
+      final cascadeResult = await _coordinator.processFrame(
+        cameraImage: image,
+        camera: camera,
+        dao: dao,
+        textRecognizer: _textRecognizer,
+        onCornersDetected: (fallbackCorners) {
+          if (!mounted || _isScanningPaused || fallbackCorners.length != 8) return;
+          final xs = [fallbackCorners[0], fallbackCorners[2], fallbackCorners[4], fallbackCorners[6]]..sort();
+          final ys = [fallbackCorners[1], fallbackCorners[3], fallbackCorners[5], fallbackCorners[7]]..sort();
+          final rawRect = Rect.fromLTRB(xs.first, ys.first, xs.last, ys.last);
+          final rawSize = Size(image.width.toDouble(), image.height.toDouble());
+          final rotation = CameraImageConverter.calculateRotation(camera, null);
+          final (uprightRect, uprightSize) = CardPerimeterCalculator.rotateImageRect(
+            imageRect: rawRect,
+            imageSize: rawSize,
+            rotation: rotation,
+          );
+          final screenSize = MediaQuery.of(context).size;
+          final screenRect = CardPerimeterCalculator.mapImageRectToScreen(
+            imageRect: uprightRect,
+            imageSize: uprightSize,
+            screenSize: screenSize,
+          );
+          setState(() {
+            _detectedCardBounds = CardPerimeterCalculator.smoothRect(
+              _detectedCardBounds,
+              screenRect,
+            );
+            _lastCardDetectedTime = DateTime.now();
+          });
+        },
+      );
+
+      final result = cascadeResult.$1;
+      if (!mounted || _isScanningPaused) return;
 
       if (result != null) {
         final card = result.match;
@@ -372,17 +420,12 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
         await _autoAdjustController?.onFrameResult(matched: true);
         await _onCardMatched(card);
       } else {
-        debugPrint(
-            '[Countr Scanner NO MATCH] Pipeline yielded no matches across available profiles');
         await _autoAdjustController?.onFrameResult(matched: false);
       }
     } catch (e, stack) {
-      debugPrint('[Countr Scanner ERROR] OCR stream exception: $e\n$stack');
+      debugPrint('[Countr Scanner ERROR] Matching stream exception: $e\n$stack');
     } finally {
-      _isProcessing = false;
-      if (mounted) {
-        setState(() {});
-      }
+      _isMatching = false;
     }
   }
 
@@ -458,10 +501,16 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
   int get frameCount => _frameCount;
 
   @visibleForTesting
-  bool get isProcessing => _isProcessing;
+  bool get isProcessing => _isTracking || _isMatching;
 
   @visibleForTesting
-  bool get isProcessingFrame => _isProcessing;
+  bool get isProcessingFrame => _isTracking;
+
+  @visibleForTesting
+  bool get isTracking => _isTracking;
+
+  @visibleForTesting
+  bool get isMatching => _isMatching;
 
   @visibleForTesting
   Rect? get detectedCardBounds => _detectedCardBounds;
@@ -471,8 +520,12 @@ class _ScannerModalState extends ConsumerState<ScannerModal>
       setState(() => _detectedCardBounds = bounds);
 
   @visibleForTesting
-  Future<void> processCameraFrameForTesting(CameraImage image) =>
-      _processCameraFrame(image);
+  Future<void> processCameraFrameForTesting(CameraImage image) async {
+    await _processCameraFrame(image);
+    while (_isMatching) {
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+    }
+  }
 
   @visibleForTesting
   bool get useObjectDetectionFallback => _useObjectDetectionFallback;

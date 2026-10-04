@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:camera/camera.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:drift/native.dart';
@@ -23,6 +24,42 @@ TextBlock createMockTextBlock(
   );
 }
 
+class FakePlane implements Plane {
+  @override
+  final Uint8List bytes;
+  @override
+  final int bytesPerRow;
+  @override
+  final int? bytesPerPixel;
+  @override
+  final int? height;
+  @override
+  final int? width;
+
+  FakePlane({
+    required this.bytes,
+    required this.bytesPerRow,
+    this.bytesPerPixel,
+    this.height,
+    this.width,
+  });
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class FakeImageFormat implements ImageFormat {
+  @override
+  final ImageFormatGroup group;
+  @override
+  final dynamic raw;
+
+  FakeImageFormat({this.group = ImageFormatGroup.nv21, this.raw});
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 /// Creates a lightweight mock [CameraImage] suitable for passing to scanner frame processing.
 /// Lightweight mock [CameraImage] for testing frame skipping and lock behavior.
 class FakeCameraImage implements CameraImage {
@@ -30,15 +67,46 @@ class FakeCameraImage implements CameraImage {
   final int width;
   @override
   final int height;
+  @override
+  final ImageFormat format;
+  @override
+  final List<Plane> planes;
 
-  FakeCameraImage({this.width = 720, this.height = 1280});
+  FakeCameraImage({
+    this.width = 720,
+    this.height = 1280,
+    ImageFormat? format,
+    List<Plane>? planes,
+  })  : format = format ?? FakeImageFormat(),
+        planes = planes ??
+            [
+              FakePlane(
+                bytesPerRow: width,
+                bytes: Uint8List(width * height),
+              ),
+            ];
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-CameraImage createMockCameraImage({int width = 720, int height = 1280}) {
-  return FakeCameraImage(width: width, height: height);
+CameraImage createMockCameraImage({
+  int width = 720,
+  int height = 1280,
+  ImageFormatGroup formatGroup = ImageFormatGroup.nv21,
+  int? bytesPerRow,
+  Uint8List? planeBytes,
+}) {
+  final stride = bytesPerRow ?? width;
+  final bytes = planeBytes ?? Uint8List(stride * height);
+  return FakeCameraImage(
+    width: width,
+    height: height,
+    format: FakeImageFormat(group: formatGroup),
+    planes: [
+      FakePlane(bytes: bytes, bytesPerRow: stride),
+    ],
+  );
 }
 
 /// Instantiates an isolated in-memory [AppDatabase] for testing.

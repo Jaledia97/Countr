@@ -6,6 +6,9 @@ class ComicCollectibleProfile extends CollectibleProfile {
   String get collectionType => 'comics';
 
   @override
+  double get cardAspectRatio => 6.625 / 10.187;
+
+  @override
   Rectangle<int> get artCropBounds => const Rectangle(0, 0, 100, 100); // Full cover
 
   @override

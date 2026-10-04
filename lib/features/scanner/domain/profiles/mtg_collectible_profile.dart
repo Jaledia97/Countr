@@ -6,6 +6,9 @@ class MtgCollectibleProfile extends CollectibleProfile {
   String get collectionType => 'mtg';
 
   @override
+  double get cardAspectRatio => 2.5 / 3.5;
+
+  @override
   Rectangle<int> get artCropBounds => const Rectangle(10, 10, 80, 45); // Relative percentages
 
   @override

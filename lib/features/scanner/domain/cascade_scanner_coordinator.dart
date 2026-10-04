@@ -2,8 +2,10 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:countr/core/database/app_database.dart';
 import 'package:countr/features/vault/data/daos/vault_dao.dart';
+import 'package:countr/features/scanner/domain/card_perimeter_calculator.dart';
 import 'package:countr/features/scanner/domain/profiles/collectible_profile.dart';
 import 'package:countr/features/scanner/domain/profiles/mtg_collectible_profile.dart';
 import 'package:countr/features/scanner/domain/profiles/comic_collectible_profile.dart';
@@ -11,6 +13,7 @@ import 'package:countr/features/scanner/domain/vision/bk_tree.dart';
 import 'package:countr/features/scanner/domain/vision/dhash.dart';
 import 'package:countr/features/scanner/domain/vision/vision_isolate.dart';
 import 'package:countr/features/scanner/domain/ocr_heuristic_matcher.dart';
+import 'package:countr/features/scanner/utils/camera_image_converter.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:path_provider/path_provider.dart';
@@ -199,62 +202,138 @@ class CascadeScannerCoordinator {
     return null;
   }
 
+  /// Fast isolate-based perimeter and contour extraction (~15ms).
+  /// Returns (croppedHashBytes, croppedJpgBytes, corners) without performing OCR or SQLite queries.
+  Future<(Uint8List?, Uint8List?, List<double>?)> detectPerimeter({
+    required CameraImage cameraImage,
+    CollectibleProfile? profile,
+  }) async {
+    final targetProfile =
+        profile ?? (profiles.isNotEmpty ? profiles.first : MtgCollectibleProfile());
+    final aspectRatio = targetProfile.cardAspectRatio;
+    return await ScannerWorkerIsolate.processFrame(cameraImage, aspectRatio);
+  }
+
   Future<(ScanMatchResult?, List<double>?)> processFrame({
     required CameraImage cameraImage,
+    CameraDescription? camera,
     CollectibleProfile? profile,
     List<CollectibleProfile>? profiles,
     required VaultDao dao,
     required TextRecognizer textRecognizer,
+    void Function(List<double> corners)? onCornersDetected,
   }) async {
     final activeProfiles =
         profiles ?? (profile != null ? [profile] : this.profiles);
 
-    // 1. Clutter Elimination (Warp Perspective) offloaded to Isolate
     final targetProfile = activeProfiles.isNotEmpty
         ? activeProfiles.first
         : MtgCollectibleProfile();
-    final aspectRatio =
-        targetProfile.artCropBounds.width / targetProfile.artCropBounds.height;
+
+    // 1. Primary Path: OpenCV edge detection & warp perspective in isolate
+    final cardAspectRatio = targetProfile.cardAspectRatio;
     final isolateResult =
-        await ScannerWorkerIsolate.processFrame(cameraImage, aspectRatio);
+        await ScannerWorkerIsolate.processFrame(cameraImage, cardAspectRatio);
     final croppedHashBytes = isolateResult.$1;
     final croppedJpgBytes = isolateResult.$2;
     final corners = isolateResult.$3;
 
-    if (croppedHashBytes == null || croppedJpgBytes == null) {
-      return (null, null); // No card found
+    if (croppedJpgBytes != null && croppedHashBytes != null) {
+      if (corners != null && onCornersDetected != null) {
+        onCornersDetected(corners);
+      }
+
+      final tempDir = await getTemporaryDirectory();
+      final file = File(
+          '${tempDir.path}/cropped_for_ocr_${DateTime.now().millisecondsSinceEpoch}_${cameraImage.hashCode}.jpg');
+      await file.writeAsBytes(croppedJpgBytes);
+
+      String ocrText = '';
+      try {
+        final inputImage = InputImage.fromFile(file);
+        final recognized = await textRecognizer.processImage(inputImage);
+        final cleanedLines = OcrHeuristicMatcher.extractCleanedLines(recognized);
+        final rawText = recognized.text.trim();
+        ocrText = rawText.isNotEmpty ? rawText : cleanedLines.join('\n');
+      } finally {
+        if (await file.exists()) {
+          await file.delete();
+        }
+      }
+
+      final hash = DHash.calculate(croppedHashBytes);
+      final match = await matchOcr(
+        ocrText: ocrText,
+        dao: dao,
+        candidateProfiles: activeProfiles,
+        artHash: hash,
+      );
+
+      return (match, corners);
     }
 
-    // OCR on cropped image using a unique temporary file to prevent IO contention
-    final tempDir = await getTemporaryDirectory();
-    final file = File(
-        '${tempDir.path}/cropped_for_ocr_${DateTime.now().millisecondsSinceEpoch}_${cameraImage.hashCode}.jpg');
-    await file.writeAsBytes(croppedJpgBytes);
+    // 2. Secondary Path: Fallback to full-frame Google ML Kit text recognition
+    final cam = camera ??
+        const CameraDescription(
+          name: 'back',
+          lensDirection: CameraLensDirection.back,
+          sensorOrientation: 90,
+        );
 
-    String ocrText = '';
-    try {
-      final inputImage = InputImage.fromFile(file);
-      final recognized = await textRecognizer.processImage(inputImage);
-      final cleanedLines = OcrHeuristicMatcher.extractCleanedLines(recognized);
-      ocrText = cleanedLines.join('\n');
-    } finally {
-      if (await file.exists()) {
-        await file.delete();
+    final inputImage = CameraImageConverter.toInputImage(
+      image: cameraImage,
+      camera: cam,
+    );
+
+    if (inputImage == null) {
+      return (null, null);
+    }
+
+    final recognized = await textRecognizer.processImage(inputImage);
+    final cleanedLines = OcrHeuristicMatcher.extractCleanedLines(recognized);
+    final rawText = recognized.text.trim();
+    final ocrText = rawText.isNotEmpty ? rawText : cleanedLines.join('\n');
+
+    List<double>? fallbackCorners;
+    if (recognized.blocks.isNotEmpty) {
+      final rotation = CameraImageConverter.calculateRotation(cam, null);
+      final uprightSize = CardPerimeterCalculator.getUprightImageSize(
+        rawSize: Size(cameraImage.width.toDouble(), cameraImage.height.toDouble()),
+        rotation: rotation,
+      );
+      final perimeter = CardPerimeterCalculator.calculatePerimeter(
+        recognized.blocks,
+        imageSize: uprightSize,
+      );
+
+      if (perimeter != null) {
+        final rawSize =
+            Size(cameraImage.width.toDouble(), cameraImage.height.toDouble());
+        final rawRect = CardPerimeterCalculator.unrotateRectToRawSensor(
+          perimeter,
+          rawSize,
+          rotation,
+        );
+        fallbackCorners = [
+          rawRect.left, rawRect.top,
+          rawRect.right, rawRect.top,
+          rawRect.right, rawRect.bottom,
+          rawRect.left, rawRect.bottom,
+        ];
+        if (onCornersDetected != null) {
+          onCornersDetected(fallbackCorners);
+        }
       }
     }
 
-    // Calculate dHash for Tier 2 & 3 on the 9x8 bytes returned from OpenCV Isolate
-    final hash = DHash.calculate(croppedHashBytes);
-
-    // Cascade through available profiles to find a match
     final match = await matchOcr(
       ocrText: ocrText,
       dao: dao,
       candidateProfiles: activeProfiles,
-      artHash: hash,
+      artHash: null,
     );
 
-    return (match, corners);
+    return (match, fallbackCorners);
   }
 
   Future<VaultItem?> _findExactMatch(

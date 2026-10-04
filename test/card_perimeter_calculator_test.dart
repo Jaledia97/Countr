@@ -269,6 +269,176 @@ void main() {
     });
   });
 
+  group('CardPerimeterCalculator.smoothRect', () {
+    test('returns current rect when previous is null', () {
+      const current = Rect.fromLTWH(50, 50, 100, 150);
+      final smoothed = CardPerimeterCalculator.smoothRect(null, current);
+      expect(smoothed, equals(current));
+    });
+
+    test('applies default alpha (0.40) smoothing for small movements <= snapThreshold (60.0)', () {
+      const prev = Rect.fromLTWH(50, 50, 100, 150);
+      const current = Rect.fromLTWH(60, 55, 100, 150);
+      final smoothed = CardPerimeterCalculator.smoothRect(prev, current);
+      expect(smoothed.left, closeTo(54.0, 0.001));
+      expect(smoothed.top, closeTo(52.0, 0.001));
+      expect(smoothed.width, closeTo(100.0, 0.001));
+      expect(smoothed.height, closeTo(150.0, 0.001));
+    });
+
+    test('snaps faster (effectiveAlpha = 0.85) when movement exceeds snapThreshold (> 60.0)', () {
+      const prev = Rect.fromLTWH(50, 50, 100, 150);
+      const current = Rect.fromLTWH(150, 150, 100, 150);
+      final smoothed = CardPerimeterCalculator.smoothRect(prev, current);
+      expect(smoothed.left, closeTo(135.0, 0.001));
+      expect(smoothed.top, closeTo(135.0, 0.001));
+      expect(smoothed.width, closeTo(100.0, 0.001));
+      expect(smoothed.height, closeTo(150.0, 0.001));
+    });
+
+    test('respects custom alpha and snapThreshold parameters', () {
+      const prev = Rect.fromLTWH(10, 10, 100, 100);
+      const current = Rect.fromLTWH(30, 10, 100, 100);
+
+      final snapped = CardPerimeterCalculator.smoothRect(
+        prev,
+        current,
+        alpha: 0.20,
+        snapThreshold: 15.0,
+      );
+      expect(snapped.left, closeTo(10 + 20 * 0.85, 0.001));
+
+      final smooth = CardPerimeterCalculator.smoothRect(
+        prev,
+        current,
+        alpha: 0.20,
+        snapThreshold: 30.0,
+      );
+      expect(smooth.left, closeTo(10 + 20 * 0.20, 0.001));
+    });
+  });
+
+  group('CardPerimeterCalculator.rotateImageRect & unrotateRectToRawSensor', () {
+    const rawSize = Size(640, 480);
+    const rawRect = Rect.fromLTRB(100, 50, 300, 250);
+
+    test('rotation90deg: rotates OpenCV rect into upright space and inverts back losslessly', () {
+      final (uprightRect, uprightSize) = CardPerimeterCalculator.rotateImageRect(
+        imageRect: rawRect,
+        imageSize: rawSize,
+        rotation: InputImageRotation.rotation90deg,
+      );
+
+      expect(uprightSize, const Size(480, 640));
+      expect(uprightRect.left, 230.0);
+      expect(uprightRect.top, 100.0);
+      expect(uprightRect.right, 430.0);
+      expect(uprightRect.bottom, 300.0);
+
+      final restored = CardPerimeterCalculator.unrotateRectToRawSensor(
+        uprightRect,
+        rawSize,
+        InputImageRotation.rotation90deg,
+      );
+      expect(restored, rawRect);
+    });
+
+    test('rotation270deg: rotates OpenCV rect into upright space and inverts back losslessly', () {
+      final (uprightRect, uprightSize) = CardPerimeterCalculator.rotateImageRect(
+        imageRect: rawRect,
+        imageSize: rawSize,
+        rotation: InputImageRotation.rotation270deg,
+      );
+
+      expect(uprightSize, const Size(480, 640));
+      expect(uprightRect.left, 50.0);
+      expect(uprightRect.top, 340.0);
+      expect(uprightRect.right, 250.0);
+      expect(uprightRect.bottom, 540.0);
+
+      final restored = CardPerimeterCalculator.unrotateRectToRawSensor(
+        uprightRect,
+        rawSize,
+        InputImageRotation.rotation270deg,
+      );
+      expect(restored, rawRect);
+    });
+
+    test('rotation180deg: rotates OpenCV rect and inverts back losslessly', () {
+      final (uprightRect, uprightSize) = CardPerimeterCalculator.rotateImageRect(
+        imageRect: rawRect,
+        imageSize: rawSize,
+        rotation: InputImageRotation.rotation180deg,
+      );
+
+      expect(uprightSize, rawSize);
+      expect(uprightRect.left, 340.0);
+      expect(uprightRect.top, 230.0);
+      expect(uprightRect.right, 540.0);
+      expect(uprightRect.bottom, 430.0);
+
+      final restored = CardPerimeterCalculator.unrotateRectToRawSensor(
+        uprightRect,
+        rawSize,
+        InputImageRotation.rotation180deg,
+      );
+      expect(restored, rawRect);
+    });
+
+    test('rotation0deg & null: preserves imageRect and imageSize', () {
+      final (upright0, size0) = CardPerimeterCalculator.rotateImageRect(
+        imageRect: rawRect,
+        imageSize: rawSize,
+        rotation: InputImageRotation.rotation0deg,
+      );
+      expect(upright0, rawRect);
+      expect(size0, rawSize);
+
+      final (uprightNull, sizeNull) = CardPerimeterCalculator.rotateImageRect(
+        imageRect: rawRect,
+        imageSize: rawSize,
+        rotation: null,
+      );
+      expect(uprightNull, rawRect);
+      expect(sizeNull, rawSize);
+
+      expect(
+        CardPerimeterCalculator.unrotateRectToRawSensor(
+          rawRect,
+          rawSize,
+          InputImageRotation.rotation0deg,
+        ),
+        rawRect,
+      );
+      expect(
+        CardPerimeterCalculator.unrotateRectToRawSensor(
+          rawRect,
+          rawSize,
+          null,
+        ),
+        rawRect,
+      );
+    });
+
+    test('handles zero or invalid image dimensions safely', () {
+      const emptySize = Size.zero;
+      final (rot, sz) = CardPerimeterCalculator.rotateImageRect(
+        imageRect: rawRect,
+        imageSize: emptySize,
+        rotation: InputImageRotation.rotation90deg,
+      );
+      expect(rot, rawRect);
+      expect(sz, emptySize);
+
+      final unrot = CardPerimeterCalculator.unrotateRectToRawSensor(
+        rawRect,
+        emptySize,
+        InputImageRotation.rotation90deg,
+      );
+      expect(unrot, rawRect);
+    });
+  });
+
   group('DynamicScannerOverlay Widget Tests', () {
     testWidgets('renders empty shrink widget when cardBounds is null', (tester) async {
       await tester.pumpWidget(

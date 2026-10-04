@@ -145,4 +145,96 @@ class CardPerimeterCalculator {
       rect.bottom.clamp(0.0, screenSize.height),
     );
   }
+
+  /// Applies Exponential Moving Average (EMA) / lerp smoothing to raw screen-space
+  /// card rectangles between frames to eliminate hand-jitter and coordinate noise.
+  /// If the card position moves significantly beyond [snapThreshold], snaps faster
+  /// (effectiveAlpha = 0.85) to prevent visual lag during swift card repositioning.
+  static Rect smoothRect(
+    Rect? previous,
+    Rect current, {
+    double alpha = 0.40,
+    double snapThreshold = 60.0,
+  }) {
+    if (previous == null) return current;
+    final distance = (previous.topLeft - current.topLeft).distance;
+    final effectiveAlpha = distance > snapThreshold ? 0.85 : alpha;
+    return Rect.lerp(previous, current, effectiveAlpha) ?? current;
+  }
+
+  /// Rotates an unrotated OpenCV [imageRect] according to camera [rotation]
+  /// into upright image coordinates and returns the rotated rectangle and upright size.
+  static (Rect uprightRect, Size uprightSize) rotateImageRect({
+    required Rect imageRect,
+    required Size imageSize,
+    InputImageRotation? rotation,
+  }) {
+    if (imageSize.width <= 0 || imageSize.height <= 0) {
+      return (imageRect, imageSize);
+    }
+    if (rotation == InputImageRotation.rotation90deg) {
+      final rotatedRect = Rect.fromLTRB(
+        imageSize.height - imageRect.bottom,
+        imageRect.left,
+        imageSize.height - imageRect.top,
+        imageRect.right,
+      );
+      return (rotatedRect, Size(imageSize.height, imageSize.width));
+    } else if (rotation == InputImageRotation.rotation270deg) {
+      final rotatedRect = Rect.fromLTRB(
+        imageRect.top,
+        imageSize.width - imageRect.right,
+        imageRect.bottom,
+        imageSize.width - imageRect.left,
+      );
+      return (rotatedRect, Size(imageSize.height, imageSize.width));
+    } else if (rotation == InputImageRotation.rotation180deg) {
+      final rotatedRect = Rect.fromLTRB(
+        imageSize.width - imageRect.right,
+        imageSize.height - imageRect.bottom,
+        imageSize.width - imageRect.left,
+        imageSize.height - imageRect.top,
+      );
+      return (rotatedRect, imageSize);
+    }
+    return (imageRect, imageSize);
+  }
+
+  /// Converts an upright screen-oriented [uprightRect] back to raw camera sensor space
+  /// according to the specified camera [rotation].
+  static Rect unrotateRectToRawSensor(
+    Rect uprightRect,
+    Size rawSize,
+    InputImageRotation? rotation,
+  ) {
+    if (rawSize.width <= 0 || rawSize.height <= 0) {
+      return uprightRect;
+    }
+    switch (rotation) {
+      case InputImageRotation.rotation90deg:
+        return Rect.fromLTRB(
+          uprightRect.top,
+          rawSize.height - uprightRect.right,
+          uprightRect.bottom,
+          rawSize.height - uprightRect.left,
+        );
+      case InputImageRotation.rotation270deg:
+        return Rect.fromLTRB(
+          rawSize.width - uprightRect.bottom,
+          uprightRect.left,
+          rawSize.width - uprightRect.top,
+          uprightRect.right,
+        );
+      case InputImageRotation.rotation180deg:
+        return Rect.fromLTRB(
+          rawSize.width - uprightRect.right,
+          rawSize.height - uprightRect.bottom,
+          rawSize.width - uprightRect.left,
+          rawSize.height - uprightRect.top,
+        );
+      case InputImageRotation.rotation0deg:
+      case null:
+        return uprightRect;
+    }
+  }
 }

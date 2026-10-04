@@ -1,13 +1,54 @@
 import 'dart:convert';
 import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift/native.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:countr/core/database/app_database.dart';
 import 'package:countr/features/vault/data/daos/vault_dao.dart';
 import 'package:countr/features/scanner/domain/cascade_scanner_coordinator.dart';
 import 'package:countr/features/scanner/domain/profiles/comic_collectible_profile.dart';
 import 'package:countr/features/scanner/domain/profiles/mtg_collectible_profile.dart';
 import 'package:countr/features/scanner/domain/vision/bk_tree.dart';
+import '../../../../test/e2e/test_helpers.dart';
+
+class FakeTextRecognizer implements TextRecognizer {
+  final RecognizedText recognizedText;
+  FakeTextRecognizer(this.recognizedText);
+
+  @override
+  Future<RecognizedText> processImage(InputImage inputImage) async => recognizedText;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+RecognizedText createFakeRecognizedText({
+  required String text,
+  List<Rect> boundingBoxes = const [],
+}) {
+  final blocks = boundingBoxes.map((box) {
+    return TextBlock(
+      text: text,
+      lines: [
+        TextLine(
+          text: text,
+          elements: const [],
+          boundingBox: box,
+          recognizedLanguages: const [],
+          cornerPoints: const [],
+          angle: 0.0,
+          confidence: 1.0,
+        ),
+      ],
+      boundingBox: box,
+      recognizedLanguages: const [],
+      cornerPoints: const [],
+    );
+  }).toList();
+
+  return RecognizedText(text: text, blocks: blocks);
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -159,6 +200,96 @@ void main() {
       );
 
       expect(result, isNull);
+    });
+  });
+
+  group('CascadeScannerCoordinator Dual-Path Pipeline & Edge Tracking Tests', () {
+    test('targetProfile.cardAspectRatio is used instead of artCropBounds', () {
+      final mtgProfile = MtgCollectibleProfile();
+      expect(mtgProfile.cardAspectRatio, closeTo(0.7142857, 0.0001));
+      final comicProfile = ComicCollectibleProfile();
+      expect(comicProfile.cardAspectRatio, closeTo(0.6503387, 0.0001));
+      // Contrast with artCropBounds which was 80/45 ≈ 1.7778
+      expect(mtgProfile.artCropBounds.width / mtgProfile.artCropBounds.height, isNot(closeTo(0.714, 0.01)));
+    });
+
+    test('detectPerimeter calls ScannerWorkerIsolate and handles execution safely without throwing', () async {
+      final dummyImage = createMockCameraImage(width: 720, height: 1280);
+      final result = await coordinator.detectPerimeter(cameraImage: dummyImage);
+      // In headless host environment without OpenCV C++ binaries, ScannerWorkerIsolate catches and returns nulls
+      expect(result.$1, isNull);
+      expect(result.$2, isNull);
+      expect(result.$3, isNull);
+    });
+
+    test('processFrame: ML Kit full-frame fallback executes when OpenCV returns null and invokes onCornersDetected', () async {
+      await db.into(db.vaultItems).insert(
+        createItem(
+          id: 'mtg_black_lotus',
+          name: 'Black Lotus',
+          collectionType: 'mtg',
+          collectorNumber: '232',
+        ),
+      );
+
+      final dummyImage = createMockCameraImage(width: 720, height: 1280);
+      final fakeBlocks = [
+        const Rect.fromLTWH(100, 100, 300, 50),
+        const Rect.fromLTWH(100, 500, 200, 30),
+      ];
+      final fakeRecognized = createFakeRecognizedText(
+        text: 'Black Lotus\nArtifact\n232/250 LEA',
+        boundingBoxes: fakeBlocks,
+      );
+      final fakeRecognizer = FakeTextRecognizer(fakeRecognized);
+
+      List<double>? detectedCorners;
+      final result = await coordinator.processFrame(
+        cameraImage: dummyImage,
+        dao: dao,
+        textRecognizer: fakeRecognizer,
+        onCornersDetected: (corners) {
+          detectedCorners = corners;
+        },
+      );
+
+      // Verify onCornersDetected was called with fallback corners
+      expect(detectedCorners, isNotNull);
+      expect(detectedCorners!.length, equals(8));
+
+      // Verify match was found in SQLite database via OCR fallback
+      expect(result.$1, isNotNull);
+      expect(result.$1!.tier, equals(1));
+      expect(result.$1!.match.id, equals('mtg_black_lotus'));
+      expect(result.$2, equals(detectedCorners));
+    });
+
+    test('processFrame: fallback returns corners even when no catalog match is found', () async {
+      final dummyImage = createMockCameraImage(width: 720, height: 1280);
+      final fakeBlocks = [
+        const Rect.fromLTWH(50, 50, 200, 300),
+      ];
+      final fakeRecognized = createFakeRecognizedText(
+        text: 'Unknown Card Text 999/999',
+        boundingBoxes: fakeBlocks,
+      );
+      final fakeRecognizer = FakeTextRecognizer(fakeRecognized);
+
+      List<double>? detectedCorners;
+      final result = await coordinator.processFrame(
+        cameraImage: dummyImage,
+        dao: dao,
+        textRecognizer: fakeRecognizer,
+        onCornersDetected: (corners) {
+          detectedCorners = corners;
+        },
+      );
+
+      // Real-time reticle coordinates emitted even on un-matched cards
+      expect(detectedCorners, isNotNull);
+      expect(detectedCorners!.length, equals(8));
+      expect(result.$1, isNull);
+      expect(result.$2, equals(detectedCorners));
     });
   });
 }

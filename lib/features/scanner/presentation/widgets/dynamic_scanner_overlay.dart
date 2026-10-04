@@ -92,8 +92,8 @@ class _DynamicReticleContentState extends State<_DynamicReticleContent> {
       child: AnimatedOpacity(
         key: const Key('dynamic_scanner_overlay'),
         opacity: isVisible ? 1.0 : 0.0,
-        duration: const Duration(milliseconds: 220),
-        curve: Curves.easeInOut,
+        duration: Duration(milliseconds: isVisible ? 150 : 700),
+        curve: Curves.easeOutCubic,
         child: TweenAnimationBuilder<Rect?>(
           tween: RectTween(end: activeBounds),
           duration: const Duration(milliseconds: 180),
@@ -114,28 +114,47 @@ class _DynamicReticleContentState extends State<_DynamicReticleContent> {
 
             return Stack(
               children: [
-                // Subtle Card Perimeter Outline & Ambient Glow
+                // Holographic Card Perimeter Outline & Multi-Tier Neon Glow
                 Positioned.fromRect(
                   rect: currentRect,
                   child: AnimatedContainer(
+                    key: const Key('dynamic_scanner_bounding_container'),
                     duration: const Duration(milliseconds: 200),
                     decoration: BoxDecoration(
+                      color: theme.withValues(
+                        alpha: widget.isGreenFlash ? 0.08 : 0.03,
+                      ),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
                         color: theme.withValues(
-                          alpha: widget.isGreenFlash ? 0.9 : 0.35,
+                          alpha: widget.isGreenFlash ? 0.95 : 0.70,
                         ),
-                        width: widget.isGreenFlash ? 2.5 : 1.2,
+                        width: widget.isGreenFlash ? 2.8 : 1.6,
                       ),
                       boxShadow: [
+                        // Tier 1: Core sharp neon intensity
                         BoxShadow(
                           color: theme.withValues(
-                            alpha: widget.isGreenFlash
-                                ? 0.45
-                                : (widget.isPaused ? 0.25 : 0.15),
+                            alpha: widget.isGreenFlash ? 0.85 : 0.50,
                           ),
-                          blurRadius: widget.isGreenFlash ? 24 : 14,
-                          spreadRadius: widget.isGreenFlash ? 3 : 1,
+                          blurRadius: widget.isGreenFlash ? 12 : 10,
+                          spreadRadius: widget.isGreenFlash ? 2.0 : 1.5,
+                        ),
+                        // Tier 2: Mid-range holographic halo
+                        BoxShadow(
+                          color: theme.withValues(
+                            alpha: widget.isGreenFlash ? 0.60 : 0.28,
+                          ),
+                          blurRadius: widget.isGreenFlash ? 26 : 22,
+                          spreadRadius: widget.isGreenFlash ? 3.0 : 2.5,
+                        ),
+                        // Tier 3: Atmospheric dispersion glow
+                        BoxShadow(
+                          color: theme.withValues(
+                            alpha: widget.isGreenFlash ? 0.40 : 0.12,
+                          ),
+                          blurRadius: widget.isGreenFlash ? 48 : 36,
+                          spreadRadius: widget.isGreenFlash ? 5.0 : 3.0,
                         ),
                       ],
                     ),
@@ -155,6 +174,7 @@ class _DynamicReticleContentState extends State<_DynamicReticleContent> {
                       isLeft: true,
                       thickness: thickness,
                       color: theme,
+                      cornerRadius: 10.0,
                     ),
                   ),
                 ),
@@ -172,6 +192,7 @@ class _DynamicReticleContentState extends State<_DynamicReticleContent> {
                       isLeft: false,
                       thickness: thickness,
                       color: theme,
+                      cornerRadius: 10.0,
                     ),
                   ),
                 ),
@@ -189,6 +210,7 @@ class _DynamicReticleContentState extends State<_DynamicReticleContent> {
                       isLeft: true,
                       thickness: thickness,
                       color: theme,
+                      cornerRadius: 10.0,
                     ),
                   ),
                 ),
@@ -206,6 +228,7 @@ class _DynamicReticleContentState extends State<_DynamicReticleContent> {
                       isLeft: false,
                       thickness: thickness,
                       color: theme,
+                      cornerRadius: 10.0,
                     ),
                   ),
                 ),
@@ -264,38 +287,78 @@ class _DynamicCornerPainter extends CustomPainter {
   final bool isLeft;
   final double thickness;
   final Color color;
+  final double cornerRadius;
 
   const _DynamicCornerPainter({
     required this.isTop,
     required this.isLeft,
     required this.thickness,
     required this.color,
+    this.cornerRadius = 10.0,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
+    if (size.width <= 0 || size.height <= 0) return;
+
     final paint = Paint()
       ..color = color
       ..strokeWidth = thickness
       ..strokeCap = StrokeCap.round
       ..style = PaintingStyle.stroke;
 
+    final r = math.max(
+      0.0,
+      math.min(cornerRadius, math.min(size.width, size.height)),
+    );
     final path = Path();
+
     if (isTop && isLeft) {
       path.moveTo(0, size.height);
-      path.lineTo(0, 0);
+      if (r > 0) {
+        path.lineTo(0, r);
+        path.arcToPoint(Offset(r, 0), radius: Radius.circular(r));
+      } else {
+        path.lineTo(0, 0);
+      }
       path.lineTo(size.width, 0);
     } else if (isTop && !isLeft) {
       path.moveTo(size.width, size.height);
-      path.lineTo(size.width, 0);
+      if (r > 0) {
+        path.lineTo(size.width, r);
+        path.arcToPoint(
+          Offset(size.width - r, 0),
+          radius: Radius.circular(r),
+          clockwise: false,
+        );
+      } else {
+        path.lineTo(size.width, 0);
+      }
       path.lineTo(0, 0);
     } else if (!isTop && isLeft) {
       path.moveTo(0, 0);
-      path.lineTo(0, size.height);
+      if (r > 0) {
+        path.lineTo(0, size.height - r);
+        path.arcToPoint(
+          Offset(r, size.height),
+          radius: Radius.circular(r),
+          clockwise: false,
+        );
+      } else {
+        path.lineTo(0, size.height);
+      }
       path.lineTo(size.width, size.height);
     } else {
       path.moveTo(size.width, 0);
-      path.lineTo(size.width, size.height);
+      if (r > 0) {
+        path.lineTo(size.width, size.height - r);
+        path.arcToPoint(
+          Offset(size.width - r, size.height),
+          radius: Radius.circular(r),
+        );
+      } else {
+        path.lineTo(size.width, size.height);
+      }
       path.lineTo(0, size.height);
     }
 
@@ -307,5 +370,6 @@ class _DynamicCornerPainter extends CustomPainter {
       oldDelegate.color != color ||
       oldDelegate.thickness != thickness ||
       oldDelegate.isTop != isTop ||
-      oldDelegate.isLeft != isLeft;
+      oldDelegate.isLeft != isLeft ||
+      oldDelegate.cornerRadius != cornerRadius;
 }
