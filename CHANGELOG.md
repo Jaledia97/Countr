@@ -1,3 +1,64 @@
+## [0.5.0] - 2026-10-07
+
+### Phase 5.0: Explore Decks Discovery, Dual-Tab Architecture, Persistent Voting & Deck Sharing Overhaul
+
+#### Added & Improved
+- **R1: Dual-Tab Top Architecture (`DecksScreen`)**:
+  - Split root `DecksScreen` into "My Decks" and "Explore Decks" tabs using `TabBarView`.
+  - Independent scroll offset, active search queries, and filter states preserved seamlessly across tab switches via `AutomaticKeepAliveClientMixin` (`wantKeepAlive => true`) and dedicated `PageStorageKey` instances.
+  - Floating Action Button (FAB) dynamically renders "New Deck" on Tab 0 (My Decks) and smoothly hides on Tab 1 (Explore Decks).
+  - Maintained complete backward compatibility for all legacy test invariant keys (`decks_tab_all`, `decks_new_deck_fab`, `decks_tcg_context_switcher`, `decks_privacy_mode_button`).
+
+- **R2: "My Decks" Search, Status Badges & Sharing Actions**:
+  - Dynamic status indicators (`Draft`, `Ready`, `Assembled`) computed from card counts and legality.
+  - Multi-tier personal search partitioning matches under visual headings `"in Deck Name"` and `"contains Card"`, displaying card match quantity chips and clean line-break dividers.
+  - Quick toggle filter pills for Formats, Status (Draft vs. Assembled), and Color Identity.
+  - 3-Dot overflow menu on deck cards with "Share to Explore".
+  - Press-and-hold selection mode with bottom action footer, supporting "Share to Explore" for single selections.
+
+- **R3: "Explore Decks" Discovery Feed & Offline Precon Seeding**:
+  - Upgraded Drift database schema to version 11 with new tables (`explore_decks`, `explore_deck_items`, `explore_deck_votes`), compound indexes, and `is_cloned` metadata on `decks`.
+  - Bundled MTGJSON preconstructed decks spanning Magic history (Commander, Challenger Decks, Starter Kits, Duel Decks) and community brews (`@SpicyBrewMaster`, `@EDH_Rec_Fanatic`, `@DraftGuru`), parsed off the UI thread via `Isolate.run` with precompiled fallback catalogs.
+  - Top-level quick toggle pills for "All", "Official (WotC)", and "Community".
+  - Dynamic discovery feed combining a responsive 2-column grid interspersed with dynamic horizontal scrolling carousels ("Suggested Commanders", "From Top Deck Builders", "Popular Standard Decks").
+  - Dedicated deep filter modal (`ExploreFilterModal`) supporting format, color identity, price brackets (\$0–\$50, \$50–\$200, \$200+), commander name, and card inclusions.
+
+- **R4: Search Bar & Embedded Sort Menu**:
+  - Dedicated search bar with an integrated inline sort popup offering 5 sorting modes: Most Popular / Upvotes, Recently Added, Price Low-High, Price High-Low, and Alphabetical (A-Z).
+  - 3-Tier contextual search results view partitioned under `"in Deck Name"`, `"in Deck Cards"`, and `"by Username"`.
+
+- **R5: Deck Summary Cards & Persistent SQLite Voting System**:
+  - High-res commander art banner with `CountrCachedImage`, creator tags, mana symbols, market price, and card match badges.
+  - Interactive upvote and downvote controls backed by SQLite table `explore_deck_votes`, atomically calculating score deltas and persisting across app restarts.
+
+- **R6: Read-Only Deck View Screen & Clone Engine**:
+  - Dedicated `ReadOnlyDeckScreen` strictly concealing all editing, card addition, and playtest controls.
+  - Cards partitioned into 6 collapsible MTG card type sections (Commander, Creatures, Spells, Permanents, Lands, Sideboard) with badges and quantities.
+  - Interactive in-screen upvote/downvote buttons synchronized with the discovery feed.
+  - Prominent "Add to My Decks" (Clone) button executing atomic deep copy into local SQLite tables (`decks`, `deck_versions`, `deck_version_items`) marked with `isCloned = true`.
+
+- **Deck Sharing Pipeline Fix**:
+  - Resolved active deck version resolution in `ExploreDeckDao.sharePersonalDeckToExplore`.
+  - Fixed starter deck mock data hijacking, ensuring complete card lists are preserved.
+  - Guarded against false-positive commander promotion when a non-commander card is used as the deck cover.
+  - Added support for modal double-faced cards (MDFCs) from `card_faces[0]`.
+  - Guaranteed full copying of all cards across all zones (`Commander`, `Mainboard`, `Sideboard`) with complete quantities, printings, and variant data.
+
+- **Deck Builder & Analytics Bug Fixes**:
+  - Intercepted system back button on `DeckBuilderScreen` via `PopScope` to return cleanly to `DecksScreen` without closing the application.
+  - Fixed custom cover art state persistence and immediate cache invalidation.
+  - Streamlined analytics UI by removing redundant modal buttons and jump anchors.
+  - Fixed card play thumbnails to prioritize playable faces over art cards and fill full container heights.
+  - Added multi-section Grid View partitioned by card types.
+  - Fixed monetary value calculations to accurately sum prices multiplied by card quantities.
+
+#### Verification & Quality
+- **Test Suite**: 983+ tests passing in `test/features/decks/` (100% pass rate); 1,119 tests passing repository-wide.
+- **Static Analysis**: `flutter analyze` clean with 0 errors and 0 warnings.
+- **Audit Verification**: Passed independent multi-phase Victory Audit (`VICTORY CONFIRMED`).
+
+---
+
 ## [0.4.7] - 2026-09-27
 
 ### Phase 4.7: "Variant 1" Lifetap-Style MTG Companion Life Counter

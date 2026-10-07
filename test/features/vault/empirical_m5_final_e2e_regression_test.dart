@@ -137,7 +137,7 @@ void main() {
           vaultDaoProvider.overrideWithValue(db.vaultDao),
           activeGameContextProvider.overrideWith((ref) => 'mtg'),
           vaultViewModeProvider.overrideWith((ref) => VaultViewMode.allVault),
-          vaultShowCatalogProvider.overrideWith((ref) => true), // show unowned catalog cards
+          vaultShowCatalogProvider.overrideWith((ref) => false), // start in Owned mode to inspect macro count
           cardDisplayLayoutProvider.overrideWith((ref) => CardDisplayLayout.grid),
         ],
       );
@@ -146,8 +146,12 @@ void main() {
       await tester.pumpWidget(buildVaultHarness(container: container));
       await tester.pumpAndSettle();
 
-      // Step 1.1: Verify initial Vault count shows 1 tracked item
+      // Step 1.1: Verify initial Vault count shows 1 tracked item in Owned view
       expect(find.text('Total Tracked Items: 1'), findsOneWidget);
+
+      // Switch to All Cards mode to view unowned catalog cards (where value card is hidden per R1)
+      await tester.tap(find.text('All Cards'));
+      await tester.pumpAndSettle();
 
       // Step 1.2: Verify unowned card is visible with UNOWNED badge
       expect(find.text('Nazgûl (Catalog Unowned)'), findsWidgets);
@@ -198,11 +202,11 @@ void main() {
           .get();
       expect(inboxCards.any((c) => c.id == 'card-unowned-1'), isTrue);
 
-      // Verify that assigning or committing from Inbox updates Vault macro count to 2
+      // Verify that assigning or committing from Inbox updates Vault macro count to 2 in Owned view
       await (db.update(db.vaultItems)..where((t) => t.id.equals('card-unowned-1'))).write(
         const VaultItemsCompanion(primaryBinderId: drift.Value(null)),
       );
-      await tester.pump();
+      await tester.tap(find.text('Owned'));
       await tester.pumpAndSettle();
       expect(find.text('Total Tracked Items: 2'), findsOneWidget);
 

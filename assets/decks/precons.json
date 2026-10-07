@@ -1,0 +1,4181 @@
+[
+  {
+    "id": "precon-c17-draconic-domination",
+    "name": "Draconic Domination",
+    "format": "Commander",
+    "source_type": "official",
+    "creator_name": "Wizards of the Coast",
+    "description": "Commander 2017 Dragon tribal deck led by The Ur-Dragon, focusing on high-cost draconic flyers and massive combat triggers.",
+    "release_code": "C17",
+    "release_year": 2017,
+    "featured_category": "Suggested Commanders",
+    "color_identity": [
+      "W",
+      "U",
+      "B",
+      "R",
+      "G"
+    ],
+    "card_count": 100,
+    "estimated_price": 70.35,
+    "upvotes": 312,
+    "downvotes": 14,
+    "score": 298,
+    "tags": [
+      "dragons",
+      "tribal",
+      "five-color",
+      "ur-dragon",
+      "c17"
+    ],
+    "commander": {
+      "name": "The Ur-Dragon",
+      "scryfall_id": "7e78b70b-0c67-4f14-8ad7-c9f8e3f59743",
+      "oracle_id": "b6a22fdf-9730-4e2b-8a8b-4b132e4822f3",
+      "count": 1,
+      "board_zone": "Commander",
+      "mana_cost": "{4}{W}{U}{B}{R}{G}",
+      "cmc": 9.0,
+      "type_line": "Legendary Creature \u2014 Dragon Avatar",
+      "colors": [
+        "W",
+        "U",
+        "B",
+        "R",
+        "G"
+      ],
+      "image_url": "https://cards.scryfall.io/normal/front/7/e/7e78b70b-0c67-4f14-8ad7-c9f8e3f59743.jpg",
+      "art_crop_url": "https://cards.scryfall.io/art_crop/front/7/e/7e78b70b-0c67-4f14-8ad7-c9f8e3f59743.jpg",
+      "price": 8.5,
+      "is_commander": true
+    },
+    "cards": [
+      {
+        "name": "Scion of the Ur-Dragon",
+        "scryfall_id": "46e22c36-6c84-4828-912b-3a25ef14d799",
+        "oracle_id": "12a34567-0001-4444-8888-000000000001",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{W}{U}{B}{R}{G}",
+        "cmc": 5.0,
+        "type_line": "Legendary Creature \u2014 Dragon Avatar",
+        "colors": [
+          "W",
+          "U",
+          "B",
+          "R",
+          "G"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/4/6/46e22c36-6c84-4828-912b-3a25ef14d799.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/4/6/46e22c36-6c84-4828-912b-3a25ef14d799.jpg",
+        "price": 4.25,
+        "is_commander": false
+      },
+      {
+        "name": "O-Kagachi, Vengeful Kami",
+        "scryfall_id": "b773c6d2-544b-49d3-ba88-abbd6e8030e8",
+        "oracle_id": "12a34567-0001-4444-8888-000000000002",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{1}{W}{U}{B}{R}{G}",
+        "cmc": 6.0,
+        "type_line": "Legendary Creature \u2014 Dragon Spirit",
+        "colors": [
+          "W",
+          "U",
+          "B",
+          "R",
+          "G"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/b/7/b773c6d2-544b-49d3-ba88-abbd6e8030e8.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/b/7/b773c6d2-544b-49d3-ba88-abbd6e8030e8.jpg",
+        "price": 2.5,
+        "is_commander": false
+      },
+      {
+        "name": "Ramos, Dragon Engine",
+        "scryfall_id": "2e747ef1-a1ad-4859-a70c-3f935f017310",
+        "oracle_id": "12a34567-0001-4444-8888-000000000003",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{6}",
+        "cmc": 6.0,
+        "type_line": "Legendary Artifact Creature \u2014 Dragon",
+        "colors": [],
+        "image_url": "https://cards.scryfall.io/normal/front/2/e/2e747ef1-a1ad-4859-a70c-3f935f017310.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/2/e/2e747ef1-a1ad-4859-a70c-3f935f017310.jpg",
+        "price": 5.0,
+        "is_commander": false
+      },
+      {
+        "name": "Utvara Hellkite",
+        "scryfall_id": "33f6914d-84b0-4502-aef1-6891550193ec",
+        "oracle_id": "3dc50831-2947-4952-b1fc-2280d0d8fb48",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{6}{R}{R}",
+        "cmc": 8.0,
+        "type_line": "Creature \u2014 Dragon",
+        "colors": [
+          "R"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/3/3/33f6914d-84b0-4502-aef1-6891550193ec.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/3/3/33f6914d-84b0-4502-aef1-6891550193ec.jpg",
+        "price": 9.5,
+        "is_commander": false
+      },
+      {
+        "name": "Bladewing the Risen",
+        "scryfall_id": "27c6e4fe-6635-479e-97e1-a08b7718ac93",
+        "oracle_id": "12a34567-0001-4444-8888-000000000004",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{3}{B}{B}{R}{R}",
+        "cmc": 7.0,
+        "type_line": "Legendary Creature \u2014 Zombie Dragon",
+        "colors": [
+          "B",
+          "R"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/2/7/27c6e4fe-6635-479e-97e1-a08b7718ac93.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/2/7/27c6e4fe-6635-479e-97e1-a08b7718ac93.jpg",
+        "price": 1.75,
+        "is_commander": false
+      },
+      {
+        "name": "Hellkite Charger",
+        "scryfall_id": "7d069748-1969-471e-be13-b475c37fe647",
+        "oracle_id": "12a34567-0001-4444-8888-000000000005",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{4}{R}{R}",
+        "cmc": 6.0,
+        "type_line": "Creature \u2014 Dragon",
+        "colors": [
+          "R"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/7/d/7d069748-1969-471e-be13-b475c37fe647.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/7/d/7d069748-1969-471e-be13-b475c37fe647.jpg",
+        "price": 2.25,
+        "is_commander": false
+      },
+      {
+        "name": "Savage Ventmaw",
+        "scryfall_id": "1779cb2d-05f7-4824-a478-4e75740217e1",
+        "oracle_id": "12a34567-0001-4444-8888-000000000006",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{4}{R}{G}",
+        "cmc": 6.0,
+        "type_line": "Creature \u2014 Dragon",
+        "colors": [
+          "R",
+          "G"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/1/7/1779cb2d-05f7-4824-a478-4e75740217e1.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/1/7/1779cb2d-05f7-4824-a478-4e75740217e1.jpg",
+        "price": 0.75,
+        "is_commander": false
+      },
+      {
+        "name": "Broodmate Dragon",
+        "scryfall_id": "ea62ec34-be95-4682-a3fd-9a9cb78b848e",
+        "oracle_id": "12a34567-0001-4444-8888-000000000007",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{3}{B}{R}{G}",
+        "cmc": 6.0,
+        "type_line": "Creature \u2014 Dragon",
+        "colors": [
+          "B",
+          "R",
+          "G"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/e/a/ea62ec34-be95-4682-a3fd-9a9cb78b848e.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/e/a/ea62ec34-be95-4682-a3fd-9a9cb78b848e.jpg",
+        "price": 0.5,
+        "is_commander": false
+      },
+      {
+        "name": "Dragonlord's Servant",
+        "scryfall_id": "d3e493fb-69fe-443b-ab9e-a892795ec243",
+        "oracle_id": "12a34567-0001-4444-8888-000000000008",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{1}{R}",
+        "cmc": 2.0,
+        "type_line": "Creature \u2014 Goblin Shaman",
+        "colors": [
+          "R"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/d/3/d3e493fb-69fe-443b-ab9e-a892795ec243.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/d/3/d3e493fb-69fe-443b-ab9e-a892795ec243.jpg",
+        "price": 0.6,
+        "is_commander": false
+      },
+      {
+        "name": "Dragonspeaker Shaman",
+        "scryfall_id": "4ca810ea-2114-47cc-966c-5740b7793051",
+        "oracle_id": "12a34567-0001-4444-8888-000000000009",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{1}{R}{R}",
+        "cmc": 3.0,
+        "type_line": "Creature \u2014 Human Barbarian Shaman",
+        "colors": [
+          "R"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/4/c/4ca810ea-2114-47cc-966c-5740b7793051.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/4/c/4ca810ea-2114-47cc-966c-5740b7793051.jpg",
+        "price": 2.1,
+        "is_commander": false
+      },
+      {
+        "name": "Atarka, World Render",
+        "scryfall_id": "e7f66037-bf1a-4663-8a32-1594e9f743c3",
+        "oracle_id": "12a34567-0001-4444-8888-000000000010",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{5}{R}{G}",
+        "cmc": 7.0,
+        "type_line": "Legendary Creature \u2014 Dragon",
+        "colors": [
+          "R",
+          "G"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/e/7/e7f66037-bf1a-4663-8a32-1594e9f743c3.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/e/7/e7f66037-bf1a-4663-8a32-1594e9f743c3.jpg",
+        "price": 1.5,
+        "is_commander": false
+      },
+      {
+        "name": "Dromoka, the Eternal",
+        "scryfall_id": "b8db6ab8-cd12-431a-bf18-28464cf03509",
+        "oracle_id": "12a34567-0001-4444-8888-000000000011",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{3}{G}{W}",
+        "cmc": 5.0,
+        "type_line": "Legendary Creature \u2014 Dragon",
+        "colors": [
+          "G",
+          "W"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/b/8/b8db6ab8-cd12-431a-bf18-28464cf03509.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/b/8/b8db6ab8-cd12-431a-bf18-28464cf03509.jpg",
+        "price": 1.25,
+        "is_commander": false
+      },
+      {
+        "name": "Kolaghan, the Storm's Fury",
+        "scryfall_id": "85b6ec4f-0331-473b-b149-5ee78e6927f2",
+        "oracle_id": "12a34567-0001-4444-8888-000000000012",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{3}{B}{R}",
+        "cmc": 5.0,
+        "type_line": "Legendary Creature \u2014 Dragon",
+        "colors": [
+          "B",
+          "R"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/8/5/85b6ec4f-0331-473b-b149-5ee78e6927f2.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/8/5/85b6ec4f-0331-473b-b149-5ee78e6927f2.jpg",
+        "price": 0.85,
+        "is_commander": false
+      },
+      {
+        "name": "Silumgar, the Drifting Death",
+        "scryfall_id": "ca5fe5e6-52e3-4ae4-a0b0-e48b64e9727c",
+        "oracle_id": "12a34567-0001-4444-8888-000000000013",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{4}{U}{B}",
+        "cmc": 6.0,
+        "type_line": "Legendary Creature \u2014 Dragon",
+        "colors": [
+          "U",
+          "B"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/c/a/ca5fe5e6-52e3-4ae4-a0b0-e48b64e9727c.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/c/a/ca5fe5e6-52e3-4ae4-a0b0-e48b64e9727c.jpg",
+        "price": 1.95,
+        "is_commander": false
+      },
+      {
+        "name": "Crux of Fate",
+        "scryfall_id": "11721b88-275e-4966-b99a-602357437d0a",
+        "oracle_id": "12a34567-0001-4444-8888-000000000014",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{3}{B}{B}",
+        "cmc": 5.0,
+        "type_line": "Sorcery",
+        "colors": [
+          "B"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/1/1/11721b88-275e-4966-b99a-602357437d0a.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/1/1/11721b88-275e-4966-b99a-602357437d0a.jpg",
+        "price": 3.5,
+        "is_commander": false
+      },
+      {
+        "name": "Cultivate",
+        "scryfall_id": "6fe67905-59b9-44d4-9d41-c8526ee55d64",
+        "oracle_id": "12a34567-0001-4444-8888-000000000015",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{2}{G}",
+        "cmc": 3.0,
+        "type_line": "Sorcery",
+        "colors": [
+          "G"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/6/f/6fe67905-59b9-44d4-9d41-c8526ee55d64.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/6/f/6fe67905-59b9-44d4-9d41-c8526ee55d64.jpg",
+        "price": 0.95,
+        "is_commander": false
+      },
+      {
+        "name": "Kodama's Reach",
+        "scryfall_id": "16ef8330-9755-46f9-b366-068d374f6645",
+        "oracle_id": "12a34567-0001-4444-8888-000000000016",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{2}{G}",
+        "cmc": 3.0,
+        "type_line": "Sorcery",
+        "colors": [
+          "G"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/1/6/16ef8330-9755-46f9-b366-068d374f6645.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/1/6/16ef8330-9755-46f9-b366-068d374f6645.jpg",
+        "price": 0.85,
+        "is_commander": false
+      },
+      {
+        "name": "Farseek",
+        "scryfall_id": "3dbd7e11-71e8-4226-8822-487b3bc0c107",
+        "oracle_id": "12a34567-0001-4444-8888-000000000017",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{1}{G}",
+        "cmc": 2.0,
+        "type_line": "Sorcery",
+        "colors": [
+          "G"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/3/d/3dbd7e11-71e8-4226-8822-487b3bc0c107.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/3/d/3dbd7e11-71e8-4226-8822-487b3bc0c107.jpg",
+        "price": 1.4,
+        "is_commander": false
+      },
+      {
+        "name": "Sol Ring",
+        "scryfall_id": "aa626895-d166-4a49-8c67-6228383f98c8",
+        "oracle_id": "1970ae46-d249-4113-98fe-c020d5885c34",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{1}",
+        "cmc": 1.0,
+        "type_line": "Artifact",
+        "colors": [],
+        "image_url": "https://cards.scryfall.io/normal/front/a/a/aa626895-d166-4a49-8c67-6228383f98c8.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/a/a/aa626895-d166-4a49-8c67-6228383f98c8.jpg",
+        "price": 2.5,
+        "is_commander": false
+      },
+      {
+        "name": "Arcane Signet",
+        "scryfall_id": "c22ca0fb-365f-45b6-bc21-0bfacfc4adbe",
+        "oracle_id": "12a34567-0001-4444-8888-000000000018",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{2}",
+        "cmc": 2.0,
+        "type_line": "Artifact",
+        "colors": [],
+        "image_url": "https://cards.scryfall.io/normal/front/c/2/c22ca0fb-365f-45b6-bc21-0bfacfc4adbe.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/c/2/c22ca0fb-365f-45b6-bc21-0bfacfc4adbe.jpg",
+        "price": 1.1,
+        "is_commander": false
+      },
+      {
+        "name": "Commander's Sphere",
+        "scryfall_id": "82a0b73d-9d49-412e-a57e-61b8fbf4c7ea",
+        "oracle_id": "12a34567-0001-4444-8888-000000000019",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{3}",
+        "cmc": 3.0,
+        "type_line": "Artifact",
+        "colors": [],
+        "image_url": "https://cards.scryfall.io/normal/front/8/2/82a0b73d-9d49-412e-a57e-61b8fbf4c7ea.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/8/2/82a0b73d-9d49-412e-a57e-61b8fbf4c7ea.jpg",
+        "price": 0.35,
+        "is_commander": false
+      },
+      {
+        "name": "Fist of Suns",
+        "scryfall_id": "2a499b65-8a7e-4fbc-809b-826b8454d657",
+        "oracle_id": "12a34567-0001-4444-8888-000000000020",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{3}",
+        "cmc": 3.0,
+        "type_line": "Artifact",
+        "colors": [],
+        "image_url": "https://cards.scryfall.io/normal/front/2/a/2a499b65-8a7e-4fbc-809b-826b8454d657.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/2/a/2a499b65-8a7e-4fbc-809b-826b8454d657.jpg",
+        "price": 4.75,
+        "is_commander": false
+      },
+      {
+        "name": "Command Tower",
+        "scryfall_id": "d4757270-4cb5-45d2-a7d2-7c39fc21f822",
+        "oracle_id": "12a34567-0001-4444-8888-000000000021",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "",
+        "cmc": 0.0,
+        "type_line": "Land",
+        "colors": [],
+        "image_url": "https://cards.scryfall.io/normal/front/d/4/d4757270-4cb5-45d2-a7d2-7c39fc21f822.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/d/4/d4757270-4cb5-45d2-a7d2-7c39fc21f822.jpg",
+        "price": 0.5,
+        "is_commander": false
+      },
+      {
+        "name": "Haven of the Spirit Dragon",
+        "scryfall_id": "d4ba39dd-11fa-453d-8880-e1323799a032",
+        "oracle_id": "12a34567-0001-4444-8888-000000000022",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "",
+        "cmc": 0.0,
+        "type_line": "Land",
+        "colors": [],
+        "image_url": "https://cards.scryfall.io/normal/front/d/4/d4ba39dd-11fa-453d-8880-e1323799a032.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/d/4/d4ba39dd-11fa-453d-8880-e1323799a032.jpg",
+        "price": 2.8,
+        "is_commander": false
+      },
+      {
+        "name": "Crucible of the Spirit Dragon",
+        "scryfall_id": "3ee16a29-13f9-4d6d-893d-d61598f80459",
+        "oracle_id": "12a34567-0001-4444-8888-000000000023",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "",
+        "cmc": 0.0,
+        "type_line": "Land",
+        "colors": [],
+        "image_url": "https://cards.scryfall.io/normal/front/3/e/3ee16a29-13f9-4d6d-893d-d61598f80459.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/3/e/3ee16a29-13f9-4d6d-893d-d61598f80459.jpg",
+        "price": 0.45,
+        "is_commander": false
+      },
+      {
+        "name": "Exotic Orchard",
+        "scryfall_id": "1fed4587-aa5b-43ad-8d96-c67d87bc5c4b",
+        "oracle_id": "12a34567-0001-4444-8888-000000000024",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "",
+        "cmc": 0.0,
+        "type_line": "Land",
+        "colors": [],
+        "image_url": "https://cards.scryfall.io/normal/front/1/f/1fed4587-aa5b-43ad-8d96-c67d87bc5c4b.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/1/f/1fed4587-aa5b-43ad-8d96-c67d87bc5c4b.jpg",
+        "price": 0.4,
+        "is_commander": false
+      },
+      {
+        "name": "Path of Ancestry",
+        "scryfall_id": "84b7264e-28ff-4f40-848e-d9595f9d1c16",
+        "oracle_id": "12a34567-0001-4444-8888-000000000025",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "",
+        "cmc": 0.0,
+        "type_line": "Land",
+        "colors": [],
+        "image_url": "https://cards.scryfall.io/normal/front/8/4/84b7264e-28ff-4f40-848e-d9595f9d1c16.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/8/4/84b7264e-28ff-4f40-848e-d9595f9d1c16.jpg",
+        "price": 0.35,
+        "is_commander": false
+      },
+      {
+        "name": "Forest",
+        "scryfall_id": "a4a37f59-69b0-469b-8664-8975a5933d9c",
+        "oracle_id": "12a34567-0001-4444-8888-000000000026",
+        "count": 18,
+        "board_zone": "Mainboard",
+        "mana_cost": "",
+        "cmc": 0.0,
+        "type_line": "Basic Land \u2014 Forest",
+        "colors": [
+          "G"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/a/4/a4a37f59-69b0-469b-8664-8975a5933d9c.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/a/4/a4a37f59-69b0-469b-8664-8975a5933d9c.jpg",
+        "price": 0.1,
+        "is_commander": false
+      },
+      {
+        "name": "Mountain",
+        "scryfall_id": "4204d168-963a-4be0-802c-567a216fe8e2",
+        "oracle_id": "12a34567-0001-4444-8888-000000000027",
+        "count": 18,
+        "board_zone": "Mainboard",
+        "mana_cost": "",
+        "cmc": 0.0,
+        "type_line": "Basic Land \u2014 Mountain",
+        "colors": [
+          "R"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/4/2/4204d168-963a-4be0-802c-567a216fe8e2.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/4/2/4204d168-963a-4be0-802c-567a216fe8e2.jpg",
+        "price": 0.1,
+        "is_commander": false
+      },
+      {
+        "name": "Swamp",
+        "scryfall_id": "6f5f8486-d922-498c-8ea1-460eb00d027b",
+        "oracle_id": "12a34567-0001-4444-8888-000000000028",
+        "count": 15,
+        "board_zone": "Mainboard",
+        "mana_cost": "",
+        "cmc": 0.0,
+        "type_line": "Basic Land \u2014 Swamp",
+        "colors": [
+          "B"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/6/f/6f5f8486-d922-498c-8ea1-460eb00d027b.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/6/f/6f5f8486-d922-498c-8ea1-460eb00d027b.jpg",
+        "price": 0.1,
+        "is_commander": false
+      },
+      {
+        "name": "Island",
+        "scryfall_id": "31e2ec24-1100-47b7-b089-a35b1d4eb615",
+        "oracle_id": "12a34567-0001-4444-8888-000000000029",
+        "count": 11,
+        "board_zone": "Mainboard",
+        "mana_cost": "",
+        "cmc": 0.0,
+        "type_line": "Basic Land \u2014 Island",
+        "colors": [
+          "U"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/3/1/31e2ec24-1100-47b7-b089-a35b1d4eb615.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/3/1/31e2ec24-1100-47b7-b089-a35b1d4eb615.jpg",
+        "price": 0.1,
+        "is_commander": false
+      },
+      {
+        "name": "Plains",
+        "scryfall_id": "3ff9f8bc-8d9e-43ff-be42-63b789ef53c7",
+        "oracle_id": "12a34567-0001-4444-8888-000000000030",
+        "count": 10,
+        "board_zone": "Mainboard",
+        "mana_cost": "",
+        "cmc": 0.0,
+        "type_line": "Basic Land \u2014 Plains",
+        "colors": [
+          "W"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/3/f/3ff9f8bc-8d9e-43ff-be42-63b789ef53c7.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/3/f/3ff9f8bc-8d9e-43ff-be42-63b789ef53c7.jpg",
+        "price": 0.1,
+        "is_commander": false
+      }
+    ]
+  },
+  {
+    "id": "precon-c16-breed-lethality",
+    "name": "Breed Lethality",
+    "format": "Commander",
+    "source_type": "official",
+    "creator_name": "Wizards of the Coast",
+    "description": "Commander 2016 four-color counter growth deck led by Atraxa, Praetors' Voice, combining proliferate mechanics and +1/+1 counters.",
+    "release_code": "C16",
+    "release_year": 2016,
+    "featured_category": "Suggested Commanders",
+    "color_identity": [
+      "W",
+      "U",
+      "B",
+      "G"
+    ],
+    "card_count": 100,
+    "estimated_price": 120.15,
+    "upvotes": 420,
+    "downvotes": 18,
+    "score": 402,
+    "tags": [
+      "atraxa",
+      "counters",
+      "proliferate",
+      "four-color",
+      "c16"
+    ],
+    "commander": {
+      "name": "Atraxa, Praetors' Voice",
+      "scryfall_id": "d0d33d52-3d93-4e35-b909-d10d7ccce363",
+      "oracle_id": "812a3456-0002-4444-8888-000000000001",
+      "count": 1,
+      "board_zone": "Commander",
+      "mana_cost": "{G}{W}{U}{B}",
+      "cmc": 4.0,
+      "type_line": "Legendary Creature \u2014 Phyrexian Angel Horror",
+      "colors": [
+        "W",
+        "U",
+        "B",
+        "G"
+      ],
+      "image_url": "https://cards.scryfall.io/normal/front/d/0/d0d33d52-3d93-4e35-b909-d10d7ccce363.jpg",
+      "art_crop_url": "https://cards.scryfall.io/art_crop/front/d/0/d0d33d52-3d93-4e35-b909-d10d7ccce363.jpg",
+      "price": 19.5,
+      "is_commander": true
+    },
+    "cards": [
+      {
+        "name": "Deepglow Skate",
+        "scryfall_id": "4a6b2b70-f4c2-48d0-b880-846d55223701",
+        "oracle_id": "812a3456-0002-4444-8888-000000000002",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{4}{U}",
+        "cmc": 5.0,
+        "type_line": "Creature \u2014 Fish",
+        "colors": [
+          "U"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/4/a/4a6b2b70-f4c2-48d0-b880-846d55223701.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/4/a/4a6b2b70-f4c2-48d0-b880-846d55223701.jpg",
+        "price": 2.8,
+        "is_commander": false
+      },
+      {
+        "name": "Ghave, Guru of Spores",
+        "scryfall_id": "11590bf6-184e-4134-b1f6-7b8de5a23564",
+        "oracle_id": "812a3456-0002-4444-8888-000000000003",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{2}{G}{W}{B}",
+        "cmc": 5.0,
+        "type_line": "Legendary Creature \u2014 Fungus Shaman",
+        "colors": [
+          "G",
+          "W",
+          "B"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/1/1/11590bf6-184e-4134-b1f6-7b8de5a23564.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/1/1/11590bf6-184e-4134-b1f6-7b8de5a23564.jpg",
+        "price": 2.1,
+        "is_commander": false
+      },
+      {
+        "name": "Crystalline Crawler",
+        "scryfall_id": "02b90a7c-2649-4bc0-b3ae-231471a2504c",
+        "oracle_id": "812a3456-0002-4444-8888-000000000004",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{4}",
+        "cmc": 4.0,
+        "type_line": "Artifact Creature \u2014 Construct",
+        "colors": [],
+        "image_url": "https://cards.scryfall.io/normal/front/0/2/02b90a7c-2649-4bc0-b3ae-231471a2504c.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/0/2/02b90a7c-2649-4bc0-b3ae-231471a2504c.jpg",
+        "price": 2.45,
+        "is_commander": false
+      },
+      {
+        "name": "Fathom Mage",
+        "scryfall_id": "33d5948a-3d85-45ef-b12e-13c5f4948a8a",
+        "oracle_id": "812a3456-0002-4444-8888-000000000005",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{2}{G}{U}",
+        "cmc": 4.0,
+        "type_line": "Creature \u2014 Human Mermaid Wizard",
+        "colors": [
+          "G",
+          "U"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/3/3/33d5948a-3d85-45ef-b12e-13c5f4948a8a.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/3/3/33d5948a-3d85-45ef-b12e-13c5f4948a8a.jpg",
+        "price": 0.65,
+        "is_commander": false
+      },
+      {
+        "name": "Corpsejack Menace",
+        "scryfall_id": "37000e0d-34c9-46a2-a00d-80977c667123",
+        "oracle_id": "812a3456-0002-4444-8888-000000000006",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{2}{B}{G}",
+        "cmc": 4.0,
+        "type_line": "Creature \u2014 Fungus",
+        "colors": [
+          "B",
+          "G"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/3/7/37000e0d-34c9-46a2-a00d-80977c667123.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/3/7/37000e0d-34c9-46a2-a00d-80977c667123.jpg",
+        "price": 1.15,
+        "is_commander": false
+      },
+      {
+        "name": "Kalonian Hydra",
+        "scryfall_id": "a310086d-1fa0-46a6-af82-5875a2f02745",
+        "oracle_id": "812a3456-0002-4444-8888-000000000007",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{3}{G}{G}",
+        "cmc": 5.0,
+        "type_line": "Creature \u2014 Hydra",
+        "colors": [
+          "G"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/a/3/a310086d-1fa0-46a6-af82-5875a2f02745.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/a/3/a310086d-1fa0-46a6-af82-5875a2f02745.jpg",
+        "price": 7.5,
+        "is_commander": false
+      },
+      {
+        "name": "Vorel of the Hull Clade",
+        "scryfall_id": "a79ee57f-7465-4501-bae7-34ada32ab65f",
+        "oracle_id": "812a3456-0002-4444-8888-000000000008",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{1}{G}{U}",
+        "cmc": 3.0,
+        "type_line": "Legendary Creature \u2014 Human Merfolk",
+        "colors": [
+          "G",
+          "U"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/a/7/a79ee57f-7465-4501-bae7-34ada32ab65f.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/a/7/a79ee57f-7465-4501-bae7-34ada32ab65f.jpg",
+        "price": 0.75,
+        "is_commander": false
+      },
+      {
+        "name": "Forgotten Ancient",
+        "scryfall_id": "cbfba394-c79a-413b-b3b4-4885e7257430",
+        "oracle_id": "812a3456-0002-4444-8888-000000000009",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{3}{G}",
+        "cmc": 4.0,
+        "type_line": "Creature \u2014 Elemental",
+        "colors": [
+          "G"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/c/b/cbfba394-c79a-413b-b3b4-4885e7257430.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/c/b/cbfba394-c79a-413b-b3b4-4885e7257430.jpg",
+        "price": 1.25,
+        "is_commander": false
+      },
+      {
+        "name": "Cathars' Crusade",
+        "scryfall_id": "fbb70e7b-2a68-436e-b661-a3797c989650",
+        "oracle_id": "812a3456-0002-4444-8888-000000000010",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{3}{W}{W}",
+        "cmc": 5.0,
+        "type_line": "Enchantment",
+        "colors": [
+          "W"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/f/b/fbb70e7b-2a68-436e-b661-a3797c989650.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/f/b/fbb70e7b-2a68-436e-b661-a3797c989650.jpg",
+        "price": 6.2,
+        "is_commander": false
+      },
+      {
+        "name": "Hardened Scales",
+        "scryfall_id": "01fc060f-3397-4404-82a1-83a6779490d5",
+        "oracle_id": "812a3456-0002-4444-8888-000000000011",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{G}",
+        "cmc": 1.0,
+        "type_line": "Enchantment",
+        "colors": [
+          "G"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/0/1/01fc060f-3397-4404-82a1-83a6779490d5.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/0/1/01fc060f-3397-4404-82a1-83a6779490d5.jpg",
+        "price": 2.8,
+        "is_commander": false
+      },
+      {
+        "name": "Inexorable Tide",
+        "scryfall_id": "7b54244d-8978-43ea-9d37-9d19000742f7",
+        "oracle_id": "812a3456-0002-4444-8888-000000000012",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{3}{U}{U}",
+        "cmc": 5.0,
+        "type_line": "Enchantment",
+        "colors": [
+          "U"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/7/b/7b54244d-8978-43ea-9d37-9d19000742f7.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/7/b/7b54244d-8978-43ea-9d37-9d19000742f7.jpg",
+        "price": 4.25,
+        "is_commander": false
+      },
+      {
+        "name": "Merciless Eviction",
+        "scryfall_id": "f160f304-64a2-4211-afa6-65acb5b686f7",
+        "oracle_id": "812a3456-0002-4444-8888-000000000013",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{4}{W}{B}",
+        "cmc": 6.0,
+        "type_line": "Sorcery",
+        "colors": [
+          "W",
+          "B"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/f/1/f160f304-64a2-4211-afa6-65acb5b686f7.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/f/1/f160f304-64a2-4211-afa6-65acb5b686f7.jpg",
+        "price": 0.95,
+        "is_commander": false
+      },
+      {
+        "name": "Swords to Plowshares",
+        "scryfall_id": "63e194ea-58b2-4d22-b5e1-80f4f9df9469",
+        "oracle_id": "812a3456-0002-4444-8888-000000000014",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{W}",
+        "cmc": 1.0,
+        "type_line": "Instant",
+        "colors": [
+          "W"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/6/3/63e194ea-58b2-4d22-b5e1-80f4f9df9469.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/6/3/63e194ea-58b2-4d22-b5e1-80f4f9df9469.jpg",
+        "price": 1.6,
+        "is_commander": false
+      },
+      {
+        "name": "Mortify",
+        "scryfall_id": "ebf6c0fa-5c6b-4447-a384-426b67253a5c",
+        "oracle_id": "812a3456-0002-4444-8888-000000000015",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{1}{W}{B}",
+        "cmc": 3.0,
+        "type_line": "Instant",
+        "colors": [
+          "W",
+          "B"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/e/b/ebf6c0fa-5c6b-4447-a384-426b67253a5c.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/e/b/ebf6c0fa-5c6b-4447-a384-426b67253a5c.jpg",
+        "price": 0.3,
+        "is_commander": false
+      },
+      {
+        "name": "Putrefy",
+        "scryfall_id": "36e2619d-bf8a-4416-86c5-288219198650",
+        "oracle_id": "812a3456-0002-4444-8888-000000000016",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{1}{B}{G}",
+        "cmc": 3.0,
+        "type_line": "Instant",
+        "colors": [
+          "B",
+          "G"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/3/6/36e2619d-bf8a-4416-86c5-288219198650.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/3/6/36e2619d-bf8a-4416-86c5-288219198650.jpg",
+        "price": 0.35,
+        "is_commander": false
+      },
+      {
+        "name": "Cultivate",
+        "scryfall_id": "6fe67905-59b9-44d4-9d41-c8526ee55d64",
+        "oracle_id": "12a34567-0001-4444-8888-000000000015",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{2}{G}",
+        "cmc": 3.0,
+        "type_line": "Sorcery",
+        "colors": [
+          "G"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/6/f/6fe67905-59b9-44d4-9d41-c8526ee55d64.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/6/f/6fe67905-59b9-44d4-9d41-c8526ee55d64.jpg",
+        "price": 0.95,
+        "is_commander": false
+      },
+      {
+        "name": "Sol Ring",
+        "scryfall_id": "aa626895-d166-4a49-8c67-6228383f98c8",
+        "oracle_id": "1970ae46-d249-4113-98fe-c020d5885c34",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{1}",
+        "cmc": 1.0,
+        "type_line": "Artifact",
+        "colors": [],
+        "image_url": "https://cards.scryfall.io/normal/front/a/a/aa626895-d166-4a49-8c67-6228383f98c8.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/a/a/aa626895-d166-4a49-8c67-6228383f98c8.jpg",
+        "price": 2.5,
+        "is_commander": false
+      },
+      {
+        "name": "Arcane Signet",
+        "scryfall_id": "c22ca0fb-365f-45b6-bc21-0bfacfc4adbe",
+        "oracle_id": "12a34567-0001-4444-8888-000000000018",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{2}",
+        "cmc": 2.0,
+        "type_line": "Artifact",
+        "colors": [],
+        "image_url": "https://cards.scryfall.io/normal/front/c/2/c22ca0fb-365f-45b6-bc21-0bfacfc4adbe.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/c/2/c22ca0fb-365f-45b6-bc21-0bfacfc4adbe.jpg",
+        "price": 1.1,
+        "is_commander": false
+      },
+      {
+        "name": "Astral Cornucopia",
+        "scryfall_id": "182864e2-81ef-41bc-94cd-b0ea67f60bda",
+        "oracle_id": "812a3456-0002-4444-8888-000000000017",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{X}{X}{X}",
+        "cmc": 0.0,
+        "type_line": "Artifact",
+        "colors": [],
+        "image_url": "https://cards.scryfall.io/normal/front/1/8/182864e2-81ef-41bc-94cd-b0ea67f60bda.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/1/8/182864e2-81ef-41bc-94cd-b0ea67f60bda.jpg",
+        "price": 1.5,
+        "is_commander": false
+      },
+      {
+        "name": "Fellwar Stone",
+        "scryfall_id": "f80b9557-4182-4c28-98e3-09723ec0b209",
+        "oracle_id": "812a3456-0002-4444-8888-000000000018",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{2}",
+        "cmc": 2.0,
+        "type_line": "Artifact",
+        "colors": [],
+        "image_url": "https://cards.scryfall.io/normal/front/f/8/f80b9557-4182-4c28-98e3-09723ec0b209.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/f/8/f80b9557-4182-4c28-98e3-09723ec0b209.jpg",
+        "price": 0.9,
+        "is_commander": false
+      },
+      {
+        "name": "Command Tower",
+        "scryfall_id": "d4757270-4cb5-45d2-a7d2-7c39fc21f822",
+        "oracle_id": "12a34567-0001-4444-8888-000000000021",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "",
+        "cmc": 0.0,
+        "type_line": "Land",
+        "colors": [],
+        "image_url": "https://cards.scryfall.io/normal/front/d/4/d4757270-4cb5-45d2-a7d2-7c39fc21f822.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/d/4/d4757270-4cb5-45d2-a7d2-7c39fc21f822.jpg",
+        "price": 0.5,
+        "is_commander": false
+      },
+      {
+        "name": "Exotic Orchard",
+        "scryfall_id": "1fed4587-aa5b-43ad-8d96-c67d87bc5c4b",
+        "oracle_id": "12a34567-0001-4444-8888-000000000024",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "",
+        "cmc": 0.0,
+        "type_line": "Land",
+        "colors": [],
+        "image_url": "https://cards.scryfall.io/normal/front/1/f/1fed4587-aa5b-43ad-8d96-c67d87bc5c4b.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/1/f/1fed4587-aa5b-43ad-8d96-c67d87bc5c4b.jpg",
+        "price": 0.4,
+        "is_commander": false
+      },
+      {
+        "name": "Murmuring Bosk",
+        "scryfall_id": "eb5ab5c8-c6f3-4d44-9388-c7e6c989201a",
+        "oracle_id": "812a3456-0002-4444-8888-000000000019",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "",
+        "cmc": 0.0,
+        "type_line": "Land \u2014 Forest",
+        "colors": [
+          "G"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/e/b/eb5ab5c8-c6f3-4d44-9388-c7e6c989201a.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/e/b/eb5ab5c8-c6f3-4d44-9388-c7e6c989201a.jpg",
+        "price": 1.5,
+        "is_commander": false
+      },
+      {
+        "name": "Overgrown Tomb",
+        "scryfall_id": "911e03a9-e260-4ea2-8051-5b72e5052994",
+        "oracle_id": "812a3456-0002-4444-8888-000000000020",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "",
+        "cmc": 0.0,
+        "type_line": "Land \u2014 Swamp Forest",
+        "colors": [
+          "B",
+          "G"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/9/1/911e03a9-e260-4ea2-8051-5b72e5052994.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/9/1/911e03a9-e260-4ea2-8051-5b72e5052994.jpg",
+        "price": 12.0,
+        "is_commander": false
+      },
+      {
+        "name": "Watery Grave",
+        "scryfall_id": "4a0ee994-2fb4-4416-9c7c-47317e08ec73",
+        "oracle_id": "812a3456-0002-4444-8888-000000000021",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "",
+        "cmc": 0.0,
+        "type_line": "Land \u2014 Island Swamp",
+        "colors": [
+          "U",
+          "B"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/4/a/4a0ee994-2fb4-4416-9c7c-47317e08ec73.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/4/a/4a0ee994-2fb4-4416-9c7c-47317e08ec73.jpg",
+        "price": 13.5,
+        "is_commander": false
+      },
+      {
+        "name": "Godless Shrine",
+        "scryfall_id": "05bf1246-816d-4952-b132-ecbbfa879509",
+        "oracle_id": "812a3456-0002-4444-8888-000000000022",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "",
+        "cmc": 0.0,
+        "type_line": "Land \u2014 Plains Swamp",
+        "colors": [
+          "W",
+          "B"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/0/5/05bf1246-816d-4952-b132-ecbbfa879509.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/0/5/05bf1246-816d-4952-b132-ecbbfa879509.jpg",
+        "price": 11.0,
+        "is_commander": false
+      },
+      {
+        "name": "Temple Garden",
+        "scryfall_id": "df4a93f7-cb8b-40f4-a034-7ce71bb57ea7",
+        "oracle_id": "812a3456-0002-4444-8888-000000000023",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "",
+        "cmc": 0.0,
+        "type_line": "Land \u2014 Forest Plains",
+        "colors": [
+          "G",
+          "W"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/d/f/df4a93f7-cb8b-40f4-a034-7ce71bb57ea7.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/d/f/df4a93f7-cb8b-40f4-a034-7ce71bb57ea7.jpg",
+        "price": 12.5,
+        "is_commander": false
+      },
+      {
+        "name": "Forest",
+        "scryfall_id": "a4a37f59-69b0-469b-8664-8975a5933d9c",
+        "oracle_id": "12a34567-0001-4444-8888-000000000026",
+        "count": 18,
+        "board_zone": "Mainboard",
+        "mana_cost": "",
+        "cmc": 0.0,
+        "type_line": "Basic Land \u2014 Forest",
+        "colors": [
+          "G"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/a/4/a4a37f59-69b0-469b-8664-8975a5933d9c.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/a/4/a4a37f59-69b0-469b-8664-8975a5933d9c.jpg",
+        "price": 0.1,
+        "is_commander": false
+      },
+      {
+        "name": "Plains",
+        "scryfall_id": "3ff9f8bc-8d9e-43ff-be42-63b789ef53c7",
+        "oracle_id": "12a34567-0001-4444-8888-000000000030",
+        "count": 18,
+        "board_zone": "Mainboard",
+        "mana_cost": "",
+        "cmc": 0.0,
+        "type_line": "Basic Land \u2014 Plains",
+        "colors": [
+          "W"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/3/f/3ff9f8bc-8d9e-43ff-be42-63b789ef53c7.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/3/f/3ff9f8bc-8d9e-43ff-be42-63b789ef53c7.jpg",
+        "price": 0.1,
+        "is_commander": false
+      },
+      {
+        "name": "Island",
+        "scryfall_id": "31e2ec24-1100-47b7-b089-a35b1d4eb615",
+        "oracle_id": "12a34567-0001-4444-8888-000000000029",
+        "count": 18,
+        "board_zone": "Mainboard",
+        "mana_cost": "",
+        "cmc": 0.0,
+        "type_line": "Basic Land \u2014 Island",
+        "colors": [
+          "U"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/3/1/31e2ec24-1100-47b7-b089-a35b1d4eb615.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/3/1/31e2ec24-1100-47b7-b089-a35b1d4eb615.jpg",
+        "price": 0.1,
+        "is_commander": false
+      },
+      {
+        "name": "Swamp",
+        "scryfall_id": "6f5f8486-d922-498c-8ea1-460eb00d027b",
+        "oracle_id": "12a34567-0001-4444-8888-000000000028",
+        "count": 18,
+        "board_zone": "Mainboard",
+        "mana_cost": "",
+        "cmc": 0.0,
+        "type_line": "Basic Land \u2014 Swamp",
+        "colors": [
+          "B"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/6/f/6f5f8486-d922-498c-8ea1-460eb00d027b.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/6/f/6f5f8486-d922-498c-8ea1-460eb00d027b.jpg",
+        "price": 0.1,
+        "is_commander": false
+      }
+    ]
+  },
+  {
+    "id": "precon-moc-cavalry-charge",
+    "name": "Cavalry Charge",
+    "format": "Commander",
+    "source_type": "official",
+    "creator_name": "Wizards of the Coast",
+    "description": "March of the Machine Commander deck starring Sidar Jabari of Zhalfir, deploying knight tribal synergies, eminence card filtering, and reanimation.",
+    "release_code": "MOC",
+    "release_year": 2023,
+    "featured_category": "Suggested Commanders",
+    "color_identity": [
+      "W",
+      "U",
+      "B"
+    ],
+    "card_count": 100,
+    "estimated_price": 52.8,
+    "upvotes": 188,
+    "downvotes": 6,
+    "score": 182,
+    "tags": [
+      "knights",
+      "tribal",
+      "esper",
+      "eminence",
+      "moc"
+    ],
+    "commander": {
+      "name": "Sidar Jabari of Zhalfir",
+      "scryfall_id": "38727710-e7b5-4704-9dda-016bad61780c",
+      "oracle_id": "722a3456-0003-4444-8888-000000000001",
+      "count": 1,
+      "board_zone": "Commander",
+      "mana_cost": "{1}{W}{U}{B}",
+      "cmc": 4.0,
+      "type_line": "Legendary Creature \u2014 Human Knight",
+      "colors": [
+        "W",
+        "U",
+        "B"
+      ],
+      "image_url": "https://cards.scryfall.io/normal/front/3/8/38727710-e7b5-4704-9dda-016bad61780c.jpg",
+      "art_crop_url": "https://cards.scryfall.io/art_crop/front/3/8/38727710-e7b5-4704-9dda-016bad61780c.jpg",
+      "price": 8.75,
+      "is_commander": true
+    },
+    "cards": [
+      {
+        "name": "Herald of Hoofbeats",
+        "scryfall_id": "7beebc99-b345-4334-a0ae-79ab7e5f773d",
+        "oracle_id": "722a3456-0003-4444-8888-000000000002",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{3}{U}",
+        "cmc": 4.0,
+        "type_line": "Creature \u2014 Horse Knight",
+        "colors": [
+          "U"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/7/b/7beebc99-b345-4334-a0ae-79ab7e5f773d.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/7/b/7beebc99-b345-4334-a0ae-79ab7e5f773d.jpg",
+        "price": 5.5,
+        "is_commander": false
+      },
+      {
+        "name": "Knights' Charge",
+        "scryfall_id": "6b86f7db-ae1d-49fe-a9c5-488bce30ac88",
+        "oracle_id": "722a3456-0003-4444-8888-000000000003",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{1}{W}{B}",
+        "cmc": 3.0,
+        "type_line": "Enchantment",
+        "colors": [
+          "W",
+          "B"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/6/b/6b86f7db-ae1d-49fe-a9c5-488bce30ac88.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/6/b/6b86f7db-ae1d-49fe-a9c5-488bce30ac88.jpg",
+        "price": 2.2,
+        "is_commander": false
+      },
+      {
+        "name": "Vodalian Wave-Knight",
+        "scryfall_id": "b0a23368-2a28-48b4-b892-71be546a3949",
+        "oracle_id": "722a3456-0003-4444-8888-000000000004",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{1}{W}{U}{B}",
+        "cmc": 4.0,
+        "type_line": "Creature \u2014 Merfolk Knight",
+        "colors": [
+          "W",
+          "U",
+          "B"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/b/0/b0a23368-2a28-48b4-b892-71be546a3949.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/b/0/b0a23368-2a28-48b4-b892-71be546a3949.jpg",
+        "price": 3.1,
+        "is_commander": false
+      },
+      {
+        "name": "Kinsbaile Cavalier",
+        "scryfall_id": "bcda21e6-f422-4882-a8c6-2febf53718e3",
+        "oracle_id": "722a3456-0003-4444-8888-000000000005",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{3}{W}",
+        "cmc": 4.0,
+        "type_line": "Creature \u2014 Kithkin Knight",
+        "colors": [
+          "W"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/b/c/bcda21e6-f422-4882-a8c6-2febf53718e3.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/b/c/bcda21e6-f422-4882-a8c6-2febf53718e3.jpg",
+        "price": 4.25,
+        "is_commander": false
+      },
+      {
+        "name": "Aryel, Knight of Windgrace",
+        "scryfall_id": "e075e3d2-4a06-4628-b3e7-46f0082f4229",
+        "oracle_id": "722a3456-0003-4444-8888-000000000006",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{2}{W}{B}",
+        "cmc": 4.0,
+        "type_line": "Legendary Creature \u2014 Human Knight",
+        "colors": [
+          "W",
+          "B"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/e/0/e075e3d2-4a06-4628-b3e7-46f0082f4229.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/e/0/e075e3d2-4a06-4628-b3e7-46f0082f4229.jpg",
+        "price": 0.75,
+        "is_commander": false
+      },
+      {
+        "name": "Midnight Reaper",
+        "scryfall_id": "ce14fbbf-fb85-4812-92b3-1c765f421547",
+        "oracle_id": "722a3456-0003-4444-8888-000000000007",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{2}{B}",
+        "cmc": 3.0,
+        "type_line": "Creature \u2014 Zombie Knight",
+        "colors": [
+          "B"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/c/e/ce14fbbf-fb85-4812-92b3-1c765f421547.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/c/e/ce14fbbf-fb85-4812-92b3-1c765f421547.jpg",
+        "price": 0.65,
+        "is_commander": false
+      },
+      {
+        "name": "Corpse Knight",
+        "scryfall_id": "8b45117b-8369-48fc-8e5d-8986e662d123",
+        "oracle_id": "722a3456-0003-4444-8888-000000000008",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{W}{B}",
+        "cmc": 2.0,
+        "type_line": "Creature \u2014 Zombie Knight",
+        "colors": [
+          "W",
+          "B"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/8/b/8b45117b-8369-48fc-8e5d-8986e662d123.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/8/b/8b45117b-8369-48fc-8e5d-8986e662d123.jpg",
+        "price": 0.4,
+        "is_commander": false
+      },
+      {
+        "name": "Knight Exemplar",
+        "scryfall_id": "129e61c0-3ea1-49c5-bed4-9f6db17f7847",
+        "oracle_id": "722a3456-0003-4444-8888-000000000009",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{1}{W}{W}",
+        "cmc": 3.0,
+        "type_line": "Creature \u2014 Human Knight",
+        "colors": [
+          "W"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/1/2/129e61c0-3ea1-49c5-bed4-9f6db17f7847.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/1/2/129e61c0-3ea1-49c5-bed4-9f6db17f7847.jpg",
+        "price": 2.8,
+        "is_commander": false
+      },
+      {
+        "name": "Silverwing Squadron",
+        "scryfall_id": "4348513e-170a-4e0a-9d32-9b940403176d",
+        "oracle_id": "722a3456-0003-4444-8888-000000000010",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{5}{W}",
+        "cmc": 6.0,
+        "type_line": "Creature \u2014 Human Knight",
+        "colors": [
+          "W"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/4/3/4348513e-170a-4e0a-9d32-9b940403176d.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/4/3/4348513e-170a-4e0a-9d32-9b940403176d.jpg",
+        "price": 0.5,
+        "is_commander": false
+      },
+      {
+        "name": "Valiant Knight",
+        "scryfall_id": "6ae7650c-7262-4f49-9c6a-16cb014d18c5",
+        "oracle_id": "722a3456-0003-4444-8888-000000000011",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{3}{W}",
+        "cmc": 4.0,
+        "type_line": "Creature \u2014 Human Knight",
+        "colors": [
+          "W"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/6/a/6ae7650c-7262-4f49-9c6a-16cb014d18c5.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/6/a/6ae7650c-7262-4f49-9c6a-16cb014d18c5.jpg",
+        "price": 0.45,
+        "is_commander": false
+      },
+      {
+        "name": "Swords to Plowshares",
+        "scryfall_id": "63e194ea-58b2-4d22-b5e1-80f4f9df9469",
+        "oracle_id": "812a3456-0002-4444-8888-000000000014",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{W}",
+        "cmc": 1.0,
+        "type_line": "Instant",
+        "colors": [
+          "W"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/6/3/63e194ea-58b2-4d22-b5e1-80f4f9df9469.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/6/3/63e194ea-58b2-4d22-b5e1-80f4f9df9469.jpg",
+        "price": 1.6,
+        "is_commander": false
+      },
+      {
+        "name": "Despark",
+        "scryfall_id": "837d4771-509b-4395-8120-1a100570b556",
+        "oracle_id": "722a3456-0003-4444-8888-000000000012",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{W}{B}",
+        "cmc": 2.0,
+        "type_line": "Instant",
+        "colors": [
+          "W",
+          "B"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/8/3/837d4771-509b-4395-8120-1a100570b556.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/8/3/837d4771-509b-4395-8120-1a100570b556.jpg",
+        "price": 0.35,
+        "is_commander": false
+      },
+      {
+        "name": "Distant Melody",
+        "scryfall_id": "24f64d83-1668-43d0-9794-0a5338b9713d",
+        "oracle_id": "722a3456-0003-4444-8888-000000000013",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{3}{U}",
+        "cmc": 4.0,
+        "type_line": "Sorcery",
+        "colors": [
+          "U"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/2/4/24f64d83-1668-43d0-9794-0a5338b9713d.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/2/4/24f64d83-1668-43d0-9794-0a5338b9713d.jpg",
+        "price": 0.4,
+        "is_commander": false
+      },
+      {
+        "name": "Time Wipe",
+        "scryfall_id": "62c59475-6f15-48d2-b105-f49901f20d44",
+        "oracle_id": "722a3456-0003-4444-8888-000000000014",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{2}{W}{W}{U}",
+        "cmc": 5.0,
+        "type_line": "Sorcery",
+        "colors": [
+          "W",
+          "U"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/6/2/62c59475-6f15-48d2-b105-f49901f20d44.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/6/2/62c59475-6f15-48d2-b105-f49901f20d44.jpg",
+        "price": 0.45,
+        "is_commander": false
+      },
+      {
+        "name": "Sol Ring",
+        "scryfall_id": "aa626895-d166-4a49-8c67-6228383f98c8",
+        "oracle_id": "1970ae46-d249-4113-98fe-c020d5885c34",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{1}",
+        "cmc": 1.0,
+        "type_line": "Artifact",
+        "colors": [],
+        "image_url": "https://cards.scryfall.io/normal/front/a/a/aa626895-d166-4a49-8c67-6228383f98c8.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/a/a/aa626895-d166-4a49-8c67-6228383f98c8.jpg",
+        "price": 2.5,
+        "is_commander": false
+      },
+      {
+        "name": "Arcane Signet",
+        "scryfall_id": "c22ca0fb-365f-45b6-bc21-0bfacfc4adbe",
+        "oracle_id": "12a34567-0001-4444-8888-000000000018",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{2}",
+        "cmc": 2.0,
+        "type_line": "Artifact",
+        "colors": [],
+        "image_url": "https://cards.scryfall.io/normal/front/c/2/c22ca0fb-365f-45b6-bc21-0bfacfc4adbe.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/c/2/c22ca0fb-365f-45b6-bc21-0bfacfc4adbe.jpg",
+        "price": 1.1,
+        "is_commander": false
+      },
+      {
+        "name": "Talisman of Dominance",
+        "scryfall_id": "41505d10-85f6-4965-ba75-d604295503a4",
+        "oracle_id": "722a3456-0003-4444-8888-000000000015",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{2}",
+        "cmc": 2.0,
+        "type_line": "Artifact",
+        "colors": [],
+        "image_url": "https://cards.scryfall.io/normal/front/4/1/41505d10-85f6-4965-ba75-d604295503a4.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/4/1/41505d10-85f6-4965-ba75-d604295503a4.jpg",
+        "price": 1.25,
+        "is_commander": false
+      },
+      {
+        "name": "Talisman of Hierarchy",
+        "scryfall_id": "824f24ef-9686-4e5a-a235-970f81d11ff9",
+        "oracle_id": "722a3456-0003-4444-8888-000000000016",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{2}",
+        "cmc": 2.0,
+        "type_line": "Artifact",
+        "colors": [],
+        "image_url": "https://cards.scryfall.io/normal/front/8/2/824f24ef-9686-4e5a-a235-970f81d11ff9.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/8/2/824f24ef-9686-4e5a-a235-970f81d11ff9.jpg",
+        "price": 1.2,
+        "is_commander": false
+      },
+      {
+        "name": "Talisman of Progress",
+        "scryfall_id": "3223ea12-334d-44c9-b972-24a3731ca2e4",
+        "oracle_id": "722a3456-0003-4444-8888-000000000017",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{2}",
+        "cmc": 2.0,
+        "type_line": "Artifact",
+        "colors": [],
+        "image_url": "https://cards.scryfall.io/normal/front/3/2/3223ea12-334d-44c9-b972-24a3731ca2e4.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/3/2/3223ea12-334d-44c9-b972-24a3731ca2e4.jpg",
+        "price": 1.45,
+        "is_commander": false
+      },
+      {
+        "name": "Command Tower",
+        "scryfall_id": "d4757270-4cb5-45d2-a7d2-7c39fc21f822",
+        "oracle_id": "12a34567-0001-4444-8888-000000000021",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "",
+        "cmc": 0.0,
+        "type_line": "Land",
+        "colors": [],
+        "image_url": "https://cards.scryfall.io/normal/front/d/4/d4757270-4cb5-45d2-a7d2-7c39fc21f822.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/d/4/d4757270-4cb5-45d2-a7d2-7c39fc21f822.jpg",
+        "price": 0.5,
+        "is_commander": false
+      },
+      {
+        "name": "Caves of Koilos",
+        "scryfall_id": "9c222ff4-0359-4ae3-9d48-3a9a3f2aa610",
+        "oracle_id": "722a3456-0003-4444-8888-000000000018",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "",
+        "cmc": 0.0,
+        "type_line": "Land",
+        "colors": [],
+        "image_url": "https://cards.scryfall.io/normal/front/9/c/9c222ff4-0359-4ae3-9d48-3a9a3f2aa610.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/9/c/9c222ff4-0359-4ae3-9d48-3a9a3f2aa610.jpg",
+        "price": 0.85,
+        "is_commander": false
+      },
+      {
+        "name": "Adarkar Wastes",
+        "scryfall_id": "08ae1037-6f70-41a9-b75e-98fa9a2152c8",
+        "oracle_id": "722a3456-0003-4444-8888-000000000019",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "",
+        "cmc": 0.0,
+        "type_line": "Land",
+        "colors": [],
+        "image_url": "https://cards.scryfall.io/normal/front/0/8/08ae1037-6f70-41a9-b75e-98fa9a2152c8.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/0/8/08ae1037-6f70-41a9-b75e-98fa9a2152c8.jpg",
+        "price": 1.75,
+        "is_commander": false
+      },
+      {
+        "name": "Underground River",
+        "scryfall_id": "eb52643a-7a1b-4171-876a-37e7502422ec",
+        "oracle_id": "722a3456-0003-4444-8888-000000000020",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "",
+        "cmc": 0.0,
+        "type_line": "Land",
+        "colors": [],
+        "image_url": "https://cards.scryfall.io/normal/front/e/b/eb52643a-7a1b-4171-876a-37e7502422ec.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/e/b/eb52643a-7a1b-4171-876a-37e7502422ec.jpg",
+        "price": 2.2,
+        "is_commander": false
+      },
+      {
+        "name": "Path of Ancestry",
+        "scryfall_id": "84b7264e-28ff-4f40-848e-d9595f9d1c16",
+        "oracle_id": "12a34567-0001-4444-8888-000000000025",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "",
+        "cmc": 0.0,
+        "type_line": "Land",
+        "colors": [],
+        "image_url": "https://cards.scryfall.io/normal/front/8/4/84b7264e-28ff-4f40-848e-d9595f9d1c16.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/8/4/84b7264e-28ff-4f40-848e-d9595f9d1c16.jpg",
+        "price": 0.35,
+        "is_commander": false
+      },
+      {
+        "name": "Plains",
+        "scryfall_id": "3ff9f8bc-8d9e-43ff-be42-63b789ef53c7",
+        "oracle_id": "12a34567-0001-4444-8888-000000000030",
+        "count": 27,
+        "board_zone": "Mainboard",
+        "mana_cost": "",
+        "cmc": 0.0,
+        "type_line": "Basic Land \u2014 Plains",
+        "colors": [
+          "W"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/3/f/3ff9f8bc-8d9e-43ff-be42-63b789ef53c7.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/3/f/3ff9f8bc-8d9e-43ff-be42-63b789ef53c7.jpg",
+        "price": 0.1,
+        "is_commander": false
+      },
+      {
+        "name": "Island",
+        "scryfall_id": "31e2ec24-1100-47b7-b089-a35b1d4eb615",
+        "oracle_id": "12a34567-0001-4444-8888-000000000029",
+        "count": 25,
+        "board_zone": "Mainboard",
+        "mana_cost": "",
+        "cmc": 0.0,
+        "type_line": "Basic Land \u2014 Island",
+        "colors": [
+          "U"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/3/1/31e2ec24-1100-47b7-b089-a35b1d4eb615.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/3/1/31e2ec24-1100-47b7-b089-a35b1d4eb615.jpg",
+        "price": 0.1,
+        "is_commander": false
+      },
+      {
+        "name": "Swamp",
+        "scryfall_id": "6f5f8486-d922-498c-8ea1-460eb00d027b",
+        "oracle_id": "12a34567-0001-4444-8888-000000000028",
+        "count": 23,
+        "board_zone": "Mainboard",
+        "mana_cost": "",
+        "cmc": 0.0,
+        "type_line": "Basic Land \u2014 Swamp",
+        "colors": [
+          "B"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/6/f/6f5f8486-d922-498c-8ea1-460eb00d027b.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/6/f/6f5f8486-d922-498c-8ea1-460eb00d027b.jpg",
+        "price": 0.1,
+        "is_commander": false
+      }
+    ]
+  },
+  {
+    "id": "precon-lcc-explorers-of-the-deep",
+    "name": "Explorers of the Deep",
+    "format": "Commander",
+    "source_type": "official",
+    "creator_name": "Wizards of the Coast",
+    "description": "The Lost Caverns of Ixalan Commander deck commanded by Hakbal of the Surging Soul, combining relentless explore triggers with Merfolk tribal lords.",
+    "release_code": "LCC",
+    "release_year": 2023,
+    "featured_category": "Suggested Commanders",
+    "color_identity": [
+      "G",
+      "U"
+    ],
+    "card_count": 101,
+    "estimated_price": 44.05,
+    "upvotes": 215,
+    "downvotes": 9,
+    "score": 206,
+    "tags": [
+      "merfolk",
+      "explore",
+      "simic",
+      "counters",
+      "lcc"
+    ],
+    "commander": {
+      "name": "Hakbal of the Surging Soul",
+      "scryfall_id": "25d88689-d450-4828-912b-3a25ef14d799",
+      "oracle_id": "633a3456-0004-4444-8888-000000000001",
+      "count": 1,
+      "board_zone": "Commander",
+      "mana_cost": "{2}{G}{U}",
+      "cmc": 4.0,
+      "type_line": "Legendary Creature \u2014 Merfolk Scout",
+      "colors": [
+        "G",
+        "U"
+      ],
+      "image_url": "https://cards.scryfall.io/normal/front/2/5/25d88689-d450-4828-912b-3a25ef14d799.jpg",
+      "art_crop_url": "https://cards.scryfall.io/art_crop/front/2/5/25d88689-d450-4828-912b-3a25ef14d799.jpg",
+      "price": 4.25,
+      "is_commander": true
+    },
+    "cards": [
+      {
+        "name": "Kumena, Tyrant of Orazca",
+        "scryfall_id": "a3a22839-142a-4161-8ff8-e6b0a1d60769",
+        "oracle_id": "633a3456-0004-4444-8888-000000000002",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{1}{G}{U}",
+        "cmc": 3.0,
+        "type_line": "Legendary Creature \u2014 Merfolk Shaman",
+        "colors": [
+          "G",
+          "U"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/a/3/a3a22839-142a-4161-8ff8-e6b0a1d60769.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/a/3/a3a22839-142a-4161-8ff8-e6b0a1d60769.jpg",
+        "price": 2.8,
+        "is_commander": false
+      },
+      {
+        "name": "Deeproot Elite",
+        "scryfall_id": "c882a522-5b0b-4764-b107-03383a6b8707",
+        "oracle_id": "633a3456-0004-4444-8888-000000000003",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{1}{G}",
+        "cmc": 2.0,
+        "type_line": "Creature \u2014 Merfolk Warrior",
+        "colors": [
+          "G"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/c/8/c882a522-5b0b-4764-b107-03383a6b8707.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/c/8/c882a522-5b0b-4764-b107-03383a6b8707.jpg",
+        "price": 1.45,
+        "is_commander": false
+      },
+      {
+        "name": "Singer of Swift Rivers",
+        "scryfall_id": "e9b2073d-9d49-412e-a57e-61b8fbf4c7ea",
+        "oracle_id": "633a3456-0004-4444-8888-000000000004",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{1}{G}{U}",
+        "cmc": 3.0,
+        "type_line": "Creature \u2014 Merfolk Shaman",
+        "colors": [
+          "G",
+          "U"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/e/9/e9b2073d-9d49-412e-a57e-61b8fbf4c7ea.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/e/9/e9b2073d-9d49-412e-a57e-61b8fbf4c7ea.jpg",
+        "price": 1.1,
+        "is_commander": false
+      },
+      {
+        "name": "Branching Evolution",
+        "scryfall_id": "10498e57-2e47-4ca5-9822-231163545031",
+        "oracle_id": "633a3456-0004-4444-8888-000000000005",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{1}{G}{G}",
+        "cmc": 3.0,
+        "type_line": "Enchantment",
+        "colors": [
+          "G"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/1/0/10498e57-2e47-4ca5-9822-231163545031.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/1/0/10498e57-2e47-4ca5-9822-231163545031.jpg",
+        "price": 3.5,
+        "is_commander": false
+      },
+      {
+        "name": "Topography Tracker",
+        "scryfall_id": "81fb42ea-28ff-4f40-848e-d9595f9d1c16",
+        "oracle_id": "633a3456-0004-4444-8888-000000000006",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{3}{G}",
+        "cmc": 4.0,
+        "type_line": "Creature \u2014 Merfolk Scout",
+        "colors": [
+          "G"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/8/1/81fb42ea-28ff-4f40-848e-d9595f9d1c16.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/8/1/81fb42ea-28ff-4f40-848e-d9595f9d1c16.jpg",
+        "price": 2.1,
+        "is_commander": false
+      },
+      {
+        "name": "Master of the Pearl Trident",
+        "scryfall_id": "b7f3069d-7937-407f-97da-310d07cb2ced",
+        "oracle_id": "633a3456-0004-4444-8888-000000000007",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{U}{U}",
+        "cmc": 2.0,
+        "type_line": "Creature \u2014 Merfolk",
+        "colors": [
+          "U"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/b/7/b7f3069d-7937-407f-97da-310d07cb2ced.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/b/7/b7f3069d-7937-407f-97da-310d07cb2ced.jpg",
+        "price": 1.85,
+        "is_commander": false
+      },
+      {
+        "name": "Merfolk Sovereign",
+        "scryfall_id": "d17d90a1-45e0-470a-ab83-52236964377f",
+        "oracle_id": "633a3456-0004-4444-8888-000000000008",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{1}{U}{U}",
+        "cmc": 3.0,
+        "type_line": "Creature \u2014 Merfolk",
+        "colors": [
+          "U"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/d/1/d17d90a1-45e0-470a-ab83-52236964377f.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/d/1/d17d90a1-45e0-470a-ab83-52236964377f.jpg",
+        "price": 0.7,
+        "is_commander": false
+      },
+      {
+        "name": "Stonybrook Banneret",
+        "scryfall_id": "3e3e9c66-e594-4f41-ab8a-04c1aa0b70b4",
+        "oracle_id": "633a3456-0004-4444-8888-000000000009",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{1}{U}",
+        "cmc": 2.0,
+        "type_line": "Creature \u2014 Merfolk Wizard",
+        "colors": [
+          "U"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/3/e/3e3e9c66-e594-4f41-ab8a-04c1aa0b70b4.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/3/e/3e3e9c66-e594-4f41-ab8a-04c1aa0b70b4.jpg",
+        "price": 0.55,
+        "is_commander": false
+      },
+      {
+        "name": "Tishana, Voice of Thunder",
+        "scryfall_id": "19c5f777-7888-4ec7-930f-86ea92a6082b",
+        "oracle_id": "633a3456-0004-4444-8888-000000000010",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{5}{G}{U}",
+        "cmc": 7.0,
+        "type_line": "Legendary Creature \u2014 Merfolk Shaman",
+        "colors": [
+          "G",
+          "U"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/1/9/19c5f777-7888-4ec7-930f-86ea92a6082b.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/1/9/19c5f777-7888-4ec7-930f-86ea92a6082b.jpg",
+        "price": 1.25,
+        "is_commander": false
+      },
+      {
+        "name": "Rapid Hybridization",
+        "scryfall_id": "6b54244d-8978-43ea-9d37-9d19000742f7",
+        "oracle_id": "633a3456-0004-4444-8888-000000000011",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{U}",
+        "cmc": 1.0,
+        "type_line": "Instant",
+        "colors": [
+          "U"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/6/b/6b54244d-8978-43ea-9d37-9d19000742f7.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/6/b/6b54244d-8978-43ea-9d37-9d19000742f7.jpg",
+        "price": 1.4,
+        "is_commander": false
+      },
+      {
+        "name": "Beast Within",
+        "scryfall_id": "518e4368-2a28-48b4-b892-71be546a3949",
+        "oracle_id": "633a3456-0004-4444-8888-000000000012",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{2}{G}",
+        "cmc": 3.0,
+        "type_line": "Instant",
+        "colors": [
+          "G"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/5/1/518e4368-2a28-48b4-b892-71be546a3949.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/5/1/518e4368-2a28-48b4-b892-71be546a3949.jpg",
+        "price": 1.15,
+        "is_commander": false
+      },
+      {
+        "name": "Ripples of Potential",
+        "scryfall_id": "4a6b2b70-f4c2-48d0-b880-846d55223701",
+        "oracle_id": "633a3456-0004-4444-8888-000000000013",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{1}{U}",
+        "cmc": 2.0,
+        "type_line": "Instant",
+        "colors": [
+          "U"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/4/a/4a6b2b70-f4c2-48d0-b880-846d55223701.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/4/a/4a6b2b70-f4c2-48d0-b880-846d55223701.jpg",
+        "price": 2.8,
+        "is_commander": false
+      },
+      {
+        "name": "Hardened Scales",
+        "scryfall_id": "01fc060f-3397-4404-82a1-83a6779490d5",
+        "oracle_id": "812a3456-0002-4444-8888-000000000011",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{G}",
+        "cmc": 1.0,
+        "type_line": "Enchantment",
+        "colors": [
+          "G"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/0/1/01fc060f-3397-4404-82a1-83a6779490d5.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/0/1/01fc060f-3397-4404-82a1-83a6779490d5.jpg",
+        "price": 2.8,
+        "is_commander": false
+      },
+      {
+        "name": "Sol Ring",
+        "scryfall_id": "aa626895-d166-4a49-8c67-6228383f98c8",
+        "oracle_id": "1970ae46-d249-4113-98fe-c020d5885c34",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{1}",
+        "cmc": 1.0,
+        "type_line": "Artifact",
+        "colors": [],
+        "image_url": "https://cards.scryfall.io/normal/front/a/a/aa626895-d166-4a49-8c67-6228383f98c8.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/a/a/aa626895-d166-4a49-8c67-6228383f98c8.jpg",
+        "price": 2.5,
+        "is_commander": false
+      },
+      {
+        "name": "Arcane Signet",
+        "scryfall_id": "c22ca0fb-365f-45b6-bc21-0bfacfc4adbe",
+        "oracle_id": "12a34567-0001-4444-8888-000000000018",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{2}",
+        "cmc": 2.0,
+        "type_line": "Artifact",
+        "colors": [],
+        "image_url": "https://cards.scryfall.io/normal/front/c/2/c22ca0fb-365f-45b6-bc21-0bfacfc4adbe.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/c/2/c22ca0fb-365f-45b6-bc21-0bfacfc4adbe.jpg",
+        "price": 1.1,
+        "is_commander": false
+      },
+      {
+        "name": "Simic Signet",
+        "scryfall_id": "12a0b73d-9d49-412e-a57e-61b8fbf4c7ea",
+        "oracle_id": "633a3456-0004-4444-8888-000000000014",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{2}",
+        "cmc": 2.0,
+        "type_line": "Artifact",
+        "colors": [],
+        "image_url": "https://cards.scryfall.io/normal/front/1/2/12a0b73d-9d49-412e-a57e-61b8fbf4c7ea.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/1/2/12a0b73d-9d49-412e-a57e-61b8fbf4c7ea.jpg",
+        "price": 0.45,
+        "is_commander": false
+      },
+      {
+        "name": "Thought Vessel",
+        "scryfall_id": "2e747ef1-a1ad-4859-a70c-3f935f017310",
+        "oracle_id": "633a3456-0004-4444-8888-000000000015",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{2}",
+        "cmc": 2.0,
+        "type_line": "Artifact",
+        "colors": [],
+        "image_url": "https://cards.scryfall.io/normal/front/2/e/2e747ef1-a1ad-4859-a70c-3f935f017310.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/2/e/2e747ef1-a1ad-4859-a70c-3f935f017310.jpg",
+        "price": 1.2,
+        "is_commander": false
+      },
+      {
+        "name": "Command Tower",
+        "scryfall_id": "d4757270-4cb5-45d2-a7d2-7c39fc21f822",
+        "oracle_id": "12a34567-0001-4444-8888-000000000021",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "",
+        "cmc": 0.0,
+        "type_line": "Land",
+        "colors": [],
+        "image_url": "https://cards.scryfall.io/normal/front/d/4/d4757270-4cb5-45d2-a7d2-7c39fc21f822.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/d/4/d4757270-4cb5-45d2-a7d2-7c39fc21f822.jpg",
+        "price": 0.5,
+        "is_commander": false
+      },
+      {
+        "name": "Hinterland Harbor",
+        "scryfall_id": "84b7264e-28ff-4f40-848e-d9595f9d1c16",
+        "oracle_id": "633a3456-0004-4444-8888-000000000016",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "",
+        "cmc": 0.0,
+        "type_line": "Land",
+        "colors": [],
+        "image_url": "https://cards.scryfall.io/normal/front/8/4/84b7264e-28ff-4f40-848e-d9595f9d1c16.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/8/4/84b7264e-28ff-4f40-848e-d9595f9d1c16.jpg",
+        "price": 1.4,
+        "is_commander": false
+      },
+      {
+        "name": "Yavimaya Coast",
+        "scryfall_id": "911e03a9-e260-4ea2-8051-5b72e5052994",
+        "oracle_id": "633a3456-0004-4444-8888-000000000017",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "",
+        "cmc": 0.0,
+        "type_line": "Land",
+        "colors": [],
+        "image_url": "https://cards.scryfall.io/normal/front/9/1/911e03a9-e260-4ea2-8051-5b72e5052994.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/9/1/911e03a9-e260-4ea2-8051-5b72e5052994.jpg",
+        "price": 0.9,
+        "is_commander": false
+      },
+      {
+        "name": "Vineglimmer Snarl",
+        "scryfall_id": "4a0ee994-2fb4-4416-9c7c-47317e08ec73",
+        "oracle_id": "633a3456-0004-4444-8888-000000000018",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "",
+        "cmc": 0.0,
+        "type_line": "Land",
+        "colors": [],
+        "image_url": "https://cards.scryfall.io/normal/front/4/a/4a0ee994-2fb4-4416-9c7c-47317e08ec73.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/4/a/4a0ee994-2fb4-4416-9c7c-47317e08ec73.jpg",
+        "price": 0.4,
+        "is_commander": false
+      },
+      {
+        "name": "Forest",
+        "scryfall_id": "a4a37f59-69b0-469b-8664-8975a5933d9c",
+        "oracle_id": "12a34567-0001-4444-8888-000000000026",
+        "count": 40,
+        "board_zone": "Mainboard",
+        "mana_cost": "",
+        "cmc": 0.0,
+        "type_line": "Basic Land \u2014 Forest",
+        "colors": [
+          "G"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/a/4/a4a37f59-69b0-469b-8664-8975a5933d9c.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/a/4/a4a37f59-69b0-469b-8664-8975a5933d9c.jpg",
+        "price": 0.1,
+        "is_commander": false
+      },
+      {
+        "name": "Island",
+        "scryfall_id": "31e2ec24-1100-47b7-b089-a35b1d4eb615",
+        "oracle_id": "12a34567-0001-4444-8888-000000000029",
+        "count": 39,
+        "board_zone": "Mainboard",
+        "mana_cost": "",
+        "cmc": 0.0,
+        "type_line": "Basic Land \u2014 Island",
+        "colors": [
+          "U"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/3/1/31e2ec24-1100-47b7-b089-a35b1d4eb615.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/3/1/31e2ec24-1100-47b7-b089-a35b1d4eb615.jpg",
+        "price": 0.1,
+        "is_commander": false
+      }
+    ]
+  },
+  {
+    "id": "precon-q06-mono-white-aggro",
+    "name": "Mono White Aggro Challenger Deck",
+    "format": "Challenger",
+    "source_type": "official",
+    "creator_name": "Wizards of the Coast",
+    "description": "Challenger Decks 2022 fast aggro tournament deck with resilient cheap creatures, taxing effects, and modular sideboard answers.",
+    "release_code": "Q06",
+    "release_year": 2022,
+    "featured_category": "Popular Standard Decks",
+    "color_identity": [
+      "W"
+    ],
+    "card_count": 71,
+    "estimated_price": 46.1,
+    "upvotes": 120,
+    "downvotes": 8,
+    "score": 112,
+    "tags": [
+      "challenger",
+      "aggro",
+      "standard",
+      "mono-white",
+      "q06"
+    ],
+    "commander": {
+      "name": "Thalia, Guardian of Thraben",
+      "scryfall_id": "c9f8b8fb-1cd8-450e-a1fe-892e7a323479",
+      "oracle_id": "544a3456-0005-4444-8888-000000000001",
+      "count": 3,
+      "board_zone": "Mainboard",
+      "mana_cost": "{1}{W}",
+      "cmc": 2.0,
+      "type_line": "Legendary Creature \u2014 Human Soldier",
+      "colors": [
+        "W"
+      ],
+      "image_url": "https://cards.scryfall.io/normal/front/c/9/c9f8b8fb-1cd8-450e-a1fe-892e7a323479.jpg",
+      "art_crop_url": "https://cards.scryfall.io/art_crop/front/c/9/c9f8b8fb-1cd8-450e-a1fe-892e7a323479.jpg",
+      "price": 1.75,
+      "is_commander": false
+    },
+    "cards": [
+      {
+        "name": "Luminarch Aspirant",
+        "scryfall_id": "fe964e7d-e2c5-41df-88e2-dfc65b3844a7",
+        "oracle_id": "544a3456-0005-4444-8888-000000000002",
+        "count": 4,
+        "board_zone": "Mainboard",
+        "mana_cost": "{1}{W}",
+        "cmc": 2.0,
+        "type_line": "Creature \u2014 Human Cleric",
+        "colors": [
+          "W"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/f/e/fe964e7d-e2c5-41df-88e2-dfc65b3844a7.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/f/e/fe964e7d-e2c5-41df-88e2-dfc65b3844a7.jpg",
+        "price": 1.1,
+        "is_commander": false
+      },
+      {
+        "name": "Usher of the Fallen",
+        "scryfall_id": "24e5865b-c66e-448a-b892-71be546a3949",
+        "oracle_id": "544a3456-0005-4444-8888-000000000003",
+        "count": 4,
+        "board_zone": "Mainboard",
+        "mana_cost": "{W}",
+        "cmc": 1.0,
+        "type_line": "Creature \u2014 Spirit Warrior",
+        "colors": [
+          "W"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/2/4/24e5865b-c66e-448a-b892-71be546a3949.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/2/4/24e5865b-c66e-448a-b892-71be546a3949.jpg",
+        "price": 0.35,
+        "is_commander": false
+      },
+      {
+        "name": "Codespell Cleric",
+        "scryfall_id": "137e014e-0d49-412e-a57e-61b8fbf4c7ea",
+        "oracle_id": "544a3456-0005-4444-8888-000000000004",
+        "count": 4,
+        "board_zone": "Mainboard",
+        "mana_cost": "{W}",
+        "cmc": 1.0,
+        "type_line": "Creature \u2014 Human Cleric",
+        "colors": [
+          "W"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/1/3/137e014e-0d49-412e-a57e-61b8fbf4c7ea.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/1/3/137e014e-0d49-412e-a57e-61b8fbf4c7ea.jpg",
+        "price": 0.2,
+        "is_commander": false
+      },
+      {
+        "name": "Clarion Spirit",
+        "scryfall_id": "86a47ef1-a1ad-4859-a70c-3f935f017310",
+        "oracle_id": "544a3456-0005-4444-8888-000000000005",
+        "count": 3,
+        "board_zone": "Mainboard",
+        "mana_cost": "{1}{W}",
+        "cmc": 2.0,
+        "type_line": "Creature \u2014 Spirit",
+        "colors": [
+          "W"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/8/6/86a47ef1-a1ad-4859-a70c-3f935f017310.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/8/6/86a47ef1-a1ad-4859-a70c-3f935f017310.jpg",
+        "price": 0.25,
+        "is_commander": false
+      },
+      {
+        "name": "Intrepid Adversary",
+        "scryfall_id": "7731994a-2fb4-4416-9c7c-47317e08ec73",
+        "oracle_id": "544a3456-0005-4444-8888-000000000006",
+        "count": 2,
+        "board_zone": "Mainboard",
+        "mana_cost": "{1}{W}",
+        "cmc": 2.0,
+        "type_line": "Creature \u2014 Human Scout",
+        "colors": [
+          "W"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/7/7/7731994a-2fb4-4416-9c7c-47317e08ec73.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/7/7/7731994a-2fb4-4416-9c7c-47317e08ec73.jpg",
+        "price": 1.5,
+        "is_commander": false
+      },
+      {
+        "name": "Skyclave Apparition",
+        "scryfall_id": "b83efb34-8c01-44c9-b972-24a3731ca2e4",
+        "oracle_id": "544a3456-0005-4444-8888-000000000007",
+        "count": 2,
+        "board_zone": "Mainboard",
+        "mana_cost": "{1}{W}{W}",
+        "cmc": 3.0,
+        "type_line": "Creature \u2014 Kor Cleric",
+        "colors": [
+          "W"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/b/8/b83efb34-8c01-44c9-b972-24a3731ca2e4.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/b/8/b83efb34-8c01-44c9-b972-24a3731ca2e4.jpg",
+        "price": 2.25,
+        "is_commander": false
+      },
+      {
+        "name": "Adeline, Resplendent Cathar",
+        "scryfall_id": "180924ef-9686-4e5a-a235-970f81d11ff9",
+        "oracle_id": "544a3456-0005-4444-8888-000000000008",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{1}{W}{W}",
+        "cmc": 3.0,
+        "type_line": "Legendary Creature \u2014 Human Knight",
+        "colors": [
+          "W"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/1/8/180924ef-9686-4e5a-a235-970f81d11ff9.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/1/8/180924ef-9686-4e5a-a235-970f81d11ff9.jpg",
+        "price": 4.5,
+        "is_commander": false
+      },
+      {
+        "name": "Brutal Cathar",
+        "scryfall_id": "449524e2-81ef-41bc-94cd-b0ea67f60bda",
+        "oracle_id": "544a3456-0005-4444-8888-000000000009",
+        "count": 2,
+        "board_zone": "Mainboard",
+        "mana_cost": "{2}{W}",
+        "cmc": 3.0,
+        "type_line": "Creature \u2014 Human Soldier Werewolf",
+        "colors": [
+          "W"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/4/4/449524e2-81ef-41bc-94cd-b0ea67f60bda.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/4/4/449524e2-81ef-41bc-94cd-b0ea67f60bda.jpg",
+        "price": 1.35,
+        "is_commander": false
+      },
+      {
+        "name": "Paladin Class",
+        "scryfall_id": "01fc060f-3397-4404-82a1-83a6779490d5",
+        "oracle_id": "544a3456-0005-4444-8888-000000000010",
+        "count": 2,
+        "board_zone": "Mainboard",
+        "mana_cost": "{W}",
+        "cmc": 1.0,
+        "type_line": "Enchantment \u2014 Class",
+        "colors": [
+          "W"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/0/1/01fc060f-3397-4404-82a1-83a6779490d5.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/0/1/01fc060f-3397-4404-82a1-83a6779490d5.jpg",
+        "price": 0.75,
+        "is_commander": false
+      },
+      {
+        "name": "Portable Hole",
+        "scryfall_id": "80371994-2fb4-4416-9c7c-47317e08ec73",
+        "oracle_id": "544a3456-0005-4444-8888-000000000011",
+        "count": 3,
+        "board_zone": "Mainboard",
+        "mana_cost": "{W}",
+        "cmc": 1.0,
+        "type_line": "Artifact",
+        "colors": [
+          "W"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/8/0/80371994-2fb4-4416-9c7c-47317e08ec73.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/8/0/80371994-2fb4-4416-9c7c-47317e08ec73.jpg",
+        "price": 0.85,
+        "is_commander": false
+      },
+      {
+        "name": "Maul of the Skyclaves",
+        "scryfall_id": "9a0ee994-2fb4-4416-9c7c-47317e08ec73",
+        "oracle_id": "544a3456-0005-4444-8888-000000000012",
+        "count": 2,
+        "board_zone": "Mainboard",
+        "mana_cost": "{2}{W}",
+        "cmc": 3.0,
+        "type_line": "Artifact \u2014 Equipment",
+        "colors": [
+          "W"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/9/a/9a0ee994-2fb4-4416-9c7c-47317e08ec73.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/9/a/9a0ee994-2fb4-4416-9c7c-47317e08ec73.jpg",
+        "price": 0.5,
+        "is_commander": false
+      },
+      {
+        "name": "Cave of the Frost Dragon",
+        "scryfall_id": "34567890-0005-4444-8888-000000000013",
+        "oracle_id": "544a3456-0005-4444-8888-000000000013",
+        "count": 2,
+        "board_zone": "Mainboard",
+        "mana_cost": "",
+        "cmc": 0.0,
+        "type_line": "Land",
+        "colors": [],
+        "image_url": "https://cards.scryfall.io/normal/front/3/4/34567890-0005-4444-8888-000000000013.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/3/4/34567890-0005-4444-8888-000000000013.jpg",
+        "price": 1.1,
+        "is_commander": false
+      },
+      {
+        "name": "Faceless Haven",
+        "scryfall_id": "45678901-0005-4444-8888-000000000014",
+        "oracle_id": "544a3456-0005-4444-8888-000000000014",
+        "count": 2,
+        "board_zone": "Mainboard",
+        "mana_cost": "",
+        "cmc": 0.0,
+        "type_line": "Snow Land",
+        "colors": [],
+        "image_url": "https://cards.scryfall.io/normal/front/4/5/45678901-0005-4444-8888-000000000014.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/4/5/45678901-0005-4444-8888-000000000014.jpg",
+        "price": 0.8,
+        "is_commander": false
+      },
+      {
+        "name": "Snow-Covered Plains",
+        "scryfall_id": "3ff9f8bc-8d9e-43ff-be42-63b789ef53c7",
+        "oracle_id": "544a3456-0005-4444-8888-000000000015",
+        "count": 27,
+        "board_zone": "Mainboard",
+        "mana_cost": "",
+        "cmc": 0.0,
+        "type_line": "Basic Snow Land \u2014 Plains",
+        "colors": [
+          "W"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/3/f/3ff9f8bc-8d9e-43ff-be42-63b789ef53c7.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/3/f/3ff9f8bc-8d9e-43ff-be42-63b789ef53c7.jpg",
+        "price": 0.25,
+        "is_commander": false
+      },
+      {
+        "name": "Sungold Sentinel",
+        "scryfall_id": "56789012-0005-4444-8888-000000000016",
+        "oracle_id": "544a3456-0005-4444-8888-000000000016",
+        "count": 3,
+        "board_zone": "Sideboard",
+        "mana_cost": "{1}{W}",
+        "cmc": 2.0,
+        "type_line": "Creature \u2014 Human Soldier",
+        "colors": [
+          "W"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/5/6/56789012-0005-4444-8888-000000000016.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/5/6/56789012-0005-4444-8888-000000000016.jpg",
+        "price": 0.35,
+        "is_commander": false
+      },
+      {
+        "name": "Loyal Warhound",
+        "scryfall_id": "67890123-0005-4444-8888-000000000017",
+        "oracle_id": "544a3456-0005-4444-8888-000000000017",
+        "count": 2,
+        "board_zone": "Sideboard",
+        "mana_cost": "{1}{W}",
+        "cmc": 2.0,
+        "type_line": "Creature \u2014 Dog",
+        "colors": [
+          "W"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/6/7/67890123-0005-4444-8888-000000000017.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/6/7/67890123-0005-4444-8888-000000000017.jpg",
+        "price": 0.4,
+        "is_commander": false
+      },
+      {
+        "name": "Portable Hole",
+        "scryfall_id": "80371994-2fb4-4416-9c7c-47317e08ec73",
+        "oracle_id": "544a3456-0005-4444-8888-000000000011",
+        "count": 1,
+        "board_zone": "Sideboard",
+        "mana_cost": "{W}",
+        "cmc": 1.0,
+        "type_line": "Artifact",
+        "colors": [
+          "W"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/8/0/80371994-2fb4-4416-9c7c-47317e08ec73.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/8/0/80371994-2fb4-4416-9c7c-47317e08ec73.jpg",
+        "price": 0.85,
+        "is_commander": false
+      },
+      {
+        "name": "Valorous Stance",
+        "scryfall_id": "78901234-0005-4444-8888-000000000018",
+        "oracle_id": "544a3456-0005-4444-8888-000000000018",
+        "count": 2,
+        "board_zone": "Sideboard",
+        "mana_cost": "{1}{W}",
+        "cmc": 2.0,
+        "type_line": "Instant",
+        "colors": [
+          "W"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/7/8/78901234-0005-4444-8888-000000000018.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/7/8/78901234-0005-4444-8888-000000000018.jpg",
+        "price": 0.25,
+        "is_commander": false
+      }
+    ]
+  },
+  {
+    "id": "precon-q06-dimir-control",
+    "name": "Dimir Control Challenger Deck",
+    "format": "Challenger",
+    "source_type": "official",
+    "creator_name": "Wizards of the Coast",
+    "description": "Challenger Decks 2022 interactive control deck dominating the late game through instant-speed removal, countermagic, and Hullbreaker Horror.",
+    "release_code": "Q06",
+    "release_year": 2022,
+    "featured_category": "Popular Standard Decks",
+    "color_identity": [
+      "U",
+      "B"
+    ],
+    "card_count": 68,
+    "estimated_price": 105.15,
+    "upvotes": 135,
+    "downvotes": 11,
+    "score": 124,
+    "tags": [
+      "challenger",
+      "control",
+      "dimir",
+      "hullbreaker",
+      "q06"
+    ],
+    "commander": {
+      "name": "Hullbreaker Horror",
+      "scryfall_id": "bf786481-b652-439f-b3dc-855484a1d7b1",
+      "oracle_id": "455a3456-0006-4444-8888-000000000001",
+      "count": 2,
+      "board_zone": "Mainboard",
+      "mana_cost": "{5}{U}{U}",
+      "cmc": 7.0,
+      "type_line": "Creature \u2014 Kraken Horror",
+      "colors": [
+        "U"
+      ],
+      "image_url": "https://cards.scryfall.io/normal/front/b/f/bf786481-b652-439f-b3dc-855484a1d7b1.jpg",
+      "art_crop_url": "https://cards.scryfall.io/art_crop/front/b/f/bf786481-b652-439f-b3dc-855484a1d7b1.jpg",
+      "price": 4.75,
+      "is_commander": false
+    },
+    "cards": [
+      {
+        "name": "Iymrith, Desert Doom",
+        "scryfall_id": "c3e6025d-d2fb-4416-9c7c-47317e08ec73",
+        "oracle_id": "455a3456-0006-4444-8888-000000000002",
+        "count": 2,
+        "board_zone": "Mainboard",
+        "mana_cost": "{3}{U}{U}",
+        "cmc": 5.0,
+        "type_line": "Legendary Creature \u2014 Dragon",
+        "colors": [
+          "U"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/c/3/c3e6025d-d2fb-4416-9c7c-47317e08ec73.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/c/3/c3e6025d-d2fb-4416-9c7c-47317e08ec73.jpg",
+        "price": 2.5,
+        "is_commander": false
+      },
+      {
+        "name": "Graveyard Trespasser",
+        "scryfall_id": "da27a74e-0331-473b-b149-5ee78e6927f2",
+        "oracle_id": "455a3456-0006-4444-8888-000000000003",
+        "count": 3,
+        "board_zone": "Mainboard",
+        "mana_cost": "{1}{B}{B}",
+        "cmc": 3.0,
+        "type_line": "Creature \u2014 Human Werewolf",
+        "colors": [
+          "B"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/d/a/da27a74e-0331-473b-b149-5ee78e6927f2.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/d/a/da27a74e-0331-473b-b149-5ee78e6927f2.jpg",
+        "price": 1.85,
+        "is_commander": false
+      },
+      {
+        "name": "Consider",
+        "scryfall_id": "5c1344ad-5432-4712-9c32-70ffb7556a01",
+        "oracle_id": "455a3456-0006-4444-8888-000000000004",
+        "count": 4,
+        "board_zone": "Mainboard",
+        "mana_cost": "{U}",
+        "cmc": 1.0,
+        "type_line": "Instant",
+        "colors": [
+          "U"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/5/c/5c1344ad-5432-4712-9c32-70ffb7556a01.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/5/c/5c1344ad-5432-4712-9c32-70ffb7556a01.jpg",
+        "price": 0.75,
+        "is_commander": false
+      },
+      {
+        "name": "Saw It Coming",
+        "scryfall_id": "877a1029-7937-407f-97da-310d07cb2ced",
+        "oracle_id": "455a3456-0006-4444-8888-000000000005",
+        "count": 3,
+        "board_zone": "Mainboard",
+        "mana_cost": "{1}{U}{U}",
+        "cmc": 3.0,
+        "type_line": "Instant",
+        "colors": [
+          "U"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/8/7/877a1029-7937-407f-97da-310d07cb2ced.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/8/7/877a1029-7937-407f-97da-310d07cb2ced.jpg",
+        "price": 0.35,
+        "is_commander": false
+      },
+      {
+        "name": "Jwari Disruption",
+        "scryfall_id": "90123456-0006-4444-8888-000000000006",
+        "oracle_id": "455a3456-0006-4444-8888-000000000006",
+        "count": 2,
+        "board_zone": "Mainboard",
+        "mana_cost": "{1}{U}",
+        "cmc": 2.0,
+        "type_line": "Instant",
+        "colors": [
+          "U"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/9/0/90123456-0006-4444-8888-000000000006.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/9/0/90123456-0006-4444-8888-000000000006.jpg",
+        "price": 0.4,
+        "is_commander": false
+      },
+      {
+        "name": "Infernal Grasp",
+        "scryfall_id": "17824029-7937-407f-97da-310d07cb2ced",
+        "oracle_id": "455a3456-0006-4444-8888-000000000007",
+        "count": 3,
+        "board_zone": "Mainboard",
+        "mana_cost": "{1}{B}",
+        "cmc": 2.0,
+        "type_line": "Instant",
+        "colors": [
+          "B"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/1/7/17824029-7937-407f-97da-310d07cb2ced.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/1/7/17824029-7937-407f-97da-310d07cb2ced.jpg",
+        "price": 0.85,
+        "is_commander": false
+      },
+      {
+        "name": "Bloodchief's Thirst",
+        "scryfall_id": "23456789-0006-4444-8888-000000000008",
+        "oracle_id": "455a3456-0006-4444-8888-000000000008",
+        "count": 3,
+        "board_zone": "Mainboard",
+        "mana_cost": "{B}",
+        "cmc": 1.0,
+        "type_line": "Sorcery",
+        "colors": [
+          "B"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/2/3/23456789-0006-4444-8888-000000000008.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/2/3/23456789-0006-4444-8888-000000000008.jpg",
+        "price": 0.3,
+        "is_commander": false
+      },
+      {
+        "name": "The Meathook Massacre",
+        "scryfall_id": "a821e2f1-3456-4444-8888-000000000009",
+        "oracle_id": "455a3456-0006-4444-8888-000000000009",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{X}{B}{B}",
+        "cmc": 2.0,
+        "type_line": "Legendary Enchantment",
+        "colors": [
+          "B"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/a/8/a821e2f1-3456-4444-8888-000000000009.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/a/8/a821e2f1-3456-4444-8888-000000000009.jpg",
+        "price": 35.0,
+        "is_commander": false
+      },
+      {
+        "name": "Siphon Insight",
+        "scryfall_id": "34567890-0006-4444-8888-000000000010",
+        "oracle_id": "455a3456-0006-4444-8888-000000000010",
+        "count": 3,
+        "board_zone": "Mainboard",
+        "mana_cost": "{U}{B}",
+        "cmc": 2.0,
+        "type_line": "Instant",
+        "colors": [
+          "U",
+          "B"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/3/4/34567890-0006-4444-8888-000000000010.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/3/4/34567890-0006-4444-8888-000000000010.jpg",
+        "price": 0.35,
+        "is_commander": false
+      },
+      {
+        "name": "Memory Deluge",
+        "scryfall_id": "45678901-0006-4444-8888-000000000011",
+        "oracle_id": "455a3456-0006-4444-8888-000000000011",
+        "count": 2,
+        "board_zone": "Mainboard",
+        "mana_cost": "{2}{U}{U}",
+        "cmc": 4.0,
+        "type_line": "Instant",
+        "colors": [
+          "U"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/4/5/45678901-0006-4444-8888-000000000011.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/4/5/45678901-0006-4444-8888-000000000011.jpg",
+        "price": 0.65,
+        "is_commander": false
+      },
+      {
+        "name": "Shipwreck Marsh",
+        "scryfall_id": "4a0ee994-2fb4-4416-9c7c-47317e08ec73",
+        "oracle_id": "455a3456-0006-4444-8888-000000000012",
+        "count": 4,
+        "board_zone": "Mainboard",
+        "mana_cost": "",
+        "cmc": 0.0,
+        "type_line": "Land",
+        "colors": [],
+        "image_url": "https://cards.scryfall.io/normal/front/4/a/4a0ee994-2fb4-4416-9c7c-47317e08ec73.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/4/a/4a0ee994-2fb4-4416-9c7c-47317e08ec73.jpg",
+        "price": 3.25,
+        "is_commander": false
+      },
+      {
+        "name": "Clearwater Pathway",
+        "scryfall_id": "56789012-0006-4444-8888-000000000013",
+        "oracle_id": "455a3456-0006-4444-8888-000000000013",
+        "count": 4,
+        "board_zone": "Mainboard",
+        "mana_cost": "",
+        "cmc": 0.0,
+        "type_line": "Land",
+        "colors": [],
+        "image_url": "https://cards.scryfall.io/normal/front/5/6/56789012-0006-4444-8888-000000000013.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/5/6/56789012-0006-4444-8888-000000000013.jpg",
+        "price": 4.5,
+        "is_commander": false
+      },
+      {
+        "name": "Hall of Storm Giants",
+        "scryfall_id": "67890123-0006-4444-8888-000000000014",
+        "oracle_id": "455a3456-0006-4444-8888-000000000014",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "",
+        "cmc": 0.0,
+        "type_line": "Land",
+        "colors": [],
+        "image_url": "https://cards.scryfall.io/normal/front/6/7/67890123-0006-4444-8888-000000000014.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/6/7/67890123-0006-4444-8888-000000000014.jpg",
+        "price": 2.1,
+        "is_commander": false
+      },
+      {
+        "name": "Hive of the Eye Tyrant",
+        "scryfall_id": "78901234-0006-4444-8888-000000000015",
+        "oracle_id": "455a3456-0006-4444-8888-000000000015",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "",
+        "cmc": 0.0,
+        "type_line": "Land",
+        "colors": [],
+        "image_url": "https://cards.scryfall.io/normal/front/7/8/78901234-0006-4444-8888-000000000015.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/7/8/78901234-0006-4444-8888-000000000015.jpg",
+        "price": 2.4,
+        "is_commander": false
+      },
+      {
+        "name": "Island",
+        "scryfall_id": "31e2ec24-1100-47b7-b089-a35b1d4eb615",
+        "oracle_id": "12a34567-0001-4444-8888-000000000029",
+        "count": 11,
+        "board_zone": "Mainboard",
+        "mana_cost": "",
+        "cmc": 0.0,
+        "type_line": "Basic Land \u2014 Island",
+        "colors": [
+          "U"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/3/1/31e2ec24-1100-47b7-b089-a35b1d4eb615.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/3/1/31e2ec24-1100-47b7-b089-a35b1d4eb615.jpg",
+        "price": 0.1,
+        "is_commander": false
+      },
+      {
+        "name": "Swamp",
+        "scryfall_id": "6f5f8486-d922-498c-8ea1-460eb00d027b",
+        "oracle_id": "12a34567-0001-4444-8888-000000000028",
+        "count": 11,
+        "board_zone": "Mainboard",
+        "mana_cost": "",
+        "cmc": 0.0,
+        "type_line": "Basic Land \u2014 Swamp",
+        "colors": [
+          "B"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/6/f/6f5f8486-d922-498c-8ea1-460eb00d027b.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/6/f/6f5f8486-d922-498c-8ea1-460eb00d027b.jpg",
+        "price": 0.1,
+        "is_commander": false
+      },
+      {
+        "name": "Duress",
+        "scryfall_id": "89012345-0006-4444-8888-000000000016",
+        "oracle_id": "455a3456-0006-4444-8888-000000000016",
+        "count": 3,
+        "board_zone": "Sideboard",
+        "mana_cost": "{B}",
+        "cmc": 1.0,
+        "type_line": "Sorcery",
+        "colors": [
+          "B"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/8/9/89012345-0006-4444-8888-000000000016.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/8/9/89012345-0006-4444-8888-000000000016.jpg",
+        "price": 0.2,
+        "is_commander": false
+      },
+      {
+        "name": "Negate",
+        "scryfall_id": "90123456-0006-4444-8888-000000000017",
+        "oracle_id": "455a3456-0006-4444-8888-000000000017",
+        "count": 3,
+        "board_zone": "Sideboard",
+        "mana_cost": "{1}{U}",
+        "cmc": 2.0,
+        "type_line": "Instant",
+        "colors": [
+          "U"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/9/0/90123456-0006-4444-8888-000000000017.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/9/0/90123456-0006-4444-8888-000000000017.jpg",
+        "price": 0.25,
+        "is_commander": false
+      },
+      {
+        "name": "Ray of Enfeeblement",
+        "scryfall_id": "01234567-0006-4444-8888-000000000018",
+        "oracle_id": "455a3456-0006-4444-8888-000000000018",
+        "count": 2,
+        "board_zone": "Sideboard",
+        "mana_cost": "{1}{B}",
+        "cmc": 2.0,
+        "type_line": "Instant",
+        "colors": [
+          "B"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/0/1/01234567-0006-4444-8888-000000000018.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/0/1/01234567-0006-4444-8888-000000000018.jpg",
+        "price": 0.2,
+        "is_commander": false
+      }
+    ]
+  },
+  {
+    "id": "precon-m22-welcoming-white",
+    "name": "2022 Starter Kit: White Aggro",
+    "format": "Starter Kit",
+    "source_type": "official",
+    "creator_name": "Wizards of the Coast",
+    "description": "Introductory 60-card starter kit deck teaching board presence, card draw via small creatures, and flying combat.",
+    "release_code": "M22",
+    "release_year": 2022,
+    "featured_category": null,
+    "color_identity": [
+      "W"
+    ],
+    "card_count": 60,
+    "estimated_price": 10.5,
+    "upvotes": 84,
+    "downvotes": 4,
+    "score": 80,
+    "tags": [
+      "starter",
+      "beginner",
+      "mono-white",
+      "angels",
+      "m22"
+    ],
+    "commander": {
+      "name": "Welcoming Vampire",
+      "scryfall_id": "273b4007-a3a2-4767-bb78-f71f654a9918",
+      "oracle_id": "366a3456-0007-4444-8888-000000000001",
+      "count": 1,
+      "board_zone": "Mainboard",
+      "mana_cost": "{2}{W}",
+      "cmc": 3.0,
+      "type_line": "Creature \u2014 Vampire",
+      "colors": [
+        "W"
+      ],
+      "image_url": "https://cards.scryfall.io/normal/front/2/7/273b4007-a3a2-4767-bb78-f71f654a9918.jpg",
+      "art_crop_url": "https://cards.scryfall.io/art_crop/front/2/7/273b4007-a3a2-4767-bb78-f71f654a9918.jpg",
+      "price": 1.8,
+      "is_commander": false
+    },
+    "cards": [
+      {
+        "name": "Serra Angel",
+        "scryfall_id": "380924ef-9686-4e5a-a235-970f81d11ff9",
+        "oracle_id": "366a3456-0007-4444-8888-000000000002",
+        "count": 2,
+        "board_zone": "Mainboard",
+        "mana_cost": "{3}{W}{W}",
+        "cmc": 5.0,
+        "type_line": "Creature \u2014 Angel",
+        "colors": [
+          "W"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/3/8/380924ef-9686-4e5a-a235-970f81d11ff9.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/3/8/380924ef-9686-4e5a-a235-970f81d11ff9.jpg",
+        "price": 0.35,
+        "is_commander": false
+      },
+      {
+        "name": "Inspiring Overseer",
+        "scryfall_id": "12a0b73d-9d49-412e-a57e-61b8fbf4c7ea",
+        "oracle_id": "366a3456-0007-4444-8888-000000000003",
+        "count": 4,
+        "board_zone": "Mainboard",
+        "mana_cost": "{2}{W}",
+        "cmc": 3.0,
+        "type_line": "Creature \u2014 Angel Cleric",
+        "colors": [
+          "W"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/1/2/12a0b73d-9d49-412e-a57e-61b8fbf4c7ea.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/1/2/12a0b73d-9d49-412e-a57e-61b8fbf4c7ea.jpg",
+        "price": 0.3,
+        "is_commander": false
+      },
+      {
+        "name": "Spirited Companion",
+        "scryfall_id": "2e747ef1-a1ad-4859-a70c-3f935f017310",
+        "oracle_id": "366a3456-0007-4444-8888-000000000004",
+        "count": 4,
+        "board_zone": "Mainboard",
+        "mana_cost": "{1}{W}",
+        "cmc": 2.0,
+        "type_line": "Enchantment Creature \u2014 Dog",
+        "colors": [
+          "W"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/2/e/2e747ef1-a1ad-4859-a70c-3f935f017310.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/2/e/2e747ef1-a1ad-4859-a70c-3f935f017310.jpg",
+        "price": 0.25,
+        "is_commander": false
+      },
+      {
+        "name": "Angel of Vitality",
+        "scryfall_id": "84b7264e-28ff-4f40-848e-d9595f9d1c16",
+        "oracle_id": "366a3456-0007-4444-8888-000000000005",
+        "count": 2,
+        "board_zone": "Mainboard",
+        "mana_cost": "{2}{W}",
+        "cmc": 3.0,
+        "type_line": "Creature \u2014 Angel",
+        "colors": [
+          "W"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/8/4/84b7264e-28ff-4f40-848e-d9595f9d1c16.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/8/4/84b7264e-28ff-4f40-848e-d9595f9d1c16.jpg",
+        "price": 0.35,
+        "is_commander": false
+      },
+      {
+        "name": "Pacifism",
+        "scryfall_id": "31e2ec24-1100-47b7-b089-a35b1d4eb615",
+        "oracle_id": "366a3456-0007-4444-8888-000000000006",
+        "count": 4,
+        "board_zone": "Mainboard",
+        "mana_cost": "{1}{W}",
+        "cmc": 2.0,
+        "type_line": "Enchantment \u2014 Aura",
+        "colors": [
+          "W"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/3/1/31e2ec24-1100-47b7-b089-a35b1d4eb615.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/3/1/31e2ec24-1100-47b7-b089-a35b1d4eb615.jpg",
+        "price": 0.15,
+        "is_commander": false
+      },
+      {
+        "name": "Banishing Light",
+        "scryfall_id": "6f5f8486-d922-498c-8ea1-460eb00d027b",
+        "oracle_id": "366a3456-0007-4444-8888-000000000007",
+        "count": 2,
+        "board_zone": "Mainboard",
+        "mana_cost": "{2}{W}",
+        "cmc": 3.0,
+        "type_line": "Enchantment",
+        "colors": [
+          "W"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/6/f/6f5f8486-d922-498c-8ea1-460eb00d027b.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/6/f/6f5f8486-d922-498c-8ea1-460eb00d027b.jpg",
+        "price": 0.2,
+        "is_commander": false
+      },
+      {
+        "name": "Sanctuary Cat",
+        "scryfall_id": "a4a37f59-69b0-469b-8664-8975a5933d9c",
+        "oracle_id": "366a3456-0007-4444-8888-000000000008",
+        "count": 4,
+        "board_zone": "Mainboard",
+        "mana_cost": "{W}",
+        "cmc": 1.0,
+        "type_line": "Creature \u2014 Cat",
+        "colors": [
+          "W"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/a/4/a4a37f59-69b0-469b-8664-8975a5933d9c.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/a/4/a4a37f59-69b0-469b-8664-8975a5933d9c.jpg",
+        "price": 0.1,
+        "is_commander": false
+      },
+      {
+        "name": "Plains",
+        "scryfall_id": "3ff9f8bc-8d9e-43ff-be42-63b789ef53c7",
+        "oracle_id": "12a34567-0001-4444-8888-000000000030",
+        "count": 37,
+        "board_zone": "Mainboard",
+        "mana_cost": "",
+        "cmc": 0.0,
+        "type_line": "Basic Land \u2014 Plains",
+        "colors": [
+          "W"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/3/f/3ff9f8bc-8d9e-43ff-be42-63b789ef53c7.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/3/f/3ff9f8bc-8d9e-43ff-be42-63b789ef53c7.jpg",
+        "price": 0.1,
+        "is_commander": false
+      }
+    ]
+  },
+  {
+    "id": "precon-blb-hare-raising",
+    "name": "Bloomburrow Starter Kit: Hare Raising",
+    "format": "Starter Kit",
+    "source_type": "official",
+    "creator_name": "Wizards of the Coast",
+    "description": "Bloomburrow 60-card introductory deck pairing Rabbit token multiplication with +1/+1 mentor triggers and anthem enhancements.",
+    "release_code": "BLB",
+    "release_year": 2024,
+    "featured_category": null,
+    "color_identity": [
+      "G",
+      "W"
+    ],
+    "card_count": 63,
+    "estimated_price": 21.0,
+    "upvotes": 110,
+    "downvotes": 5,
+    "score": 105,
+    "tags": [
+      "bloomburrow",
+      "rabbits",
+      "tokens",
+      "selesnya",
+      "blb"
+    ],
+    "commander": {
+      "name": "Finneas, Ace Archer",
+      "scryfall_id": "90123456-0008-4444-8888-000000000001",
+      "oracle_id": "277a3456-0008-4444-8888-000000000001",
+      "count": 1,
+      "board_zone": "Mainboard",
+      "mana_cost": "{G}{W}",
+      "cmc": 2.0,
+      "type_line": "Legendary Creature \u2014 Rabbit Archer",
+      "colors": [
+        "G",
+        "W"
+      ],
+      "image_url": "https://cards.scryfall.io/normal/front/9/0/90123456-0008-4444-8888-000000000001.jpg",
+      "art_crop_url": "https://cards.scryfall.io/art_crop/front/9/0/90123456-0008-4444-8888-000000000001.jpg",
+      "price": 1.5,
+      "is_commander": false
+    },
+    "cards": [
+      {
+        "name": "Warren Warleader",
+        "scryfall_id": "01234567-0008-4444-8888-000000000002",
+        "oracle_id": "277a3456-0008-4444-8888-000000000002",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{2}{W}{W}",
+        "cmc": 4.0,
+        "type_line": "Creature \u2014 Rabbit Knight",
+        "colors": [
+          "W"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/0/1/01234567-0008-4444-8888-000000000002.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/0/1/01234567-0008-4444-8888-000000000002.jpg",
+        "price": 4.5,
+        "is_commander": false
+      },
+      {
+        "name": "Hop to It",
+        "scryfall_id": "12345678-0008-4444-8888-000000000003",
+        "oracle_id": "277a3456-0008-4444-8888-000000000003",
+        "count": 4,
+        "board_zone": "Mainboard",
+        "mana_cost": "{2}{W}",
+        "cmc": 3.0,
+        "type_line": "Sorcery",
+        "colors": [
+          "W"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/1/2/12345678-0008-4444-8888-000000000003.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/1/2/12345678-0008-4444-8888-000000000003.jpg",
+        "price": 0.5,
+        "is_commander": false
+      },
+      {
+        "name": "Carrot Cake",
+        "scryfall_id": "23456789-0008-4444-8888-000000000004",
+        "oracle_id": "277a3456-0008-4444-8888-000000000004",
+        "count": 3,
+        "board_zone": "Mainboard",
+        "mana_cost": "{1}{W}",
+        "cmc": 2.0,
+        "type_line": "Artifact \u2014 Food",
+        "colors": [
+          "W"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/2/3/23456789-0008-4444-8888-000000000004.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/2/3/23456789-0008-4444-8888-000000000004.jpg",
+        "price": 0.35,
+        "is_commander": false
+      },
+      {
+        "name": "Burrowguard Mentor",
+        "scryfall_id": "34567890-0008-4444-8888-000000000005",
+        "oracle_id": "277a3456-0008-4444-8888-000000000005",
+        "count": 3,
+        "board_zone": "Mainboard",
+        "mana_cost": "{G}{W}",
+        "cmc": 2.0,
+        "type_line": "Creature \u2014 Rabbit Soldier",
+        "colors": [
+          "G",
+          "W"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/3/4/34567890-0008-4444-8888-000000000005.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/3/4/34567890-0008-4444-8888-000000000005.jpg",
+        "price": 0.4,
+        "is_commander": false
+      },
+      {
+        "name": "Pawpatch Formation",
+        "scryfall_id": "45678901-0008-4444-8888-000000000006",
+        "oracle_id": "277a3456-0008-4444-8888-000000000006",
+        "count": 2,
+        "board_zone": "Mainboard",
+        "mana_cost": "{1}{G}",
+        "cmc": 2.0,
+        "type_line": "Instant",
+        "colors": [
+          "G"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/4/5/45678901-0008-4444-8888-000000000006.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/4/5/45678901-0008-4444-8888-000000000006.jpg",
+        "price": 0.45,
+        "is_commander": false
+      },
+      {
+        "name": "Banishing Light",
+        "scryfall_id": "6f5f8486-d922-498c-8ea1-460eb00d027b",
+        "oracle_id": "366a3456-0007-4444-8888-000000000007",
+        "count": 3,
+        "board_zone": "Mainboard",
+        "mana_cost": "{2}{W}",
+        "cmc": 3.0,
+        "type_line": "Enchantment",
+        "colors": [
+          "W"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/6/f/6f5f8486-d922-498c-8ea1-460eb00d027b.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/6/f/6f5f8486-d922-498c-8ea1-460eb00d027b.jpg",
+        "price": 0.2,
+        "is_commander": false
+      },
+      {
+        "name": "Head of the Homestead",
+        "scryfall_id": "56789012-0008-4444-8888-000000000007",
+        "oracle_id": "277a3456-0008-4444-8888-000000000007",
+        "count": 3,
+        "board_zone": "Mainboard",
+        "mana_cost": "{3}{G}{W}",
+        "cmc": 5.0,
+        "type_line": "Creature \u2014 Rabbit Citizen",
+        "colors": [
+          "G",
+          "W"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/5/6/56789012-0008-4444-8888-000000000007.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/5/6/56789012-0008-4444-8888-000000000007.jpg",
+        "price": 0.25,
+        "is_commander": false
+      },
+      {
+        "name": "Sunpetal Grove",
+        "scryfall_id": "67890123-0008-4444-8888-000000000008",
+        "oracle_id": "277a3456-0008-4444-8888-000000000008",
+        "count": 2,
+        "board_zone": "Mainboard",
+        "mana_cost": "",
+        "cmc": 0.0,
+        "type_line": "Land",
+        "colors": [],
+        "image_url": "https://cards.scryfall.io/normal/front/6/7/67890123-0008-4444-8888-000000000008.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/6/7/67890123-0008-4444-8888-000000000008.jpg",
+        "price": 2.2,
+        "is_commander": false
+      },
+      {
+        "name": "Forest",
+        "scryfall_id": "a4a37f59-69b0-469b-8664-8975a5933d9c",
+        "oracle_id": "12a34567-0001-4444-8888-000000000026",
+        "count": 20,
+        "board_zone": "Mainboard",
+        "mana_cost": "",
+        "cmc": 0.0,
+        "type_line": "Basic Land \u2014 Forest",
+        "colors": [
+          "G"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/a/4/a4a37f59-69b0-469b-8664-8975a5933d9c.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/a/4/a4a37f59-69b0-469b-8664-8975a5933d9c.jpg",
+        "price": 0.1,
+        "is_commander": false
+      },
+      {
+        "name": "Plains",
+        "scryfall_id": "3ff9f8bc-8d9e-43ff-be42-63b789ef53c7",
+        "oracle_id": "12a34567-0001-4444-8888-000000000030",
+        "count": 21,
+        "board_zone": "Mainboard",
+        "mana_cost": "",
+        "cmc": 0.0,
+        "type_line": "Basic Land \u2014 Plains",
+        "colors": [
+          "W"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/3/f/3ff9f8bc-8d9e-43ff-be42-63b789ef53c7.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/3/f/3ff9f8bc-8d9e-43ff-be42-63b789ef53c7.jpg",
+        "price": 0.1,
+        "is_commander": false
+      }
+    ]
+  },
+  {
+    "id": "precon-evg-elves",
+    "name": "Duel Decks: Elves vs. Goblins \u2014 Elves",
+    "format": "Duel Decks",
+    "source_type": "official",
+    "creator_name": "Wizards of the Coast",
+    "description": "Iconic 2007 Duel Deck featuring rapid mana ramp, elf token generation, and timberwatch power scaling.",
+    "release_code": "EVG",
+    "release_year": 2007,
+    "featured_category": null,
+    "color_identity": [
+      "G"
+    ],
+    "card_count": 62,
+    "estimated_price": 18.65,
+    "upvotes": 172,
+    "downvotes": 9,
+    "score": 163,
+    "tags": [
+      "duel-decks",
+      "elves",
+      "tribal",
+      "ramp",
+      "evg"
+    ],
+    "commander": {
+      "name": "Ambush Commander",
+      "scryfall_id": "78901234-0009-4444-8888-000000000001",
+      "oracle_id": "188a3456-0009-4444-8888-000000000001",
+      "count": 1,
+      "board_zone": "Mainboard",
+      "mana_cost": "{3}{G}{G}",
+      "cmc": 5.0,
+      "type_line": "Creature \u2014 Elf",
+      "colors": [
+        "G"
+      ],
+      "image_url": "https://cards.scryfall.io/normal/front/7/8/78901234-0009-4444-8888-000000000001.jpg",
+      "art_crop_url": "https://cards.scryfall.io/art_crop/front/7/8/78901234-0009-4444-8888-000000000001.jpg",
+      "price": 1.85,
+      "is_commander": false
+    },
+    "cards": [
+      {
+        "name": "Llanowar Elves",
+        "scryfall_id": "89012345-0009-4444-8888-000000000002",
+        "oracle_id": "188a3456-0009-4444-8888-000000000002",
+        "count": 4,
+        "board_zone": "Mainboard",
+        "mana_cost": "{G}",
+        "cmc": 1.0,
+        "type_line": "Creature \u2014 Elf Druid",
+        "colors": [
+          "G"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/8/9/89012345-0009-4444-8888-000000000002.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/8/9/89012345-0009-4444-8888-000000000002.jpg",
+        "price": 0.4,
+        "is_commander": false
+      },
+      {
+        "name": "Wellwisher",
+        "scryfall_id": "90123456-0009-4444-8888-000000000003",
+        "oracle_id": "188a3456-0009-4444-8888-000000000003",
+        "count": 2,
+        "board_zone": "Mainboard",
+        "mana_cost": "{1}{G}",
+        "cmc": 2.0,
+        "type_line": "Creature \u2014 Elf",
+        "colors": [
+          "G"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/9/0/90123456-0009-4444-8888-000000000003.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/9/0/90123456-0009-4444-8888-000000000003.jpg",
+        "price": 1.5,
+        "is_commander": false
+      },
+      {
+        "name": "Timberwatch Elf",
+        "scryfall_id": "01234567-0009-4444-8888-000000000004",
+        "oracle_id": "188a3456-0009-4444-8888-000000000004",
+        "count": 2,
+        "board_zone": "Mainboard",
+        "mana_cost": "{2}{G}",
+        "cmc": 3.0,
+        "type_line": "Creature \u2014 Elf",
+        "colors": [
+          "G"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/0/1/01234567-0009-4444-8888-000000000004.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/0/1/01234567-0009-4444-8888-000000000004.jpg",
+        "price": 0.85,
+        "is_commander": false
+      },
+      {
+        "name": "Elvish Promenade",
+        "scryfall_id": "12345678-0009-4444-8888-000000000005",
+        "oracle_id": "188a3456-0009-4444-8888-000000000005",
+        "count": 2,
+        "board_zone": "Mainboard",
+        "mana_cost": "{3}{G}",
+        "cmc": 4.0,
+        "type_line": "Sorcery \u2014 Elf",
+        "colors": [
+          "G"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/1/2/12345678-0009-4444-8888-000000000005.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/1/2/12345678-0009-4444-8888-000000000005.jpg",
+        "price": 1.25,
+        "is_commander": false
+      },
+      {
+        "name": "Heedless One",
+        "scryfall_id": "23456789-0009-4444-8888-000000000006",
+        "oracle_id": "188a3456-0009-4444-8888-000000000006",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{3}{G}",
+        "cmc": 4.0,
+        "type_line": "Creature \u2014 Elf",
+        "colors": [
+          "G"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/2/3/23456789-0009-4444-8888-000000000006.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/2/3/23456789-0009-4444-8888-000000000006.jpg",
+        "price": 0.6,
+        "is_commander": false
+      },
+      {
+        "name": "Wirewood Herald",
+        "scryfall_id": "34567890-0009-4444-8888-000000000007",
+        "oracle_id": "188a3456-0009-4444-8888-000000000007",
+        "count": 2,
+        "board_zone": "Mainboard",
+        "mana_cost": "{1}{G}",
+        "cmc": 2.0,
+        "type_line": "Creature \u2014 Elf",
+        "colors": [
+          "G"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/3/4/34567890-0009-4444-8888-000000000007.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/3/4/34567890-0009-4444-8888-000000000007.jpg",
+        "price": 0.35,
+        "is_commander": false
+      },
+      {
+        "name": "Elvish Warrior",
+        "scryfall_id": "45678901-0009-4444-8888-000000000008",
+        "oracle_id": "188a3456-0009-4444-8888-000000000008",
+        "count": 4,
+        "board_zone": "Mainboard",
+        "mana_cost": "{G}{G}",
+        "cmc": 2.0,
+        "type_line": "Creature \u2014 Elf Warrior",
+        "colors": [
+          "G"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/4/5/45678901-0009-4444-8888-000000000008.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/4/5/45678901-0009-4444-8888-000000000008.jpg",
+        "price": 0.25,
+        "is_commander": false
+      },
+      {
+        "name": "Lys Alana Huntmaster",
+        "scryfall_id": "56789012-0009-4444-8888-000000000009",
+        "oracle_id": "188a3456-0009-4444-8888-000000000009",
+        "count": 2,
+        "board_zone": "Mainboard",
+        "mana_cost": "{2}{G}{G}",
+        "cmc": 4.0,
+        "type_line": "Creature \u2014 Elf Warrior",
+        "colors": [
+          "G"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/5/6/56789012-0009-4444-8888-000000000009.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/5/6/56789012-0009-4444-8888-000000000009.jpg",
+        "price": 0.35,
+        "is_commander": false
+      },
+      {
+        "name": "Harmonize",
+        "scryfall_id": "67890123-0009-4444-8888-000000000010",
+        "oracle_id": "188a3456-0009-4444-8888-000000000010",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{2}{G}{G}",
+        "cmc": 4.0,
+        "type_line": "Sorcery",
+        "colors": [
+          "G"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/6/7/67890123-0009-4444-8888-000000000010.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/6/7/67890123-0009-4444-8888-000000000010.jpg",
+        "price": 0.5,
+        "is_commander": false
+      },
+      {
+        "name": "Tranquil Thicket",
+        "scryfall_id": "78901234-0009-4444-8888-000000000011",
+        "oracle_id": "188a3456-0009-4444-8888-000000000011",
+        "count": 2,
+        "board_zone": "Mainboard",
+        "mana_cost": "",
+        "cmc": 0.0,
+        "type_line": "Land",
+        "colors": [],
+        "image_url": "https://cards.scryfall.io/normal/front/7/8/78901234-0009-4444-8888-000000000011.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/7/8/78901234-0009-4444-8888-000000000011.jpg",
+        "price": 0.3,
+        "is_commander": false
+      },
+      {
+        "name": "Forest",
+        "scryfall_id": "a4a37f59-69b0-469b-8664-8975a5933d9c",
+        "oracle_id": "12a34567-0001-4444-8888-000000000026",
+        "count": 39,
+        "board_zone": "Mainboard",
+        "mana_cost": "",
+        "cmc": 0.0,
+        "type_line": "Basic Land \u2014 Forest",
+        "colors": [
+          "G"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/a/4/a4a37f59-69b0-469b-8664-8975a5933d9c.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/a/4/a4a37f59-69b0-469b-8664-8975a5933d9c.jpg",
+        "price": 0.1,
+        "is_commander": false
+      }
+    ]
+  },
+  {
+    "id": "precon-evg-goblins",
+    "name": "Duel Decks: Elves vs. Goblins \u2014 Goblins",
+    "format": "Duel Decks",
+    "source_type": "official",
+    "creator_name": "Wizards of the Coast",
+    "description": "Classic Goblin aggressive swarm deck leveraging haste, goblin sacrifice, and Siege-Gang Commander artillery.",
+    "release_code": "EVG",
+    "release_year": 2007,
+    "featured_category": null,
+    "color_identity": [
+      "R"
+    ],
+    "card_count": 60,
+    "estimated_price": 17.0,
+    "upvotes": 168,
+    "downvotes": 10,
+    "score": 158,
+    "tags": [
+      "duel-decks",
+      "goblins",
+      "tribal",
+      "burn",
+      "evg"
+    ],
+    "commander": {
+      "name": "Siege-Gang Commander",
+      "scryfall_id": "89012345-0010-4444-8888-000000000001",
+      "oracle_id": "099a3456-0010-4444-8888-000000000001",
+      "count": 1,
+      "board_zone": "Mainboard",
+      "mana_cost": "{3}{R}{R}",
+      "cmc": 5.0,
+      "type_line": "Creature \u2014 Goblin",
+      "colors": [
+        "R"
+      ],
+      "image_url": "https://cards.scryfall.io/normal/front/8/9/89012345-0010-4444-8888-000000000001.jpg",
+      "art_crop_url": "https://cards.scryfall.io/art_crop/front/8/9/89012345-0010-4444-8888-000000000001.jpg",
+      "price": 1.1,
+      "is_commander": false
+    },
+    "cards": [
+      {
+        "name": "Goblin Warchief",
+        "scryfall_id": "90123456-0010-4444-8888-000000000002",
+        "oracle_id": "099a3456-0010-4444-8888-000000000002",
+        "count": 2,
+        "board_zone": "Mainboard",
+        "mana_cost": "{1}{R}{R}",
+        "cmc": 3.0,
+        "type_line": "Creature \u2014 Goblin",
+        "colors": [
+          "R"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/9/0/90123456-0010-4444-8888-000000000002.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/9/0/90123456-0010-4444-8888-000000000002.jpg",
+        "price": 1.25,
+        "is_commander": false
+      },
+      {
+        "name": "Goblin Ringleader",
+        "scryfall_id": "01234567-0010-4444-8888-000000000003",
+        "oracle_id": "099a3456-0010-4444-8888-000000000003",
+        "count": 2,
+        "board_zone": "Mainboard",
+        "mana_cost": "{3}{R}",
+        "cmc": 4.0,
+        "type_line": "Creature \u2014 Goblin",
+        "colors": [
+          "R"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/0/1/01234567-0010-4444-8888-000000000003.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/0/1/01234567-0010-4444-8888-000000000003.jpg",
+        "price": 0.65,
+        "is_commander": false
+      },
+      {
+        "name": "Goblin Cohort",
+        "scryfall_id": "12345678-0010-4444-8888-000000000004",
+        "oracle_id": "099a3456-0010-4444-8888-000000000004",
+        "count": 4,
+        "board_zone": "Mainboard",
+        "mana_cost": "{R}",
+        "cmc": 1.0,
+        "type_line": "Creature \u2014 Goblin Warrior",
+        "colors": [
+          "R"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/1/2/12345678-0010-4444-8888-000000000004.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/1/2/12345678-0010-4444-8888-000000000004.jpg",
+        "price": 0.2,
+        "is_commander": false
+      },
+      {
+        "name": "Mogg Fanatic",
+        "scryfall_id": "23456789-0010-4444-8888-000000000005",
+        "oracle_id": "099a3456-0010-4444-8888-000000000005",
+        "count": 4,
+        "board_zone": "Mainboard",
+        "mana_cost": "{R}",
+        "cmc": 1.0,
+        "type_line": "Creature \u2014 Goblin",
+        "colors": [
+          "R"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/2/3/23456789-0010-4444-8888-000000000005.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/2/3/23456789-0010-4444-8888-000000000005.jpg",
+        "price": 0.35,
+        "is_commander": false
+      },
+      {
+        "name": "Tarfire",
+        "scryfall_id": "34567890-0010-4444-8888-000000000006",
+        "oracle_id": "099a3456-0010-4444-8888-000000000006",
+        "count": 3,
+        "board_zone": "Mainboard",
+        "mana_cost": "{R}",
+        "cmc": 1.0,
+        "type_line": "Tribal Instant \u2014 Goblin",
+        "colors": [
+          "R"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/3/4/34567890-0010-4444-8888-000000000006.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/3/4/34567890-0010-4444-8888-000000000006.jpg",
+        "price": 0.4,
+        "is_commander": false
+      },
+      {
+        "name": "Goblin Matron",
+        "scryfall_id": "45678901-0010-4444-8888-000000000007",
+        "oracle_id": "099a3456-0010-4444-8888-000000000007",
+        "count": 2,
+        "board_zone": "Mainboard",
+        "mana_cost": "{2}{R}",
+        "cmc": 3.0,
+        "type_line": "Creature \u2014 Goblin",
+        "colors": [
+          "R"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/4/5/45678901-0010-4444-8888-000000000007.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/4/5/45678901-0010-4444-8888-000000000007.jpg",
+        "price": 0.75,
+        "is_commander": false
+      },
+      {
+        "name": "Ib Halfheart, Goblin Tactician",
+        "scryfall_id": "56789012-0010-4444-8888-000000000008",
+        "oracle_id": "099a3456-0010-4444-8888-000000000008",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{3}{R}",
+        "cmc": 4.0,
+        "type_line": "Legendary Creature \u2014 Goblin Advisor",
+        "colors": [
+          "R"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/5/6/56789012-0010-4444-8888-000000000008.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/5/6/56789012-0010-4444-8888-000000000008.jpg",
+        "price": 0.5,
+        "is_commander": false
+      },
+      {
+        "name": "Boggart Shenanigans",
+        "scryfall_id": "67890123-0010-4444-8888-000000000009",
+        "oracle_id": "099a3456-0010-4444-8888-000000000009",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "{2}{R}",
+        "cmc": 3.0,
+        "type_line": "Tribal Enchantment \u2014 Goblin",
+        "colors": [
+          "R"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/6/7/67890123-0010-4444-8888-000000000009.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/6/7/67890123-0010-4444-8888-000000000009.jpg",
+        "price": 2.4,
+        "is_commander": false
+      },
+      {
+        "name": "Forgotten Cave",
+        "scryfall_id": "78901234-0010-4444-8888-000000000010",
+        "oracle_id": "099a3456-0010-4444-8888-000000000010",
+        "count": 2,
+        "board_zone": "Mainboard",
+        "mana_cost": "",
+        "cmc": 0.0,
+        "type_line": "Land",
+        "colors": [],
+        "image_url": "https://cards.scryfall.io/normal/front/7/8/78901234-0010-4444-8888-000000000010.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/7/8/78901234-0010-4444-8888-000000000010.jpg",
+        "price": 0.25,
+        "is_commander": false
+      },
+      {
+        "name": "Mountain",
+        "scryfall_id": "4204d168-963a-4be0-802c-567a216fe8e2",
+        "oracle_id": "12a34567-0001-4444-8888-000000000027",
+        "count": 38,
+        "board_zone": "Mainboard",
+        "mana_cost": "",
+        "cmc": 0.0,
+        "type_line": "Basic Land \u2014 Mountain",
+        "colors": [
+          "R"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/4/2/4204d168-963a-4be0-802c-567a216fe8e2.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/4/2/4204d168-963a-4be0-802c-567a216fe8e2.jpg",
+        "price": 0.1,
+        "is_commander": false
+      }
+    ]
+  },
+  {
+    "id": "precon-pc2-chaos-reigns",
+    "name": "Planechase 2012: Chaos Reigns",
+    "format": "Planechase",
+    "source_type": "official",
+    "creator_name": "Wizards of the Coast",
+    "description": "Planechase 2012 multiplayer deck focused on cascade spells, planar manipulation, and chaotic multi-spell turns.",
+    "release_code": "PC2",
+    "release_year": 2012,
+    "featured_category": null,
+    "color_identity": [
+      "G",
+      "U",
+      "R"
+    ],
+    "card_count": 62,
+    "estimated_price": 24.6,
+    "upvotes": 155,
+    "downvotes": 7,
+    "score": 148,
+    "tags": [
+      "planechase",
+      "cascade",
+      "temur",
+      "chaos",
+      "pc2"
+    ],
+    "commander": {
+      "name": "Maelstrom Wanderer",
+      "scryfall_id": "90123456-0011-4444-8888-000000000001",
+      "oracle_id": "911a3456-0011-4444-8888-000000000001",
+      "count": 1,
+      "board_zone": "Mainboard",
+      "mana_cost": "{5}{U}{R}{G}",
+      "cmc": 8.0,
+      "type_line": "Legendary Creature \u2014 Elemental",
+      "colors": [
+        "G",
+        "U",
+        "R"
+      ],
+      "image_url": "https://cards.scryfall.io/normal/front/9/0/90123456-0011-4444-8888-000000000001.jpg",
+      "art_crop_url": "https://cards.scryfall.io/art_crop/front/9/0/90123456-0011-4444-8888-000000000001.jpg",
+      "price": 3.75,
+      "is_commander": false
+    },
+    "cards": [
+      {
+        "name": "Shardless Agent",
+        "scryfall_id": "01234567-0011-4444-8888-000000000002",
+        "oracle_id": "911a3456-0011-4444-8888-000000000002",
+        "count": 2,
+        "board_zone": "Mainboard",
+        "mana_cost": "{1}{G}{U}",
+        "cmc": 3.0,
+        "type_line": "Artifact Creature \u2014 Human Rogue",
+        "colors": [
+          "G",
+          "U"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/0/1/01234567-0011-4444-8888-000000000002.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/0/1/01234567-0011-4444-8888-000000000002.jpg",
+        "price": 0.9,
+        "is_commander": false
+      },
+      {
+        "name": "Bloodbraid Elf",
+        "scryfall_id": "12345678-0011-4444-8888-000000000003",
+        "oracle_id": "911a3456-0011-4444-8888-000000000003",
+        "count": 3,
+        "board_zone": "Mainboard",
+        "mana_cost": "{2}{R}{G}",
+        "cmc": 4.0,
+        "type_line": "Creature \u2014 Elf Berserker",
+        "colors": [
+          "R",
+          "G"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/1/2/12345678-0011-4444-8888-000000000003.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/1/2/12345678-0011-4444-8888-000000000003.jpg",
+        "price": 0.45,
+        "is_commander": false
+      },
+      {
+        "name": "Bituminous Blast",
+        "scryfall_id": "23456789-0011-4444-8888-000000000004",
+        "oracle_id": "911a3456-0011-4444-8888-000000000004",
+        "count": 2,
+        "board_zone": "Mainboard",
+        "mana_cost": "{3}{B}{R}",
+        "cmc": 5.0,
+        "type_line": "Instant",
+        "colors": [
+          "B",
+          "R"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/2/3/23456789-0011-4444-8888-000000000004.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/2/3/23456789-0011-4444-8888-000000000004.jpg",
+        "price": 0.35,
+        "is_commander": false
+      },
+      {
+        "name": "Etherium-Horn Sorcerer",
+        "scryfall_id": "34567890-0011-4444-8888-000000000005",
+        "oracle_id": "911a3456-0011-4444-8888-000000000005",
+        "count": 2,
+        "board_zone": "Mainboard",
+        "mana_cost": "{4}{U}{R}",
+        "cmc": 6.0,
+        "type_line": "Artifact Creature \u2014 Minotaur Wizard",
+        "colors": [
+          "U",
+          "R"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/3/4/34567890-0011-4444-8888-000000000005.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/3/4/34567890-0011-4444-8888-000000000005.jpg",
+        "price": 0.45,
+        "is_commander": false
+      },
+      {
+        "name": "Cultivate",
+        "scryfall_id": "6fe67905-59b9-44d4-9d41-c8526ee55d64",
+        "oracle_id": "12a34567-0001-4444-8888-000000000015",
+        "count": 3,
+        "board_zone": "Mainboard",
+        "mana_cost": "{2}{G}",
+        "cmc": 3.0,
+        "type_line": "Sorcery",
+        "colors": [
+          "G"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/6/f/6fe67905-59b9-44d4-9d41-c8526ee55d64.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/6/f/6fe67905-59b9-44d4-9d41-c8526ee55d64.jpg",
+        "price": 0.95,
+        "is_commander": false
+      },
+      {
+        "name": "Kodama's Reach",
+        "scryfall_id": "16ef8330-9755-46f9-b366-068d374f6645",
+        "oracle_id": "12a34567-0001-4444-8888-000000000016",
+        "count": 3,
+        "board_zone": "Mainboard",
+        "mana_cost": "{2}{G}",
+        "cmc": 3.0,
+        "type_line": "Sorcery",
+        "colors": [
+          "G"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/1/6/16ef8330-9755-46f9-b366-068d374f6645.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/1/6/16ef8330-9755-46f9-b366-068d374f6645.jpg",
+        "price": 0.85,
+        "is_commander": false
+      },
+      {
+        "name": "Sakura-Tribe Elder",
+        "scryfall_id": "45678901-0011-4444-8888-000000000006",
+        "oracle_id": "911a3456-0011-4444-8888-000000000006",
+        "count": 4,
+        "board_zone": "Mainboard",
+        "mana_cost": "{1}{G}",
+        "cmc": 2.0,
+        "type_line": "Creature \u2014 Snake Shaman",
+        "colors": [
+          "G"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/4/5/45678901-0011-4444-8888-000000000006.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/4/5/45678901-0011-4444-8888-000000000006.jpg",
+        "price": 1.1,
+        "is_commander": false
+      },
+      {
+        "name": "Coiling Oracle",
+        "scryfall_id": "56789012-0011-4444-8888-000000000007",
+        "oracle_id": "911a3456-0011-4444-8888-000000000007",
+        "count": 4,
+        "board_zone": "Mainboard",
+        "mana_cost": "{G}{U}",
+        "cmc": 2.0,
+        "type_line": "Creature \u2014 Snake Elf Coiling",
+        "colors": [
+          "G",
+          "U"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/5/6/56789012-0011-4444-8888-000000000007.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/5/6/56789012-0011-4444-8888-000000000007.jpg",
+        "price": 0.3,
+        "is_commander": false
+      },
+      {
+        "name": "Frontier Bivouac",
+        "scryfall_id": "67890123-0011-4444-8888-000000000008",
+        "oracle_id": "911a3456-0011-4444-8888-000000000008",
+        "count": 3,
+        "board_zone": "Mainboard",
+        "mana_cost": "",
+        "cmc": 0.0,
+        "type_line": "Land",
+        "colors": [],
+        "image_url": "https://cards.scryfall.io/normal/front/6/7/67890123-0011-4444-8888-000000000008.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/6/7/67890123-0011-4444-8888-000000000008.jpg",
+        "price": 0.4,
+        "is_commander": false
+      },
+      {
+        "name": "Command Tower",
+        "scryfall_id": "d4757270-4cb5-45d2-a7d2-7c39fc21f822",
+        "oracle_id": "12a34567-0001-4444-8888-000000000021",
+        "count": 1,
+        "board_zone": "Mainboard",
+        "mana_cost": "",
+        "cmc": 0.0,
+        "type_line": "Land",
+        "colors": [],
+        "image_url": "https://cards.scryfall.io/normal/front/d/4/d4757270-4cb5-45d2-a7d2-7c39fc21f822.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/d/4/d4757270-4cb5-45d2-a7d2-7c39fc21f822.jpg",
+        "price": 0.5,
+        "is_commander": false
+      },
+      {
+        "name": "Forest",
+        "scryfall_id": "a4a37f59-69b0-469b-8664-8975a5933d9c",
+        "oracle_id": "12a34567-0001-4444-8888-000000000026",
+        "count": 12,
+        "board_zone": "Mainboard",
+        "mana_cost": "",
+        "cmc": 0.0,
+        "type_line": "Basic Land \u2014 Forest",
+        "colors": [
+          "G"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/a/4/a4a37f59-69b0-469b-8664-8975a5933d9c.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/a/4/a4a37f59-69b0-469b-8664-8975a5933d9c.jpg",
+        "price": 0.1,
+        "is_commander": false
+      },
+      {
+        "name": "Island",
+        "scryfall_id": "31e2ec24-1100-47b7-b089-a35b1d4eb615",
+        "oracle_id": "12a34567-0001-4444-8888-000000000029",
+        "count": 11,
+        "board_zone": "Mainboard",
+        "mana_cost": "",
+        "cmc": 0.0,
+        "type_line": "Basic Land \u2014 Island",
+        "colors": [
+          "U"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/3/1/31e2ec24-1100-47b7-b089-a35b1d4eb615.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/3/1/31e2ec24-1100-47b7-b089-a35b1d4eb615.jpg",
+        "price": 0.1,
+        "is_commander": false
+      },
+      {
+        "name": "Mountain",
+        "scryfall_id": "4204d168-963a-4be0-802c-567a216fe8e2",
+        "oracle_id": "12a34567-0001-4444-8888-000000000027",
+        "count": 11,
+        "board_zone": "Mainboard",
+        "mana_cost": "",
+        "cmc": 0.0,
+        "type_line": "Basic Land \u2014 Mountain",
+        "colors": [
+          "R"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/4/2/4204d168-963a-4be0-802c-567a216fe8e2.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/4/2/4204d168-963a-4be0-802c-567a216fe8e2.jpg",
+        "price": 0.1,
+        "is_commander": false
+      }
+    ]
+  },
+  {
+    "id": "precon-e01-nicol-bolas",
+    "name": "Archenemy: Nicol Bolas",
+    "format": "Archenemy",
+    "source_type": "official",
+    "creator_name": "Wizards of the Coast",
+    "description": "Archenemy deck commanding Nicol Bolas, Planeswalker alongside high-impact scheme spells, Cruel Ultimatum, and Grixis control.",
+    "release_code": "E01",
+    "release_year": 2017,
+    "featured_category": null,
+    "color_identity": [
+      "U",
+      "B",
+      "R"
+    ],
+    "card_count": 62,
+    "estimated_price": 34.6,
+    "upvotes": 198,
+    "downvotes": 12,
+    "score": 186,
+    "tags": [
+      "archenemy",
+      "nicol-bolas",
+      "grixis",
+      "schemes",
+      "e01"
+    ],
+    "commander": {
+      "name": "Nicol Bolas, Planeswalker",
+      "scryfall_id": "01234567-0012-4444-8888-000000000001",
+      "oracle_id": "822a3456-0012-4444-8888-000000000001",
+      "count": 1,
+      "board_zone": "Mainboard",
+      "mana_cost": "{4}{U}{B}{B}{R}",
+      "cmc": 8.0,
+      "type_line": "Legendary Planeswalker \u2014 Bolas",
+      "colors": [
+        "U",
+        "B",
+        "R"
+      ],
+      "image_url": "https://cards.scryfall.io/normal/front/0/1/01234567-0012-4444-8888-000000000001.jpg",
+      "art_crop_url": "https://cards.scryfall.io/art_crop/front/0/1/01234567-0012-4444-8888-000000000001.jpg",
+      "price": 4.5,
+      "is_commander": false
+    },
+    "cards": [
+      {
+        "name": "Cruel Ultimatum",
+        "scryfall_id": "12345678-0012-4444-8888-000000000002",
+        "oracle_id": "822a3456-0012-4444-8888-000000000002",
+        "count": 2,
+        "board_zone": "Mainboard",
+        "mana_cost": "{U}{U}{B}{B}{B}{R}{R}",
+        "cmc": 7.0,
+        "type_line": "Sorcery",
+        "colors": [
+          "U",
+          "B",
+          "R"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/1/2/12345678-0012-4444-8888-000000000002.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/1/2/12345678-0012-4444-8888-000000000002.jpg",
+        "price": 1.25,
+        "is_commander": false
+      },
+      {
+        "name": "Dreadbore",
+        "scryfall_id": "23456789-0012-4444-8888-000000000003",
+        "oracle_id": "822a3456-0012-4444-8888-000000000003",
+        "count": 3,
+        "board_zone": "Mainboard",
+        "mana_cost": "{B}{R}",
+        "cmc": 2.0,
+        "type_line": "Sorcery",
+        "colors": [
+          "B",
+          "R"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/2/3/23456789-0012-4444-8888-000000000003.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/2/3/23456789-0012-4444-8888-000000000003.jpg",
+        "price": 1.1,
+        "is_commander": false
+      },
+      {
+        "name": "Terminate",
+        "scryfall_id": "34567890-0012-4444-8888-000000000004",
+        "oracle_id": "822a3456-0012-4444-8888-000000000004",
+        "count": 3,
+        "board_zone": "Mainboard",
+        "mana_cost": "{B}{R}",
+        "cmc": 2.0,
+        "type_line": "Instant",
+        "colors": [
+          "B",
+          "R"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/3/4/34567890-0012-4444-8888-000000000004.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/3/4/34567890-0012-4444-8888-000000000004.jpg",
+        "price": 0.75,
+        "is_commander": false
+      },
+      {
+        "name": "Lightning Bolt",
+        "scryfall_id": "45678901-0012-4444-8888-000000000005",
+        "oracle_id": "822a3456-0012-4444-8888-000000000005",
+        "count": 4,
+        "board_zone": "Mainboard",
+        "mana_cost": "{R}",
+        "cmc": 1.0,
+        "type_line": "Instant",
+        "colors": [
+          "R"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/4/5/45678901-0012-4444-8888-000000000005.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/4/5/45678901-0012-4444-8888-000000000005.jpg",
+        "price": 1.2,
+        "is_commander": false
+      },
+      {
+        "name": "Compulsive Research",
+        "scryfall_id": "56789012-0012-4444-8888-000000000006",
+        "oracle_id": "822a3456-0012-4444-8888-000000000006",
+        "count": 3,
+        "board_zone": "Mainboard",
+        "mana_cost": "{2}{U}",
+        "cmc": 3.0,
+        "type_line": "Sorcery",
+        "colors": [
+          "U"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/5/6/56789012-0012-4444-8888-000000000006.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/5/6/56789012-0012-4444-8888-000000000006.jpg",
+        "price": 0.25,
+        "is_commander": false
+      },
+      {
+        "name": "Nightscape Familiar",
+        "scryfall_id": "67890123-0012-4444-8888-000000000007",
+        "oracle_id": "822a3456-0012-4444-8888-000000000007",
+        "count": 4,
+        "board_zone": "Mainboard",
+        "mana_cost": "{1}{B}",
+        "cmc": 2.0,
+        "type_line": "Creature \u2014 Zombie",
+        "colors": [
+          "B"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/6/7/67890123-0012-4444-8888-000000000007.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/6/7/67890123-0012-4444-8888-000000000007.jpg",
+        "price": 0.35,
+        "is_commander": false
+      },
+      {
+        "name": "Baleful Strix",
+        "scryfall_id": "78901234-0012-4444-8888-000000000008",
+        "oracle_id": "822a3456-0012-4444-8888-000000000008",
+        "count": 3,
+        "board_zone": "Mainboard",
+        "mana_cost": "{U}{B}",
+        "cmc": 2.0,
+        "type_line": "Artifact Creature \u2014 Bird",
+        "colors": [
+          "U",
+          "B"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/7/8/78901234-0012-4444-8888-000000000008.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/7/8/78901234-0012-4444-8888-000000000008.jpg",
+        "price": 1.5,
+        "is_commander": false
+      },
+      {
+        "name": "Crumbling Necropolis",
+        "scryfall_id": "89012345-0012-4444-8888-000000000009",
+        "oracle_id": "822a3456-0012-4444-8888-000000000009",
+        "count": 4,
+        "board_zone": "Mainboard",
+        "mana_cost": "",
+        "cmc": 0.0,
+        "type_line": "Land",
+        "colors": [],
+        "image_url": "https://cards.scryfall.io/normal/front/8/9/89012345-0012-4444-8888-000000000009.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/8/9/89012345-0012-4444-8888-000000000009.jpg",
+        "price": 0.4,
+        "is_commander": false
+      },
+      {
+        "name": "Dragonskull Summit",
+        "scryfall_id": "90123456-0012-4444-8888-000000000010",
+        "oracle_id": "822a3456-0012-4444-8888-000000000010",
+        "count": 2,
+        "board_zone": "Mainboard",
+        "mana_cost": "",
+        "cmc": 0.0,
+        "type_line": "Land",
+        "colors": [],
+        "image_url": "https://cards.scryfall.io/normal/front/9/0/90123456-0012-4444-8888-000000000010.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/9/0/90123456-0012-4444-8888-000000000010.jpg",
+        "price": 1.35,
+        "is_commander": false
+      },
+      {
+        "name": "Drowned Catacomb",
+        "scryfall_id": "01234567-0012-4444-8888-000000000011",
+        "oracle_id": "822a3456-0012-4444-8888-000000000011",
+        "count": 2,
+        "board_zone": "Mainboard",
+        "mana_cost": "",
+        "cmc": 0.0,
+        "type_line": "Land",
+        "colors": [],
+        "image_url": "https://cards.scryfall.io/normal/front/0/1/01234567-0012-4444-8888-000000000011.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/0/1/01234567-0012-4444-8888-000000000011.jpg",
+        "price": 1.6,
+        "is_commander": false
+      },
+      {
+        "name": "Swamp",
+        "scryfall_id": "6f5f8486-d922-498c-8ea1-460eb00d027b",
+        "oracle_id": "12a34567-0001-4444-8888-000000000028",
+        "count": 11,
+        "board_zone": "Mainboard",
+        "mana_cost": "",
+        "cmc": 0.0,
+        "type_line": "Basic Land \u2014 Swamp",
+        "colors": [
+          "B"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/6/f/6f5f8486-d922-498c-8ea1-460eb00d027b.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/6/f/6f5f8486-d922-498c-8ea1-460eb00d027b.jpg",
+        "price": 0.1,
+        "is_commander": false
+      },
+      {
+        "name": "Mountain",
+        "scryfall_id": "4204d168-963a-4be0-802c-567a216fe8e2",
+        "oracle_id": "12a34567-0001-4444-8888-000000000027",
+        "count": 10,
+        "board_zone": "Mainboard",
+        "mana_cost": "",
+        "cmc": 0.0,
+        "type_line": "Basic Land \u2014 Mountain",
+        "colors": [
+          "R"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/4/2/4204d168-963a-4be0-802c-567a216fe8e2.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/4/2/4204d168-963a-4be0-802c-567a216fe8e2.jpg",
+        "price": 0.1,
+        "is_commander": false
+      },
+      {
+        "name": "Island",
+        "scryfall_id": "31e2ec24-1100-47b7-b089-a35b1d4eb615",
+        "oracle_id": "12a34567-0001-4444-8888-000000000029",
+        "count": 10,
+        "board_zone": "Mainboard",
+        "mana_cost": "",
+        "cmc": 0.0,
+        "type_line": "Basic Land \u2014 Island",
+        "colors": [
+          "U"
+        ],
+        "image_url": "https://cards.scryfall.io/normal/front/3/1/31e2ec24-1100-47b7-b089-a35b1d4eb615.jpg",
+        "art_crop_url": "https://cards.scryfall.io/art_crop/front/3/1/31e2ec24-1100-47b7-b089-a35b1d4eb615.jpg",
+        "price": 0.1,
+        "is_commander": false
+      }
+    ]
+  }
+]

@@ -305,7 +305,7 @@ void main() {
       }
     });
 
-    testWidgets('Tapping Jump to Analytics anchor chip on 280x600 at 2.0x scale works with zero overflows in anchor bar', (tester) async {
+    testWidgets('Anchor chip is absent and inline analytics renders on 280x600 at 2.0x scale with zero overflows', (tester) async {
       tester.view.physicalSize = const Size(280, 600);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
@@ -351,21 +351,27 @@ void main() {
         );
         await tester.pumpAndSettle();
 
+        // Verify anchor chip is removed
         final anchorFinder = find.byKey(const Key('deck_builder_anchor_analytics_chip'));
-        expect(anchorFinder, findsOneWidget);
+        expect(anchorFinder, findsNothing);
+        expect(find.text('Jump to Analytics'), findsNothing);
 
-        await tester.tap(anchorFinder);
+        // Verify inline card is rendered and expands cleanly
+        final toggleFinder = find.byKey(const Key('inline_analytics_collapse_toggle'));
+        expect(toggleFinder, findsOneWidget);
+        await tester.tap(toggleFinder);
         await tester.pumpAndSettle();
 
-        final anchorBarOverflows = errors
+        expect(find.byKey(const Key('deck_builder_inline_analytics_card')), findsOneWidget);
+
+        final deckBuilderOverflows = errors
             .where((e) => e.exceptionAsString().contains('overflowed') &&
-                          (e.exceptionAsString().contains('deck_builder_screen.dart') ||
-                           e.exceptionAsString().contains('Jump to Analytics')))
+                          e.exceptionAsString().contains('deck_builder_screen.dart'))
             .toList();
         expect(
-          anchorBarOverflows,
+          deckBuilderOverflows,
           isEmpty,
-          reason: 'Anchor navigation tap overflowed on 280px at 2.0x: ${anchorBarOverflows.map((e) => e.exceptionAsString()).join("; ")}',
+          reason: 'DeckBuilderScreen overflowed on 280px at 2.0x: ${deckBuilderOverflows.map((e) => e.exceptionAsString()).join("; ")}',
         );
       } finally {
         while (tester.takeException() != null) {}

@@ -164,8 +164,8 @@ void main() {
       // 2. Open AppDatabase triggering onUpgrade from 9 to 10
       final db = AppDatabase(rawDb);
 
-      // Verify schema version is now 10
-      expect(db.schemaVersion, equals(10));
+      // Verify schema version is at least 10
+      expect(db.schemaVersion, greaterThanOrEqualTo(10));
 
       // Verify legacy v9 items are intact and readable
       final legacyCard = await db.vaultDao.getItemById('legacy-atraxa');
@@ -342,7 +342,7 @@ void main() {
 
       // Opening AppDatabase must execute beforeOpen defensive creation without throwing
       final db = AppDatabase(driftedDb);
-      expect(db.schemaVersion, equals(10));
+      expect(db.schemaVersion, greaterThanOrEqualTo(10));
 
       // Assert tables now exist
       final tables = await db.customSelect(

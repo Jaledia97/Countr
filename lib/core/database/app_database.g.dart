@@ -2124,6 +2124,32 @@ class $DecksTable extends Decks with TableInfo<$DecksTable, Deck> {
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _isClonedMeta = const VerificationMeta(
+    'isCloned',
+  );
+  @override
+  late final GeneratedColumn<bool> isCloned = GeneratedColumn<bool>(
+    'is_cloned',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_cloned" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _sourceExploreDeckIdMeta =
+      const VerificationMeta('sourceExploreDeckId');
+  @override
+  late final GeneratedColumn<String> sourceExploreDeckId =
+      GeneratedColumn<String>(
+        'source_explore_deck_id',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -2142,6 +2168,8 @@ class $DecksTable extends Decks with TableInfo<$DecksTable, Deck> {
     isAssembled,
     isDeleted,
     updatedAt,
+    isCloned,
+    sourceExploreDeckId,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2274,6 +2302,21 @@ class $DecksTable extends Decks with TableInfo<$DecksTable, Deck> {
         updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
       );
     }
+    if (data.containsKey('is_cloned')) {
+      context.handle(
+        _isClonedMeta,
+        isCloned.isAcceptableOrUnknown(data['is_cloned']!, _isClonedMeta),
+      );
+    }
+    if (data.containsKey('source_explore_deck_id')) {
+      context.handle(
+        _sourceExploreDeckIdMeta,
+        sourceExploreDeckId.isAcceptableOrUnknown(
+          data['source_explore_deck_id']!,
+          _sourceExploreDeckIdMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -2347,6 +2390,14 @@ class $DecksTable extends Decks with TableInfo<$DecksTable, Deck> {
         DriftSqlType.dateTime,
         data['${effectivePrefix}updated_at'],
       ),
+      isCloned: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_cloned'],
+      )!,
+      sourceExploreDeckId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source_explore_deck_id'],
+      ),
     );
   }
 
@@ -2373,6 +2424,8 @@ class Deck extends DataClass implements Insertable<Deck> {
   final bool isAssembled;
   final bool isDeleted;
   final DateTime? updatedAt;
+  final bool isCloned;
+  final String? sourceExploreDeckId;
   const Deck({
     required this.id,
     required this.name,
@@ -2390,6 +2443,8 @@ class Deck extends DataClass implements Insertable<Deck> {
     required this.isAssembled,
     required this.isDeleted,
     this.updatedAt,
+    this.isCloned = false,
+    this.sourceExploreDeckId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2417,6 +2472,10 @@ class Deck extends DataClass implements Insertable<Deck> {
     map['is_deleted'] = Variable<bool>(isDeleted);
     if (!nullToAbsent || updatedAt != null) {
       map['updated_at'] = Variable<DateTime>(updatedAt);
+    }
+    map['is_cloned'] = Variable<bool>(isCloned);
+    if (!nullToAbsent || sourceExploreDeckId != null) {
+      map['source_explore_deck_id'] = Variable<String>(sourceExploreDeckId);
     }
     return map;
   }
@@ -2447,6 +2506,10 @@ class Deck extends DataClass implements Insertable<Deck> {
       updatedAt: updatedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(updatedAt),
+      isCloned: Value(isCloned),
+      sourceExploreDeckId: sourceExploreDeckId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(sourceExploreDeckId),
     );
   }
 
@@ -2472,6 +2535,10 @@ class Deck extends DataClass implements Insertable<Deck> {
       isAssembled: serializer.fromJson<bool>(json['isAssembled']),
       isDeleted: serializer.fromJson<bool>(json['isDeleted']),
       updatedAt: serializer.fromJson<DateTime?>(json['updatedAt']),
+      isCloned: serializer.fromJson<bool>(json['isCloned']),
+      sourceExploreDeckId: serializer.fromJson<String?>(
+        json['sourceExploreDeckId'],
+      ),
     );
   }
   @override
@@ -2494,6 +2561,8 @@ class Deck extends DataClass implements Insertable<Deck> {
       'isAssembled': serializer.toJson<bool>(isAssembled),
       'isDeleted': serializer.toJson<bool>(isDeleted),
       'updatedAt': serializer.toJson<DateTime?>(updatedAt),
+      'isCloned': serializer.toJson<bool>(isCloned),
+      'sourceExploreDeckId': serializer.toJson<String?>(sourceExploreDeckId),
     };
   }
 
@@ -2514,6 +2583,8 @@ class Deck extends DataClass implements Insertable<Deck> {
     bool? isAssembled,
     bool? isDeleted,
     Value<DateTime?> updatedAt = const Value.absent(),
+    bool? isCloned,
+    Value<String?> sourceExploreDeckId = const Value.absent(),
   }) => Deck(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -2533,6 +2604,10 @@ class Deck extends DataClass implements Insertable<Deck> {
     isAssembled: isAssembled ?? this.isAssembled,
     isDeleted: isDeleted ?? this.isDeleted,
     updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
+    isCloned: isCloned ?? this.isCloned,
+    sourceExploreDeckId: sourceExploreDeckId.present
+        ? sourceExploreDeckId.value
+        : this.sourceExploreDeckId,
   );
   Deck copyWithCompanion(DecksCompanion data) {
     return Deck(
@@ -2564,6 +2639,10 @@ class Deck extends DataClass implements Insertable<Deck> {
           : this.isAssembled,
       isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      isCloned: data.isCloned.present ? data.isCloned.value : this.isCloned,
+      sourceExploreDeckId: data.sourceExploreDeckId.present
+          ? data.sourceExploreDeckId.value
+          : this.sourceExploreDeckId,
     );
   }
 
@@ -2585,7 +2664,9 @@ class Deck extends DataClass implements Insertable<Deck> {
           ..write('isCompetitive: $isCompetitive, ')
           ..write('isAssembled: $isAssembled, ')
           ..write('isDeleted: $isDeleted, ')
-          ..write('updatedAt: $updatedAt')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('isCloned: $isCloned, ')
+          ..write('sourceExploreDeckId: $sourceExploreDeckId')
           ..write(')'))
         .toString();
   }
@@ -2608,6 +2689,8 @@ class Deck extends DataClass implements Insertable<Deck> {
     isAssembled,
     isDeleted,
     updatedAt,
+    isCloned,
+    sourceExploreDeckId,
   );
   @override
   bool operator ==(Object other) =>
@@ -2628,7 +2711,9 @@ class Deck extends DataClass implements Insertable<Deck> {
           other.isCompetitive == this.isCompetitive &&
           other.isAssembled == this.isAssembled &&
           other.isDeleted == this.isDeleted &&
-          other.updatedAt == this.updatedAt);
+          other.updatedAt == this.updatedAt &&
+          other.isCloned == this.isCloned &&
+          other.sourceExploreDeckId == this.sourceExploreDeckId);
 }
 
 class DecksCompanion extends UpdateCompanion<Deck> {
@@ -2648,6 +2733,8 @@ class DecksCompanion extends UpdateCompanion<Deck> {
   final Value<bool> isAssembled;
   final Value<bool> isDeleted;
   final Value<DateTime?> updatedAt;
+  final Value<bool> isCloned;
+  final Value<String?> sourceExploreDeckId;
   final Value<int> rowid;
   const DecksCompanion({
     this.id = const Value.absent(),
@@ -2666,6 +2753,8 @@ class DecksCompanion extends UpdateCompanion<Deck> {
     this.isAssembled = const Value.absent(),
     this.isDeleted = const Value.absent(),
     this.updatedAt = const Value.absent(),
+    this.isCloned = const Value.absent(),
+    this.sourceExploreDeckId = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   DecksCompanion.insert({
@@ -2685,6 +2774,8 @@ class DecksCompanion extends UpdateCompanion<Deck> {
     this.isAssembled = const Value.absent(),
     this.isDeleted = const Value.absent(),
     this.updatedAt = const Value.absent(),
+    this.isCloned = const Value.absent(),
+    this.sourceExploreDeckId = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        name = Value(name),
@@ -2707,6 +2798,8 @@ class DecksCompanion extends UpdateCompanion<Deck> {
     Expression<bool>? isAssembled,
     Expression<bool>? isDeleted,
     Expression<DateTime>? updatedAt,
+    Expression<bool>? isCloned,
+    Expression<String>? sourceExploreDeckId,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -2726,6 +2819,9 @@ class DecksCompanion extends UpdateCompanion<Deck> {
       if (isAssembled != null) 'is_assembled': isAssembled,
       if (isDeleted != null) 'is_deleted': isDeleted,
       if (updatedAt != null) 'updated_at': updatedAt,
+      if (isCloned != null) 'is_cloned': isCloned,
+      if (sourceExploreDeckId != null)
+        'source_explore_deck_id': sourceExploreDeckId,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -2747,6 +2843,8 @@ class DecksCompanion extends UpdateCompanion<Deck> {
     Value<bool>? isAssembled,
     Value<bool>? isDeleted,
     Value<DateTime?>? updatedAt,
+    Value<bool>? isCloned,
+    Value<String?>? sourceExploreDeckId,
     Value<int>? rowid,
   }) {
     return DecksCompanion(
@@ -2766,6 +2864,8 @@ class DecksCompanion extends UpdateCompanion<Deck> {
       isAssembled: isAssembled ?? this.isAssembled,
       isDeleted: isDeleted ?? this.isDeleted,
       updatedAt: updatedAt ?? this.updatedAt,
+      isCloned: isCloned ?? this.isCloned,
+      sourceExploreDeckId: sourceExploreDeckId ?? this.sourceExploreDeckId,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -2821,6 +2921,14 @@ class DecksCompanion extends UpdateCompanion<Deck> {
     if (updatedAt.present) {
       map['updated_at'] = Variable<DateTime>(updatedAt.value);
     }
+    if (isCloned.present) {
+      map['is_cloned'] = Variable<bool>(isCloned.value);
+    }
+    if (sourceExploreDeckId.present) {
+      map['source_explore_deck_id'] = Variable<String>(
+        sourceExploreDeckId.value,
+      );
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -2846,6 +2954,8 @@ class DecksCompanion extends UpdateCompanion<Deck> {
           ..write('isAssembled: $isAssembled, ')
           ..write('isDeleted: $isDeleted, ')
           ..write('updatedAt: $updatedAt, ')
+          ..write('isCloned: $isCloned, ')
+          ..write('sourceExploreDeckId: $sourceExploreDeckId, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -8403,6 +8513,2705 @@ class MatchEventsCompanion extends UpdateCompanion<MatchEvent> {
   }
 }
 
+class $ExploreDecksTable extends ExploreDecks
+    with TableInfo<$ExploreDecksTable, ExploreDeck> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ExploreDecksTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _formatMeta = const VerificationMeta('format');
+  @override
+  late final GeneratedColumn<String> format = GeneratedColumn<String>(
+    'format',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _tcgDomainMeta = const VerificationMeta(
+    'tcgDomain',
+  );
+  @override
+  late final GeneratedColumn<String> tcgDomain = GeneratedColumn<String>(
+    'tcg_domain',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('mtg'),
+  );
+  static const VerificationMeta _sourceTypeMeta = const VerificationMeta(
+    'sourceType',
+  );
+  @override
+  late final GeneratedColumn<String> sourceType = GeneratedColumn<String>(
+    'source_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('official'),
+  );
+  static const VerificationMeta _creatorNameMeta = const VerificationMeta(
+    'creatorName',
+  );
+  @override
+  late final GeneratedColumn<String> creatorName = GeneratedColumn<String>(
+    'creator_name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('Wizards of the Coast'),
+  );
+  static const VerificationMeta _descriptionMeta = const VerificationMeta(
+    'description',
+  );
+  @override
+  late final GeneratedColumn<String> description = GeneratedColumn<String>(
+    'description',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _commanderNameMeta = const VerificationMeta(
+    'commanderName',
+  );
+  @override
+  late final GeneratedColumn<String> commanderName = GeneratedColumn<String>(
+    'commander_name',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _commanderImageUrlMeta = const VerificationMeta(
+    'commanderImageUrl',
+  );
+  @override
+  late final GeneratedColumn<String> commanderImageUrl =
+      GeneratedColumn<String>(
+        'commander_image_url',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _commanderArtCropMeta = const VerificationMeta(
+    'commanderArtCrop',
+  );
+  @override
+  late final GeneratedColumn<String> commanderArtCrop = GeneratedColumn<String>(
+    'commander_art_crop',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _colorIdentityMeta = const VerificationMeta(
+    'colorIdentity',
+  );
+  @override
+  late final GeneratedColumn<String> colorIdentity = GeneratedColumn<String>(
+    'color_identity',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('[]'),
+  );
+  static const VerificationMeta _cardCountMeta = const VerificationMeta(
+    'cardCount',
+  );
+  @override
+  late final GeneratedColumn<int> cardCount = GeneratedColumn<int>(
+    'card_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(100),
+  );
+  static const VerificationMeta _estimatedPriceMeta = const VerificationMeta(
+    'estimatedPrice',
+  );
+  @override
+  late final GeneratedColumn<double> estimatedPrice = GeneratedColumn<double>(
+    'estimated_price',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0.0),
+  );
+  static const VerificationMeta _upvotesMeta = const VerificationMeta(
+    'upvotes',
+  );
+  @override
+  late final GeneratedColumn<int> upvotes = GeneratedColumn<int>(
+    'upvotes',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _downvotesMeta = const VerificationMeta(
+    'downvotes',
+  );
+  @override
+  late final GeneratedColumn<int> downvotes = GeneratedColumn<int>(
+    'downvotes',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _scoreMeta = const VerificationMeta('score');
+  @override
+  late final GeneratedColumn<int> score = GeneratedColumn<int>(
+    'score',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _featuredCategoryMeta = const VerificationMeta(
+    'featuredCategory',
+  );
+  @override
+  late final GeneratedColumn<String> featuredCategory = GeneratedColumn<String>(
+    'featured_category',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _releaseCodeMeta = const VerificationMeta(
+    'releaseCode',
+  );
+  @override
+  late final GeneratedColumn<String> releaseCode = GeneratedColumn<String>(
+    'release_code',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _releaseYearMeta = const VerificationMeta(
+    'releaseYear',
+  );
+  @override
+  late final GeneratedColumn<int> releaseYear = GeneratedColumn<int>(
+    'release_year',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _tagsMeta = const VerificationMeta('tags');
+  @override
+  late final GeneratedColumn<String> tags = GeneratedColumn<String>(
+    'tags',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _isDeletedMeta = const VerificationMeta(
+    'isDeleted',
+  );
+  @override
+  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
+    'is_deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    name,
+    format,
+    tcgDomain,
+    sourceType,
+    creatorName,
+    description,
+    commanderName,
+    commanderImageUrl,
+    commanderArtCrop,
+    colorIdentity,
+    cardCount,
+    estimatedPrice,
+    upvotes,
+    downvotes,
+    score,
+    featuredCategory,
+    releaseCode,
+    releaseYear,
+    tags,
+    createdAt,
+    updatedAt,
+    isDeleted,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'explore_decks';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ExploreDeck> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('format')) {
+      context.handle(
+        _formatMeta,
+        format.isAcceptableOrUnknown(data['format']!, _formatMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_formatMeta);
+    }
+    if (data.containsKey('tcg_domain')) {
+      context.handle(
+        _tcgDomainMeta,
+        tcgDomain.isAcceptableOrUnknown(data['tcg_domain']!, _tcgDomainMeta),
+      );
+    }
+    if (data.containsKey('source_type')) {
+      context.handle(
+        _sourceTypeMeta,
+        sourceType.isAcceptableOrUnknown(data['source_type']!, _sourceTypeMeta),
+      );
+    }
+    if (data.containsKey('creator_name')) {
+      context.handle(
+        _creatorNameMeta,
+        creatorName.isAcceptableOrUnknown(
+          data['creator_name']!,
+          _creatorNameMeta,
+        ),
+      );
+    }
+    if (data.containsKey('description')) {
+      context.handle(
+        _descriptionMeta,
+        description.isAcceptableOrUnknown(
+          data['description']!,
+          _descriptionMeta,
+        ),
+      );
+    }
+    if (data.containsKey('commander_name')) {
+      context.handle(
+        _commanderNameMeta,
+        commanderName.isAcceptableOrUnknown(
+          data['commander_name']!,
+          _commanderNameMeta,
+        ),
+      );
+    }
+    if (data.containsKey('commander_image_url')) {
+      context.handle(
+        _commanderImageUrlMeta,
+        commanderImageUrl.isAcceptableOrUnknown(
+          data['commander_image_url']!,
+          _commanderImageUrlMeta,
+        ),
+      );
+    }
+    if (data.containsKey('commander_art_crop')) {
+      context.handle(
+        _commanderArtCropMeta,
+        commanderArtCrop.isAcceptableOrUnknown(
+          data['commander_art_crop']!,
+          _commanderArtCropMeta,
+        ),
+      );
+    }
+    if (data.containsKey('color_identity')) {
+      context.handle(
+        _colorIdentityMeta,
+        colorIdentity.isAcceptableOrUnknown(
+          data['color_identity']!,
+          _colorIdentityMeta,
+        ),
+      );
+    }
+    if (data.containsKey('card_count')) {
+      context.handle(
+        _cardCountMeta,
+        cardCount.isAcceptableOrUnknown(data['card_count']!, _cardCountMeta),
+      );
+    }
+    if (data.containsKey('estimated_price')) {
+      context.handle(
+        _estimatedPriceMeta,
+        estimatedPrice.isAcceptableOrUnknown(
+          data['estimated_price']!,
+          _estimatedPriceMeta,
+        ),
+      );
+    }
+    if (data.containsKey('upvotes')) {
+      context.handle(
+        _upvotesMeta,
+        upvotes.isAcceptableOrUnknown(data['upvotes']!, _upvotesMeta),
+      );
+    }
+    if (data.containsKey('downvotes')) {
+      context.handle(
+        _downvotesMeta,
+        downvotes.isAcceptableOrUnknown(data['downvotes']!, _downvotesMeta),
+      );
+    }
+    if (data.containsKey('score')) {
+      context.handle(
+        _scoreMeta,
+        score.isAcceptableOrUnknown(data['score']!, _scoreMeta),
+      );
+    }
+    if (data.containsKey('featured_category')) {
+      context.handle(
+        _featuredCategoryMeta,
+        featuredCategory.isAcceptableOrUnknown(
+          data['featured_category']!,
+          _featuredCategoryMeta,
+        ),
+      );
+    }
+    if (data.containsKey('release_code')) {
+      context.handle(
+        _releaseCodeMeta,
+        releaseCode.isAcceptableOrUnknown(
+          data['release_code']!,
+          _releaseCodeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('release_year')) {
+      context.handle(
+        _releaseYearMeta,
+        releaseYear.isAcceptableOrUnknown(
+          data['release_year']!,
+          _releaseYearMeta,
+        ),
+      );
+    }
+    if (data.containsKey('tags')) {
+      context.handle(
+        _tagsMeta,
+        tags.isAcceptableOrUnknown(data['tags']!, _tagsMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
+    if (data.containsKey('is_deleted')) {
+      context.handle(
+        _isDeletedMeta,
+        isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  ExploreDeck map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ExploreDeck(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      format: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}format'],
+      )!,
+      tcgDomain: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}tcg_domain'],
+      )!,
+      sourceType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source_type'],
+      )!,
+      creatorName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}creator_name'],
+      )!,
+      description: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}description'],
+      ),
+      commanderName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}commander_name'],
+      ),
+      commanderImageUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}commander_image_url'],
+      ),
+      commanderArtCrop: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}commander_art_crop'],
+      ),
+      colorIdentity: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}color_identity'],
+      )!,
+      cardCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}card_count'],
+      )!,
+      estimatedPrice: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}estimated_price'],
+      )!,
+      upvotes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}upvotes'],
+      )!,
+      downvotes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}downvotes'],
+      )!,
+      score: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}score'],
+      )!,
+      featuredCategory: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}featured_category'],
+      ),
+      releaseCode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}release_code'],
+      ),
+      releaseYear: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}release_year'],
+      ),
+      tags: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}tags'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      ),
+      isDeleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_deleted'],
+      )!,
+    );
+  }
+
+  @override
+  $ExploreDecksTable createAlias(String alias) {
+    return $ExploreDecksTable(attachedDatabase, alias);
+  }
+}
+
+class ExploreDeck extends DataClass implements Insertable<ExploreDeck> {
+  /// Unique identifier (e.g. UUID or stable slug like 'precon-c17-draconic-domination')
+  final String id;
+
+  /// Deck title
+  final String name;
+
+  /// Format (e.g. 'Commander', 'Challenger', 'Standard', 'Modern', 'Starter Kit', 'Duel Decks', 'Planechase', 'Archenemy')
+  final String format;
+
+  /// TCG Domain (default 'mtg')
+  final String tcgDomain;
+
+  /// Origin type: 'official' | 'community' | 'user_shared'
+  final String sourceType;
+
+  /// Creator username or publisher (e.g. 'Wizards of the Coast', '@SpicyBrewMaster', '@EDH_Rec_Fanatic', '@DraftGuru')
+  final String creatorName;
+
+  /// Deck description, primer summary, or strategy notes
+  final String? description;
+
+  /// Commander card name (for Commander decks) or primary featured card
+  final String? commanderName;
+
+  /// Front artwork image URL for commander/cover display
+  final String? commanderImageUrl;
+
+  /// High-resolution art crop URL for hero display banners
+  final String? commanderArtCrop;
+
+  /// Color identity JSON array string (e.g. '["W","U","B","R","G"]')
+  final String colorIdentity;
+
+  /// Total card count in the deck (typically 100 for Commander, 60 for Standard)
+  final int cardCount;
+
+  /// Estimated aggregate market valuation (USD)
+  final double estimatedPrice;
+
+  /// Total upvote count
+  final int upvotes;
+
+  /// Total downvote count
+  final int downvotes;
+
+  /// Popularity score (upvotes minus downvotes)
+  final int score;
+
+  /// Featured carousel category: 'Suggested Commanders' | 'From Top Deck Builders' | 'Popular Standard Decks'
+  final String? featuredCategory;
+
+  /// Set code or product release code (e.g. 'C17', 'E01')
+  final String? releaseCode;
+
+  /// Release year (e.g. 2017)
+  final int? releaseYear;
+
+  /// Comma-separated search tags or keywords
+  final String? tags;
+
+  /// Creation timestamp
+  final DateTime createdAt;
+
+  /// Last modification timestamp
+  final DateTime? updatedAt;
+
+  /// Soft deletion flag for offline-first retention
+  final bool isDeleted;
+  const ExploreDeck({
+    required this.id,
+    required this.name,
+    required this.format,
+    required this.tcgDomain,
+    required this.sourceType,
+    required this.creatorName,
+    this.description,
+    this.commanderName,
+    this.commanderImageUrl,
+    this.commanderArtCrop,
+    required this.colorIdentity,
+    required this.cardCount,
+    required this.estimatedPrice,
+    required this.upvotes,
+    required this.downvotes,
+    required this.score,
+    this.featuredCategory,
+    this.releaseCode,
+    this.releaseYear,
+    this.tags,
+    required this.createdAt,
+    this.updatedAt,
+    required this.isDeleted,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['name'] = Variable<String>(name);
+    map['format'] = Variable<String>(format);
+    map['tcg_domain'] = Variable<String>(tcgDomain);
+    map['source_type'] = Variable<String>(sourceType);
+    map['creator_name'] = Variable<String>(creatorName);
+    if (!nullToAbsent || description != null) {
+      map['description'] = Variable<String>(description);
+    }
+    if (!nullToAbsent || commanderName != null) {
+      map['commander_name'] = Variable<String>(commanderName);
+    }
+    if (!nullToAbsent || commanderImageUrl != null) {
+      map['commander_image_url'] = Variable<String>(commanderImageUrl);
+    }
+    if (!nullToAbsent || commanderArtCrop != null) {
+      map['commander_art_crop'] = Variable<String>(commanderArtCrop);
+    }
+    map['color_identity'] = Variable<String>(colorIdentity);
+    map['card_count'] = Variable<int>(cardCount);
+    map['estimated_price'] = Variable<double>(estimatedPrice);
+    map['upvotes'] = Variable<int>(upvotes);
+    map['downvotes'] = Variable<int>(downvotes);
+    map['score'] = Variable<int>(score);
+    if (!nullToAbsent || featuredCategory != null) {
+      map['featured_category'] = Variable<String>(featuredCategory);
+    }
+    if (!nullToAbsent || releaseCode != null) {
+      map['release_code'] = Variable<String>(releaseCode);
+    }
+    if (!nullToAbsent || releaseYear != null) {
+      map['release_year'] = Variable<int>(releaseYear);
+    }
+    if (!nullToAbsent || tags != null) {
+      map['tags'] = Variable<String>(tags);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    if (!nullToAbsent || updatedAt != null) {
+      map['updated_at'] = Variable<DateTime>(updatedAt);
+    }
+    map['is_deleted'] = Variable<bool>(isDeleted);
+    return map;
+  }
+
+  ExploreDecksCompanion toCompanion(bool nullToAbsent) {
+    return ExploreDecksCompanion(
+      id: Value(id),
+      name: Value(name),
+      format: Value(format),
+      tcgDomain: Value(tcgDomain),
+      sourceType: Value(sourceType),
+      creatorName: Value(creatorName),
+      description: description == null && nullToAbsent
+          ? const Value.absent()
+          : Value(description),
+      commanderName: commanderName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(commanderName),
+      commanderImageUrl: commanderImageUrl == null && nullToAbsent
+          ? const Value.absent()
+          : Value(commanderImageUrl),
+      commanderArtCrop: commanderArtCrop == null && nullToAbsent
+          ? const Value.absent()
+          : Value(commanderArtCrop),
+      colorIdentity: Value(colorIdentity),
+      cardCount: Value(cardCount),
+      estimatedPrice: Value(estimatedPrice),
+      upvotes: Value(upvotes),
+      downvotes: Value(downvotes),
+      score: Value(score),
+      featuredCategory: featuredCategory == null && nullToAbsent
+          ? const Value.absent()
+          : Value(featuredCategory),
+      releaseCode: releaseCode == null && nullToAbsent
+          ? const Value.absent()
+          : Value(releaseCode),
+      releaseYear: releaseYear == null && nullToAbsent
+          ? const Value.absent()
+          : Value(releaseYear),
+      tags: tags == null && nullToAbsent ? const Value.absent() : Value(tags),
+      createdAt: Value(createdAt),
+      updatedAt: updatedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(updatedAt),
+      isDeleted: Value(isDeleted),
+    );
+  }
+
+  factory ExploreDeck.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ExploreDeck(
+      id: serializer.fromJson<String>(json['id']),
+      name: serializer.fromJson<String>(json['name']),
+      format: serializer.fromJson<String>(json['format']),
+      tcgDomain: serializer.fromJson<String>(json['tcgDomain']),
+      sourceType: serializer.fromJson<String>(json['sourceType']),
+      creatorName: serializer.fromJson<String>(json['creatorName']),
+      description: serializer.fromJson<String?>(json['description']),
+      commanderName: serializer.fromJson<String?>(json['commanderName']),
+      commanderImageUrl: serializer.fromJson<String?>(
+        json['commanderImageUrl'],
+      ),
+      commanderArtCrop: serializer.fromJson<String?>(json['commanderArtCrop']),
+      colorIdentity: serializer.fromJson<String>(json['colorIdentity']),
+      cardCount: serializer.fromJson<int>(json['cardCount']),
+      estimatedPrice: serializer.fromJson<double>(json['estimatedPrice']),
+      upvotes: serializer.fromJson<int>(json['upvotes']),
+      downvotes: serializer.fromJson<int>(json['downvotes']),
+      score: serializer.fromJson<int>(json['score']),
+      featuredCategory: serializer.fromJson<String?>(json['featuredCategory']),
+      releaseCode: serializer.fromJson<String?>(json['releaseCode']),
+      releaseYear: serializer.fromJson<int?>(json['releaseYear']),
+      tags: serializer.fromJson<String?>(json['tags']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime?>(json['updatedAt']),
+      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'name': serializer.toJson<String>(name),
+      'format': serializer.toJson<String>(format),
+      'tcgDomain': serializer.toJson<String>(tcgDomain),
+      'sourceType': serializer.toJson<String>(sourceType),
+      'creatorName': serializer.toJson<String>(creatorName),
+      'description': serializer.toJson<String?>(description),
+      'commanderName': serializer.toJson<String?>(commanderName),
+      'commanderImageUrl': serializer.toJson<String?>(commanderImageUrl),
+      'commanderArtCrop': serializer.toJson<String?>(commanderArtCrop),
+      'colorIdentity': serializer.toJson<String>(colorIdentity),
+      'cardCount': serializer.toJson<int>(cardCount),
+      'estimatedPrice': serializer.toJson<double>(estimatedPrice),
+      'upvotes': serializer.toJson<int>(upvotes),
+      'downvotes': serializer.toJson<int>(downvotes),
+      'score': serializer.toJson<int>(score),
+      'featuredCategory': serializer.toJson<String?>(featuredCategory),
+      'releaseCode': serializer.toJson<String?>(releaseCode),
+      'releaseYear': serializer.toJson<int?>(releaseYear),
+      'tags': serializer.toJson<String?>(tags),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime?>(updatedAt),
+      'isDeleted': serializer.toJson<bool>(isDeleted),
+    };
+  }
+
+  ExploreDeck copyWith({
+    String? id,
+    String? name,
+    String? format,
+    String? tcgDomain,
+    String? sourceType,
+    String? creatorName,
+    Value<String?> description = const Value.absent(),
+    Value<String?> commanderName = const Value.absent(),
+    Value<String?> commanderImageUrl = const Value.absent(),
+    Value<String?> commanderArtCrop = const Value.absent(),
+    String? colorIdentity,
+    int? cardCount,
+    double? estimatedPrice,
+    int? upvotes,
+    int? downvotes,
+    int? score,
+    Value<String?> featuredCategory = const Value.absent(),
+    Value<String?> releaseCode = const Value.absent(),
+    Value<int?> releaseYear = const Value.absent(),
+    Value<String?> tags = const Value.absent(),
+    DateTime? createdAt,
+    Value<DateTime?> updatedAt = const Value.absent(),
+    bool? isDeleted,
+  }) => ExploreDeck(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    format: format ?? this.format,
+    tcgDomain: tcgDomain ?? this.tcgDomain,
+    sourceType: sourceType ?? this.sourceType,
+    creatorName: creatorName ?? this.creatorName,
+    description: description.present ? description.value : this.description,
+    commanderName: commanderName.present
+        ? commanderName.value
+        : this.commanderName,
+    commanderImageUrl: commanderImageUrl.present
+        ? commanderImageUrl.value
+        : this.commanderImageUrl,
+    commanderArtCrop: commanderArtCrop.present
+        ? commanderArtCrop.value
+        : this.commanderArtCrop,
+    colorIdentity: colorIdentity ?? this.colorIdentity,
+    cardCount: cardCount ?? this.cardCount,
+    estimatedPrice: estimatedPrice ?? this.estimatedPrice,
+    upvotes: upvotes ?? this.upvotes,
+    downvotes: downvotes ?? this.downvotes,
+    score: score ?? this.score,
+    featuredCategory: featuredCategory.present
+        ? featuredCategory.value
+        : this.featuredCategory,
+    releaseCode: releaseCode.present ? releaseCode.value : this.releaseCode,
+    releaseYear: releaseYear.present ? releaseYear.value : this.releaseYear,
+    tags: tags.present ? tags.value : this.tags,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
+    isDeleted: isDeleted ?? this.isDeleted,
+  );
+  ExploreDeck copyWithCompanion(ExploreDecksCompanion data) {
+    return ExploreDeck(
+      id: data.id.present ? data.id.value : this.id,
+      name: data.name.present ? data.name.value : this.name,
+      format: data.format.present ? data.format.value : this.format,
+      tcgDomain: data.tcgDomain.present ? data.tcgDomain.value : this.tcgDomain,
+      sourceType: data.sourceType.present
+          ? data.sourceType.value
+          : this.sourceType,
+      creatorName: data.creatorName.present
+          ? data.creatorName.value
+          : this.creatorName,
+      description: data.description.present
+          ? data.description.value
+          : this.description,
+      commanderName: data.commanderName.present
+          ? data.commanderName.value
+          : this.commanderName,
+      commanderImageUrl: data.commanderImageUrl.present
+          ? data.commanderImageUrl.value
+          : this.commanderImageUrl,
+      commanderArtCrop: data.commanderArtCrop.present
+          ? data.commanderArtCrop.value
+          : this.commanderArtCrop,
+      colorIdentity: data.colorIdentity.present
+          ? data.colorIdentity.value
+          : this.colorIdentity,
+      cardCount: data.cardCount.present ? data.cardCount.value : this.cardCount,
+      estimatedPrice: data.estimatedPrice.present
+          ? data.estimatedPrice.value
+          : this.estimatedPrice,
+      upvotes: data.upvotes.present ? data.upvotes.value : this.upvotes,
+      downvotes: data.downvotes.present ? data.downvotes.value : this.downvotes,
+      score: data.score.present ? data.score.value : this.score,
+      featuredCategory: data.featuredCategory.present
+          ? data.featuredCategory.value
+          : this.featuredCategory,
+      releaseCode: data.releaseCode.present
+          ? data.releaseCode.value
+          : this.releaseCode,
+      releaseYear: data.releaseYear.present
+          ? data.releaseYear.value
+          : this.releaseYear,
+      tags: data.tags.present ? data.tags.value : this.tags,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ExploreDeck(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('format: $format, ')
+          ..write('tcgDomain: $tcgDomain, ')
+          ..write('sourceType: $sourceType, ')
+          ..write('creatorName: $creatorName, ')
+          ..write('description: $description, ')
+          ..write('commanderName: $commanderName, ')
+          ..write('commanderImageUrl: $commanderImageUrl, ')
+          ..write('commanderArtCrop: $commanderArtCrop, ')
+          ..write('colorIdentity: $colorIdentity, ')
+          ..write('cardCount: $cardCount, ')
+          ..write('estimatedPrice: $estimatedPrice, ')
+          ..write('upvotes: $upvotes, ')
+          ..write('downvotes: $downvotes, ')
+          ..write('score: $score, ')
+          ..write('featuredCategory: $featuredCategory, ')
+          ..write('releaseCode: $releaseCode, ')
+          ..write('releaseYear: $releaseYear, ')
+          ..write('tags: $tags, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('isDeleted: $isDeleted')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hashAll([
+    id,
+    name,
+    format,
+    tcgDomain,
+    sourceType,
+    creatorName,
+    description,
+    commanderName,
+    commanderImageUrl,
+    commanderArtCrop,
+    colorIdentity,
+    cardCount,
+    estimatedPrice,
+    upvotes,
+    downvotes,
+    score,
+    featuredCategory,
+    releaseCode,
+    releaseYear,
+    tags,
+    createdAt,
+    updatedAt,
+    isDeleted,
+  ]);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ExploreDeck &&
+          other.id == this.id &&
+          other.name == this.name &&
+          other.format == this.format &&
+          other.tcgDomain == this.tcgDomain &&
+          other.sourceType == this.sourceType &&
+          other.creatorName == this.creatorName &&
+          other.description == this.description &&
+          other.commanderName == this.commanderName &&
+          other.commanderImageUrl == this.commanderImageUrl &&
+          other.commanderArtCrop == this.commanderArtCrop &&
+          other.colorIdentity == this.colorIdentity &&
+          other.cardCount == this.cardCount &&
+          other.estimatedPrice == this.estimatedPrice &&
+          other.upvotes == this.upvotes &&
+          other.downvotes == this.downvotes &&
+          other.score == this.score &&
+          other.featuredCategory == this.featuredCategory &&
+          other.releaseCode == this.releaseCode &&
+          other.releaseYear == this.releaseYear &&
+          other.tags == this.tags &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt &&
+          other.isDeleted == this.isDeleted);
+}
+
+class ExploreDecksCompanion extends UpdateCompanion<ExploreDeck> {
+  final Value<String> id;
+  final Value<String> name;
+  final Value<String> format;
+  final Value<String> tcgDomain;
+  final Value<String> sourceType;
+  final Value<String> creatorName;
+  final Value<String?> description;
+  final Value<String?> commanderName;
+  final Value<String?> commanderImageUrl;
+  final Value<String?> commanderArtCrop;
+  final Value<String> colorIdentity;
+  final Value<int> cardCount;
+  final Value<double> estimatedPrice;
+  final Value<int> upvotes;
+  final Value<int> downvotes;
+  final Value<int> score;
+  final Value<String?> featuredCategory;
+  final Value<String?> releaseCode;
+  final Value<int?> releaseYear;
+  final Value<String?> tags;
+  final Value<DateTime> createdAt;
+  final Value<DateTime?> updatedAt;
+  final Value<bool> isDeleted;
+  final Value<int> rowid;
+  const ExploreDecksCompanion({
+    this.id = const Value.absent(),
+    this.name = const Value.absent(),
+    this.format = const Value.absent(),
+    this.tcgDomain = const Value.absent(),
+    this.sourceType = const Value.absent(),
+    this.creatorName = const Value.absent(),
+    this.description = const Value.absent(),
+    this.commanderName = const Value.absent(),
+    this.commanderImageUrl = const Value.absent(),
+    this.commanderArtCrop = const Value.absent(),
+    this.colorIdentity = const Value.absent(),
+    this.cardCount = const Value.absent(),
+    this.estimatedPrice = const Value.absent(),
+    this.upvotes = const Value.absent(),
+    this.downvotes = const Value.absent(),
+    this.score = const Value.absent(),
+    this.featuredCategory = const Value.absent(),
+    this.releaseCode = const Value.absent(),
+    this.releaseYear = const Value.absent(),
+    this.tags = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ExploreDecksCompanion.insert({
+    required String id,
+    required String name,
+    required String format,
+    this.tcgDomain = const Value.absent(),
+    this.sourceType = const Value.absent(),
+    this.creatorName = const Value.absent(),
+    this.description = const Value.absent(),
+    this.commanderName = const Value.absent(),
+    this.commanderImageUrl = const Value.absent(),
+    this.commanderArtCrop = const Value.absent(),
+    this.colorIdentity = const Value.absent(),
+    this.cardCount = const Value.absent(),
+    this.estimatedPrice = const Value.absent(),
+    this.upvotes = const Value.absent(),
+    this.downvotes = const Value.absent(),
+    this.score = const Value.absent(),
+    this.featuredCategory = const Value.absent(),
+    this.releaseCode = const Value.absent(),
+    this.releaseYear = const Value.absent(),
+    this.tags = const Value.absent(),
+    required DateTime createdAt,
+    this.updatedAt = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       name = Value(name),
+       format = Value(format),
+       createdAt = Value(createdAt);
+  static Insertable<ExploreDeck> custom({
+    Expression<String>? id,
+    Expression<String>? name,
+    Expression<String>? format,
+    Expression<String>? tcgDomain,
+    Expression<String>? sourceType,
+    Expression<String>? creatorName,
+    Expression<String>? description,
+    Expression<String>? commanderName,
+    Expression<String>? commanderImageUrl,
+    Expression<String>? commanderArtCrop,
+    Expression<String>? colorIdentity,
+    Expression<int>? cardCount,
+    Expression<double>? estimatedPrice,
+    Expression<int>? upvotes,
+    Expression<int>? downvotes,
+    Expression<int>? score,
+    Expression<String>? featuredCategory,
+    Expression<String>? releaseCode,
+    Expression<int>? releaseYear,
+    Expression<String>? tags,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<bool>? isDeleted,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (name != null) 'name': name,
+      if (format != null) 'format': format,
+      if (tcgDomain != null) 'tcg_domain': tcgDomain,
+      if (sourceType != null) 'source_type': sourceType,
+      if (creatorName != null) 'creator_name': creatorName,
+      if (description != null) 'description': description,
+      if (commanderName != null) 'commander_name': commanderName,
+      if (commanderImageUrl != null) 'commander_image_url': commanderImageUrl,
+      if (commanderArtCrop != null) 'commander_art_crop': commanderArtCrop,
+      if (colorIdentity != null) 'color_identity': colorIdentity,
+      if (cardCount != null) 'card_count': cardCount,
+      if (estimatedPrice != null) 'estimated_price': estimatedPrice,
+      if (upvotes != null) 'upvotes': upvotes,
+      if (downvotes != null) 'downvotes': downvotes,
+      if (score != null) 'score': score,
+      if (featuredCategory != null) 'featured_category': featuredCategory,
+      if (releaseCode != null) 'release_code': releaseCode,
+      if (releaseYear != null) 'release_year': releaseYear,
+      if (tags != null) 'tags': tags,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (isDeleted != null) 'is_deleted': isDeleted,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ExploreDecksCompanion copyWith({
+    Value<String>? id,
+    Value<String>? name,
+    Value<String>? format,
+    Value<String>? tcgDomain,
+    Value<String>? sourceType,
+    Value<String>? creatorName,
+    Value<String?>? description,
+    Value<String?>? commanderName,
+    Value<String?>? commanderImageUrl,
+    Value<String?>? commanderArtCrop,
+    Value<String>? colorIdentity,
+    Value<int>? cardCount,
+    Value<double>? estimatedPrice,
+    Value<int>? upvotes,
+    Value<int>? downvotes,
+    Value<int>? score,
+    Value<String?>? featuredCategory,
+    Value<String?>? releaseCode,
+    Value<int?>? releaseYear,
+    Value<String?>? tags,
+    Value<DateTime>? createdAt,
+    Value<DateTime?>? updatedAt,
+    Value<bool>? isDeleted,
+    Value<int>? rowid,
+  }) {
+    return ExploreDecksCompanion(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      format: format ?? this.format,
+      tcgDomain: tcgDomain ?? this.tcgDomain,
+      sourceType: sourceType ?? this.sourceType,
+      creatorName: creatorName ?? this.creatorName,
+      description: description ?? this.description,
+      commanderName: commanderName ?? this.commanderName,
+      commanderImageUrl: commanderImageUrl ?? this.commanderImageUrl,
+      commanderArtCrop: commanderArtCrop ?? this.commanderArtCrop,
+      colorIdentity: colorIdentity ?? this.colorIdentity,
+      cardCount: cardCount ?? this.cardCount,
+      estimatedPrice: estimatedPrice ?? this.estimatedPrice,
+      upvotes: upvotes ?? this.upvotes,
+      downvotes: downvotes ?? this.downvotes,
+      score: score ?? this.score,
+      featuredCategory: featuredCategory ?? this.featuredCategory,
+      releaseCode: releaseCode ?? this.releaseCode,
+      releaseYear: releaseYear ?? this.releaseYear,
+      tags: tags ?? this.tags,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      isDeleted: isDeleted ?? this.isDeleted,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (format.present) {
+      map['format'] = Variable<String>(format.value);
+    }
+    if (tcgDomain.present) {
+      map['tcg_domain'] = Variable<String>(tcgDomain.value);
+    }
+    if (sourceType.present) {
+      map['source_type'] = Variable<String>(sourceType.value);
+    }
+    if (creatorName.present) {
+      map['creator_name'] = Variable<String>(creatorName.value);
+    }
+    if (description.present) {
+      map['description'] = Variable<String>(description.value);
+    }
+    if (commanderName.present) {
+      map['commander_name'] = Variable<String>(commanderName.value);
+    }
+    if (commanderImageUrl.present) {
+      map['commander_image_url'] = Variable<String>(commanderImageUrl.value);
+    }
+    if (commanderArtCrop.present) {
+      map['commander_art_crop'] = Variable<String>(commanderArtCrop.value);
+    }
+    if (colorIdentity.present) {
+      map['color_identity'] = Variable<String>(colorIdentity.value);
+    }
+    if (cardCount.present) {
+      map['card_count'] = Variable<int>(cardCount.value);
+    }
+    if (estimatedPrice.present) {
+      map['estimated_price'] = Variable<double>(estimatedPrice.value);
+    }
+    if (upvotes.present) {
+      map['upvotes'] = Variable<int>(upvotes.value);
+    }
+    if (downvotes.present) {
+      map['downvotes'] = Variable<int>(downvotes.value);
+    }
+    if (score.present) {
+      map['score'] = Variable<int>(score.value);
+    }
+    if (featuredCategory.present) {
+      map['featured_category'] = Variable<String>(featuredCategory.value);
+    }
+    if (releaseCode.present) {
+      map['release_code'] = Variable<String>(releaseCode.value);
+    }
+    if (releaseYear.present) {
+      map['release_year'] = Variable<int>(releaseYear.value);
+    }
+    if (tags.present) {
+      map['tags'] = Variable<String>(tags.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (isDeleted.present) {
+      map['is_deleted'] = Variable<bool>(isDeleted.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ExploreDecksCompanion(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('format: $format, ')
+          ..write('tcgDomain: $tcgDomain, ')
+          ..write('sourceType: $sourceType, ')
+          ..write('creatorName: $creatorName, ')
+          ..write('description: $description, ')
+          ..write('commanderName: $commanderName, ')
+          ..write('commanderImageUrl: $commanderImageUrl, ')
+          ..write('commanderArtCrop: $commanderArtCrop, ')
+          ..write('colorIdentity: $colorIdentity, ')
+          ..write('cardCount: $cardCount, ')
+          ..write('estimatedPrice: $estimatedPrice, ')
+          ..write('upvotes: $upvotes, ')
+          ..write('downvotes: $downvotes, ')
+          ..write('score: $score, ')
+          ..write('featuredCategory: $featuredCategory, ')
+          ..write('releaseCode: $releaseCode, ')
+          ..write('releaseYear: $releaseYear, ')
+          ..write('tags: $tags, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $ExploreDeckItemsTable extends ExploreDeckItems
+    with TableInfo<$ExploreDeckItemsTable, ExploreDeckItem> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ExploreDeckItemsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _exploreDeckIdMeta = const VerificationMeta(
+    'exploreDeckId',
+  );
+  @override
+  late final GeneratedColumn<String> exploreDeckId = GeneratedColumn<String>(
+    'explore_deck_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES explore_decks (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _cardNameMeta = const VerificationMeta(
+    'cardName',
+  );
+  @override
+  late final GeneratedColumn<String> cardName = GeneratedColumn<String>(
+    'card_name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _scryfallIdMeta = const VerificationMeta(
+    'scryfallId',
+  );
+  @override
+  late final GeneratedColumn<String> scryfallId = GeneratedColumn<String>(
+    'scryfall_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _oracleIdMeta = const VerificationMeta(
+    'oracleId',
+  );
+  @override
+  late final GeneratedColumn<String> oracleId = GeneratedColumn<String>(
+    'oracle_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _quantityMeta = const VerificationMeta(
+    'quantity',
+  );
+  @override
+  late final GeneratedColumn<int> quantity = GeneratedColumn<int>(
+    'quantity',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1),
+  );
+  static const VerificationMeta _boardZoneMeta = const VerificationMeta(
+    'boardZone',
+  );
+  @override
+  late final GeneratedColumn<String> boardZone = GeneratedColumn<String>(
+    'board_zone',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('Mainboard'),
+  );
+  static const VerificationMeta _manaCostMeta = const VerificationMeta(
+    'manaCost',
+  );
+  @override
+  late final GeneratedColumn<String> manaCost = GeneratedColumn<String>(
+    'mana_cost',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _cmcMeta = const VerificationMeta('cmc');
+  @override
+  late final GeneratedColumn<double> cmc = GeneratedColumn<double>(
+    'cmc',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _typeLineMeta = const VerificationMeta(
+    'typeLine',
+  );
+  @override
+  late final GeneratedColumn<String> typeLine = GeneratedColumn<String>(
+    'type_line',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _colorsMeta = const VerificationMeta('colors');
+  @override
+  late final GeneratedColumn<String> colors = GeneratedColumn<String>(
+    'colors',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _imageUrlMeta = const VerificationMeta(
+    'imageUrl',
+  );
+  @override
+  late final GeneratedColumn<String> imageUrl = GeneratedColumn<String>(
+    'image_url',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _artCropUrlMeta = const VerificationMeta(
+    'artCropUrl',
+  );
+  @override
+  late final GeneratedColumn<String> artCropUrl = GeneratedColumn<String>(
+    'art_crop_url',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _priceMeta = const VerificationMeta('price');
+  @override
+  late final GeneratedColumn<double> price = GeneratedColumn<double>(
+    'price',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _isCommanderMeta = const VerificationMeta(
+    'isCommander',
+  );
+  @override
+  late final GeneratedColumn<bool> isCommander = GeneratedColumn<bool>(
+    'is_commander',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_commander" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _dynamicDataMeta = const VerificationMeta(
+    'dynamicData',
+  );
+  @override
+  late final GeneratedColumn<String> dynamicData = GeneratedColumn<String>(
+    'dynamic_data',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _isDeletedMeta = const VerificationMeta(
+    'isDeleted',
+  );
+  @override
+  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
+    'is_deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    exploreDeckId,
+    cardName,
+    scryfallId,
+    oracleId,
+    quantity,
+    boardZone,
+    manaCost,
+    cmc,
+    typeLine,
+    colors,
+    imageUrl,
+    artCropUrl,
+    price,
+    isCommander,
+    dynamicData,
+    isDeleted,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'explore_deck_items';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ExploreDeckItem> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('explore_deck_id')) {
+      context.handle(
+        _exploreDeckIdMeta,
+        exploreDeckId.isAcceptableOrUnknown(
+          data['explore_deck_id']!,
+          _exploreDeckIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_exploreDeckIdMeta);
+    }
+    if (data.containsKey('card_name')) {
+      context.handle(
+        _cardNameMeta,
+        cardName.isAcceptableOrUnknown(data['card_name']!, _cardNameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_cardNameMeta);
+    }
+    if (data.containsKey('scryfall_id')) {
+      context.handle(
+        _scryfallIdMeta,
+        scryfallId.isAcceptableOrUnknown(data['scryfall_id']!, _scryfallIdMeta),
+      );
+    }
+    if (data.containsKey('oracle_id')) {
+      context.handle(
+        _oracleIdMeta,
+        oracleId.isAcceptableOrUnknown(data['oracle_id']!, _oracleIdMeta),
+      );
+    }
+    if (data.containsKey('quantity')) {
+      context.handle(
+        _quantityMeta,
+        quantity.isAcceptableOrUnknown(data['quantity']!, _quantityMeta),
+      );
+    }
+    if (data.containsKey('board_zone')) {
+      context.handle(
+        _boardZoneMeta,
+        boardZone.isAcceptableOrUnknown(data['board_zone']!, _boardZoneMeta),
+      );
+    }
+    if (data.containsKey('mana_cost')) {
+      context.handle(
+        _manaCostMeta,
+        manaCost.isAcceptableOrUnknown(data['mana_cost']!, _manaCostMeta),
+      );
+    }
+    if (data.containsKey('cmc')) {
+      context.handle(
+        _cmcMeta,
+        cmc.isAcceptableOrUnknown(data['cmc']!, _cmcMeta),
+      );
+    }
+    if (data.containsKey('type_line')) {
+      context.handle(
+        _typeLineMeta,
+        typeLine.isAcceptableOrUnknown(data['type_line']!, _typeLineMeta),
+      );
+    }
+    if (data.containsKey('colors')) {
+      context.handle(
+        _colorsMeta,
+        colors.isAcceptableOrUnknown(data['colors']!, _colorsMeta),
+      );
+    }
+    if (data.containsKey('image_url')) {
+      context.handle(
+        _imageUrlMeta,
+        imageUrl.isAcceptableOrUnknown(data['image_url']!, _imageUrlMeta),
+      );
+    }
+    if (data.containsKey('art_crop_url')) {
+      context.handle(
+        _artCropUrlMeta,
+        artCropUrl.isAcceptableOrUnknown(
+          data['art_crop_url']!,
+          _artCropUrlMeta,
+        ),
+      );
+    }
+    if (data.containsKey('price')) {
+      context.handle(
+        _priceMeta,
+        price.isAcceptableOrUnknown(data['price']!, _priceMeta),
+      );
+    }
+    if (data.containsKey('is_commander')) {
+      context.handle(
+        _isCommanderMeta,
+        isCommander.isAcceptableOrUnknown(
+          data['is_commander']!,
+          _isCommanderMeta,
+        ),
+      );
+    }
+    if (data.containsKey('dynamic_data')) {
+      context.handle(
+        _dynamicDataMeta,
+        dynamicData.isAcceptableOrUnknown(
+          data['dynamic_data']!,
+          _dynamicDataMeta,
+        ),
+      );
+    }
+    if (data.containsKey('is_deleted')) {
+      context.handle(
+        _isDeletedMeta,
+        isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  ExploreDeckItem map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ExploreDeckItem(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      exploreDeckId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}explore_deck_id'],
+      )!,
+      cardName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}card_name'],
+      )!,
+      scryfallId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}scryfall_id'],
+      ),
+      oracleId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}oracle_id'],
+      ),
+      quantity: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}quantity'],
+      )!,
+      boardZone: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}board_zone'],
+      )!,
+      manaCost: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}mana_cost'],
+      ),
+      cmc: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}cmc'],
+      ),
+      typeLine: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}type_line'],
+      ),
+      colors: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}colors'],
+      ),
+      imageUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}image_url'],
+      ),
+      artCropUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}art_crop_url'],
+      ),
+      price: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}price'],
+      ),
+      isCommander: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_commander'],
+      )!,
+      dynamicData: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}dynamic_data'],
+      ),
+      isDeleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_deleted'],
+      )!,
+    );
+  }
+
+  @override
+  $ExploreDeckItemsTable createAlias(String alias) {
+    return $ExploreDeckItemsTable(attachedDatabase, alias);
+  }
+}
+
+class ExploreDeckItem extends DataClass implements Insertable<ExploreDeckItem> {
+  /// Unique item identifier (UUID v4 or structured slug)
+  final String id;
+
+  /// Foreign key referencing parent ExploreDeck
+  final String exploreDeckId;
+
+  /// Card display name (e.g. 'The Ur-Dragon', 'Sol Ring')
+  final String cardName;
+
+  /// Scryfall Card UUID
+  final String? scryfallId;
+
+  /// Scryfall Oracle UUID
+  final String? oracleId;
+
+  /// Quantity in deck
+  final int quantity;
+
+  /// Board zone: 'Commander' | 'Mainboard' | 'Sideboard' | 'Maybeboard'
+  final String boardZone;
+
+  /// Mana cost string (e.g. '{4}{W}{U}{B}{R}{G}')
+  final String? manaCost;
+
+  /// Converted mana cost (mana value)
+  final double? cmc;
+
+  /// Card type line (e.g. 'Legendary Creature — Dragon Avatar')
+  final String? typeLine;
+
+  /// Colors JSON list string (e.g. '["W","U","B","R","G"]')
+  final String? colors;
+
+  /// Front card artwork URL
+  final String? imageUrl;
+
+  /// High-resolution art crop URL
+  final String? artCropUrl;
+
+  /// Card market price (USD)
+  final double? price;
+
+  /// Commander card indicator
+  final bool isCommander;
+
+  /// Polymorphic Scryfall dynamic data JSON payload
+  final String? dynamicData;
+
+  /// Soft deletion flag
+  final bool isDeleted;
+  const ExploreDeckItem({
+    required this.id,
+    required this.exploreDeckId,
+    required this.cardName,
+    this.scryfallId,
+    this.oracleId,
+    required this.quantity,
+    required this.boardZone,
+    this.manaCost,
+    this.cmc,
+    this.typeLine,
+    this.colors,
+    this.imageUrl,
+    this.artCropUrl,
+    this.price,
+    required this.isCommander,
+    this.dynamicData,
+    required this.isDeleted,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['explore_deck_id'] = Variable<String>(exploreDeckId);
+    map['card_name'] = Variable<String>(cardName);
+    if (!nullToAbsent || scryfallId != null) {
+      map['scryfall_id'] = Variable<String>(scryfallId);
+    }
+    if (!nullToAbsent || oracleId != null) {
+      map['oracle_id'] = Variable<String>(oracleId);
+    }
+    map['quantity'] = Variable<int>(quantity);
+    map['board_zone'] = Variable<String>(boardZone);
+    if (!nullToAbsent || manaCost != null) {
+      map['mana_cost'] = Variable<String>(manaCost);
+    }
+    if (!nullToAbsent || cmc != null) {
+      map['cmc'] = Variable<double>(cmc);
+    }
+    if (!nullToAbsent || typeLine != null) {
+      map['type_line'] = Variable<String>(typeLine);
+    }
+    if (!nullToAbsent || colors != null) {
+      map['colors'] = Variable<String>(colors);
+    }
+    if (!nullToAbsent || imageUrl != null) {
+      map['image_url'] = Variable<String>(imageUrl);
+    }
+    if (!nullToAbsent || artCropUrl != null) {
+      map['art_crop_url'] = Variable<String>(artCropUrl);
+    }
+    if (!nullToAbsent || price != null) {
+      map['price'] = Variable<double>(price);
+    }
+    map['is_commander'] = Variable<bool>(isCommander);
+    if (!nullToAbsent || dynamicData != null) {
+      map['dynamic_data'] = Variable<String>(dynamicData);
+    }
+    map['is_deleted'] = Variable<bool>(isDeleted);
+    return map;
+  }
+
+  ExploreDeckItemsCompanion toCompanion(bool nullToAbsent) {
+    return ExploreDeckItemsCompanion(
+      id: Value(id),
+      exploreDeckId: Value(exploreDeckId),
+      cardName: Value(cardName),
+      scryfallId: scryfallId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(scryfallId),
+      oracleId: oracleId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(oracleId),
+      quantity: Value(quantity),
+      boardZone: Value(boardZone),
+      manaCost: manaCost == null && nullToAbsent
+          ? const Value.absent()
+          : Value(manaCost),
+      cmc: cmc == null && nullToAbsent ? const Value.absent() : Value(cmc),
+      typeLine: typeLine == null && nullToAbsent
+          ? const Value.absent()
+          : Value(typeLine),
+      colors: colors == null && nullToAbsent
+          ? const Value.absent()
+          : Value(colors),
+      imageUrl: imageUrl == null && nullToAbsent
+          ? const Value.absent()
+          : Value(imageUrl),
+      artCropUrl: artCropUrl == null && nullToAbsent
+          ? const Value.absent()
+          : Value(artCropUrl),
+      price: price == null && nullToAbsent
+          ? const Value.absent()
+          : Value(price),
+      isCommander: Value(isCommander),
+      dynamicData: dynamicData == null && nullToAbsent
+          ? const Value.absent()
+          : Value(dynamicData),
+      isDeleted: Value(isDeleted),
+    );
+  }
+
+  factory ExploreDeckItem.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ExploreDeckItem(
+      id: serializer.fromJson<String>(json['id']),
+      exploreDeckId: serializer.fromJson<String>(json['exploreDeckId']),
+      cardName: serializer.fromJson<String>(json['cardName']),
+      scryfallId: serializer.fromJson<String?>(json['scryfallId']),
+      oracleId: serializer.fromJson<String?>(json['oracleId']),
+      quantity: serializer.fromJson<int>(json['quantity']),
+      boardZone: serializer.fromJson<String>(json['boardZone']),
+      manaCost: serializer.fromJson<String?>(json['manaCost']),
+      cmc: serializer.fromJson<double?>(json['cmc']),
+      typeLine: serializer.fromJson<String?>(json['typeLine']),
+      colors: serializer.fromJson<String?>(json['colors']),
+      imageUrl: serializer.fromJson<String?>(json['imageUrl']),
+      artCropUrl: serializer.fromJson<String?>(json['artCropUrl']),
+      price: serializer.fromJson<double?>(json['price']),
+      isCommander: serializer.fromJson<bool>(json['isCommander']),
+      dynamicData: serializer.fromJson<String?>(json['dynamicData']),
+      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'exploreDeckId': serializer.toJson<String>(exploreDeckId),
+      'cardName': serializer.toJson<String>(cardName),
+      'scryfallId': serializer.toJson<String?>(scryfallId),
+      'oracleId': serializer.toJson<String?>(oracleId),
+      'quantity': serializer.toJson<int>(quantity),
+      'boardZone': serializer.toJson<String>(boardZone),
+      'manaCost': serializer.toJson<String?>(manaCost),
+      'cmc': serializer.toJson<double?>(cmc),
+      'typeLine': serializer.toJson<String?>(typeLine),
+      'colors': serializer.toJson<String?>(colors),
+      'imageUrl': serializer.toJson<String?>(imageUrl),
+      'artCropUrl': serializer.toJson<String?>(artCropUrl),
+      'price': serializer.toJson<double?>(price),
+      'isCommander': serializer.toJson<bool>(isCommander),
+      'dynamicData': serializer.toJson<String?>(dynamicData),
+      'isDeleted': serializer.toJson<bool>(isDeleted),
+    };
+  }
+
+  ExploreDeckItem copyWith({
+    String? id,
+    String? exploreDeckId,
+    String? cardName,
+    Value<String?> scryfallId = const Value.absent(),
+    Value<String?> oracleId = const Value.absent(),
+    int? quantity,
+    String? boardZone,
+    Value<String?> manaCost = const Value.absent(),
+    Value<double?> cmc = const Value.absent(),
+    Value<String?> typeLine = const Value.absent(),
+    Value<String?> colors = const Value.absent(),
+    Value<String?> imageUrl = const Value.absent(),
+    Value<String?> artCropUrl = const Value.absent(),
+    Value<double?> price = const Value.absent(),
+    bool? isCommander,
+    Value<String?> dynamicData = const Value.absent(),
+    bool? isDeleted,
+  }) => ExploreDeckItem(
+    id: id ?? this.id,
+    exploreDeckId: exploreDeckId ?? this.exploreDeckId,
+    cardName: cardName ?? this.cardName,
+    scryfallId: scryfallId.present ? scryfallId.value : this.scryfallId,
+    oracleId: oracleId.present ? oracleId.value : this.oracleId,
+    quantity: quantity ?? this.quantity,
+    boardZone: boardZone ?? this.boardZone,
+    manaCost: manaCost.present ? manaCost.value : this.manaCost,
+    cmc: cmc.present ? cmc.value : this.cmc,
+    typeLine: typeLine.present ? typeLine.value : this.typeLine,
+    colors: colors.present ? colors.value : this.colors,
+    imageUrl: imageUrl.present ? imageUrl.value : this.imageUrl,
+    artCropUrl: artCropUrl.present ? artCropUrl.value : this.artCropUrl,
+    price: price.present ? price.value : this.price,
+    isCommander: isCommander ?? this.isCommander,
+    dynamicData: dynamicData.present ? dynamicData.value : this.dynamicData,
+    isDeleted: isDeleted ?? this.isDeleted,
+  );
+  ExploreDeckItem copyWithCompanion(ExploreDeckItemsCompanion data) {
+    return ExploreDeckItem(
+      id: data.id.present ? data.id.value : this.id,
+      exploreDeckId: data.exploreDeckId.present
+          ? data.exploreDeckId.value
+          : this.exploreDeckId,
+      cardName: data.cardName.present ? data.cardName.value : this.cardName,
+      scryfallId: data.scryfallId.present
+          ? data.scryfallId.value
+          : this.scryfallId,
+      oracleId: data.oracleId.present ? data.oracleId.value : this.oracleId,
+      quantity: data.quantity.present ? data.quantity.value : this.quantity,
+      boardZone: data.boardZone.present ? data.boardZone.value : this.boardZone,
+      manaCost: data.manaCost.present ? data.manaCost.value : this.manaCost,
+      cmc: data.cmc.present ? data.cmc.value : this.cmc,
+      typeLine: data.typeLine.present ? data.typeLine.value : this.typeLine,
+      colors: data.colors.present ? data.colors.value : this.colors,
+      imageUrl: data.imageUrl.present ? data.imageUrl.value : this.imageUrl,
+      artCropUrl: data.artCropUrl.present
+          ? data.artCropUrl.value
+          : this.artCropUrl,
+      price: data.price.present ? data.price.value : this.price,
+      isCommander: data.isCommander.present
+          ? data.isCommander.value
+          : this.isCommander,
+      dynamicData: data.dynamicData.present
+          ? data.dynamicData.value
+          : this.dynamicData,
+      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ExploreDeckItem(')
+          ..write('id: $id, ')
+          ..write('exploreDeckId: $exploreDeckId, ')
+          ..write('cardName: $cardName, ')
+          ..write('scryfallId: $scryfallId, ')
+          ..write('oracleId: $oracleId, ')
+          ..write('quantity: $quantity, ')
+          ..write('boardZone: $boardZone, ')
+          ..write('manaCost: $manaCost, ')
+          ..write('cmc: $cmc, ')
+          ..write('typeLine: $typeLine, ')
+          ..write('colors: $colors, ')
+          ..write('imageUrl: $imageUrl, ')
+          ..write('artCropUrl: $artCropUrl, ')
+          ..write('price: $price, ')
+          ..write('isCommander: $isCommander, ')
+          ..write('dynamicData: $dynamicData, ')
+          ..write('isDeleted: $isDeleted')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    exploreDeckId,
+    cardName,
+    scryfallId,
+    oracleId,
+    quantity,
+    boardZone,
+    manaCost,
+    cmc,
+    typeLine,
+    colors,
+    imageUrl,
+    artCropUrl,
+    price,
+    isCommander,
+    dynamicData,
+    isDeleted,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ExploreDeckItem &&
+          other.id == this.id &&
+          other.exploreDeckId == this.exploreDeckId &&
+          other.cardName == this.cardName &&
+          other.scryfallId == this.scryfallId &&
+          other.oracleId == this.oracleId &&
+          other.quantity == this.quantity &&
+          other.boardZone == this.boardZone &&
+          other.manaCost == this.manaCost &&
+          other.cmc == this.cmc &&
+          other.typeLine == this.typeLine &&
+          other.colors == this.colors &&
+          other.imageUrl == this.imageUrl &&
+          other.artCropUrl == this.artCropUrl &&
+          other.price == this.price &&
+          other.isCommander == this.isCommander &&
+          other.dynamicData == this.dynamicData &&
+          other.isDeleted == this.isDeleted);
+}
+
+class ExploreDeckItemsCompanion extends UpdateCompanion<ExploreDeckItem> {
+  final Value<String> id;
+  final Value<String> exploreDeckId;
+  final Value<String> cardName;
+  final Value<String?> scryfallId;
+  final Value<String?> oracleId;
+  final Value<int> quantity;
+  final Value<String> boardZone;
+  final Value<String?> manaCost;
+  final Value<double?> cmc;
+  final Value<String?> typeLine;
+  final Value<String?> colors;
+  final Value<String?> imageUrl;
+  final Value<String?> artCropUrl;
+  final Value<double?> price;
+  final Value<bool> isCommander;
+  final Value<String?> dynamicData;
+  final Value<bool> isDeleted;
+  final Value<int> rowid;
+  const ExploreDeckItemsCompanion({
+    this.id = const Value.absent(),
+    this.exploreDeckId = const Value.absent(),
+    this.cardName = const Value.absent(),
+    this.scryfallId = const Value.absent(),
+    this.oracleId = const Value.absent(),
+    this.quantity = const Value.absent(),
+    this.boardZone = const Value.absent(),
+    this.manaCost = const Value.absent(),
+    this.cmc = const Value.absent(),
+    this.typeLine = const Value.absent(),
+    this.colors = const Value.absent(),
+    this.imageUrl = const Value.absent(),
+    this.artCropUrl = const Value.absent(),
+    this.price = const Value.absent(),
+    this.isCommander = const Value.absent(),
+    this.dynamicData = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ExploreDeckItemsCompanion.insert({
+    required String id,
+    required String exploreDeckId,
+    required String cardName,
+    this.scryfallId = const Value.absent(),
+    this.oracleId = const Value.absent(),
+    this.quantity = const Value.absent(),
+    this.boardZone = const Value.absent(),
+    this.manaCost = const Value.absent(),
+    this.cmc = const Value.absent(),
+    this.typeLine = const Value.absent(),
+    this.colors = const Value.absent(),
+    this.imageUrl = const Value.absent(),
+    this.artCropUrl = const Value.absent(),
+    this.price = const Value.absent(),
+    this.isCommander = const Value.absent(),
+    this.dynamicData = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       exploreDeckId = Value(exploreDeckId),
+       cardName = Value(cardName);
+  static Insertable<ExploreDeckItem> custom({
+    Expression<String>? id,
+    Expression<String>? exploreDeckId,
+    Expression<String>? cardName,
+    Expression<String>? scryfallId,
+    Expression<String>? oracleId,
+    Expression<int>? quantity,
+    Expression<String>? boardZone,
+    Expression<String>? manaCost,
+    Expression<double>? cmc,
+    Expression<String>? typeLine,
+    Expression<String>? colors,
+    Expression<String>? imageUrl,
+    Expression<String>? artCropUrl,
+    Expression<double>? price,
+    Expression<bool>? isCommander,
+    Expression<String>? dynamicData,
+    Expression<bool>? isDeleted,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (exploreDeckId != null) 'explore_deck_id': exploreDeckId,
+      if (cardName != null) 'card_name': cardName,
+      if (scryfallId != null) 'scryfall_id': scryfallId,
+      if (oracleId != null) 'oracle_id': oracleId,
+      if (quantity != null) 'quantity': quantity,
+      if (boardZone != null) 'board_zone': boardZone,
+      if (manaCost != null) 'mana_cost': manaCost,
+      if (cmc != null) 'cmc': cmc,
+      if (typeLine != null) 'type_line': typeLine,
+      if (colors != null) 'colors': colors,
+      if (imageUrl != null) 'image_url': imageUrl,
+      if (artCropUrl != null) 'art_crop_url': artCropUrl,
+      if (price != null) 'price': price,
+      if (isCommander != null) 'is_commander': isCommander,
+      if (dynamicData != null) 'dynamic_data': dynamicData,
+      if (isDeleted != null) 'is_deleted': isDeleted,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ExploreDeckItemsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? exploreDeckId,
+    Value<String>? cardName,
+    Value<String?>? scryfallId,
+    Value<String?>? oracleId,
+    Value<int>? quantity,
+    Value<String>? boardZone,
+    Value<String?>? manaCost,
+    Value<double?>? cmc,
+    Value<String?>? typeLine,
+    Value<String?>? colors,
+    Value<String?>? imageUrl,
+    Value<String?>? artCropUrl,
+    Value<double?>? price,
+    Value<bool>? isCommander,
+    Value<String?>? dynamicData,
+    Value<bool>? isDeleted,
+    Value<int>? rowid,
+  }) {
+    return ExploreDeckItemsCompanion(
+      id: id ?? this.id,
+      exploreDeckId: exploreDeckId ?? this.exploreDeckId,
+      cardName: cardName ?? this.cardName,
+      scryfallId: scryfallId ?? this.scryfallId,
+      oracleId: oracleId ?? this.oracleId,
+      quantity: quantity ?? this.quantity,
+      boardZone: boardZone ?? this.boardZone,
+      manaCost: manaCost ?? this.manaCost,
+      cmc: cmc ?? this.cmc,
+      typeLine: typeLine ?? this.typeLine,
+      colors: colors ?? this.colors,
+      imageUrl: imageUrl ?? this.imageUrl,
+      artCropUrl: artCropUrl ?? this.artCropUrl,
+      price: price ?? this.price,
+      isCommander: isCommander ?? this.isCommander,
+      dynamicData: dynamicData ?? this.dynamicData,
+      isDeleted: isDeleted ?? this.isDeleted,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (exploreDeckId.present) {
+      map['explore_deck_id'] = Variable<String>(exploreDeckId.value);
+    }
+    if (cardName.present) {
+      map['card_name'] = Variable<String>(cardName.value);
+    }
+    if (scryfallId.present) {
+      map['scryfall_id'] = Variable<String>(scryfallId.value);
+    }
+    if (oracleId.present) {
+      map['oracle_id'] = Variable<String>(oracleId.value);
+    }
+    if (quantity.present) {
+      map['quantity'] = Variable<int>(quantity.value);
+    }
+    if (boardZone.present) {
+      map['board_zone'] = Variable<String>(boardZone.value);
+    }
+    if (manaCost.present) {
+      map['mana_cost'] = Variable<String>(manaCost.value);
+    }
+    if (cmc.present) {
+      map['cmc'] = Variable<double>(cmc.value);
+    }
+    if (typeLine.present) {
+      map['type_line'] = Variable<String>(typeLine.value);
+    }
+    if (colors.present) {
+      map['colors'] = Variable<String>(colors.value);
+    }
+    if (imageUrl.present) {
+      map['image_url'] = Variable<String>(imageUrl.value);
+    }
+    if (artCropUrl.present) {
+      map['art_crop_url'] = Variable<String>(artCropUrl.value);
+    }
+    if (price.present) {
+      map['price'] = Variable<double>(price.value);
+    }
+    if (isCommander.present) {
+      map['is_commander'] = Variable<bool>(isCommander.value);
+    }
+    if (dynamicData.present) {
+      map['dynamic_data'] = Variable<String>(dynamicData.value);
+    }
+    if (isDeleted.present) {
+      map['is_deleted'] = Variable<bool>(isDeleted.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ExploreDeckItemsCompanion(')
+          ..write('id: $id, ')
+          ..write('exploreDeckId: $exploreDeckId, ')
+          ..write('cardName: $cardName, ')
+          ..write('scryfallId: $scryfallId, ')
+          ..write('oracleId: $oracleId, ')
+          ..write('quantity: $quantity, ')
+          ..write('boardZone: $boardZone, ')
+          ..write('manaCost: $manaCost, ')
+          ..write('cmc: $cmc, ')
+          ..write('typeLine: $typeLine, ')
+          ..write('colors: $colors, ')
+          ..write('imageUrl: $imageUrl, ')
+          ..write('artCropUrl: $artCropUrl, ')
+          ..write('price: $price, ')
+          ..write('isCommander: $isCommander, ')
+          ..write('dynamicData: $dynamicData, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $ExploreDeckVotesTable extends ExploreDeckVotes
+    with TableInfo<$ExploreDeckVotesTable, ExploreDeckVote> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ExploreDeckVotesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _exploreDeckIdMeta = const VerificationMeta(
+    'exploreDeckId',
+  );
+  @override
+  late final GeneratedColumn<String> exploreDeckId = GeneratedColumn<String>(
+    'explore_deck_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES explore_decks (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+    'user_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('local_user'),
+  );
+  static const VerificationMeta _voteMeta = const VerificationMeta('vote');
+  @override
+  late final GeneratedColumn<int> vote = GeneratedColumn<int>(
+    'vote',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    exploreDeckId,
+    userId,
+    vote,
+    updatedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'explore_deck_votes';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ExploreDeckVote> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('explore_deck_id')) {
+      context.handle(
+        _exploreDeckIdMeta,
+        exploreDeckId.isAcceptableOrUnknown(
+          data['explore_deck_id']!,
+          _exploreDeckIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_exploreDeckIdMeta);
+    }
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
+    }
+    if (data.containsKey('vote')) {
+      context.handle(
+        _voteMeta,
+        vote.isAcceptableOrUnknown(data['vote']!, _voteMeta),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  List<Set<GeneratedColumn>> get uniqueKeys => [
+    {exploreDeckId, userId},
+  ];
+  @override
+  ExploreDeckVote map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ExploreDeckVote(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      exploreDeckId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}explore_deck_id'],
+      )!,
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_id'],
+      )!,
+      vote: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}vote'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+    );
+  }
+
+  @override
+  $ExploreDeckVotesTable createAlias(String alias) {
+    return $ExploreDeckVotesTable(attachedDatabase, alias);
+  }
+}
+
+class ExploreDeckVote extends DataClass implements Insertable<ExploreDeckVote> {
+  /// Unique identifier: '${exploreDeckId}_${userId}'
+  final String id;
+
+  /// Foreign key referencing ExploreDecks
+  final String exploreDeckId;
+
+  /// User identifier ('local_user' for offline device persistence)
+  final String userId;
+
+  /// Vote value: 1 = Upvote, -1 = Downvote, 0 = Neutral / Removed
+  final int vote;
+
+  /// Timestamp when vote was recorded or updated
+  final DateTime updatedAt;
+  const ExploreDeckVote({
+    required this.id,
+    required this.exploreDeckId,
+    required this.userId,
+    required this.vote,
+    required this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['explore_deck_id'] = Variable<String>(exploreDeckId);
+    map['user_id'] = Variable<String>(userId);
+    map['vote'] = Variable<int>(vote);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  ExploreDeckVotesCompanion toCompanion(bool nullToAbsent) {
+    return ExploreDeckVotesCompanion(
+      id: Value(id),
+      exploreDeckId: Value(exploreDeckId),
+      userId: Value(userId),
+      vote: Value(vote),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory ExploreDeckVote.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ExploreDeckVote(
+      id: serializer.fromJson<String>(json['id']),
+      exploreDeckId: serializer.fromJson<String>(json['exploreDeckId']),
+      userId: serializer.fromJson<String>(json['userId']),
+      vote: serializer.fromJson<int>(json['vote']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'exploreDeckId': serializer.toJson<String>(exploreDeckId),
+      'userId': serializer.toJson<String>(userId),
+      'vote': serializer.toJson<int>(vote),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  ExploreDeckVote copyWith({
+    String? id,
+    String? exploreDeckId,
+    String? userId,
+    int? vote,
+    DateTime? updatedAt,
+  }) => ExploreDeckVote(
+    id: id ?? this.id,
+    exploreDeckId: exploreDeckId ?? this.exploreDeckId,
+    userId: userId ?? this.userId,
+    vote: vote ?? this.vote,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
+  ExploreDeckVote copyWithCompanion(ExploreDeckVotesCompanion data) {
+    return ExploreDeckVote(
+      id: data.id.present ? data.id.value : this.id,
+      exploreDeckId: data.exploreDeckId.present
+          ? data.exploreDeckId.value
+          : this.exploreDeckId,
+      userId: data.userId.present ? data.userId.value : this.userId,
+      vote: data.vote.present ? data.vote.value : this.vote,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ExploreDeckVote(')
+          ..write('id: $id, ')
+          ..write('exploreDeckId: $exploreDeckId, ')
+          ..write('userId: $userId, ')
+          ..write('vote: $vote, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, exploreDeckId, userId, vote, updatedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ExploreDeckVote &&
+          other.id == this.id &&
+          other.exploreDeckId == this.exploreDeckId &&
+          other.userId == this.userId &&
+          other.vote == this.vote &&
+          other.updatedAt == this.updatedAt);
+}
+
+class ExploreDeckVotesCompanion extends UpdateCompanion<ExploreDeckVote> {
+  final Value<String> id;
+  final Value<String> exploreDeckId;
+  final Value<String> userId;
+  final Value<int> vote;
+  final Value<DateTime> updatedAt;
+  final Value<int> rowid;
+  const ExploreDeckVotesCompanion({
+    this.id = const Value.absent(),
+    this.exploreDeckId = const Value.absent(),
+    this.userId = const Value.absent(),
+    this.vote = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ExploreDeckVotesCompanion.insert({
+    required String id,
+    required String exploreDeckId,
+    this.userId = const Value.absent(),
+    this.vote = const Value.absent(),
+    required DateTime updatedAt,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       exploreDeckId = Value(exploreDeckId),
+       updatedAt = Value(updatedAt);
+  static Insertable<ExploreDeckVote> custom({
+    Expression<String>? id,
+    Expression<String>? exploreDeckId,
+    Expression<String>? userId,
+    Expression<int>? vote,
+    Expression<DateTime>? updatedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (exploreDeckId != null) 'explore_deck_id': exploreDeckId,
+      if (userId != null) 'user_id': userId,
+      if (vote != null) 'vote': vote,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ExploreDeckVotesCompanion copyWith({
+    Value<String>? id,
+    Value<String>? exploreDeckId,
+    Value<String>? userId,
+    Value<int>? vote,
+    Value<DateTime>? updatedAt,
+    Value<int>? rowid,
+  }) {
+    return ExploreDeckVotesCompanion(
+      id: id ?? this.id,
+      exploreDeckId: exploreDeckId ?? this.exploreDeckId,
+      userId: userId ?? this.userId,
+      vote: vote ?? this.vote,
+      updatedAt: updatedAt ?? this.updatedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (exploreDeckId.present) {
+      map['explore_deck_id'] = Variable<String>(exploreDeckId.value);
+    }
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
+    }
+    if (vote.present) {
+      map['vote'] = Variable<int>(vote.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ExploreDeckVotesCompanion(')
+          ..write('id: $id, ')
+          ..write('exploreDeckId: $exploreDeckId, ')
+          ..write('userId: $userId, ')
+          ..write('vote: $vote, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -8419,8 +11228,18 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $MatchSessionsTable matchSessions = $MatchSessionsTable(this);
   late final $MatchPlayersTable matchPlayers = $MatchPlayersTable(this);
   late final $MatchEventsTable matchEvents = $MatchEventsTable(this);
+  late final $ExploreDecksTable exploreDecks = $ExploreDecksTable(this);
+  late final $ExploreDeckItemsTable exploreDeckItems = $ExploreDeckItemsTable(
+    this,
+  );
+  late final $ExploreDeckVotesTable exploreDeckVotes = $ExploreDeckVotesTable(
+    this,
+  );
   late final VaultDao vaultDao = VaultDao(this as AppDatabase);
   late final MatchDao matchDao = MatchDao(this as AppDatabase);
+  late final ExploreDeckDao exploreDeckDao = ExploreDeckDao(
+    this as AppDatabase,
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -8437,7 +11256,27 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     matchSessions,
     matchPlayers,
     matchEvents,
+    exploreDecks,
+    exploreDeckItems,
+    exploreDeckVotes,
   ];
+  @override
+  StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'explore_decks',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('explore_deck_items', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'explore_decks',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('explore_deck_votes', kind: UpdateKind.delete)],
+    ),
+  ]);
 }
 
 typedef $$VaultBindersTableCreateCompanionBuilder =
@@ -9745,6 +12584,8 @@ typedef $$DecksTableCreateCompanionBuilder =
       Value<bool> isAssembled,
       Value<bool> isDeleted,
       Value<DateTime?> updatedAt,
+      Value<bool> isCloned,
+      Value<String?> sourceExploreDeckId,
       Value<int> rowid,
     });
 typedef $$DecksTableUpdateCompanionBuilder =
@@ -9765,6 +12606,8 @@ typedef $$DecksTableUpdateCompanionBuilder =
       Value<bool> isAssembled,
       Value<bool> isDeleted,
       Value<DateTime?> updatedAt,
+      Value<bool> isCloned,
+      Value<String?> sourceExploreDeckId,
       Value<int> rowid,
     });
 
@@ -9930,6 +12773,16 @@ class $$DecksTableFilterComposer extends Composer<_$AppDatabase, $DecksTable> {
 
   ColumnFilters<DateTime> get updatedAt => $composableBuilder(
     column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isCloned => $composableBuilder(
+    column: $table.isCloned,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sourceExploreDeckId => $composableBuilder(
+    column: $table.sourceExploreDeckId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -10122,6 +12975,16 @@ class $$DecksTableOrderingComposer
     column: $table.updatedAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<bool> get isCloned => $composableBuilder(
+    column: $table.isCloned,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sourceExploreDeckId => $composableBuilder(
+    column: $table.sourceExploreDeckId,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$DecksTableAnnotationComposer
@@ -10192,6 +13055,14 @@ class $$DecksTableAnnotationComposer
 
   GeneratedColumn<DateTime> get updatedAt =>
       $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<bool> get isCloned =>
+      $composableBuilder(column: $table.isCloned, builder: (column) => column);
+
+  GeneratedColumn<String> get sourceExploreDeckId => $composableBuilder(
+    column: $table.sourceExploreDeckId,
+    builder: (column) => column,
+  );
 
   Expression<T> deckVersionsRefs<T extends Object>(
     Expression<T> Function($$DeckVersionsTableAnnotationComposer a) f,
@@ -10343,6 +13214,8 @@ class $$DecksTableTableManager
                 Value<bool> isAssembled = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
                 Value<DateTime?> updatedAt = const Value.absent(),
+                Value<bool> isCloned = const Value.absent(),
+                Value<String?> sourceExploreDeckId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => DecksCompanion(
                 id: id,
@@ -10361,6 +13234,8 @@ class $$DecksTableTableManager
                 isAssembled: isAssembled,
                 isDeleted: isDeleted,
                 updatedAt: updatedAt,
+                isCloned: isCloned,
+                sourceExploreDeckId: sourceExploreDeckId,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -10381,6 +13256,8 @@ class $$DecksTableTableManager
                 Value<bool> isAssembled = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
                 Value<DateTime?> updatedAt = const Value.absent(),
+                Value<bool> isCloned = const Value.absent(),
+                Value<String?> sourceExploreDeckId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => DecksCompanion.insert(
                 id: id,
@@ -10399,6 +13276,8 @@ class $$DecksTableTableManager
                 isAssembled: isAssembled,
                 isDeleted: isDeleted,
                 updatedAt: updatedAt,
+                isCloned: isCloned,
+                sourceExploreDeckId: sourceExploreDeckId,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -14402,6 +17281,1666 @@ typedef $$MatchEventsTableProcessedTableManager =
       MatchEvent,
       PrefetchHooks Function({bool sessionId})
     >;
+typedef $$ExploreDecksTableCreateCompanionBuilder =
+    ExploreDecksCompanion Function({
+      required String id,
+      required String name,
+      required String format,
+      Value<String> tcgDomain,
+      Value<String> sourceType,
+      Value<String> creatorName,
+      Value<String?> description,
+      Value<String?> commanderName,
+      Value<String?> commanderImageUrl,
+      Value<String?> commanderArtCrop,
+      Value<String> colorIdentity,
+      Value<int> cardCount,
+      Value<double> estimatedPrice,
+      Value<int> upvotes,
+      Value<int> downvotes,
+      Value<int> score,
+      Value<String?> featuredCategory,
+      Value<String?> releaseCode,
+      Value<int?> releaseYear,
+      Value<String?> tags,
+      required DateTime createdAt,
+      Value<DateTime?> updatedAt,
+      Value<bool> isDeleted,
+      Value<int> rowid,
+    });
+typedef $$ExploreDecksTableUpdateCompanionBuilder =
+    ExploreDecksCompanion Function({
+      Value<String> id,
+      Value<String> name,
+      Value<String> format,
+      Value<String> tcgDomain,
+      Value<String> sourceType,
+      Value<String> creatorName,
+      Value<String?> description,
+      Value<String?> commanderName,
+      Value<String?> commanderImageUrl,
+      Value<String?> commanderArtCrop,
+      Value<String> colorIdentity,
+      Value<int> cardCount,
+      Value<double> estimatedPrice,
+      Value<int> upvotes,
+      Value<int> downvotes,
+      Value<int> score,
+      Value<String?> featuredCategory,
+      Value<String?> releaseCode,
+      Value<int?> releaseYear,
+      Value<String?> tags,
+      Value<DateTime> createdAt,
+      Value<DateTime?> updatedAt,
+      Value<bool> isDeleted,
+      Value<int> rowid,
+    });
+
+final class $$ExploreDecksTableReferences
+    extends BaseReferences<_$AppDatabase, $ExploreDecksTable, ExploreDeck> {
+  $$ExploreDecksTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static MultiTypedResultKey<$ExploreDeckItemsTable, List<ExploreDeckItem>>
+  _exploreDeckItemsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.exploreDeckItems,
+    aliasName: 'explore_decks__id__explore_deck_items__explore_deck_id',
+  );
+
+  $$ExploreDeckItemsTableProcessedTableManager get exploreDeckItemsRefs {
+    final manager = $$ExploreDeckItemsTableTableManager(
+      $_db,
+      $_db.exploreDeckItems,
+    ).filter((f) => f.exploreDeckId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _exploreDeckItemsRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$ExploreDeckVotesTable, List<ExploreDeckVote>>
+  _exploreDeckVotesRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.exploreDeckVotes,
+    aliasName: 'explore_decks__id__explore_deck_votes__explore_deck_id',
+  );
+
+  $$ExploreDeckVotesTableProcessedTableManager get exploreDeckVotesRefs {
+    final manager = $$ExploreDeckVotesTableTableManager(
+      $_db,
+      $_db.exploreDeckVotes,
+    ).filter((f) => f.exploreDeckId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _exploreDeckVotesRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
+
+class $$ExploreDecksTableFilterComposer
+    extends Composer<_$AppDatabase, $ExploreDecksTable> {
+  $$ExploreDecksTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get format => $composableBuilder(
+    column: $table.format,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get tcgDomain => $composableBuilder(
+    column: $table.tcgDomain,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sourceType => $composableBuilder(
+    column: $table.sourceType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get creatorName => $composableBuilder(
+    column: $table.creatorName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get commanderName => $composableBuilder(
+    column: $table.commanderName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get commanderImageUrl => $composableBuilder(
+    column: $table.commanderImageUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get commanderArtCrop => $composableBuilder(
+    column: $table.commanderArtCrop,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get colorIdentity => $composableBuilder(
+    column: $table.colorIdentity,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get cardCount => $composableBuilder(
+    column: $table.cardCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get estimatedPrice => $composableBuilder(
+    column: $table.estimatedPrice,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get upvotes => $composableBuilder(
+    column: $table.upvotes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get downvotes => $composableBuilder(
+    column: $table.downvotes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get score => $composableBuilder(
+    column: $table.score,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get featuredCategory => $composableBuilder(
+    column: $table.featuredCategory,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get releaseCode => $composableBuilder(
+    column: $table.releaseCode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get releaseYear => $composableBuilder(
+    column: $table.releaseYear,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get tags => $composableBuilder(
+    column: $table.tags,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  Expression<bool> exploreDeckItemsRefs(
+    Expression<bool> Function($$ExploreDeckItemsTableFilterComposer f) f,
+  ) {
+    final $$ExploreDeckItemsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.exploreDeckItems,
+      getReferencedColumn: (t) => t.exploreDeckId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ExploreDeckItemsTableFilterComposer(
+            $db: $db,
+            $table: $db.exploreDeckItems,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> exploreDeckVotesRefs(
+    Expression<bool> Function($$ExploreDeckVotesTableFilterComposer f) f,
+  ) {
+    final $$ExploreDeckVotesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.exploreDeckVotes,
+      getReferencedColumn: (t) => t.exploreDeckId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ExploreDeckVotesTableFilterComposer(
+            $db: $db,
+            $table: $db.exploreDeckVotes,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$ExploreDecksTableOrderingComposer
+    extends Composer<_$AppDatabase, $ExploreDecksTable> {
+  $$ExploreDecksTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get format => $composableBuilder(
+    column: $table.format,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get tcgDomain => $composableBuilder(
+    column: $table.tcgDomain,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sourceType => $composableBuilder(
+    column: $table.sourceType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get creatorName => $composableBuilder(
+    column: $table.creatorName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get commanderName => $composableBuilder(
+    column: $table.commanderName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get commanderImageUrl => $composableBuilder(
+    column: $table.commanderImageUrl,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get commanderArtCrop => $composableBuilder(
+    column: $table.commanderArtCrop,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get colorIdentity => $composableBuilder(
+    column: $table.colorIdentity,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get cardCount => $composableBuilder(
+    column: $table.cardCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get estimatedPrice => $composableBuilder(
+    column: $table.estimatedPrice,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get upvotes => $composableBuilder(
+    column: $table.upvotes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get downvotes => $composableBuilder(
+    column: $table.downvotes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get score => $composableBuilder(
+    column: $table.score,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get featuredCategory => $composableBuilder(
+    column: $table.featuredCategory,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get releaseCode => $composableBuilder(
+    column: $table.releaseCode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get releaseYear => $composableBuilder(
+    column: $table.releaseYear,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get tags => $composableBuilder(
+    column: $table.tags,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$ExploreDecksTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ExploreDecksTable> {
+  $$ExploreDecksTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get format =>
+      $composableBuilder(column: $table.format, builder: (column) => column);
+
+  GeneratedColumn<String> get tcgDomain =>
+      $composableBuilder(column: $table.tcgDomain, builder: (column) => column);
+
+  GeneratedColumn<String> get sourceType => $composableBuilder(
+    column: $table.sourceType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get creatorName => $composableBuilder(
+    column: $table.creatorName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get commanderName => $composableBuilder(
+    column: $table.commanderName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get commanderImageUrl => $composableBuilder(
+    column: $table.commanderImageUrl,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get commanderArtCrop => $composableBuilder(
+    column: $table.commanderArtCrop,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get colorIdentity => $composableBuilder(
+    column: $table.colorIdentity,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get cardCount =>
+      $composableBuilder(column: $table.cardCount, builder: (column) => column);
+
+  GeneratedColumn<double> get estimatedPrice => $composableBuilder(
+    column: $table.estimatedPrice,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get upvotes =>
+      $composableBuilder(column: $table.upvotes, builder: (column) => column);
+
+  GeneratedColumn<int> get downvotes =>
+      $composableBuilder(column: $table.downvotes, builder: (column) => column);
+
+  GeneratedColumn<int> get score =>
+      $composableBuilder(column: $table.score, builder: (column) => column);
+
+  GeneratedColumn<String> get featuredCategory => $composableBuilder(
+    column: $table.featuredCategory,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get releaseCode => $composableBuilder(
+    column: $table.releaseCode,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get releaseYear => $composableBuilder(
+    column: $table.releaseYear,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get tags =>
+      $composableBuilder(column: $table.tags, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<bool> get isDeleted =>
+      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+
+  Expression<T> exploreDeckItemsRefs<T extends Object>(
+    Expression<T> Function($$ExploreDeckItemsTableAnnotationComposer a) f,
+  ) {
+    final $$ExploreDeckItemsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.exploreDeckItems,
+      getReferencedColumn: (t) => t.exploreDeckId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ExploreDeckItemsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.exploreDeckItems,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<T> exploreDeckVotesRefs<T extends Object>(
+    Expression<T> Function($$ExploreDeckVotesTableAnnotationComposer a) f,
+  ) {
+    final $$ExploreDeckVotesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.exploreDeckVotes,
+      getReferencedColumn: (t) => t.exploreDeckId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ExploreDeckVotesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.exploreDeckVotes,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$ExploreDecksTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ExploreDecksTable,
+          ExploreDeck,
+          $$ExploreDecksTableFilterComposer,
+          $$ExploreDecksTableOrderingComposer,
+          $$ExploreDecksTableAnnotationComposer,
+          $$ExploreDecksTableCreateCompanionBuilder,
+          $$ExploreDecksTableUpdateCompanionBuilder,
+          (ExploreDeck, $$ExploreDecksTableReferences),
+          ExploreDeck,
+          PrefetchHooks Function({
+            bool exploreDeckItemsRefs,
+            bool exploreDeckVotesRefs,
+          })
+        > {
+  $$ExploreDecksTableTableManager(_$AppDatabase db, $ExploreDecksTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ExploreDecksTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ExploreDecksTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ExploreDecksTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<String> format = const Value.absent(),
+                Value<String> tcgDomain = const Value.absent(),
+                Value<String> sourceType = const Value.absent(),
+                Value<String> creatorName = const Value.absent(),
+                Value<String?> description = const Value.absent(),
+                Value<String?> commanderName = const Value.absent(),
+                Value<String?> commanderImageUrl = const Value.absent(),
+                Value<String?> commanderArtCrop = const Value.absent(),
+                Value<String> colorIdentity = const Value.absent(),
+                Value<int> cardCount = const Value.absent(),
+                Value<double> estimatedPrice = const Value.absent(),
+                Value<int> upvotes = const Value.absent(),
+                Value<int> downvotes = const Value.absent(),
+                Value<int> score = const Value.absent(),
+                Value<String?> featuredCategory = const Value.absent(),
+                Value<String?> releaseCode = const Value.absent(),
+                Value<int?> releaseYear = const Value.absent(),
+                Value<String?> tags = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime?> updatedAt = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ExploreDecksCompanion(
+                id: id,
+                name: name,
+                format: format,
+                tcgDomain: tcgDomain,
+                sourceType: sourceType,
+                creatorName: creatorName,
+                description: description,
+                commanderName: commanderName,
+                commanderImageUrl: commanderImageUrl,
+                commanderArtCrop: commanderArtCrop,
+                colorIdentity: colorIdentity,
+                cardCount: cardCount,
+                estimatedPrice: estimatedPrice,
+                upvotes: upvotes,
+                downvotes: downvotes,
+                score: score,
+                featuredCategory: featuredCategory,
+                releaseCode: releaseCode,
+                releaseYear: releaseYear,
+                tags: tags,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                isDeleted: isDeleted,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String name,
+                required String format,
+                Value<String> tcgDomain = const Value.absent(),
+                Value<String> sourceType = const Value.absent(),
+                Value<String> creatorName = const Value.absent(),
+                Value<String?> description = const Value.absent(),
+                Value<String?> commanderName = const Value.absent(),
+                Value<String?> commanderImageUrl = const Value.absent(),
+                Value<String?> commanderArtCrop = const Value.absent(),
+                Value<String> colorIdentity = const Value.absent(),
+                Value<int> cardCount = const Value.absent(),
+                Value<double> estimatedPrice = const Value.absent(),
+                Value<int> upvotes = const Value.absent(),
+                Value<int> downvotes = const Value.absent(),
+                Value<int> score = const Value.absent(),
+                Value<String?> featuredCategory = const Value.absent(),
+                Value<String?> releaseCode = const Value.absent(),
+                Value<int?> releaseYear = const Value.absent(),
+                Value<String?> tags = const Value.absent(),
+                required DateTime createdAt,
+                Value<DateTime?> updatedAt = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ExploreDecksCompanion.insert(
+                id: id,
+                name: name,
+                format: format,
+                tcgDomain: tcgDomain,
+                sourceType: sourceType,
+                creatorName: creatorName,
+                description: description,
+                commanderName: commanderName,
+                commanderImageUrl: commanderImageUrl,
+                commanderArtCrop: commanderArtCrop,
+                colorIdentity: colorIdentity,
+                cardCount: cardCount,
+                estimatedPrice: estimatedPrice,
+                upvotes: upvotes,
+                downvotes: downvotes,
+                score: score,
+                featuredCategory: featuredCategory,
+                releaseCode: releaseCode,
+                releaseYear: releaseYear,
+                tags: tags,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                isDeleted: isDeleted,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$ExploreDecksTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback:
+              ({exploreDeckItemsRefs = false, exploreDeckVotesRefs = false}) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [
+                    if (exploreDeckItemsRefs) db.exploreDeckItems,
+                    if (exploreDeckVotesRefs) db.exploreDeckVotes,
+                  ],
+                  addJoins: null,
+                  getPrefetchedDataCallback: (items) async {
+                    return [
+                      if (exploreDeckItemsRefs)
+                        await $_getPrefetchedData<
+                          ExploreDeck,
+                          $ExploreDecksTable,
+                          ExploreDeckItem
+                        >(
+                          currentTable: table,
+                          referencedTable: $$ExploreDecksTableReferences
+                              ._exploreDeckItemsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$ExploreDecksTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).exploreDeckItemsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.exploreDeckId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (exploreDeckVotesRefs)
+                        await $_getPrefetchedData<
+                          ExploreDeck,
+                          $ExploreDecksTable,
+                          ExploreDeckVote
+                        >(
+                          currentTable: table,
+                          referencedTable: $$ExploreDecksTableReferences
+                              ._exploreDeckVotesRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$ExploreDecksTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).exploreDeckVotesRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.exploreDeckId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                    ];
+                  },
+                );
+              },
+        ),
+      );
+}
+
+typedef $$ExploreDecksTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ExploreDecksTable,
+      ExploreDeck,
+      $$ExploreDecksTableFilterComposer,
+      $$ExploreDecksTableOrderingComposer,
+      $$ExploreDecksTableAnnotationComposer,
+      $$ExploreDecksTableCreateCompanionBuilder,
+      $$ExploreDecksTableUpdateCompanionBuilder,
+      (ExploreDeck, $$ExploreDecksTableReferences),
+      ExploreDeck,
+      PrefetchHooks Function({
+        bool exploreDeckItemsRefs,
+        bool exploreDeckVotesRefs,
+      })
+    >;
+typedef $$ExploreDeckItemsTableCreateCompanionBuilder =
+    ExploreDeckItemsCompanion Function({
+      required String id,
+      required String exploreDeckId,
+      required String cardName,
+      Value<String?> scryfallId,
+      Value<String?> oracleId,
+      Value<int> quantity,
+      Value<String> boardZone,
+      Value<String?> manaCost,
+      Value<double?> cmc,
+      Value<String?> typeLine,
+      Value<String?> colors,
+      Value<String?> imageUrl,
+      Value<String?> artCropUrl,
+      Value<double?> price,
+      Value<bool> isCommander,
+      Value<String?> dynamicData,
+      Value<bool> isDeleted,
+      Value<int> rowid,
+    });
+typedef $$ExploreDeckItemsTableUpdateCompanionBuilder =
+    ExploreDeckItemsCompanion Function({
+      Value<String> id,
+      Value<String> exploreDeckId,
+      Value<String> cardName,
+      Value<String?> scryfallId,
+      Value<String?> oracleId,
+      Value<int> quantity,
+      Value<String> boardZone,
+      Value<String?> manaCost,
+      Value<double?> cmc,
+      Value<String?> typeLine,
+      Value<String?> colors,
+      Value<String?> imageUrl,
+      Value<String?> artCropUrl,
+      Value<double?> price,
+      Value<bool> isCommander,
+      Value<String?> dynamicData,
+      Value<bool> isDeleted,
+      Value<int> rowid,
+    });
+
+final class $$ExploreDeckItemsTableReferences
+    extends
+        BaseReferences<_$AppDatabase, $ExploreDeckItemsTable, ExploreDeckItem> {
+  $$ExploreDeckItemsTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $ExploreDecksTable _exploreDeckIdTable(_$AppDatabase db) => db
+      .exploreDecks
+      .createAlias('explore_deck_items__explore_deck_id__explore_decks__id');
+
+  $$ExploreDecksTableProcessedTableManager get exploreDeckId {
+    final $_column = $_itemColumn<String>('explore_deck_id')!;
+
+    final manager = $$ExploreDecksTableTableManager(
+      $_db,
+      $_db.exploreDecks,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_exploreDeckIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$ExploreDeckItemsTableFilterComposer
+    extends Composer<_$AppDatabase, $ExploreDeckItemsTable> {
+  $$ExploreDeckItemsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get cardName => $composableBuilder(
+    column: $table.cardName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get scryfallId => $composableBuilder(
+    column: $table.scryfallId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get oracleId => $composableBuilder(
+    column: $table.oracleId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get quantity => $composableBuilder(
+    column: $table.quantity,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get boardZone => $composableBuilder(
+    column: $table.boardZone,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get manaCost => $composableBuilder(
+    column: $table.manaCost,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get cmc => $composableBuilder(
+    column: $table.cmc,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get typeLine => $composableBuilder(
+    column: $table.typeLine,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get colors => $composableBuilder(
+    column: $table.colors,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get imageUrl => $composableBuilder(
+    column: $table.imageUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get artCropUrl => $composableBuilder(
+    column: $table.artCropUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get price => $composableBuilder(
+    column: $table.price,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isCommander => $composableBuilder(
+    column: $table.isCommander,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get dynamicData => $composableBuilder(
+    column: $table.dynamicData,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$ExploreDecksTableFilterComposer get exploreDeckId {
+    final $$ExploreDecksTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.exploreDeckId,
+      referencedTable: $db.exploreDecks,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ExploreDecksTableFilterComposer(
+            $db: $db,
+            $table: $db.exploreDecks,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$ExploreDeckItemsTableOrderingComposer
+    extends Composer<_$AppDatabase, $ExploreDeckItemsTable> {
+  $$ExploreDeckItemsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get cardName => $composableBuilder(
+    column: $table.cardName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get scryfallId => $composableBuilder(
+    column: $table.scryfallId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get oracleId => $composableBuilder(
+    column: $table.oracleId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get quantity => $composableBuilder(
+    column: $table.quantity,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get boardZone => $composableBuilder(
+    column: $table.boardZone,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get manaCost => $composableBuilder(
+    column: $table.manaCost,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get cmc => $composableBuilder(
+    column: $table.cmc,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get typeLine => $composableBuilder(
+    column: $table.typeLine,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get colors => $composableBuilder(
+    column: $table.colors,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get imageUrl => $composableBuilder(
+    column: $table.imageUrl,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get artCropUrl => $composableBuilder(
+    column: $table.artCropUrl,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get price => $composableBuilder(
+    column: $table.price,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isCommander => $composableBuilder(
+    column: $table.isCommander,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get dynamicData => $composableBuilder(
+    column: $table.dynamicData,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$ExploreDecksTableOrderingComposer get exploreDeckId {
+    final $$ExploreDecksTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.exploreDeckId,
+      referencedTable: $db.exploreDecks,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ExploreDecksTableOrderingComposer(
+            $db: $db,
+            $table: $db.exploreDecks,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$ExploreDeckItemsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ExploreDeckItemsTable> {
+  $$ExploreDeckItemsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get cardName =>
+      $composableBuilder(column: $table.cardName, builder: (column) => column);
+
+  GeneratedColumn<String> get scryfallId => $composableBuilder(
+    column: $table.scryfallId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get oracleId =>
+      $composableBuilder(column: $table.oracleId, builder: (column) => column);
+
+  GeneratedColumn<int> get quantity =>
+      $composableBuilder(column: $table.quantity, builder: (column) => column);
+
+  GeneratedColumn<String> get boardZone =>
+      $composableBuilder(column: $table.boardZone, builder: (column) => column);
+
+  GeneratedColumn<String> get manaCost =>
+      $composableBuilder(column: $table.manaCost, builder: (column) => column);
+
+  GeneratedColumn<double> get cmc =>
+      $composableBuilder(column: $table.cmc, builder: (column) => column);
+
+  GeneratedColumn<String> get typeLine =>
+      $composableBuilder(column: $table.typeLine, builder: (column) => column);
+
+  GeneratedColumn<String> get colors =>
+      $composableBuilder(column: $table.colors, builder: (column) => column);
+
+  GeneratedColumn<String> get imageUrl =>
+      $composableBuilder(column: $table.imageUrl, builder: (column) => column);
+
+  GeneratedColumn<String> get artCropUrl => $composableBuilder(
+    column: $table.artCropUrl,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get price =>
+      $composableBuilder(column: $table.price, builder: (column) => column);
+
+  GeneratedColumn<bool> get isCommander => $composableBuilder(
+    column: $table.isCommander,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get dynamicData => $composableBuilder(
+    column: $table.dynamicData,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isDeleted =>
+      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+
+  $$ExploreDecksTableAnnotationComposer get exploreDeckId {
+    final $$ExploreDecksTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.exploreDeckId,
+      referencedTable: $db.exploreDecks,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ExploreDecksTableAnnotationComposer(
+            $db: $db,
+            $table: $db.exploreDecks,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$ExploreDeckItemsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ExploreDeckItemsTable,
+          ExploreDeckItem,
+          $$ExploreDeckItemsTableFilterComposer,
+          $$ExploreDeckItemsTableOrderingComposer,
+          $$ExploreDeckItemsTableAnnotationComposer,
+          $$ExploreDeckItemsTableCreateCompanionBuilder,
+          $$ExploreDeckItemsTableUpdateCompanionBuilder,
+          (ExploreDeckItem, $$ExploreDeckItemsTableReferences),
+          ExploreDeckItem,
+          PrefetchHooks Function({bool exploreDeckId})
+        > {
+  $$ExploreDeckItemsTableTableManager(
+    _$AppDatabase db,
+    $ExploreDeckItemsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ExploreDeckItemsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ExploreDeckItemsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ExploreDeckItemsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> exploreDeckId = const Value.absent(),
+                Value<String> cardName = const Value.absent(),
+                Value<String?> scryfallId = const Value.absent(),
+                Value<String?> oracleId = const Value.absent(),
+                Value<int> quantity = const Value.absent(),
+                Value<String> boardZone = const Value.absent(),
+                Value<String?> manaCost = const Value.absent(),
+                Value<double?> cmc = const Value.absent(),
+                Value<String?> typeLine = const Value.absent(),
+                Value<String?> colors = const Value.absent(),
+                Value<String?> imageUrl = const Value.absent(),
+                Value<String?> artCropUrl = const Value.absent(),
+                Value<double?> price = const Value.absent(),
+                Value<bool> isCommander = const Value.absent(),
+                Value<String?> dynamicData = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ExploreDeckItemsCompanion(
+                id: id,
+                exploreDeckId: exploreDeckId,
+                cardName: cardName,
+                scryfallId: scryfallId,
+                oracleId: oracleId,
+                quantity: quantity,
+                boardZone: boardZone,
+                manaCost: manaCost,
+                cmc: cmc,
+                typeLine: typeLine,
+                colors: colors,
+                imageUrl: imageUrl,
+                artCropUrl: artCropUrl,
+                price: price,
+                isCommander: isCommander,
+                dynamicData: dynamicData,
+                isDeleted: isDeleted,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String exploreDeckId,
+                required String cardName,
+                Value<String?> scryfallId = const Value.absent(),
+                Value<String?> oracleId = const Value.absent(),
+                Value<int> quantity = const Value.absent(),
+                Value<String> boardZone = const Value.absent(),
+                Value<String?> manaCost = const Value.absent(),
+                Value<double?> cmc = const Value.absent(),
+                Value<String?> typeLine = const Value.absent(),
+                Value<String?> colors = const Value.absent(),
+                Value<String?> imageUrl = const Value.absent(),
+                Value<String?> artCropUrl = const Value.absent(),
+                Value<double?> price = const Value.absent(),
+                Value<bool> isCommander = const Value.absent(),
+                Value<String?> dynamicData = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ExploreDeckItemsCompanion.insert(
+                id: id,
+                exploreDeckId: exploreDeckId,
+                cardName: cardName,
+                scryfallId: scryfallId,
+                oracleId: oracleId,
+                quantity: quantity,
+                boardZone: boardZone,
+                manaCost: manaCost,
+                cmc: cmc,
+                typeLine: typeLine,
+                colors: colors,
+                imageUrl: imageUrl,
+                artCropUrl: artCropUrl,
+                price: price,
+                isCommander: isCommander,
+                dynamicData: dynamicData,
+                isDeleted: isDeleted,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$ExploreDeckItemsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({exploreDeckId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (exploreDeckId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.exploreDeckId,
+                                referencedTable:
+                                    $$ExploreDeckItemsTableReferences
+                                        ._exploreDeckIdTable(db),
+                                referencedColumn:
+                                    $$ExploreDeckItemsTableReferences
+                                        ._exploreDeckIdTable(db)
+                                        .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$ExploreDeckItemsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ExploreDeckItemsTable,
+      ExploreDeckItem,
+      $$ExploreDeckItemsTableFilterComposer,
+      $$ExploreDeckItemsTableOrderingComposer,
+      $$ExploreDeckItemsTableAnnotationComposer,
+      $$ExploreDeckItemsTableCreateCompanionBuilder,
+      $$ExploreDeckItemsTableUpdateCompanionBuilder,
+      (ExploreDeckItem, $$ExploreDeckItemsTableReferences),
+      ExploreDeckItem,
+      PrefetchHooks Function({bool exploreDeckId})
+    >;
+typedef $$ExploreDeckVotesTableCreateCompanionBuilder =
+    ExploreDeckVotesCompanion Function({
+      required String id,
+      required String exploreDeckId,
+      Value<String> userId,
+      Value<int> vote,
+      required DateTime updatedAt,
+      Value<int> rowid,
+    });
+typedef $$ExploreDeckVotesTableUpdateCompanionBuilder =
+    ExploreDeckVotesCompanion Function({
+      Value<String> id,
+      Value<String> exploreDeckId,
+      Value<String> userId,
+      Value<int> vote,
+      Value<DateTime> updatedAt,
+      Value<int> rowid,
+    });
+
+final class $$ExploreDeckVotesTableReferences
+    extends
+        BaseReferences<_$AppDatabase, $ExploreDeckVotesTable, ExploreDeckVote> {
+  $$ExploreDeckVotesTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $ExploreDecksTable _exploreDeckIdTable(_$AppDatabase db) => db
+      .exploreDecks
+      .createAlias('explore_deck_votes__explore_deck_id__explore_decks__id');
+
+  $$ExploreDecksTableProcessedTableManager get exploreDeckId {
+    final $_column = $_itemColumn<String>('explore_deck_id')!;
+
+    final manager = $$ExploreDecksTableTableManager(
+      $_db,
+      $_db.exploreDecks,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_exploreDeckIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$ExploreDeckVotesTableFilterComposer
+    extends Composer<_$AppDatabase, $ExploreDeckVotesTable> {
+  $$ExploreDeckVotesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get vote => $composableBuilder(
+    column: $table.vote,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$ExploreDecksTableFilterComposer get exploreDeckId {
+    final $$ExploreDecksTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.exploreDeckId,
+      referencedTable: $db.exploreDecks,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ExploreDecksTableFilterComposer(
+            $db: $db,
+            $table: $db.exploreDecks,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$ExploreDeckVotesTableOrderingComposer
+    extends Composer<_$AppDatabase, $ExploreDeckVotesTable> {
+  $$ExploreDeckVotesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get vote => $composableBuilder(
+    column: $table.vote,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$ExploreDecksTableOrderingComposer get exploreDeckId {
+    final $$ExploreDecksTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.exploreDeckId,
+      referencedTable: $db.exploreDecks,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ExploreDecksTableOrderingComposer(
+            $db: $db,
+            $table: $db.exploreDecks,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$ExploreDeckVotesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ExploreDeckVotesTable> {
+  $$ExploreDeckVotesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
+
+  GeneratedColumn<int> get vote =>
+      $composableBuilder(column: $table.vote, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  $$ExploreDecksTableAnnotationComposer get exploreDeckId {
+    final $$ExploreDecksTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.exploreDeckId,
+      referencedTable: $db.exploreDecks,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ExploreDecksTableAnnotationComposer(
+            $db: $db,
+            $table: $db.exploreDecks,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$ExploreDeckVotesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ExploreDeckVotesTable,
+          ExploreDeckVote,
+          $$ExploreDeckVotesTableFilterComposer,
+          $$ExploreDeckVotesTableOrderingComposer,
+          $$ExploreDeckVotesTableAnnotationComposer,
+          $$ExploreDeckVotesTableCreateCompanionBuilder,
+          $$ExploreDeckVotesTableUpdateCompanionBuilder,
+          (ExploreDeckVote, $$ExploreDeckVotesTableReferences),
+          ExploreDeckVote,
+          PrefetchHooks Function({bool exploreDeckId})
+        > {
+  $$ExploreDeckVotesTableTableManager(
+    _$AppDatabase db,
+    $ExploreDeckVotesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ExploreDeckVotesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ExploreDeckVotesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ExploreDeckVotesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> exploreDeckId = const Value.absent(),
+                Value<String> userId = const Value.absent(),
+                Value<int> vote = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ExploreDeckVotesCompanion(
+                id: id,
+                exploreDeckId: exploreDeckId,
+                userId: userId,
+                vote: vote,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String exploreDeckId,
+                Value<String> userId = const Value.absent(),
+                Value<int> vote = const Value.absent(),
+                required DateTime updatedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => ExploreDeckVotesCompanion.insert(
+                id: id,
+                exploreDeckId: exploreDeckId,
+                userId: userId,
+                vote: vote,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$ExploreDeckVotesTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({exploreDeckId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (exploreDeckId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.exploreDeckId,
+                                referencedTable:
+                                    $$ExploreDeckVotesTableReferences
+                                        ._exploreDeckIdTable(db),
+                                referencedColumn:
+                                    $$ExploreDeckVotesTableReferences
+                                        ._exploreDeckIdTable(db)
+                                        .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$ExploreDeckVotesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ExploreDeckVotesTable,
+      ExploreDeckVote,
+      $$ExploreDeckVotesTableFilterComposer,
+      $$ExploreDeckVotesTableOrderingComposer,
+      $$ExploreDeckVotesTableAnnotationComposer,
+      $$ExploreDeckVotesTableCreateCompanionBuilder,
+      $$ExploreDeckVotesTableUpdateCompanionBuilder,
+      (ExploreDeckVote, $$ExploreDeckVotesTableReferences),
+      ExploreDeckVote,
+      PrefetchHooks Function({bool exploreDeckId})
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -14428,4 +18967,10 @@ class $AppDatabaseManager {
       $$MatchPlayersTableTableManager(_db, _db.matchPlayers);
   $$MatchEventsTableTableManager get matchEvents =>
       $$MatchEventsTableTableManager(_db, _db.matchEvents);
+  $$ExploreDecksTableTableManager get exploreDecks =>
+      $$ExploreDecksTableTableManager(_db, _db.exploreDecks);
+  $$ExploreDeckItemsTableTableManager get exploreDeckItems =>
+      $$ExploreDeckItemsTableTableManager(_db, _db.exploreDeckItems);
+  $$ExploreDeckVotesTableTableManager get exploreDeckVotes =>
+      $$ExploreDeckVotesTableTableManager(_db, _db.exploreDeckVotes);
 }

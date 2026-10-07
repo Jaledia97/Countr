@@ -26,10 +26,12 @@ import 'package:countr/features/vault/domain/vault_pricing_helper.dart';
 import 'package:countr/features/decks/presentation/widgets/assembly_pick_list_dialog.dart';
 import 'package:countr/features/decks/presentation/widgets/deck_thumbnail_picker_modal.dart';
 import 'package:countr/features/decks/presentation/widgets/inline_deck_analytics_card.dart';
-import 'package:countr/features/symbology/presentation/widgets/mana_symbol_icon.dart';
 
 /// Available tabs in DeckBuilderScreen
 enum DeckBuilderTab { details, valuesTab }
+
+/// Presentation view modes in DeckBuilderScreen
+enum DeckViewMode { list, grid }
 
 class DeckBuilderScreen extends ConsumerStatefulWidget {
   final Deck deck;
@@ -45,73 +47,9 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
   LegalityResult? _legalityResult;
   int _lastCheckedItemCount = -1;
   DeckBuilderTab _selectedTab = DeckBuilderTab.details;
+  DeckViewMode _viewMode = DeckViewMode.list;
   bool _isInlineAnalyticsExpanded = false;
-  final GlobalKey _inlineAnalyticsKey = GlobalKey();
 
-  void _jumpToInlineAnalytics() {
-    if (_selectedTab != DeckBuilderTab.details) {
-      setState(() => _selectedTab = DeckBuilderTab.details);
-    }
-    if (!_isInlineAnalyticsExpanded) {
-      setState(() => _isInlineAnalyticsExpanded = true);
-    }
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_inlineAnalyticsKey.currentContext != null) {
-        Scrollable.ensureVisible(
-          _inlineAnalyticsKey.currentContext!,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeInOut,
-        );
-      } else {
-        _scrollController.animateTo(
-          140.0,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeInOut,
-        );
-      }
-    });
-  }
-
-  Widget _buildAnchorNavigationBar() {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          InkWell(
-            key: const Key('deck_builder_anchor_analytics_chip'),
-            onTap: _jumpToInlineAnalytics,
-            borderRadius: BorderRadius.circular(16),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: AppColors.surfaceRaised,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.accentCyan.withValues(alpha: 0.4)),
-              ),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.insights_rounded, size: 14, color: AppColors.accentCyan),
-                  SizedBox(width: 4),
-                  Text(
-                    'Jump to Analytics',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.accentCyan,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   @override
   void dispose() {
@@ -157,23 +95,34 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
   }
 
   String? _resolveDeckCoverArt(Deck activeDeck, List<dynamic> items, {DeckSummary? summary}) {
-    if (summary != null) {
-      final url = summary.commanderArtCrop ?? summary.commanderImageUrl;
-      if (url != null && url.isNotEmpty && !url.contains('/back.jpg')) return url;
-    }
+    // 1. Custom cover art takes highest priority over default commander art
     if (activeDeck.coverItemId != null) {
       for (final item in items) {
         final id = (item is DeckItemWithCard)
             ? item.vaultItemId
             : (item['vault_item_id'] ?? item['id'] ?? '');
-        if (id == activeDeck.coverItemId) {
+        final cardId = (item is DeckItemWithCard)
+            ? item.id
+            : (item['id'] ?? item['vault_item_id'] ?? '');
+        if (id == activeDeck.coverItemId || cardId == activeDeck.coverItemId) {
           final dyn = (item is DeckItemWithCard) ? item.dynamicData : (item['dynamic_data'] as String?);
           final img = (item is DeckItemWithCard) ? item.imageUrl : (item['image_url'] as String?);
           final res = _extractArtCrop(dyn, img);
           if (res != null && res.isNotEmpty && !res.contains('/back.jpg')) return res;
         }
       }
+      final externalItem = ref.watch(vaultItemProvider(activeDeck.coverItemId!)).value;
+      if (externalItem != null) {
+        final res = _extractArtCrop(externalItem.dynamicData, externalItem.imageUrl);
+        if (res != null && res.isNotEmpty && !res.contains('/back.jpg')) return res;
+      }
     }
+    // 2. Default commander art from summary
+    if (summary != null) {
+      final url = summary.commanderArtCrop ?? summary.commanderImageUrl;
+      if (url != null && url.isNotEmpty && !url.contains('/back.jpg')) return url;
+    }
+    // 3. Commander card in deck items
     for (final item in items) {
       final zone = (item is DeckItemWithCard)
           ? item.boardZone
@@ -185,6 +134,7 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
         if (res != null && res.isNotEmpty && !res.contains('/back.jpg')) return res;
       }
     }
+    // 4. First item in deck
     if (items.isNotEmpty) {
       final first = items.first;
       final dyn = (first is DeckItemWithCard) ? first.dynamicData : (first['dynamic_data'] as String?);
@@ -192,6 +142,7 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
       final res = _extractArtCrop(dyn, img);
       if (res != null && res.isNotEmpty && !res.contains('/back.jpg')) return res;
     }
+    // 5. Named Scryfall fallback for commander
     if (summary?.commanderName != null &&
         summary!.commanderName!.isNotEmpty &&
         summary.commanderName != 'Unknown Card') {
@@ -269,9 +220,23 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
     final deckItemsAsync = ref.watch(deckItemsProvider(activeDeck.id));
     final analyticsAsync = ref.watch(deckAnalyticsProvider(activeDeck.id));
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: deckItemsAsync.when(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        final nav = Navigator.of(context);
+        if (nav.canPop()) {
+          nav.pop(result);
+          return;
+        }
+        final rootNav = Navigator.of(context, rootNavigator: true);
+        if (rootNav.canPop()) {
+          rootNav.pop(result);
+        }
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        body: deckItemsAsync.when(
         data: (items) {
           final coverArtUrl = _resolveDeckCoverArt(activeDeck, items, summary: deckSummary);
 
@@ -318,13 +283,52 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
             });
           }
 
-          // Group items by zone
-          final Map<String, List<Map<String, dynamic>>> grouped = {};
-          for (final item in items) {
-            final zone = (item is DeckItemWithCard)
-                ? item.boardZone
-                : (item['board_zone'] as String? ?? 'Mainboard');
-            grouped.putIfAbsent(zone, () => []).add(item);
+          // In grid mode: partition deck cards into MTG card type categories with fallback to board_zone.
+          // In list mode: keep existing board_zone grouping intact.
+          final Map<String, List<Map<String, dynamic>>> orderedGrouped = {};
+          if (_viewMode == DeckViewMode.grid) {
+            final Map<String, List<Map<String, dynamic>>> partitioned = {};
+            for (final item in items) {
+              final section = _classifyCardType(item);
+              partitioned.putIfAbsent(section, () => []).add(item);
+            }
+
+            const canonicalSectionOrder = [
+              'commander',
+              'creatures',
+              'planeswalkers',
+              'instants',
+              'sorceries',
+              'artifacts',
+              'enchantments',
+              'battles',
+              'lands',
+              'mainboard',
+              'sideboard',
+              'maybeboard',
+              'other',
+            ];
+
+            final sortedKeys = partitioned.keys.toList()
+              ..sort((a, b) {
+                final idxA = canonicalSectionOrder.indexOf(a.toLowerCase());
+                final idxB = canonicalSectionOrder.indexOf(b.toLowerCase());
+                if (idxA != -1 && idxB != -1) return idxA.compareTo(idxB);
+                if (idxA != -1) return -1;
+                if (idxB != -1) return 1;
+                return 0;
+              });
+
+            for (final k in sortedKeys) {
+              orderedGrouped[k] = partitioned[k]!;
+            }
+          } else {
+            for (final item in items) {
+              final zone = (item is DeckItemWithCard)
+                  ? item.boardZone
+                  : (item['board_zone'] as String? ?? 'Mainboard');
+              orderedGrouped.putIfAbsent(zone, () => []).add(item);
+            }
           }
 
           // Build sections for scrollbar
@@ -336,7 +340,7 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
           int currentEstimatedOffset = 180 + inlineAnalyticsOffset;
 
           int sIdx = 0;
-          for (final entry in grouped.entries) {
+          for (final entry in orderedGrouped.entries) {
             final zoneCards = entry.value;
             final zoneQty = zoneCards.fold<int>(
               0,
@@ -353,8 +357,13 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
               ),
             );
 
-            // Estimate 40px for zone header + 68px per card tile
-            currentEstimatedOffset += 40 + (zoneCards.length * 68);
+            // Estimate offset:
+            // In list mode: 40px for header + 68px per tile
+            // In grid mode: 40px for header + ~160px per row of 3
+            final sectionContentHeight = _viewMode == DeckViewMode.grid
+                ? ((zoneCards.length + 2) ~/ 3 * 160)
+                : (zoneCards.length * 68);
+            currentEstimatedOffset += 40 + sectionContentHeight;
             sIdx++;
           }
 
@@ -363,29 +372,22 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
               CustomScrollView(
                 controller: _scrollController,
                 slivers: [
-                  _buildSliverAppBar(activeDeck, coverArtUrl),
+                  _buildSliverAppBar(activeDeck, coverArtUrl, summary: deckSummary, items: items),
                   SliverToBoxAdapter(
                     child: _buildSegmentedTabControl(),
                   ),
                   if (_selectedTab == DeckBuilderTab.details) ...[
                     if (items.isNotEmpty) ...[
                       SliverToBoxAdapter(
-                        child: _buildAnchorNavigationBar(),
-                      ),
-                      SliverToBoxAdapter(
-                        child: KeyedSubtree(
-                          key: _inlineAnalyticsKey,
-                          child: analyticsAsync.when(
-                            data: (analytics) => InlineDeckAnalyticsCard(
-                              analytics: analytics,
-                              isExpanded: _isInlineAnalyticsExpanded,
-                              onToggleExpand: () => setState(() => _isInlineAnalyticsExpanded = !_isInlineAnalyticsExpanded),
-                              onOpenModal: _showAnalytics,
-                              userNotes: activeDeck.description,
-                            ),
-                            loading: () => const SizedBox.shrink(),
-                            error: (error, stack) => const SizedBox.shrink(),
+                        child: analyticsAsync.when(
+                          data: (analytics) => InlineDeckAnalyticsCard(
+                            analytics: analytics,
+                            isExpanded: _isInlineAnalyticsExpanded,
+                            onToggleExpand: () => setState(() => _isInlineAnalyticsExpanded = !_isInlineAnalyticsExpanded),
+                            userNotes: activeDeck.description,
                           ),
+                          loading: () => const SizedBox.shrink(),
+                          error: (error, stack) => const SizedBox.shrink(),
                         ),
                       ),
                     ],
@@ -399,8 +401,36 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
                           ),
                         ),
                       )
+                    else if (_viewMode == DeckViewMode.grid)
+                      for (final entry in orderedGrouped.entries) ...[
+                        SliverToBoxAdapter(
+                          child: _buildZoneHeader(entry.key, entry.value),
+                        ),
+                        SliverPadding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                          sliver: SliverGrid(
+                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 3,
+                              childAspectRatio: 0.714,
+                              crossAxisSpacing: 6,
+                              mainAxisSpacing: 6,
+                            ),
+                            delegate: SliverChildBuilderDelegate(
+                              (context, index) {
+                                final item = entry.value[index];
+                                return _buildGridCardCell(
+                                  item,
+                                  allDeckCards: vaultItems,
+                                  activeDeck: activeDeck,
+                                );
+                              },
+                              childCount: entry.value.length,
+                            ),
+                          ),
+                        ),
+                      ]
                     else
-                      for (final entry in grouped.entries) ...[
+                      for (final entry in orderedGrouped.entries) ...[
                         SliverToBoxAdapter(
                           child: _buildZoneHeader(entry.key, entry.value),
                         ),
@@ -448,6 +478,7 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
           body: Center(child: Text('Error loading deck: $e')),
         ),
       ),
+    ),
     );
   }
 
@@ -604,19 +635,22 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
     final Map<String, double> zoneMarketValues = {};
     final Map<String, double> zoneCostValues = {};
     for (final item in items) {
-      final qty = (item is DeckItemWithCard)
-          ? item.deckQuantity
+      final typedItem = item is DeckItemWithCard
+          ? item
+          : (item is Map<String, dynamic> ? DeckItemWithCard.fromRow(item) : null);
+      final qty = typedItem != null
+          ? (typedItem.deckQuantity > 0 ? typedItem.deckQuantity : 1)
           : ((item['deck_quantity'] as num?)?.toInt() ?? 1);
-      final price = (item is DeckItemWithCard)
-          ? item.resolveMarketPrice(baseCurrency)
+      final price = typedItem != null
+          ? typedItem.resolveMarketPrice(baseCurrency)
           : ((item['current_market_price'] as num?)?.toDouble() ?? 0.0);
-      final cost = (item is DeckItemWithCard)
-          ? item.effectiveCostBasis
+      final cost = typedItem != null
+          ? typedItem.effectiveCostBasis
           : ((item['purchase_price'] as num?)?.toDouble() ??
               (item['acquired_price'] as num?)?.toDouble() ??
               0.0);
-      final zone = (item is DeckItemWithCard)
-          ? item.boardZone
+      final zone = typedItem != null
+          ? typedItem.boardZone
           : (item['board_zone'] as String? ?? 'Mainboard');
 
       zoneMarketValues[zone] = (zoneMarketValues[zone] ?? 0.0) + (price * qty);
@@ -951,11 +985,32 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
     }
   }
 
-  Widget _buildSliverAppBar(Deck activeDeck, String? coverArtUrl) {
+  Widget _buildSliverAppBar(
+    Deck activeDeck,
+    String? coverArtUrl, {
+    DeckSummary? summary,
+    List<dynamic> items = const [],
+  }) {
     return SliverAppBar(
       expandedHeight: 180,
       pinned: true,
       backgroundColor: AppColors.surface,
+      leading: IconButton(
+        key: const Key('deck_builder_back_button'),
+        icon: const Icon(Icons.arrow_back),
+        tooltip: 'Back',
+        onPressed: () {
+          final nav = Navigator.of(context);
+          if (nav.canPop()) {
+            nav.pop();
+            return;
+          }
+          final rootNav = Navigator.of(context, rootNavigator: true);
+          if (rootNav.canPop()) {
+            rootNav.pop();
+          }
+        },
+      ),
       flexibleSpace: LayoutBuilder(
         builder: (context, constraints) {
           final settings = context.dependOnInheritedWidgetOfExactType<FlexibleSpaceBarSettings>();
@@ -1093,33 +1148,117 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
                 ),
               ),
             ),
-            background: _buildCoverArt(activeDeck, coverArtUrl),
+            background: _buildCoverArt(
+              activeDeck,
+              coverArtUrl,
+              summary: summary,
+              items: items,
+            ),
           );
         },
       ),
       actions: [
-        IconButton(
-          icon: const Icon(Icons.style_rounded),
-          onPressed: _showFastDraw,
-          tooltip: 'Fast-Draw 7',
+        Tooltip(
+          message: _viewMode == DeckViewMode.list ? 'Switch to Grid View' : 'Switch to List View',
+          child: InkResponse(
+            key: const Key('deck_builder_view_mode_toggle'),
+            onTap: () {
+              setState(() {
+                _viewMode = _viewMode == DeckViewMode.list
+                    ? DeckViewMode.grid
+                    : DeckViewMode.list;
+              });
+            },
+            radius: 24,
+            child: Padding(
+              padding: const EdgeInsets.all(12.0),
+              child: Icon(
+                _viewMode == DeckViewMode.list
+                    ? Icons.grid_view_rounded
+                    : Icons.view_list_rounded,
+              ),
+            ),
+          ),
         ),
-        IconButton(
-          icon: const Icon(Icons.more_vert),
-          onPressed: () => _showQuickActions(activeDeck),
-          tooltip: 'More Actions',
+        Tooltip(
+          message: 'Fast-Draw 7',
+          child: InkResponse(
+            onTap: _showFastDraw,
+            radius: 24,
+            child: const Padding(
+              padding: EdgeInsets.all(12.0),
+              child: Icon(Icons.style_rounded),
+            ),
+          ),
+        ),
+        Tooltip(
+          message: 'More Actions',
+          child: InkResponse(
+            onTap: () => _showQuickActions(activeDeck),
+            radius: 24,
+            child: const Padding(
+              padding: EdgeInsets.all(12.0),
+              child: Icon(Icons.more_vert),
+            ),
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildCoverArt(Deck activeDeck, String? coverArtUrl) {
+  Widget _buildCoverArt(
+    Deck activeDeck,
+    String? coverArtUrl, {
+    DeckSummary? summary,
+    List<dynamic> items = const [],
+  }) {
+    final commanderId = summary?.commanderCardId ??
+        items.where((item) {
+          final zone = (item is DeckItemWithCard)
+              ? item.boardZone
+              : (item['board_zone'] as String? ?? '');
+          return zone.toLowerCase() == 'commander';
+        }).map((item) {
+          final vaultId = (item is DeckItemWithCard)
+              ? item.vaultItemId
+              : (item['vault_item_id'] as String? ?? '');
+          if (vaultId.isNotEmpty) return vaultId;
+          final id = (item is DeckItemWithCard)
+              ? item.id
+              : (item['id'] as String? ?? '');
+          return id;
+        }).firstOrNull;
+
+    final isCommanderCover = activeDeck.coverItemId != null &&
+        ((commanderId != null && activeDeck.coverItemId == commanderId) ||
+            items.any((item) {
+              final zone = (item is DeckItemWithCard)
+                  ? item.boardZone
+                  : (item['board_zone'] as String? ?? '');
+              if (zone.toLowerCase() != 'commander') return false;
+              final vaultId = (item is DeckItemWithCard)
+                  ? item.vaultItemId
+                  : (item['vault_item_id'] as String? ?? '');
+              final id = (item is DeckItemWithCard)
+                  ? item.id
+                  : (item['id'] as String? ?? '');
+              return activeDeck.coverItemId == vaultId || activeDeck.coverItemId == id;
+            }));
+
+    final hasCustomCover = activeDeck.coverItemId != null && !isCommanderCover;
+
+    final dynamicCoverKey = hasCustomCover
+        ? 'deck_cover_${activeDeck.id}_${activeDeck.coverItemId}'
+        : 'deck_cover_${activeDeck.id}';
+
     return Stack(
       fit: StackFit.expand,
       children: [
         if (coverArtUrl != null && coverArtUrl.isNotEmpty)
           CountrCachedImage(
+            key: ValueKey(dynamicCoverKey),
             imageUrl: coverArtUrl,
-            cacheKey: 'deck_cover_${activeDeck.id}',
+            cacheKey: dynamicCoverKey,
             cardName: activeDeck.name,
             fit: BoxFit.cover,
             alignment: Alignment.center,
@@ -1258,12 +1397,15 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
   }) {
     final effectiveDeck = activeDeck ?? widget.deck;
     final isPrivacyMode = ref.watch(privacyModeProvider);
+    final baseCurrency = ref.watch(baseCurrencyProvider);
     final isProxy = item['is_proxy'] == 1 || item['is_proxy'] == true;
     final name = item['name'] as String? ?? 'Unknown Card';
     final qty = item['deck_quantity'] as int? ?? (item['quantity'] as int? ?? 1);
-    final price = (item['current_market_price'] as num?)?.toDouble() ?? 0.0;
+    final typedItem = item is DeckItemWithCard
+        ? item
+        : DeckItemWithCard.fromRow(item);
+    final price = typedItem.resolveMarketPrice(baseCurrency);
     final setCode = item['set_or_series'] as String? ?? '';
-    final rawImageUrl = item['image_url'] as String? ?? '';
     final cardId = (item['id'] ?? item['vault_item_id'] ?? '').toString();
     final cardCacheKey = cardId.isNotEmpty ? 'card_art_$cardId' : null;
 
@@ -1299,94 +1441,14 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
     final tcgDomain = (item['collection_type'] as String?)?.toLowerCase() ??
         effectiveDeck.tcgDomain.toLowerCase();
 
-    String resolvedImageUrl = rawImageUrl.trim();
-    if (resolvedImageUrl.isEmpty || resolvedImageUrl.contains('/back.jpg')) {
-      resolvedImageUrl = '';
-      if (dynStr != null && dynStr.isNotEmpty) {
-        try {
-          final dynData = ParsedJsonCache.parse(dynStr);
-          if (dynData['image_uris'] is Map) {
-            final uris = dynData['image_uris'] as Map;
-            final u = uris['art_crop'] ?? uris['normal'] ?? uris['large'] ?? uris['small'];
-            if (u != null && u.toString().isNotEmpty && !u.toString().contains('/back.jpg')) {
-              resolvedImageUrl = u.toString();
-            }
-          }
-          if (resolvedImageUrl.isEmpty &&
-              dynData['card_faces'] is List &&
-              (dynData['card_faces'] as List).isNotEmpty) {
-            final faces = dynData['card_faces'] as List;
-            for (final f in faces) {
-              if (f is Map && f['image_uris'] is Map) {
-                final uris = f['image_uris'] as Map;
-                final u = uris['art_crop'] ?? uris['normal'] ?? uris['large'] ?? uris['small'];
-                if (u != null && u.toString().isNotEmpty && !u.toString().contains('/back.jpg')) {
-                  resolvedImageUrl = u.toString();
-                  break;
-                }
-              }
-            }
-          }
-        } catch (_) {}
-      }
-    }
-
-    if (resolvedImageUrl.isEmpty && name.isNotEmpty && name != 'Unknown Card' && tcgDomain == 'mtg') {
-      final clean = name.contains('//') ? name.split('//').first.trim() : name.trim();
-      resolvedImageUrl = CountrCachedImage.buildScryfallNamedUrl(clean);
-    }
+    final resolvedImageUrl = _resolveCardPlayImageUrl(item, effectiveDeck);
 
     final subtitleParts = <String>[];
     if (setCode.isNotEmpty) subtitleParts.add(setCode.toUpperCase());
     if (typeLine != null && typeLine.isNotEmpty) subtitleParts.add(typeLine);
     final subtitleText = subtitleParts.join(' • ');
 
-    void openDetail() {
-      final id = item['id'] as String? ?? 'item-${item.hashCode}';
-      final effectiveDeckCards = allDeckCards ?? [];
-      final targetIndex = effectiveDeckCards.indexWhere((c) => c.id == id);
-      final VaultItem targetItem = targetIndex >= 0
-          ? effectiveDeckCards[targetIndex]
-          : (item is DeckItemWithCard
-              ? item.toVaultItem()
-              : VaultItem(
-                  id: id,
-                  name: item['name'] as String? ?? 'Unknown Card',
-                  setOrSeries: item['set_or_series'] as String? ?? 'MTG',
-                  imageUrl: item['image_url'] as String? ?? '',
-                  quantity: (item['vault_quantity'] as num?)?.toInt() ?? 1,
-                  dynamicData: item['dynamic_data'] as String? ?? '',
-                  collectionType: item['collection_type'] as String? ?? 'mtg',
-                  acquiredPrice: (item['acquired_price'] as num?)?.toDouble() ?? 0.0,
-                  acquiredDate: DateTime.now(),
-                  lastPriceUpdate: DateTime.now(),
-                  currentMarketPrice: (item['current_market_price'] as num?)?.toDouble() ?? 0.0,
-                  isGraded: item['is_graded'] == 1 || item['is_graded'] == true,
-                  condition: item['condition'] as String? ?? 'NM',
-                  isAltered: item['is_altered'] == 1 || item['is_altered'] == true,
-                  isMisprint: item['is_misprint'] == 1 || item['is_misprint'] == true,
-                  isSigned: item['is_signed'] == 1 || item['is_signed'] == true,
-                  dateObtained: item['date_obtained'] is DateTime
-                      ? item['date_obtained'] as DateTime
-                      : null,
-                  purchasePrice: (item['purchase_price'] as num?)?.toDouble(),
-                  notes: item['notes'] as String?,
-                  protectionStatus: item['protection_status'] as String? ?? 'Sleeved',
-                  isDeleted: item['is_deleted'] == 1 || item['is_deleted'] == true,
-                  updatedAt: item['updated_at'] is DateTime ? item['updated_at'] as DateTime : null,
-                ));
-      CardDetailSheet.show(
-        context,
-        targetItem,
-        items: effectiveDeckCards.isNotEmpty ? effectiveDeckCards : [targetItem],
-        initialIndex: targetIndex >= 0 ? targetIndex : 0,
-        boardZone: (item is DeckItemWithCard)
-            ? item.boardZone
-            : (item['board_zone'] as String? ?? 'Mainboard'),
-        deckId: effectiveDeck.id,
-        deck: effectiveDeck,
-      );
-    }
+    void openDetail() => _openCardDetail(item, allDeckCards: allDeckCards, activeDeck: effectiveDeck);
 
     return RepaintBoundary(
       child: Container(
@@ -1401,10 +1463,20 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
           ),
         ),
         child: Theme(
-          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+          data: Theme.of(context).copyWith(
+            dividerColor: Colors.transparent,
+            listTileTheme: const ListTileThemeData(
+              minVerticalPadding: 0,
+              contentPadding: EdgeInsets.zero,
+              minLeadingWidth: 0,
+            ),
+          ),
           child: ExpansionTile(
-            tilePadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+            tilePadding: const EdgeInsets.only(left: 0, right: 10),
             childrenPadding: EdgeInsets.zero,
+            shape: const Border(),
+            collapsedShape: const Border(),
+            minTileHeight: 56,
             leading: Stack(
               alignment: Alignment.center,
               children: [
@@ -1412,23 +1484,25 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
                   behavior: HitTestBehavior.opaque,
                   onTap: openDetail,
                   child: Container(
-                    width: 38,
-                    height: 50,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(4),
+                    width: 40,
+                    height: 56,
+                    decoration: const BoxDecoration(
                       color: AppColors.surfaceRaised,
                     ),
-                    child: resolvedImageUrl.isNotEmpty
+                    clipBehavior: Clip.antiAlias,
+                    child: (resolvedImageUrl.isNotEmpty || (name.isNotEmpty && name != 'Unknown Card'))
                         ? CountrCachedImage(
                             imageUrl: resolvedImageUrl,
                             cacheKey: cardCacheKey,
                             cardName: name,
                             tcgDomain: tcgDomain,
+                            width: 40,
+                            height: 56,
                             fit: BoxFit.cover,
-                            borderRadius: BorderRadius.circular(4),
-                            errorWidget: _buildTilePlaceholder(name),
+                            fallbackVersion: 'normal',
+                            errorWidget: _buildTilePlaceholder(name, width: 40, height: 56),
                           )
-                        : _buildTilePlaceholder(name),
+                        : _buildTilePlaceholder(name, width: 40, height: 56),
                   ),
                 ),
                 Positioned(
@@ -1441,8 +1515,10 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
                         vertical: 1,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.black87,
-                        borderRadius: BorderRadius.circular(4),
+                        color: Colors.black.withValues(alpha: 0.8),
+                        borderRadius: const BorderRadius.only(
+                          bottomRight: Radius.circular(4),
+                        ),
                       ),
                       child: Text(
                         'x$qty',
@@ -1457,84 +1533,91 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
                 ),
               ],
             ),
-            title: Row(
+            title: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: Text(
-                    name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w600,
-                      color: isProxy ? Colors.grey[400] : Colors.white,
-                    ),
-                  ),
-                ),
-                if (legality.hasWarning) ...[
-                  const SizedBox(width: 6),
-                  Flexible(
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: _buildLegalityBadge(
-                        legality,
-                        item['id'] as String?,
-                        name,
-                        effectiveDeck.format,
-                      ),
-                    ),
-                  ),
-                ],
-                if (manaCost != null && manaCost.isNotEmpty) ...[
-                  const SizedBox(width: 6),
-                  Flexible(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 80.0),
-                      child: ManaCostBar(
-                        manaCost: manaCost,
-                        symbolSize: 11.5,
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-            subtitle: Padding(
-              padding: const EdgeInsets.only(top: 2),
-              child: Row(
-                children: [
-                  if (subtitleText.isNotEmpty)
+                Row(
+                  children: [
                     Expanded(
                       child: Text(
-                        subtitleText,
+                        name,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    )
-                  else
-                    const Spacer(),
-                  const SizedBox(width: 6),
-                  Flexible(
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        isPrivacyMode
-                            ? '****'
-                            : (price > 0 ? '\$${price.toStringAsFixed(2)}' : '—'),
-                        style: const TextStyle(
-                          fontSize: 11.5,
+                        style: TextStyle(
+                          fontSize: 13.5,
                           fontWeight: FontWeight.w600,
-                          color: AppColors.accentEmerald,
+                          color: isProxy ? Colors.grey[400] : Colors.white,
                         ),
                       ),
                     ),
-                  ),
-                ],
-              ),
+                    if (legality.hasWarning) ...[
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: _buildLegalityBadge(
+                            legality,
+                            item['id'] as String?,
+                            name,
+                            effectiveDeck.format,
+                          ),
+                        ),
+                      ),
+                    ],
+                    if (manaCost != null && manaCost.isNotEmpty) ...[
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 80.0),
+                          child: ManaCostBar(
+                            manaCost: manaCost,
+                            symbolSize: 11.5,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Row(
+                  children: [
+                    if (subtitleText.isNotEmpty)
+                      Expanded(
+                        child: Text(
+                          subtitleText,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      )
+                    else
+                      const Spacer(),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          VaultPricingHelper.formatMarketPriceLabel(
+                            price,
+                            currency: baseCurrency,
+                            isPrivacyMode: isPrivacyMode,
+                            fallback: '—',
+                          ),
+                          style: const TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.accentEmerald,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
             trailing: const Icon(
               Icons.expand_more,
@@ -1604,17 +1687,339 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
     );
   }
 
+  Widget _buildGridCardCell(
+    Map<String, dynamic> item, {
+    required List<VaultItem> allDeckCards,
+    required Deck activeDeck,
+  }) {
+    final name = item['name'] as String? ?? 'Unknown Card';
+    final qty = item['deck_quantity'] as int? ?? (item['quantity'] as int? ?? 1);
+    final cardId = (item['id'] ?? item['vault_item_id'] ?? '').toString();
+    final cardCacheKey = cardId.isNotEmpty ? 'card_art_$cardId' : null;
+    final resolvedImageUrl = _resolveCardPlayImageUrl(item, activeDeck);
+    final isProxy = item['is_proxy'] == 1 || item['is_proxy'] == true;
+    final tcgDomain = (item['collection_type'] as String?)?.toLowerCase() ??
+        activeDeck.tcgDomain.toLowerCase();
+
+    return GestureDetector(
+      key: Key('deck_grid_card_${cardId.isNotEmpty ? cardId : name}'),
+      behavior: HitTestBehavior.opaque,
+      onTap: () => _openCardDetail(item, allDeckCards: allDeckCards, activeDeck: activeDeck),
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.surfaceRaised,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: isProxy
+                ? Colors.redAccent.withValues(alpha: 0.6)
+                : AppColors.surfaceBorderSubtle,
+            width: 1,
+          ),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            IgnorePointer(
+              child: (resolvedImageUrl.isNotEmpty || (name.isNotEmpty && name != 'Unknown Card'))
+                  ? CountrCachedImage(
+                      imageUrl: resolvedImageUrl,
+                      cacheKey: cardCacheKey,
+                      cardName: name,
+                      tcgDomain: tcgDomain,
+                      fit: BoxFit.cover,
+                      borderRadius: BorderRadius.circular(6),
+                      fallbackVersion: 'normal',
+                      errorWidget: _buildTilePlaceholder(
+                        name,
+                        width: double.infinity,
+                        height: double.infinity,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                    )
+                  : _buildTilePlaceholder(
+                      name,
+                      width: double.infinity,
+                      height: double.infinity,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+            ),
+            if (qty > 1)
+              Positioned(
+                top: 4,
+                left: 4,
+                child: IgnorePointer(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.75),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: Colors.white24, width: 0.5),
+                    ),
+                    child: Text(
+                      '${qty}x',
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.transparent,
+                      Colors.black.withValues(alpha: 0.85),
+                    ],
+                  ),
+                ),
+                child: Text(
+                  name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _openCardDetail(
+    Map<String, dynamic> item, {
+    List<VaultItem>? allDeckCards,
+    required Deck activeDeck,
+  }) {
+    final id = (item['id'] ?? item['vault_item_id'] ?? 'item-${item.hashCode}').toString();
+    final effectiveDeckCards = allDeckCards ?? [];
+    final targetIndex = effectiveDeckCards.indexWhere((c) => c.id == id);
+    final VaultItem targetItem = targetIndex >= 0
+        ? effectiveDeckCards[targetIndex]
+        : (item is DeckItemWithCard
+            ? item.toVaultItem()
+            : VaultItem(
+                id: id,
+                name: item['name'] as String? ?? 'Unknown Card',
+                setOrSeries: item['set_or_series'] as String? ?? 'MTG',
+                imageUrl: item['image_url'] as String? ?? '',
+                quantity: (item['vault_quantity'] as num?)?.toInt() ?? 1,
+                dynamicData: item['dynamic_data'] as String? ?? '',
+                collectionType: item['collection_type'] as String? ?? 'mtg',
+                acquiredPrice: (item['acquired_price'] as num?)?.toDouble() ?? 0.0,
+                acquiredDate: DateTime.now(),
+                lastPriceUpdate: DateTime.now(),
+                currentMarketPrice: (item['current_market_price'] as num?)?.toDouble() ?? 0.0,
+                isGraded: item['is_graded'] == 1 || item['is_graded'] == true,
+                condition: item['condition'] as String? ?? 'NM',
+                isAltered: item['is_altered'] == 1 || item['is_altered'] == true,
+                isMisprint: item['is_misprint'] == 1 || item['is_misprint'] == true,
+                isSigned: item['is_signed'] == 1 || item['is_signed'] == true,
+                dateObtained: item['date_obtained'] is DateTime
+                    ? item['date_obtained'] as DateTime
+                    : null,
+                purchasePrice: (item['purchase_price'] as num?)?.toDouble(),
+                notes: item['notes'] as String?,
+                protectionStatus: item['protection_status'] as String? ?? 'Sleeved',
+                isDeleted: item['is_deleted'] == 1 || item['is_deleted'] == true,
+                updatedAt: item['updated_at'] is DateTime ? item['updated_at'] as DateTime : null,
+              ));
+    CardDetailSheet.show(
+      context,
+      targetItem,
+      items: effectiveDeckCards.isNotEmpty ? effectiveDeckCards : [targetItem],
+      initialIndex: targetIndex >= 0 ? targetIndex : 0,
+      boardZone: (item is DeckItemWithCard)
+          ? item.boardZone
+          : (item['board_zone'] as String? ?? 'Mainboard'),
+      deckId: activeDeck.id,
+      deck: activeDeck,
+    );
+  }
+
+  static bool _isArtSeriesLayout(dynamic item) {
+    if (item is Map) {
+      if (item['layout']?.toString().toLowerCase() == 'art_series') return true;
+      final dynStr = item['dynamic_data'] as String?;
+      if (dynStr != null && dynStr.isNotEmpty) {
+        try {
+          final dynData = ParsedJsonCache.parse(dynStr);
+          if (dynData['layout']?.toString().toLowerCase() == 'art_series') return true;
+        } catch (_) {
+          if (dynStr.contains('"layout":"art_series"') || dynStr.contains('"layout": "art_series"')) {
+            return true;
+          }
+        }
+      }
+    } else if (item is DeckItemWithCard) {
+      final dynStr = item.dynamicData;
+      if (dynStr != null && dynStr.isNotEmpty) {
+        try {
+          final dynData = ParsedJsonCache.parse(dynStr);
+          if (dynData['layout']?.toString().toLowerCase() == 'art_series') return true;
+        } catch (_) {
+          if (dynStr.contains('"layout":"art_series"') || dynStr.contains('"layout": "art_series"')) {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  }
+
+  static String _resolveCardPlayImageUrl(Map<String, dynamic> item, Deck activeDeck) {
+    final rawImageUrl = item['image_url'] as String? ?? '';
+    final dynStr = item['dynamic_data'] as String?;
+    final name = item['name'] as String? ?? 'Unknown Card';
+    final tcgDomain = (item['collection_type'] as String?)?.toLowerCase() ??
+        activeDeck.tcgDomain.toLowerCase();
+
+    // Explicitly filter out non-playable art cards (art_series layout).
+    // Playable variants (borderless, showcase, retro frame, extended art) have playable layouts
+    // and will not be filtered out.
+    final bool isArtSeries = _isArtSeriesLayout(item);
+
+    String resolvedImageUrl = isArtSeries ? '' : rawImageUrl.trim();
+    if (!isArtSeries && (resolvedImageUrl.isEmpty || resolvedImageUrl.contains('/back.jpg') || resolvedImageUrl.contains('/art_crop/'))) {
+      resolvedImageUrl = '';
+      if (dynStr != null && dynStr.isNotEmpty) {
+        try {
+          final dynData = ParsedJsonCache.parse(dynStr);
+          if (dynData['image_uris'] is Map) {
+            final uris = dynData['image_uris'] as Map;
+            final u = uris['normal'] ?? uris['large'] ?? uris['small'] ?? uris['art_crop'];
+            if (u != null && u.toString().isNotEmpty && !u.toString().contains('/back.jpg')) {
+              resolvedImageUrl = u.toString();
+            }
+          }
+          if (resolvedImageUrl.isEmpty &&
+              dynData['card_faces'] is List &&
+              (dynData['card_faces'] as List).isNotEmpty) {
+            final faces = dynData['card_faces'] as List;
+            for (final f in faces) {
+              if (f is Map && f['image_uris'] is Map) {
+                final uris = f['image_uris'] as Map;
+                final u = uris['normal'] ?? uris['large'] ?? uris['small'] ?? uris['art_crop'];
+                if (u != null && u.toString().isNotEmpty && !u.toString().contains('/back.jpg')) {
+                  resolvedImageUrl = u.toString();
+                  break;
+                }
+              }
+            }
+          }
+        } catch (_) {}
+      }
+      if (resolvedImageUrl.isEmpty && rawImageUrl.isNotEmpty && !rawImageUrl.contains('/back.jpg')) {
+        resolvedImageUrl = rawImageUrl.trim();
+      }
+    }
+
+    if (resolvedImageUrl.isEmpty && name.isNotEmpty && name != 'Unknown Card' && tcgDomain == 'mtg') {
+      final clean = name.contains('//') ? name.split('//').first.trim() : name.trim();
+      resolvedImageUrl = CountrCachedImage.buildScryfallNamedUrl(clean, version: 'normal');
+    }
+
+    return resolvedImageUrl;
+  }
+
+  static String _classifyCardType(dynamic item) {
+    // 1. Commander zone takes priority
+    final zone = (item is DeckItemWithCard
+            ? item.boardZone
+            : (item is Map ? (item['board_zone'] as String? ?? '') : ''))
+        .trim();
+    if (zone.toLowerCase() == 'commander') {
+      return 'Commander';
+    }
+    if (zone.toLowerCase() == 'sideboard') {
+      return 'Sideboard';
+    }
+    if (zone.toLowerCase() == 'maybeboard') {
+      return 'Maybeboard';
+    }
+
+    // 2. Extract type_line from item or dynamic_data
+    String typeLine = '';
+    if (item is Map && item['type_line'] != null) {
+      typeLine = item['type_line'].toString();
+    }
+    if (typeLine.isEmpty) {
+      final dynStr = item is DeckItemWithCard
+          ? item.dynamicData
+          : (item is Map ? (item['dynamic_data'] as String?) : null);
+      if (dynStr != null && dynStr.isNotEmpty) {
+        final decoded = ParsedJsonCache.parse(dynStr);
+        if (decoded['type_line'] != null) {
+          typeLine = decoded['type_line'].toString();
+        } else if (decoded['card_faces'] is List && (decoded['card_faces'] as List).isNotEmpty) {
+          final f0 = (decoded['card_faces'] as List).first;
+          if (f0 is Map && f0['type_line'] != null) {
+            typeLine = f0['type_line'].toString();
+          }
+        }
+      } else if (item is Map && item['dynamic_data'] is Map) {
+        final decoded = item['dynamic_data'] as Map;
+        if (decoded['type_line'] != null) {
+          typeLine = decoded['type_line'].toString();
+        } else if (decoded['card_faces'] is List && (decoded['card_faces'] as List).isNotEmpty) {
+          final f0 = (decoded['card_faces'] as List).first;
+          if (f0 is Map && f0['type_line'] != null) {
+            typeLine = f0['type_line'].toString();
+          }
+        }
+      }
+    }
+
+    final lowerType = typeLine.toLowerCase();
+
+    // 3. Match MTG card type hierarchy:
+    if (lowerType.contains('creature')) return 'Creatures';
+    if (lowerType.contains('planeswalker')) return 'Planeswalkers';
+    if (lowerType.contains('instant')) return 'Instants';
+    if (lowerType.contains('sorcery')) return 'Sorceries';
+    if (lowerType.contains('artifact')) return 'Artifacts';
+    if (lowerType.contains('enchantment')) return 'Enchantments';
+    if (lowerType.contains('battle')) return 'Battles';
+    if (lowerType.contains('land')) return 'Lands';
+
+    // Crucial fallback: If a card does not have a type_line or if type is not found,
+    // fall back to board_zone (e.g. 'Mainboard', 'Commander', custom zone).
+    if (zone.isNotEmpty && zone.toLowerCase() != 'other') {
+      return zone[0].toUpperCase() + zone.substring(1);
+    }
+
+    return 'Other';
+  }
+
   static Widget _buildTilePlaceholder(
     String name, {
-    double width = 38,
-    double height = 50,
+    double? width = 40,
+    double? height = 56,
+    BorderRadius? borderRadius,
   }) {
     final initials = _getCardInitials(name);
+    final effectiveWidth = width ?? 40;
     return Container(
       width: width,
       height: height,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: borderRadius ?? BorderRadius.circular(4),
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -1634,14 +2039,14 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
                 initials,
                 style: TextStyle(
                   color: Colors.white70,
-                  fontSize: width < 36 ? 10 : 11,
+                  fontSize: effectiveWidth < 36 ? 10 : 11,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 0.5,
                 ),
               )
             : Icon(
                 Icons.style_rounded,
-                size: width < 36 ? 15 : 18,
+                size: effectiveWidth < 36 ? 15 : 18,
                 color: Colors.white24,
               ),
       ),
@@ -1891,19 +2296,6 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
     });
   }
 
-  void _showAnalytics() {
-    final analyticsAsync = ref.read(deckAnalyticsProvider(widget.deck.id));
-
-    analyticsAsync.whenData((analytics) {
-      showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (ctx) => _DeckAnalyticsSheet(analytics: analytics),
-      );
-    });
-  }
-
   void _showQuickActions([Deck? currentDeck]) {
     final activeDeck = currentDeck ?? widget.deck;
     final itemsAsync = ref.read(deckItemsProvider(activeDeck.id));
@@ -1936,14 +2328,6 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
               onTap: () {
                 Navigator.pop(ctx);
                 DeckThumbnailPickerModal.show(context, deck: activeDeck);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.insights_rounded, color: AppColors.accentCyan),
-              title: const Text('Jump to Inline Analytics'),
-              onTap: () {
-                Navigator.pop(ctx);
-                _jumpToInlineAnalytics();
               },
             ),
             ListTile(
@@ -2253,13 +2637,17 @@ class _FastDrawSheetState extends State<_FastDrawSheet> {
                                   borderRadius: BorderRadius.circular(4),
                                   color: Colors.black26,
                                 ),
-                                child: imageUrl.isNotEmpty
+                                clipBehavior: Clip.antiAlias,
+                                child: (imageUrl.isNotEmpty || (name.isNotEmpty && name != 'Unknown Card'))
                                     ? CountrCachedImage(
                                         imageUrl: imageUrl,
                                         cacheKey: 'card_art_${card['id'] ?? name}',
                                         cardName: name,
+                                        width: 32,
+                                        height: 44,
                                         fit: BoxFit.cover,
                                         borderRadius: BorderRadius.circular(4),
+                                        fallbackVersion: 'normal',
                                         errorWidget: _DeckBuilderScreenState._buildTilePlaceholder(
                                           name,
                                           width: 32,
@@ -2387,366 +2775,3 @@ class _HandStatPill extends StatelessWidget {
   }
 }
 
-// =============================================================================
-// Deck Visual Analytics Modal (Mana Curve, Devotion, Bling Meter)
-// =============================================================================
-
-class _DeckAnalyticsSheet extends StatelessWidget {
-  final DeckAnalytics analytics;
-
-  const _DeckAnalyticsSheet({required this.analytics});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: min(MediaQuery.of(context).size.height * 0.85, 580),
-      decoration: const BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: SafeArea(
-        top: false,
-        child: Column(
-          children: [
-            Container(
-              margin: const EdgeInsets.only(top: 8, bottom: 4),
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.white24,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Flexible(
-                    child: Text(
-                      'Deck Visual Analytics',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close, size: 20),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // 1. Mana Curve Section
-                    _buildSectionTitle('Mana Curve (CMC 0 to 7+)'),
-                    _buildManaCurveChart(analytics.manaCurve),
-                    const SizedBox(height: 20),
-
-                    // 2. Color Devotion Section
-                    _buildSectionTitle('Color Devotion (Mana Pips)'),
-                    _buildColorDevotionPips(analytics.colorDevotion),
-                    const SizedBox(height: 20),
-
-                    // 3. Bling Meter Section
-                    _buildSectionTitle('Bling Meter'),
-                    _buildBlingMeter(analytics.blingPercentage),
-                    const SizedBox(height: 24),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSectionTitle(String title) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Text(
-        title,
-        style: const TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.bold,
-          color: AppColors.textSecondary,
-          letterSpacing: 0.8,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildManaCurveChart(Map<int, int> manaCurve) {
-    // Find max count to scale histogram bars
-    final buckets = [0, 1, 2, 3, 4, 5, 6, 7];
-    int maxCount = 1;
-
-    for (final cmc in buckets) {
-      int count = 0;
-      if (cmc == 7) {
-        // Aggregate 7+
-        count = manaCurve.entries
-            .where((e) => e.key >= 7)
-            .fold<int>(0, (sum, e) => sum + e.value);
-      } else {
-        count = manaCurve[cmc] ?? 0;
-      }
-      if (count > maxCount) maxCount = count;
-    }
-
-    return Container(
-      height: 140,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceRaised,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.surfaceBorderSubtle),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: buckets.map((cmc) {
-          int count = 0;
-          if (cmc == 7) {
-            count = manaCurve.entries
-                .where((e) => e.key >= 7)
-                .fold<int>(0, (sum, e) => sum + e.value);
-          } else {
-            count = manaCurve[cmc] ?? 0;
-          }
-
-          final barProportion = (count / maxCount).clamp(0.05, 1.0);
-          final barHeight = 70.0 * barProportion;
-
-          return Column(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              Text(
-                '$count',
-                style: const TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Container(
-                width: 22,
-                height: barHeight,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [AppColors.accentCyan, AppColors.accentVioletLight],
-                    begin: Alignment.bottomCenter,
-                    end: Alignment.topCenter,
-                  ),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                cmc == 7 ? '7+' : '$cmc',
-                style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white70,
-                ),
-              ),
-            ],
-          );
-        }).toList(),
-      ),
-    );
-  }
-
-  Widget _buildColorDevotionPips(Map<String, int> devotion) {
-    final colors = [
-      {
-        'code': 'W',
-        'name': 'White',
-        'color': const Color(0xFFF8E7B9),
-        'text': Colors.black87,
-      },
-      {
-        'code': 'U',
-        'name': 'Blue',
-        'color': const Color(0xFF0E68AB),
-        'text': Colors.white,
-      },
-      {
-        'code': 'B',
-        'name': 'Black',
-        'color': const Color(0xFF212121),
-        'text': Colors.white,
-      },
-      {
-        'code': 'R',
-        'name': 'Red',
-        'color': const Color(0xFFD3202A),
-        'text': Colors.white,
-      },
-      {
-        'code': 'G',
-        'name': 'Green',
-        'color': const Color(0xFF00733E),
-        'text': Colors.white,
-      },
-      {
-        'code': 'C',
-        'name': 'Colorless',
-        'color': const Color(0xFF9E9E9E),
-        'text': Colors.white,
-      },
-    ];
-
-    final totalPips = devotion.values.fold<int>(0, (sum, v) => sum + v);
-
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceRaised,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.surfaceBorderSubtle),
-      ),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: colors.map((c) {
-              final code = c['code'] as String;
-              final count = devotion[code] ?? 0;
-
-              return Column(
-                children: [
-                  Tooltip(
-                    message: c['name'] as String? ?? code,
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        ManaSymbolIcon(
-                          symbolCode: code,
-                          size: 26,
-                          circular: true,
-                        ),
-                        Opacity(
-                          opacity: 0.0,
-                          child: Text(code),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '$count',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    ),
-                  ),
-                ],
-              );
-            }).toList(),
-          ),
-          if (totalPips > 0) ...[
-            const SizedBox(height: 12),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: SizedBox(
-                height: 8,
-                child: Row(
-                  children: colors.map((c) {
-                    final code = c['code'] as String;
-                    final count = devotion[code] ?? 0;
-                    if (count == 0) return const SizedBox.shrink();
-                    final flex = max(1, count);
-                    return Expanded(
-                      flex: flex,
-                      child: Container(color: c['color'] as Color),
-                    );
-                  }).toList(),
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBlingMeter(double blingPercentage) {
-    final pct = (blingPercentage * 100).clamp(0.0, 100.0);
-
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceRaised,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.surfaceBorderSubtle),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                '${pct.toStringAsFixed(1)}% Bling',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(width: 8),
-              const Flexible(
-                child: Text(
-                  'Foils, Promos, Graded & Alters',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: Container(
-              height: 12,
-              width: double.infinity,
-              color: Colors.black38,
-              child: FractionallySizedBox(
-                alignment: Alignment.centerLeft,
-                widthFactor: (pct / 100.0).clamp(0.0, 1.0),
-                child: Container(
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        AppColors.accentCyan,
-                        AppColors.accentVioletLight,
-                        Colors.amberAccent,
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}

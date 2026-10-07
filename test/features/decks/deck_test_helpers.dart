@@ -16,6 +16,7 @@ Deck createTestDeck({
   bool isRegistered = false,
   bool isCompetitive = false,
   bool? isAssembled,
+  bool isCloned = false,
   bool isDeleted = false,
 }) {
   return Deck(
@@ -33,6 +34,7 @@ Deck createTestDeck({
     isRegistered: isRegistered,
     isAssembled: isAssembled ?? isRegistered,
     isCompetitive: isCompetitive,
+    isCloned: isCloned,
     isDeleted: isDeleted,
   );
 }

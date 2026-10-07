@@ -10,7 +10,6 @@ class InlineDeckAnalyticsCard extends StatelessWidget {
   final DeckAnalytics analytics;
   final bool isExpanded;
   final VoidCallback onToggleExpand;
-  final VoidCallback onOpenModal;
   final String? userNotes;
 
   const InlineDeckAnalyticsCard({
@@ -18,7 +17,6 @@ class InlineDeckAnalyticsCard extends StatelessWidget {
     required this.analytics,
     required this.isExpanded,
     required this.onToggleExpand,
-    required this.onOpenModal,
     this.userNotes,
   });
 
@@ -55,36 +53,18 @@ class InlineDeckAnalyticsCard extends StatelessWidget {
                   ],
                 ),
               ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextButton.icon(
-                    key: const Key('inline_analytics_expand_modal_button'),
-                    icon: const Icon(Icons.open_in_full_rounded, size: 12, color: AppColors.accentCyan),
-                    label: const Text('Modal', style: TextStyle(fontSize: 10, color: AppColors.accentCyan)),
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      minimumSize: Size.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      visualDensity: VisualDensity.compact,
-                    ),
-                    onPressed: onOpenModal,
-                  ),
-                  const SizedBox(width: 4),
-                  IconButton(
-                    key: const Key('inline_analytics_collapse_toggle'),
-                    icon: Icon(
-                      isExpanded ? Icons.expand_less_rounded : Icons.expand_more_rounded,
-                      size: 20,
-                      color: AppColors.textSecondary,
-                    ),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
-                    visualDensity: VisualDensity.compact,
-                    onPressed: onToggleExpand,
-                    tooltip: isExpanded ? 'Collapse Analytics' : 'Expand Analytics',
-                  ),
-                ],
+              IconButton(
+                key: const Key('inline_analytics_collapse_toggle'),
+                icon: Icon(
+                  isExpanded ? Icons.expand_less_rounded : Icons.expand_more_rounded,
+                  size: 20,
+                  color: AppColors.textSecondary,
+                ),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+                visualDensity: VisualDensity.compact,
+                onPressed: onToggleExpand,
+                tooltip: isExpanded ? 'Collapse Analytics' : 'Expand Analytics',
               ),
             ],
           ),

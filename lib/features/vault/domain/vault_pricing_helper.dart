@@ -44,13 +44,48 @@ class VaultPricingHelper {
   }
 
   /// Extracts the highest-priority positive price from a Scryfall prices map
-  /// according to the canonical hierarchy:
-  /// prices['usd'] -> prices['usd_foil'] -> prices['usd_etched'] -> prices['eur'] -> prices['eur_foil'] -> 0.0
-  static double resolveHierarchicalPrice(Map<dynamic, dynamic>? prices) {
+  /// according to the finish-aware hierarchy:
+  /// - Foil/etched finishes: `usd_foil` -> `usd_etched` -> `eur_foil`
+  /// - Non-foil finishes: `usd` -> `eur` (never falls back to foil keys)
+  /// - Legacy / unspecified ([finish] == null): canonical fallback hierarchy
+  ///   `usd` -> `usd_foil` -> `usd_etched` -> `eur` -> `eur_foil` -> 0.0
+  static double resolveHierarchicalPrice(
+    Map<dynamic, dynamic>? prices, {
+    String? finish,
+    AppCurrency currency = AppCurrency.usd,
+  }) {
     if (prices == null || prices.isEmpty) return 0.0;
-    for (final key in pricingHierarchy) {
+
+    final normFinish = finish?.toLowerCase().trim();
+    final isNonfoilFinish = normFinish == 'nonfoil' ||
+        normFinish == 'regular' ||
+        normFinish == 'normal';
+    final isFoilFinish = !isNonfoilFinish &&
+        (normFinish == 'foil' ||
+            normFinish == 'etched' ||
+            (normFinish != null && normFinish.contains('foil')));
+
+    final List<String> hierarchy;
+    if (isFoilFinish) {
+      if (normFinish == 'etched') {
+        hierarchy = const ['usd_etched', 'usd_foil', 'eur_foil'];
+      } else {
+        hierarchy = const ['usd_foil', 'usd_etched', 'eur_foil'];
+      }
+    } else if (isNonfoilFinish) {
+      hierarchy = const ['usd', 'eur'];
+    } else {
+      hierarchy = pricingHierarchy;
+    }
+
+    for (final key in hierarchy) {
       final parsed = parsePositivePrice(prices[key]);
       if (parsed != null) {
+        if (currency != AppCurrency.usd) {
+          final isEurKey = key.startsWith('eur');
+          final fromCurr = isEurKey ? AppCurrency.eur : AppCurrency.usd;
+          return ExchangeRateService.convert(parsed, from: fromCurr, to: currency);
+        }
         return parsed;
       }
     }
@@ -58,13 +93,21 @@ class VaultPricingHelper {
   }
 
   /// Alias for [resolveHierarchicalPrice] for compatibility with alternate naming conventions.
-  static double extractFromPricesMap(Map<dynamic, dynamic>? prices) =>
-      resolveHierarchicalPrice(prices);
+  static double extractFromPricesMap(
+    Map<dynamic, dynamic>? prices, {
+    String? finish,
+    AppCurrency currency = AppCurrency.usd,
+  }) =>
+      resolveHierarchicalPrice(prices, finish: finish, currency: currency);
 
   /// Extracts the market price from dynamic data (either already a Map or a JSON String).
   ///
   /// Returns 0.0 if [dynamicData] is null, empty, malformed JSON, or contains no positive prices.
-  static double extractFromDynamicData(dynamic dynamicData) {
+  static double extractFromDynamicData(
+    dynamic dynamicData, {
+    String? finish,
+    AppCurrency currency = AppCurrency.usd,
+  }) {
     if (dynamicData == null) return 0.0;
     try {
       Map<dynamic, dynamic>? map;
@@ -78,15 +121,35 @@ class VaultPricingHelper {
       }
       if (map != null) {
         if (map['prices'] is Map) {
-          final p = resolveHierarchicalPrice(map['prices'] as Map);
+          final p = resolveHierarchicalPrice(
+            map['prices'] as Map,
+            finish: finish,
+            currency: currency,
+          );
           if (p > 0) return p;
         }
         if (map['card_faces'] is List && (map['card_faces'] as List).isNotEmpty) {
           final firstFace = (map['card_faces'] as List)[0];
           if (firstFace is Map && firstFace['prices'] is Map) {
-            final p = resolveHierarchicalPrice(firstFace['prices'] as Map);
+            final p = resolveHierarchicalPrice(
+              firstFace['prices'] as Map,
+              finish: finish,
+              currency: currency,
+            );
             if (p > 0) return p;
           }
+        }
+        if (map.containsKey('usd') ||
+            map.containsKey('usd_foil') ||
+            map.containsKey('usd_etched') ||
+            map.containsKey('eur') ||
+            map.containsKey('eur_foil')) {
+          final p = resolveHierarchicalPrice(
+            map,
+            finish: finish,
+            currency: currency,
+          );
+          if (p > 0) return p;
         }
       }
     } catch (e, stackTrace) {
@@ -297,8 +360,16 @@ double? parsePositivePrice(dynamic value) =>
     VaultPricingHelper.parsePositivePrice(value);
 
 /// Top-level convenience wrapper for [VaultPricingHelper.resolveHierarchicalPrice].
-double resolveHierarchicalPrice(Map<dynamic, dynamic>? prices) =>
-    VaultPricingHelper.resolveHierarchicalPrice(prices);
+double resolveHierarchicalPrice(
+  Map<dynamic, dynamic>? prices, {
+  String? finish,
+  AppCurrency currency = AppCurrency.usd,
+}) =>
+    VaultPricingHelper.resolveHierarchicalPrice(
+      prices,
+      finish: finish,
+      currency: currency,
+    );
 
 /// Top-level convenience wrapper for [VaultPricingHelper.resolveEffectiveMarketPrice].
 double resolveEffectiveMarketPrice(VaultItem item) =>

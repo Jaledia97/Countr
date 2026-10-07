@@ -199,7 +199,7 @@ void main() {
 
       // AppDatabase should open without crash or unhandled exception
       final db = AppDatabase(rawDb);
-      expect(db.schemaVersion, equals(10));
+      expect(db.schemaVersion, greaterThanOrEqualTo(10));
 
       final dummyCheck = await db.customSelect("SELECT name FROM sqlite_master WHERE type='table' AND name='dummy';").get();
       expect(dummyCheck, isNotEmpty);

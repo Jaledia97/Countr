@@ -14,8 +14,22 @@ import 'package:countr/core/database/tables/matches/match_players_table.dart';
 import 'package:countr/core/database/tables/matches/match_events_table.dart';
 import 'package:countr/features/vault/data/daos/vault_dao.dart';
 import 'package:countr/features/life_counter/data/daos/match_dao.dart';
+import 'package:countr/core/database/tables/decks/explore_decks_table.dart';
+import 'package:countr/core/database/tables/decks/explore_deck_items_table.dart';
+import 'package:countr/core/database/tables/decks/explore_deck_votes_table.dart';
+import 'package:countr/features/decks/data/daos/explore_deck_dao.dart';
 
 part 'app_database.g.dart';
+
+QueryExecutor _resolveConnection(QueryExecutor? e) {
+  if (e != null) {
+    if (e is DatabaseConnection) return e;
+    return DatabaseConnection(e, closeStreamsSynchronously: true);
+  }
+  final conn = openConnection();
+  if (conn is DatabaseConnection) return conn;
+  return DatabaseConnection(conn, closeStreamsSynchronously: true);
+}
 
 /// Root Drift SQLite Database for Countr.
 /// Handles offline persistence, schema migrations, and initial mock seeding.
@@ -32,24 +46,18 @@ part 'app_database.g.dart';
     MatchSessions,
     MatchPlayers,
     MatchEvents,
+    // Milestone 1 (v11): Explore Decks, Items, and Persistent Voting
+    ExploreDecks,
+    ExploreDeckItems,
+    ExploreDeckVotes,
   ],
-  daos: [VaultDao, MatchDao],
+  daos: [VaultDao, MatchDao, ExploreDeckDao],
 )
-QueryExecutor _resolveConnection(QueryExecutor? e) {
-  if (e != null) {
-    if (e is DatabaseConnection) return e;
-    return DatabaseConnection(e, closeStreamsSynchronously: true);
-  }
-  final conn = openConnection();
-  if (conn is DatabaseConnection) return conn;
-  return DatabaseConnection(conn, closeStreamsSynchronously: true);
-}
-
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? e]) : super(_resolveConnection(e));
 
   @override
-  int get schemaVersion => 10;
+  int get schemaVersion => 11;
 
   @override
   MigrationStrategy get migration {
@@ -222,6 +230,27 @@ class AppDatabase extends _$AppDatabase {
             debugPrint('[AppDatabase.onUpgrade] Migration to v10 warning: $error\n$stackTrace');
           }
         }
+
+        if (from < 11) {
+          try {
+            await m.createTable(exploreDecks);
+          } catch (error, stackTrace) {
+            debugPrint('[AppDatabase.onUpgrade] Migration to v11 (exploreDecks) warning: $error\n$stackTrace');
+          }
+          try {
+            await m.createTable(exploreDeckItems);
+          } catch (error, stackTrace) {
+            debugPrint('[AppDatabase.onUpgrade] Migration to v11 (exploreDeckItems) warning: $error\n$stackTrace');
+          }
+          try {
+            await m.createTable(exploreDeckVotes);
+          } catch (error, stackTrace) {
+            debugPrint('[AppDatabase.onUpgrade] Migration to v11 (exploreDeckVotes) warning: $error\n$stackTrace');
+          }
+
+          await safeAddColumn(decks, decks.isCloned);
+          await safeAddColumn(decks, decks.sourceExploreDeckId);
+        }
       },
       beforeOpen: (details) async {
         // High-performance SQLite configuration
@@ -345,6 +374,79 @@ class AppDatabase extends _$AppDatabase {
           ''');
         } catch (error, stackTrace) {
           debugPrint('[AppDatabase.beforeOpen] match_events table creation warning: $error\n$stackTrace');
+        }
+
+        // Defensive runtime schema verification for v11 (Explore Decks, Items, Votes):
+        try {
+          await customStatement('''
+            CREATE TABLE IF NOT EXISTS "explore_decks" (
+              "id" TEXT NOT NULL PRIMARY KEY,
+              "name" TEXT NOT NULL,
+              "format" TEXT NOT NULL,
+              "tcg_domain" TEXT NOT NULL DEFAULT 'mtg',
+              "source_type" TEXT NOT NULL DEFAULT 'official',
+              "creator_name" TEXT NOT NULL DEFAULT 'Wizards of the Coast',
+              "description" TEXT,
+              "commander_name" TEXT,
+              "commander_image_url" TEXT,
+              "commander_art_crop" TEXT,
+              "color_identity" TEXT NOT NULL DEFAULT '[]',
+              "card_count" INTEGER NOT NULL DEFAULT 100,
+              "estimated_price" REAL NOT NULL DEFAULT 0.0,
+              "upvotes" INTEGER NOT NULL DEFAULT 0,
+              "downvotes" INTEGER NOT NULL DEFAULT 0,
+              "score" INTEGER NOT NULL DEFAULT 0,
+              "featured_category" TEXT,
+              "release_code" TEXT,
+              "release_year" INTEGER,
+              "tags" TEXT,
+              "created_at" INTEGER NOT NULL,
+              "updated_at" INTEGER,
+              "is_deleted" INTEGER NOT NULL DEFAULT 0
+            );
+          ''');
+        } catch (error, stackTrace) {
+          debugPrint('[AppDatabase.beforeOpen] explore_decks table creation warning: $error\n$stackTrace');
+        }
+
+        try {
+          await customStatement('''
+            CREATE TABLE IF NOT EXISTS "explore_deck_items" (
+              "id" TEXT NOT NULL PRIMARY KEY,
+              "explore_deck_id" TEXT NOT NULL REFERENCES "explore_decks" ("id") ON DELETE CASCADE,
+              "card_name" TEXT NOT NULL,
+              "scryfall_id" TEXT,
+              "oracle_id" TEXT,
+              "quantity" INTEGER NOT NULL DEFAULT 1,
+              "board_zone" TEXT NOT NULL DEFAULT 'Mainboard',
+              "mana_cost" TEXT,
+              "cmc" REAL,
+              "type_line" TEXT,
+              "colors" TEXT,
+              "image_url" TEXT,
+              "art_crop_url" TEXT,
+              "price" REAL,
+              "is_commander" INTEGER NOT NULL DEFAULT 0,
+              "dynamic_data" TEXT,
+              "is_deleted" INTEGER NOT NULL DEFAULT 0
+            );
+          ''');
+        } catch (error, stackTrace) {
+          debugPrint('[AppDatabase.beforeOpen] explore_deck_items table creation warning: $error\n$stackTrace');
+        }
+
+        try {
+          await customStatement('''
+            CREATE TABLE IF NOT EXISTS "explore_deck_votes" (
+              "id" TEXT NOT NULL PRIMARY KEY,
+              "explore_deck_id" TEXT NOT NULL REFERENCES "explore_decks" ("id") ON DELETE CASCADE,
+              "user_id" TEXT NOT NULL DEFAULT 'local_user',
+              "vote" INTEGER NOT NULL DEFAULT 0,
+              "updated_at" INTEGER NOT NULL
+            );
+          ''');
+        } catch (error, stackTrace) {
+          debugPrint('[AppDatabase.beforeOpen] explore_deck_votes table creation warning: $error\n$stackTrace');
         }
 
         // Heavy column verifications, index creations, and full-table data repairs
@@ -713,6 +815,58 @@ class AppDatabase extends _$AppDatabase {
             ''');
           } catch (error, stackTrace) {
             debugPrint('[AppDatabase.beforeOpen] Index creation warning: $error\n$stackTrace');
+          }
+
+          // Defensive runtime schema verification for decks v11 columns
+          try {
+            final decksTableInfo =
+                await customSelect('PRAGMA table_info("decks");').get();
+            final deckColumnNames =
+                decksTableInfo.map((row) => row.read<String>('name')).toSet();
+            if (deckColumnNames.isNotEmpty) {
+              if (!deckColumnNames.contains('is_cloned')) {
+                await customStatement(
+                  'ALTER TABLE "decks" ADD COLUMN "is_cloned" INTEGER NOT NULL DEFAULT 0;',
+                );
+              }
+              if (!deckColumnNames.contains('source_explore_deck_id')) {
+                await customStatement(
+                  'ALTER TABLE "decks" ADD COLUMN "source_explore_deck_id" TEXT;',
+                );
+              }
+            }
+          } catch (error, stackTrace) {
+            debugPrint('[AppDatabase.beforeOpen] decks v11 column verification warning: $error\n$stackTrace');
+          }
+
+          // Compound indexes for Explore Discovery, Carousels, and Search (v11)
+          try {
+            await customStatement('''
+              CREATE INDEX IF NOT EXISTS "idx_explore_decks_source_score"
+              ON "explore_decks" ("source_type", "score" DESC, "created_at" DESC);
+            ''');
+            await customStatement('''
+              CREATE INDEX IF NOT EXISTS "idx_explore_decks_format_score"
+              ON "explore_decks" ("format", "score" DESC);
+            ''');
+            await customStatement('''
+              CREATE INDEX IF NOT EXISTS "idx_explore_decks_featured"
+              ON "explore_decks" ("featured_category", "score" DESC);
+            ''');
+            await customStatement('''
+              CREATE INDEX IF NOT EXISTS "idx_explore_deck_items_deck"
+              ON "explore_deck_items" ("explore_deck_id", "board_zone");
+            ''');
+            await customStatement('''
+              CREATE INDEX IF NOT EXISTS "idx_explore_deck_items_card_name"
+              ON "explore_deck_items" ("card_name" COLLATE NOCASE);
+            ''');
+            await customStatement('''
+              CREATE UNIQUE INDEX IF NOT EXISTS "idx_explore_deck_votes_unique"
+              ON "explore_deck_votes" ("explore_deck_id", "user_id");
+            ''');
+          } catch (error, stackTrace) {
+            debugPrint('[AppDatabase.beforeOpen] Explore index creation warning: $error\n$stackTrace');
           }
         }
 

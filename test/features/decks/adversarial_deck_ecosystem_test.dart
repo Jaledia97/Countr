@@ -571,20 +571,16 @@ void main() {
       await tester.pumpWidget(createSubject(deck: baseDeck, items: emptyDeckItems));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(const Key('inline_analytics_expand_modal_button')));
+      expect(find.byKey(const Key('inline_analytics_expand_modal_button')), findsNothing);
+      expect(find.text('Deck Visual Analytics'), findsNothing);
+
+      await tester.tap(find.byKey(const Key('inline_analytics_collapse_toggle')));
       await tester.pumpAndSettle();
 
       expect(tester.takeException(), isNull);
-      expect(find.text('Deck Visual Analytics'), findsOneWidget);
-      expect(find.text('Mana Curve (CMC 0 to 7+)'), findsOneWidget);
-      expect(find.text('Color Devotion (Mana Pips)'), findsOneWidget);
-      expect(
-        find.descendant(
-          of: find.byType(BottomSheet),
-          matching: find.text('0.0% Bling'),
-        ),
-        findsOneWidget,
-      );
+      expect(find.text('Mana Curve'), findsOneWidget);
+      expect(find.text('Color Devotion'), findsOneWidget);
+      expect(find.text('0.0% Bling'), findsOneWidget);
 
       // Verify pips render with 0
       expect(find.text('W'), findsWidgets);
@@ -593,10 +589,6 @@ void main() {
       expect(find.text('R'), findsWidgets);
       expect(find.text('G'), findsWidgets);
       expect(find.text('C'), findsWidgets);
-
-      // Close modal
-      await tester.tap(find.byIcon(Icons.close).last);
-      await tester.pumpAndSettle();
     });
 
     testWidgets('100% Foils deck renders 100.0% Bling with full bar without overflow', (tester) async {
@@ -622,20 +614,11 @@ void main() {
       await tester.pumpWidget(createSubject(deck: baseDeck, items: foilItems));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(const Key('inline_analytics_expand_modal_button')));
+      await tester.tap(find.byKey(const Key('inline_analytics_collapse_toggle')));
       await tester.pumpAndSettle();
 
       expect(tester.takeException(), isNull);
-      expect(
-        find.descendant(
-          of: find.byType(BottomSheet),
-          matching: find.text('100.0% Bling'),
-        ),
-        findsOneWidget,
-      );
-
-      await tester.tap(find.byIcon(Icons.close).last);
-      await tester.pumpAndSettle();
+      expect(find.text('100.0% Bling'), findsOneWidget);
     });
 
     testWidgets('Colorless-only deck renders devotion pips and Colorless breakdown without error', (tester) async {
@@ -673,16 +656,13 @@ void main() {
       await tester.pumpWidget(createSubject(deck: baseDeck, items: colorlessItems));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(const Key('inline_analytics_expand_modal_button')));
+      await tester.tap(find.byKey(const Key('inline_analytics_collapse_toggle')));
       await tester.pumpAndSettle();
 
       expect(tester.takeException(), isNull);
-      expect(find.text('Deck Visual Analytics'), findsOneWidget);
+      expect(find.text('Color Devotion'), findsOneWidget);
       // 'C' pip should show 2 (from Kozilek)
       expect(find.text('C'), findsWidgets);
-
-      await tester.tap(find.byIcon(Icons.close).last);
-      await tester.pumpAndSettle();
     });
   });
 }

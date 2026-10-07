@@ -28,6 +28,7 @@ class CountrCachedImage extends StatefulWidget {
   final Alignment alignment;
   final int maxRetries;
   final Duration initialRetryDelay;
+  final String fallbackVersion;
 
   const CountrCachedImage({
     super.key,
@@ -48,6 +49,7 @@ class CountrCachedImage extends StatefulWidget {
     this.alignment = Alignment.center,
     this.maxRetries = 3,
     this.initialRetryDelay = const Duration(milliseconds: 400),
+    this.fallbackVersion = 'normal',
   });
 
   /// Canonical Scryfall named redirect endpoint URL builder for MTG cards.
@@ -83,7 +85,8 @@ class _CountrCachedImageState extends State<CountrCachedImage> {
     if (oldWidget.imageUrl != widget.imageUrl ||
         oldWidget.cacheKey != widget.cacheKey ||
         oldWidget.cardId != widget.cardId ||
-        oldWidget.cardName != widget.cardName) {
+        oldWidget.cardName != widget.cardName ||
+        oldWidget.fallbackVersion != widget.fallbackVersion) {
       _useFallback = false;
       _retryRevision = 0;
     }
@@ -105,9 +108,20 @@ class _CountrCachedImageState extends State<CountrCachedImage> {
       widget.imageUrl,
       cacheKey: widget.effectiveCacheKey,
     );
+    if (widget.effectiveCacheKey != null) {
+      FailedImageRegistry.instance.reset(
+        null,
+        cacheKey: '${widget.effectiveCacheKey}_fallback',
+      );
+    }
     final fallback = _resolveCandidateFallback();
     if (fallback != null) {
-      FailedImageRegistry.instance.reset(fallback);
+      FailedImageRegistry.instance.reset(
+        fallback,
+        cacheKey: widget.effectiveCacheKey != null
+            ? '${widget.effectiveCacheKey}_fallback'
+            : null,
+      );
     }
 
     // 2. Evict cache entries from disk
@@ -117,6 +131,7 @@ class _CountrCachedImageState extends State<CountrCachedImage> {
     }
     if (widget.effectiveCacheKey != null) {
       manager.removeFile(widget.effectiveCacheKey!).ignore();
+      manager.removeFile('${widget.effectiveCacheKey}_fallback').ignore();
     }
     if (widget.imageUrl.isNotEmpty) {
       manager.removeFile(widget.imageUrl).ignore();
@@ -144,10 +159,12 @@ class _CountrCachedImageState extends State<CountrCachedImage> {
     final name = widget.cardName?.trim() ?? '';
     final domain = (widget.tcgDomain ?? 'mtg').trim().toLowerCase();
     if (domain == 'mtg' && name.isNotEmpty && name != 'Unknown Card') {
-      return CountrCachedImage.buildScryfallNamedUrl(name);
+      return CountrCachedImage.buildScryfallNamedUrl(name, version: widget.fallbackVersion);
     }
     return null;
   }
+
+  String? get _candidateFallback => _resolveCandidateFallback();
 
   /// Wraps widgets in identical dimensional containers and border radius
   /// to ensure zero layout shift between placeholder, image, and error states.
@@ -355,16 +372,24 @@ class _CountrCachedImageState extends State<CountrCachedImage> {
       effectiveUrl = candidateFallback;
     }
 
+    final isUsingFallback = _useFallback ||
+        (effectiveUrl != widget.imageUrl &&
+            candidateFallback != null &&
+            effectiveUrl == candidateFallback);
+    final effectiveKey = (isUsingFallback && widget.effectiveCacheKey != null)
+        ? '${widget.effectiveCacheKey}_fallback'
+        : widget.effectiveCacheKey;
+
     // 6. Immediate Short-Circuit: If effectiveUrl is empty or failed in registry, return error widget instantly
     if (effectiveUrl.isEmpty ||
-        FailedImageRegistry.instance.isFailed(effectiveUrl, cacheKey: widget.effectiveCacheKey)) {
+        FailedImageRegistry.instance.isFailed(effectiveUrl, cacheKey: effectiveKey)) {
       return _buildEffectiveErrorWidget(context);
     }
 
     // 7. Test environment headless rendering
     if (!kIsWeb && Platform.environment.containsKey('FLUTTER_TEST')) {
       final testWidget = Image(
-        key: _buildStableKey(effectiveUrl, widget.effectiveCacheKey),
+        key: _buildStableKey(effectiveUrl, effectiveKey),
         image: NetworkImage(effectiveUrl),
         fit: widget.fit,
         width: widget.width,
@@ -374,17 +399,31 @@ class _CountrCachedImageState extends State<CountrCachedImage> {
           if (loadingProgress == null) return child;
           return widget.placeholder ?? _buildDefaultLoadingPlaceholder();
         },
-        errorBuilder: (context, error, stackTrace) =>
-            _buildEffectiveErrorWidget(context),
+        errorBuilder: (context, error, stackTrace) {
+          if (!_useFallback &&
+              _candidateFallback != null &&
+              _candidateFallback!.isNotEmpty &&
+              _candidateFallback != effectiveUrl &&
+              !FailedImageRegistry.instance.isFailed(_candidateFallback!)) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted && !_useFallback) {
+                setState(() {
+                  _useFallback = true;
+                });
+              }
+            });
+          }
+          if (isUsingFallback &&
+              !FailedImageRegistry.instance.isFailed(effectiveUrl, cacheKey: effectiveKey)) {
+            return const SizedBox.shrink();
+          }
+          return _buildEffectiveErrorWidget(context);
+        },
       );
       return _wrapWithDimensions(child: testWidget);
     }
 
     // 8. Production CachedNetworkImage backed by CountrImageCacheManager
-    final effectiveKey = _useFallback
-        ? (widget.effectiveCacheKey != null ? '${widget.effectiveCacheKey}_fallback' : null)
-        : widget.effectiveCacheKey;
-
     final cachedImage = CachedNetworkImage(
       key: _buildStableKey(effectiveUrl, effectiveKey),
       imageUrl: effectiveUrl,
@@ -402,7 +441,7 @@ class _CountrCachedImageState extends State<CountrCachedImage> {
       errorWidget: (context, url, error) {
         FailedImageRegistry.instance.recordAttempt(
           url,
-          cacheKey: widget.effectiveCacheKey,
+          cacheKey: effectiveKey,
           error: error,
         );
 
@@ -411,13 +450,27 @@ class _CountrCachedImageState extends State<CountrCachedImage> {
               (error.statusCode >= 400 && error.statusCode < 500 && error.statusCode != 429)) {
             FailedImageRegistry.instance.markTerminal(
               url,
-              cacheKey: widget.effectiveCacheKey,
+              cacheKey: effectiveKey,
               statusCode: error.statusCode,
               type: error.statusCode == 404
                   ? ImageFailureType.terminalNotFound
                   : ImageFailureType.terminalClientError,
             );
           }
+        }
+
+        if (!_useFallback &&
+            _candidateFallback != null &&
+            _candidateFallback!.isNotEmpty &&
+            _candidateFallback != url &&
+            !FailedImageRegistry.instance.isFailed(_candidateFallback!)) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted && !_useFallback) {
+              setState(() {
+                _useFallback = true;
+              });
+            }
+          });
         }
 
         return _buildEffectiveErrorWidget(context);

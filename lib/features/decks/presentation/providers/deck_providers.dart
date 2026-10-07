@@ -1,8 +1,9 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:countr/core/database/app_database.dart';
 import 'package:countr/core/state/settings_state.dart';
+import 'package:countr/features/decks/domain/models/my_decks_search_result.dart';
 import 'package:countr/features/vault/presentation/providers/vault_providers.dart';
 import 'package:countr/features/decks/data/mock_deck_data.dart';
 import 'package:countr/features/decks/domain/models/deck_item_with_card.dart';
@@ -279,3 +280,261 @@ final deckParetoDistributionProvider =
     currency: currency,
   );
 });
+
+// ===========================================================================
+// Milestone 2: Dual-Tab Architecture & "My Decks" Providers
+// ===========================================================================
+
+/// Canonical mock deck definitions used for UI previews, empty database fallback,
+/// and test suites.
+final List<Map<String, dynamic>> rawMockDecks = [
+  {
+    'id': 'deck-edgar-markov',
+    'title': 'Edgar Markov Aristocrats',
+    'format': 'MTG Commander',
+    'cardCount': '100/100',
+    'colors': [Colors.white, Colors.black, Colors.red],
+    'colorIdentity': ['W', 'B', 'R'],
+    'winRate': '68%',
+    'tcgDomain': 'mtg',
+    'isRegistered': true,
+    'isCompetitive': false,
+    'commanderName': 'Edgar Markov',
+    'commanderImageUrl':
+        'https://api.scryfall.com/cards/named?exact=Edgar%20Markov&format=image&version=art_crop',
+    'commanderArtCrop':
+        'https://api.scryfall.com/cards/named?exact=Edgar%20Markov&format=image&version=art_crop',
+  },
+  {
+    'id': 'deck-charizard-ex',
+    'title': 'Charizard ex / Pidgeot ex',
+    'format': 'Pokémon Standard',
+    'cardCount': '60/60',
+    'colors': [Colors.orange, Colors.red],
+    'colorIdentity': <String>[],
+    'winRate': '74%',
+    'tcgDomain': 'pokemon',
+    'isRegistered': true,
+    'isCompetitive': true,
+    'commanderName': 'Charizard ex',
+    'commanderImageUrl':
+        'https://images.unsplash.com/photo-1613771404784-3a5686aa2be3?auto=format&fit=crop&w=400&q=80',
+    'commanderArtCrop':
+        'https://images.unsplash.com/photo-1613771404784-3a5686aa2be3?auto=format&fit=crop&w=400&q=80',
+  },
+  {
+    'id': 'deck-yuriko',
+    'title': 'Yuriko, the Tiger\'s Shadow',
+    'format': 'MTG Commander (cEDH)',
+    'cardCount': '100/100',
+    'colors': [Colors.blue, Colors.black],
+    'colorIdentity': ['U', 'B'],
+    'winRate': '82%',
+    'tcgDomain': 'mtg',
+    'isRegistered': false,
+    'isCompetitive': true,
+    'commanderName': 'Yuriko, the Tiger\'s Shadow',
+    'commanderImageUrl':
+        'https://api.scryfall.com/cards/named?exact=Yuriko%2C%20the%20Tiger%27s%20Shadow&format=image&version=art_crop',
+    'commanderArtCrop':
+        'https://api.scryfall.com/cards/named?exact=Yuriko%2C%20the%20Tiger%27s%20Shadow&format=image&version=art_crop',
+  },
+  {
+    'id': 'deck-lorcana',
+    'title': 'Ruby / Amethyst Bounce Control',
+    'format': 'Disney Lorcana Core',
+    'cardCount': '60/60',
+    'colors': [Colors.red, Colors.purple],
+    'colorIdentity': <String>[],
+    'winRate': '70%',
+    'tcgDomain': 'lorcana',
+    'isRegistered': false,
+    'isCompetitive': false,
+    'commanderName': 'Ruby / Amethyst Bounce Control',
+    'commanderImageUrl':
+        'https://images.unsplash.com/photo-1569003339405-ea396a5a8a90?auto=format&fit=crop&w=400&q=80',
+    'commanderArtCrop':
+        'https://images.unsplash.com/photo-1569003339405-ea396a5a8a90?auto=format&fit=crop&w=400&q=80',
+  },
+  {
+    'id': 'deck-lost-zone',
+    'title': 'Lost Zone Giratina VSTAR',
+    'format': 'Pokémon Standard',
+    'cardCount': '60/60',
+    'colors': [Colors.purple, Colors.teal],
+    'colorIdentity': <String>[],
+    'winRate': '65%',
+    'tcgDomain': 'pokemon',
+    'isRegistered': true,
+    'isCompetitive': true,
+    'commanderName': 'Giratina VSTAR',
+    'commanderImageUrl':
+        'https://images.unsplash.com/photo-1613771404784-3a5686aa2be3?auto=format&fit=crop&w=400&q=80',
+    'commanderArtCrop':
+        'https://images.unsplash.com/photo-1613771404784-3a5686aa2be3?auto=format&fit=crop&w=400&q=80',
+  },
+  {
+    'id': 'deck-tron',
+    'title': 'Modern Mono-Green Tron',
+    'format': 'MTG Modern',
+    'cardCount': '75/75',
+    'colors': [Colors.green],
+    'colorIdentity': ['G'],
+    'winRate': '55%',
+    'tcgDomain': 'mtg',
+    'isRegistered': false,
+    'isCompetitive': false,
+    'commanderName': 'Karn Liberated',
+    'commanderImageUrl':
+        'https://cards.scryfall.io/art_crop/front/4/b/4b0c6662-4dde-40a2-97e0-0318478c0367.jpg',
+    'commanderArtCrop':
+        'https://cards.scryfall.io/art_crop/front/4/b/4b0c6662-4dde-40a2-97e0-0318478c0367.jpg',
+  },
+];
+
+DeckSummary mapMockToDeckSummary(Map<String, dynamic> m) {
+  final title = m['title'] as String? ?? 'Untitled Deck';
+  final format = m['format'] as String? ?? 'MTG Commander';
+  final domain = m['tcgDomain'] as String? ?? 'mtg';
+  final isReg = m['isRegistered'] as bool? ?? false;
+  final isComp = m['isCompetitive'] as bool? ?? false;
+  final countStr = m['cardCount'] as String? ?? '0/100';
+  final parts = countStr.split('/');
+  final curCount = int.tryParse(parts.first) ?? 0;
+  final targetCount =
+      parts.length > 1 ? (int.tryParse(parts[1]) ?? 60) : 60;
+  final colors = (m['colorIdentity'] as List?)?.cast<String>() ??
+      (domain == 'mtg' ? ['W', 'B', 'R'] : <String>[]);
+
+  return DeckSummary(
+    id: m['id'] as String,
+    name: title,
+    format: format,
+    tcgDomain: domain,
+    isRegistered: isReg,
+    isCompetitive: isComp,
+    createdAt: DateTime.now(),
+    cardCount: curCount,
+    targetCardCount: targetCount,
+    completeness: targetCount > 0 ? curCount / targetCount : 0.0,
+    assemblyStatus: isReg
+        ? 'Assembled'
+        : (curCount >= targetCount && curCount > 0 ? 'Ready' : 'Draft'),
+    colorIdentity: colors,
+    commanderName: m['commanderName'] as String?,
+    commanderImageUrl: m['commanderImageUrl'] as String?,
+    commanderArtCrop: m['commanderArtCrop'] as String?,
+    deck: Deck(
+      id: m['id'] as String,
+      name: title,
+      format: format,
+      tcgDomain: domain,
+      isRegistered: isReg,
+      isAssembled: isReg,
+      isCompetitive: isComp,
+      createdAt: DateTime.now(),
+      wins: 0,
+      losses: 0,
+      draws: 0,
+      isCloned: false,
+      isDeleted: false,
+    ),
+  );
+}
+
+/// Active top-level tab (0: My Decks, 1: Explore Decks)
+final decksTopTabProvider = StateProvider<int>((ref) => 0);
+
+/// Active search query for "My Decks" tab
+final myDecksSearchQueryProvider = StateProvider<String>((ref) => '');
+
+/// Selected deck IDs for press-and-hold multi-selection in "My Decks"
+final myDecksSelectedIdsProvider = StateProvider<Set<String>>((ref) => <String>{});
+
+/// Active subheader tab in "My Decks" (0: All, 1: Competitive, 2: Draft)
+final myDecksSubTabProvider = StateProvider<int>((ref) => 0);
+
+/// Combined summaries for personal decks (SQLite + in-memory mocks)
+final myDecksCombinedSummariesProvider = Provider<List<DeckSummary>>((ref) {
+  final dbSummaries = ref.watch(deckSummariesProvider).value;
+  if (dbSummaries != null && dbSummaries.isNotEmpty) {
+    final newInMemSummaries = rawMockDecks
+        .where((m) => !dbSummaries.any((s) => s.id == m['id']))
+        .map(mapMockToDeckSummary)
+        .toList();
+    return [...newInMemSummaries, ...dbSummaries];
+  }
+  return rawMockDecks.map(mapMockToDeckSummary).toList();
+});
+
+/// Multi-tier personal deck search results provider
+final myDecksSearchResultsProvider =
+    FutureProvider<MyDecksSearchResults>((ref) async {
+  final query = ref.watch(myDecksSearchQueryProvider).trim().toLowerCase();
+  if (query.isEmpty) {
+    return const MyDecksSearchResults();
+  }
+
+  final allSummaries = ref.watch(myDecksCombinedSummariesProvider);
+  final activeFilter = ref.watch(activeDeckTcgFilterProvider);
+  final domainDecks = allSummaries.where((deck) {
+    if (activeFilter == 'all') return true;
+    return deck.tcgDomain == activeFilter;
+  }).toList();
+
+  // Tier 1: Matches in Deck Name
+  final inDeckName = domainDecks
+      .where((d) => d.name.toLowerCase().contains(query))
+      .toList();
+  final inDeckNameIds = inDeckName.map((d) => d.id).toSet();
+
+  // Tier 2: Matches in Deck Cards (for decks not already in Tier 1)
+  final vaultDao = ref.watch(vaultDaoProvider);
+  final inDeckCards = <MyDeckCardMatch>[];
+
+  for (final deck in domainDecks) {
+    if (inDeckNameIds.contains(deck.id)) continue;
+
+    String? matchedCardName;
+    int matchedQty = 1;
+
+    try {
+      final dbItems = await vaultDao.getDeckItems(deck.id);
+      if (dbItems.isNotEmpty) {
+        for (final item in dbItems) {
+          if (item.name.toLowerCase().contains(query)) {
+            matchedCardName = item.name;
+            matchedQty = item.deckQuantity;
+            break;
+          }
+        }
+      }
+    } catch (_) {}
+
+    if (matchedCardName == null) {
+      final mockItems = MockDeckData.getDeckItems(deck.id);
+      for (final item in mockItems) {
+        final name = (item['name'] as String? ?? '').toLowerCase();
+        if (name.contains(query)) {
+          matchedCardName = item['name'] as String?;
+          matchedQty = item['deck_quantity'] as int? ?? 1;
+          break;
+        }
+      }
+    }
+
+    if (matchedCardName != null) {
+      inDeckCards.add(MyDeckCardMatch(
+        deck: deck,
+        matchingCardName: matchedCardName,
+        cardQuantity: matchedQty,
+      ));
+    }
+  }
+
+  return MyDecksSearchResults(
+    inDeckName: inDeckName,
+    inDeckCards: inDeckCards,
+  );
+});
+

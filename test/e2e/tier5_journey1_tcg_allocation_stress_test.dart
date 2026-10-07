@@ -152,7 +152,12 @@ void main() {
       expect(builderScreen.deck.isCompetitive, isFalse);
 
       // Return back to DecksScreen to inspect deck list and tab count
-      await tester.tap(find.byType(BackButton));
+      final backBtn = find.byKey(const Key('deck_builder_back_button'));
+      if (backBtn.evaluate().isNotEmpty) {
+        await tester.tap(backBtn);
+      } else {
+        await tester.tap(find.byType(BackButton));
+      }
       await tester.pumpAndSettle();
 
       // Tab count increments to 3

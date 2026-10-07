@@ -80,9 +80,10 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
-  # MTG Mana Symbology SVG Vector Assets
+  # MTG Mana Symbology SVG Vector Assets & Offline Decks
   assets:
     - assets/symbology/
+    - assets/decks/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

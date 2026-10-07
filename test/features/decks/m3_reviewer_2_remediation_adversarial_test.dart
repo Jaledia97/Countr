@@ -41,7 +41,6 @@ void main() {
                     analytics: standardAnalytics,
                     isExpanded: false,
                     onToggleExpand: () {},
-                    onOpenModal: () {},
                   ),
                 ),
               ),
@@ -76,7 +75,6 @@ void main() {
                     analytics: standardAnalytics,
                     isExpanded: true,
                     onToggleExpand: () {},
-                    onOpenModal: () {},
                   ),
                 ),
               ),
@@ -248,7 +246,6 @@ void main() {
                 analytics: emptyAnalytics,
                 isExpanded: true,
                 onToggleExpand: () {},
-                onOpenModal: () {},
               ),
             ),
           ),
@@ -370,7 +367,6 @@ void main() {
                   analytics: standardAnalytics,
                   isExpanded: false,
                   onToggleExpand: () {},
-                  onOpenModal: () {},
                 ),
               ),
             ),
@@ -381,7 +377,7 @@ void main() {
 
       expect(tester.takeException(), isNull);
       expect(find.byKey(const Key('deck_builder_inline_analytics_card')), findsOneWidget);
-      expect(find.byKey(const Key('inline_analytics_expand_modal_button')), findsOneWidget);
+      expect(find.byKey(const Key('inline_analytics_expand_modal_button')), findsNothing);
       expect(find.byKey(const Key('inline_analytics_collapse_toggle')), findsOneWidget);
     });
   });

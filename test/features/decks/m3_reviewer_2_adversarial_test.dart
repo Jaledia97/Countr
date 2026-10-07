@@ -418,7 +418,6 @@ void main() {
                   analytics: analytics,
                   isExpanded: false,
                   onToggleExpand: () {},
-                  onOpenModal: () {},
                 ),
               ),
             ),
@@ -467,8 +466,9 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(tester.takeException(), isNull);
-      // Ensure we are back on Details tab with inline analytics
-      expect(find.byKey(const Key('deck_builder_anchor_analytics_chip')), findsOneWidget);
+      // Ensure we are back on Details tab with inline analytics, without anchor chip
+      expect(find.byKey(const Key('deck_builder_anchor_analytics_chip')), findsNothing);
+      expect(find.byKey(const Key('deck_builder_inline_analytics_card')), findsOneWidget);
     });
   });
 }

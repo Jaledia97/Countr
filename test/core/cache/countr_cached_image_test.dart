@@ -485,4 +485,89 @@ void main() {
       expect(FailedImageRegistry.instance.isFailed(url), isFalse);
     });
   });
+
+  group('CountrCachedImage: Milestone 4 (R4) Automatic Fallback & Aspect Ratio Calibration', () {
+    testWidgets('fallbackVersion defaults to normal producing playable card URL', (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: CountrCachedImage(
+              imageUrl: '',
+              cardName: 'Counterspell',
+              tcgDomain: 'mtg',
+              width: 36,
+              height: 50,
+              fit: BoxFit.cover,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final img = tester.widget<Image>(find.byType(Image));
+      expect(img.image, isA<NetworkImage>());
+      final url = (img.image as NetworkImage).url;
+      expect(url, contains('api.scryfall.com/cards/named'));
+      expect(url, contains('Counterspell'));
+      expect(url, contains('version=normal'));
+    });
+
+    testWidgets('Automatically transitions to candidate fallback without requiring manual tap', (tester) async {
+      const primaryUrl = 'https://example.com/failing_primary_card.jpg';
+      FailedImageRegistry.instance.markTerminal(primaryUrl, statusCode: 500, type: ImageFailureType.exhaustedRetries);
+
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: CountrCachedImage(
+              imageUrl: primaryUrl,
+              cardName: 'Sol Ring',
+              tcgDomain: 'mtg',
+              width: 36,
+              height: 50,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Verify that candidate fallback was automatically mounted without any tap gesture
+      expect(find.byType(Image), findsOneWidget);
+      final img = tester.widget<Image>(find.byType(Image));
+      final url = (img.image as NetworkImage).url;
+      expect(url, contains('api.scryfall.com/cards/named'));
+      expect(url, contains('Sol%20Ring'));
+      expect(url, contains('version=normal'));
+    });
+
+    testWidgets('Respects calibrated 0.714 aspect ratio and BoxFit.cover dimensional constraints', (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: CountrCachedImage(
+                imageUrl: 'https://example.com/normal_card.jpg',
+                cardName: 'Black Lotus',
+                tcgDomain: 'mtg',
+                width: 36,
+                height: 50,
+                fit: BoxFit.cover,
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final imageWidget = tester.widget<Image>(find.byType(Image));
+      expect(imageWidget.fit, equals(BoxFit.cover));
+      expect(imageWidget.width, equals(36));
+      expect(imageWidget.height, equals(50));
+
+      final size = tester.getSize(find.byType(CountrCachedImage));
+      expect(size.width, equals(36));
+      expect(size.height, equals(50));
+      // Aspect ratio: 36 / 50 = 0.72 (calibrated standard playing card ratio)
+      expect(size.width / size.height, closeTo(0.714, 0.01));
+    });
+  });
 }

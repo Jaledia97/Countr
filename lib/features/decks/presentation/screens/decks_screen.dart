@@ -1,19 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:countr/core/database/app_database.dart';
-import 'package:countr/features/decks/domain/models/deck_summary.dart';
-import 'package:countr/features/decks/presentation/screens/deck_builder_screen.dart';
-import 'package:countr/features/decks/presentation/providers/deck_providers.dart';
-import 'package:countr/features/decks/presentation/widgets/deck_setup_wizard_modal.dart';
-import 'package:countr/features/decks/presentation/widgets/skeleton_shimmer_box.dart';
-import 'package:countr/features/symbology/presentation/widgets/mana_cost_bar.dart';
-import '../../../../core/constants/app_colors.dart';
-import '../../../../core/constants/app_typography.dart';
-import 'package:countr/core/cache/countr_cached_image.dart';
+import 'package:countr/core/constants/app_colors.dart';
+import 'package:countr/core/constants/app_typography.dart';
 import 'package:countr/core/state/app_state.dart';
 import 'package:countr/core/state/tcg_context_sync.dart';
+import 'package:countr/features/decks/domain/models/deck_summary.dart';
+import 'package:countr/features/decks/presentation/providers/deck_providers.dart';
+import 'package:countr/features/decks/presentation/providers/explore_deck_providers.dart';
+import 'package:countr/features/decks/presentation/widgets/deck_setup_wizard_modal.dart';
+import 'package:countr/features/decks/presentation/widgets/my_decks/my_decks_tab_view.dart';
+import 'package:countr/features/decks/presentation/widgets/explore/explore_decks_tab_view.dart';
 
-/// Decks Screen with top-level TCG context dropdown, list filtering, and FAB deck creation.
+/// Root Dual-Tab Decks screen partitioning the experience into "My Decks" and "Explore Decks"
+/// with independent scroll and filter preservation, top TabBar, and persistent action buttons.
 class DecksScreen extends ConsumerStatefulWidget {
   const DecksScreen({super.key});
 
@@ -21,113 +20,9 @@ class DecksScreen extends ConsumerStatefulWidget {
   ConsumerState<DecksScreen> createState() => _DecksScreenState();
 }
 
-class _DecksScreenState extends ConsumerState<DecksScreen> {
-  int _activeTab = 0;
-
-  final List<Map<String, dynamic>> _mockDecks = [
-    {
-      'id': 'deck-edgar-markov',
-      'title': 'Edgar Markov Aristocrats',
-      'format': 'MTG Commander',
-      'cardCount': '100/100',
-      'colors': [Colors.white, Colors.black, Colors.red],
-      'colorIdentity': ['W', 'B', 'R'],
-      'winRate': '68%',
-      'tcgDomain': 'mtg',
-      'isRegistered': true,
-      'isCompetitive': false,
-      'commanderName': 'Edgar Markov',
-      'commanderImageUrl':
-          'https://api.scryfall.com/cards/named?exact=Edgar%20Markov&format=image&version=art_crop',
-      'commanderArtCrop':
-          'https://api.scryfall.com/cards/named?exact=Edgar%20Markov&format=image&version=art_crop',
-    },
-    {
-      'id': 'deck-charizard-ex',
-      'title': 'Charizard ex / Pidgeot ex',
-      'format': 'Pokémon Standard',
-      'cardCount': '60/60',
-      'colors': [Colors.orange, Colors.red],
-      'colorIdentity': <String>[],
-      'winRate': '74%',
-      'tcgDomain': 'pokemon',
-      'isRegistered': true,
-      'isCompetitive': true,
-      'commanderName': 'Charizard ex',
-      'commanderImageUrl':
-          'https://images.unsplash.com/photo-1613771404784-3a5686aa2be3?auto=format&fit=crop&w=400&q=80',
-      'commanderArtCrop':
-          'https://images.unsplash.com/photo-1613771404784-3a5686aa2be3?auto=format&fit=crop&w=400&q=80',
-    },
-    {
-      'id': 'deck-yuriko',
-      'title': 'Yuriko, the Tiger\'s Shadow',
-      'format': 'MTG Commander (cEDH)',
-      'cardCount': '100/100',
-      'colors': [Colors.blue, Colors.black],
-      'colorIdentity': ['U', 'B'],
-      'winRate': '82%',
-      'tcgDomain': 'mtg',
-      'isRegistered': false,
-      'isCompetitive': true,
-      'commanderName': 'Yuriko, the Tiger\'s Shadow',
-      'commanderImageUrl':
-          'https://api.scryfall.com/cards/named?exact=Yuriko%2C%20the%20Tiger%27s%20Shadow&format=image&version=art_crop',
-      'commanderArtCrop':
-          'https://api.scryfall.com/cards/named?exact=Yuriko%2C%20the%20Tiger%27s%20Shadow&format=image&version=art_crop',
-    },
-    {
-      'id': 'deck-lorcana',
-      'title': 'Ruby / Amethyst Bounce Control',
-      'format': 'Disney Lorcana Core',
-      'cardCount': '60/60',
-      'colors': [Colors.red, Colors.purple],
-      'colorIdentity': <String>[],
-      'winRate': '70%',
-      'tcgDomain': 'lorcana',
-      'isRegistered': false,
-      'isCompetitive': false,
-      'commanderName': 'Ruby / Amethyst Bounce Control',
-      'commanderImageUrl':
-          'https://images.unsplash.com/photo-1569003339405-ea396a5a8a90?auto=format&fit=crop&w=400&q=80',
-      'commanderArtCrop':
-          'https://images.unsplash.com/photo-1569003339405-ea396a5a8a90?auto=format&fit=crop&w=400&q=80',
-    },
-    {
-      'id': 'deck-lost-zone',
-      'title': 'Lost Zone Giratina VSTAR',
-      'format': 'Pokémon Standard',
-      'cardCount': '60/60',
-      'colors': [Colors.purple, Colors.teal],
-      'colorIdentity': <String>[],
-      'winRate': '65%',
-      'tcgDomain': 'pokemon',
-      'isRegistered': true,
-      'isCompetitive': true,
-      'commanderName': 'Giratina VSTAR',
-      'commanderImageUrl':
-          'https://images.unsplash.com/photo-1613771404784-3a5686aa2be3?auto=format&fit=crop&w=400&q=80',
-      'commanderArtCrop':
-          'https://images.unsplash.com/photo-1613771404784-3a5686aa2be3?auto=format&fit=crop&w=400&q=80',
-    },
-    {
-      'id': 'deck-tron',
-      'title': 'Modern Mono-Green Tron',
-      'format': 'MTG Modern',
-      'cardCount': '75/75',
-      'colors': [Colors.green],
-      'colorIdentity': ['G'],
-      'winRate': '55%',
-      'tcgDomain': 'mtg',
-      'isRegistered': false,
-      'isCompetitive': false,
-      'commanderName': 'Karn Liberated',
-      'commanderImageUrl':
-          'https://cards.scryfall.io/art_crop/front/4/b/4b0c6662-4dde-40a2-97e0-0318478c0367.jpg',
-      'commanderArtCrop':
-          'https://cards.scryfall.io/art_crop/front/4/b/4b0c6662-4dde-40a2-97e0-0318478c0367.jpg',
-    },
-  ];
+class _DecksScreenState extends ConsumerState<DecksScreen>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabController;
 
   static const List<Map<String, dynamic>> _tcgOptions = [
     {
@@ -165,164 +60,71 @@ class _DecksScreenState extends ConsumerState<DecksScreen> {
     return 'All Decks';
   }
 
-  Widget _buildCommanderCardArt(DeckSummary deck) {
-    final artUrl = deck.commanderArtCrop ?? deck.commanderImageUrl;
-    if (artUrl != null && artUrl.isNotEmpty) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          width: 44,
-          height: 56,
-          color: AppColors.surfaceRaised,
-          child: CountrCachedImage(
-            imageUrl: artUrl,
-            cacheKey: 'deck_cover_${deck.id}',
-            cardName: deck.commanderName ?? deck.name,
-            tcgDomain: deck.tcgDomain,
-            fit: BoxFit.cover,
-            placeholder: const SkeletonShimmerBox(
-              width: 44,
-              height: 56,
-              animate: false,
-            ),
-            errorWidget: _buildFallbackArt(deck),
+  @override
+  void initState() {
+    super.initState();
+    final initialTab = ref.read(decksTopTabProvider);
+    _tabController = TabController(
+      length: 2,
+      vsync: this,
+      initialIndex: initialTab.clamp(0, 1),
+    );
+    _tabController.addListener(_onTabChanged);
+  }
+
+  void _onTabChanged() {
+    if (_tabController.indexIsChanging) return;
+    if (ref.read(decksTopTabProvider) != _tabController.index) {
+      ref.read(decksTopTabProvider.notifier).state = _tabController.index;
+    }
+    setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _tabController.removeListener(_onTabChanged);
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _sharePersonalDeckToExplore(DeckSummary deck) async {
+    try {
+      final dao = ref.read(exploreDeckDaoProvider);
+      await dao.sharePersonalDeckToExplore(
+        personalDeckId: deck.id,
+        creatorName: '@CurrentUser',
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Deck "${deck.name}" shared to Explore!'),
+            backgroundColor: AppColors.surfaceHighlight,
+            behavior: SnackBarBehavior.floating,
           ),
-        ),
-      );
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to share "${deck.name}": $e'),
+            backgroundColor: AppColors.accentRose,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     }
-    return _buildFallbackArt(deck);
-  }
-
-  Widget _buildFallbackArt(DeckSummary deck) {
-    return Container(
-      width: 44,
-      height: 56,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
-        gradient: const LinearGradient(
-          colors: [
-            AppColors.surfaceRaised,
-            AppColors.surfaceHighlight,
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        border: Border.all(
-          color: AppColors.accentViolet.withValues(alpha: 0.5),
-        ),
-      ),
-      child: const Icon(
-        Icons.style_rounded,
-        color: AppColors.accentVioletLight,
-        size: 24,
-      ),
-    );
-  }
-
-  Widget _buildColorPips(DeckSummary deck) {
-    if (deck.colorIdentity.isNotEmpty && deck.tcgDomain == 'mtg') {
-      final manaCost = deck.colorIdentity.map((c) => '{$c}').join('');
-      return Padding(
-        padding: const EdgeInsets.only(top: 4),
-        child: ManaCostBar(
-          manaCost: manaCost,
-          symbolSize: 12,
-          spacing: 2,
-        ),
-      );
-    }
-    return const SizedBox.shrink();
-  }
-
-  Widget _buildAssemblyStatusPill(DeckSummary deck) {
-    final Color badgeColor;
-    final Color textColor;
-    switch (deck.assemblyStatus) {
-      case 'Assembled':
-        badgeColor = AppColors.accentEmerald.withValues(alpha: 0.15);
-        textColor = AppColors.accentEmerald;
-        break;
-      case 'Ready':
-        badgeColor = AppColors.accentCyan.withValues(alpha: 0.15);
-        textColor = AppColors.accentCyan;
-        break;
-      case 'Draft':
-      default:
-        badgeColor = AppColors.surfaceRaised;
-        textColor = AppColors.accentAmber;
-        break;
-    }
-
-    return Container(
-      key: Key('deck_assembly_status_${deck.id}'),
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: badgeColor,
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: textColor.withValues(alpha: 0.3)),
-      ),
-      child: Text(
-        deck.assemblyStatus,
-        style: TextStyle(
-          color: textColor,
-          fontWeight: FontWeight.w700,
-          fontSize: 9.5,
-        ),
-      ),
-    );
-  }
-
-  DeckSummary _mapMockToSummary(Map<String, dynamic> m) {
-    final title = m['title'] as String? ?? 'Untitled Deck';
-    final format = m['format'] as String? ?? 'MTG Commander';
-    final domain = m['tcgDomain'] as String? ?? 'mtg';
-    final isReg = m['isRegistered'] as bool? ?? false;
-    final isComp = m['isCompetitive'] as bool? ?? false;
-    final countStr = m['cardCount'] as String? ?? '0/100';
-    final parts = countStr.split('/');
-    final curCount = int.tryParse(parts.first) ?? 0;
-    final targetCount =
-        parts.length > 1 ? (int.tryParse(parts[1]) ?? 60) : 60;
-    final colors = (m['colorIdentity'] as List?)?.cast<String>() ??
-        (domain == 'mtg' ? ['W', 'B', 'R'] : <String>[]);
-
-    return DeckSummary(
-      id: m['id'] as String,
-      name: title,
-      format: format,
-      tcgDomain: domain,
-      isRegistered: isReg,
-      isCompetitive: isComp,
-      createdAt: DateTime.now(),
-      cardCount: curCount,
-      targetCardCount: targetCount,
-      completeness: targetCount > 0 ? curCount / targetCount : 0.0,
-      assemblyStatus: isReg
-          ? 'Assembled'
-          : (curCount >= targetCount && curCount > 0 ? 'Ready' : 'Draft'),
-      colorIdentity: colors,
-      commanderName: m['commanderName'] as String?,
-      commanderImageUrl: m['commanderImageUrl'] as String?,
-      commanderArtCrop: m['commanderArtCrop'] as String?,
-      deck: Deck(
-        id: m['id'] as String,
-        name: title,
-        format: format,
-        tcgDomain: domain,
-        isRegistered: isReg,
-        isAssembled: isReg,
-        isCompetitive: isComp,
-        createdAt: DateTime.now(),
-        wins: 0,
-        losses: 0,
-        draws: 0,
-        isDeleted: false,
-      ),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
+    // Synchronize tab controller if provider changes externally
+    ref.listen<int>(decksTopTabProvider, (prev, next) {
+      if (next != _tabController.index && next >= 0 && next < 2) {
+        _tabController.animateTo(next);
+      }
+    });
+
     // Continuous synchronization from Vault game context to Decks filter
     ref.listen<String>(activeGameContextProvider, (previous, next) {
       if (previous != next) {
@@ -333,37 +135,8 @@ class _DecksScreenState extends ConsumerState<DecksScreen> {
       }
     });
 
-    final rawFilter = ref.watch(activeDeckTcgFilterProvider);
-    final activeFilter = rawFilter;
+    final activeFilter = ref.watch(activeDeckTcgFilterProvider);
     final isPrivacyMode = ref.watch(privacyModeProvider);
-    final dbSummaries = ref.watch(deckSummariesProvider).value;
-
-    final List<DeckSummary> allSummaries;
-    if (dbSummaries != null && dbSummaries.isNotEmpty) {
-      final newInMemSummaries = _mockDecks
-          .where((m) => !dbSummaries.any((s) => s.id == m['id']))
-          .map(_mapMockToSummary)
-          .toList();
-      allSummaries = [...newInMemSummaries, ...dbSummaries];
-    } else {
-      allSummaries = _mockDecks.map(_mapMockToSummary).toList();
-    }
-
-    // Filter by TCG domain first
-    final domainDecks = allSummaries.where((deck) {
-      if (activeFilter == 'all') return true;
-      return deck.tcgDomain == activeFilter;
-    }).toList();
-
-    // Filter by Subheader Tab next
-    final filteredDecks = domainDecks.where((deck) {
-      if (_activeTab == 1) {
-        return deck.isCompetitive == true;
-      } else if (_activeTab == 2) {
-        return deck.isRegistered == false;
-      }
-      return true;
-    }).toList();
 
     return Scaffold(
       appBar: AppBar(
@@ -384,10 +157,8 @@ class _DecksScreenState extends ConsumerState<DecksScreen> {
                     const SizedBox(width: 8),
                     Theme(
                       data: Theme.of(context).copyWith(
-                        splashColor:
-                            AppColors.accentCyan.withValues(alpha: 0.12),
-                        highlightColor:
-                            AppColors.accentCyan.withValues(alpha: 0.06),
+                        splashColor: AppColors.accentCyan.withValues(alpha: 0.12),
+                        highlightColor: AppColors.accentCyan.withValues(alpha: 0.06),
                       ),
                       child: PopupMenuButton<String>(
                         key: const Key('decks_tcg_context_switcher'),
@@ -402,12 +173,10 @@ class _DecksScreenState extends ConsumerState<DecksScreen> {
                         ),
                         onSelected: (String selected) {
                           final domain = TcgContextSync.gameToDomain(selected);
-                          ref.read(activeDeckTcgFilterProvider.notifier).state =
-                              domain;
+                          ref.read(activeDeckTcgFilterProvider.notifier).state = domain;
                           final targetGame = TcgContextSync.domainToGame(domain);
                           if (ref.read(activeGameContextProvider) != targetGame) {
-                            ref.read(activeGameContextProvider.notifier).state =
-                                targetGame;
+                            ref.read(activeGameContextProvider.notifier).state = targetGame;
                           }
                         },
                         itemBuilder: (BuildContext context) {
@@ -429,19 +198,14 @@ class _DecksScreenState extends ConsumerState<DecksScreen> {
                                     child: Text(
                                       label,
                                       style: TextStyle(
-                                        color: isSelected
-                                            ? Colors.white
-                                            : AppColors.textPrimary,
-                                        fontWeight: isSelected
-                                            ? FontWeight.w700
-                                            : FontWeight.w500,
+                                        color: isSelected ? Colors.white : AppColors.textPrimary,
+                                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                                         fontSize: 13,
                                       ),
                                     ),
                                   ),
                                   if (isSelected)
-                                    Icon(Icons.check_rounded,
-                                        color: color, size: 16),
+                                    Icon(Icons.check_rounded, color: color, size: 16),
                                 ],
                               ),
                             );
@@ -500,253 +264,61 @@ class _DecksScreenState extends ConsumerState<DecksScreen> {
             ),
           ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        key: const Key('decks_new_deck_fab'),
-        onPressed: () => DeckSetupWizardModal.show(
-          context,
-          initialTcgDomain: activeFilter,
-        ),
-        icon: const Icon(Icons.add_rounded),
-        label: const Text('New Deck'),
-        backgroundColor: AppColors.accentCyan,
-        foregroundColor: AppColors.textDark,
-      ),
-      body: Column(
-        children: [
-          // Subheader Tabs
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(48),
+          child: Container(
             decoration: const BoxDecoration(
               border: Border(
                 bottom: BorderSide(
-                  color: AppColors.surfaceBorderSubtle,
+                  color: AppColors.surfaceBorder,
                   width: 1,
                 ),
               ),
             ),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  _TabPill(
-                    key: const Key('decks_tab_all'),
-                    label: 'All Decks (${domainDecks.length})',
-                    isSelected: _activeTab == 0,
-                    onTap: () => setState(() => _activeTab = 0),
-                  ),
-                  const SizedBox(width: 8),
-                  _TabPill(
-                    key: const Key('decks_tab_competitive'),
-                    label: 'Competitive',
-                    isSelected: _activeTab == 1,
-                    onTap: () => setState(() => _activeTab = 1),
-                  ),
-                  const SizedBox(width: 8),
-                  _TabPill(
-                    key: const Key('decks_tab_draft'),
-                    label: 'Draft / In-Progress',
-                    isSelected: _activeTab == 2,
-                    onTap: () => setState(() => _activeTab = 2),
-                  ),
-                ],
-              ),
+            child: TabBar(
+              controller: _tabController,
+              indicatorColor: AppColors.accentCyan,
+              indicatorWeight: 3,
+              labelColor: AppColors.accentCyan,
+              unselectedLabelColor: AppColors.textMuted,
+              labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+              unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
+              tabs: const [
+                Tab(
+                  key: Key('decks_top_tab_my_decks'),
+                  text: 'My Decks',
+                ),
+                Tab(
+                  key: Key('decks_top_tab_explore'),
+                  text: 'Explore Decks',
+                ),
+              ],
             ),
           ),
-
-          // Decks List or Empty State
-          Expanded(
-            child: filteredDecks.isEmpty
-                ? Center(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.style_outlined,
-                            size: 56,
-                            color: AppColors.textMuted.withValues(alpha: 0.5),
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'No decks found',
-                            style: AppTypography.heading2.copyWith(color: AppColors.textSecondary),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Tap "+ New Deck" to create one.',
-                            style: AppTypography.caption.copyWith(color: AppColors.textMuted),
-                          ),
-                          const SizedBox(height: 16),
-                          ElevatedButton.icon(
-                            key: const Key('decks_empty_wizard_button'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.accentCyan,
-                              foregroundColor: AppColors.textDark,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                            ),
-                            icon: const Icon(Icons.add_rounded, size: 18),
-                            label: const Text('+ New Deck', style: TextStyle(fontWeight: FontWeight.w700)),
-                            onPressed: () => DeckSetupWizardModal.show(
-                              context,
-                              initialTcgDomain: activeFilter,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: filteredDecks.length,
-                    itemBuilder: (context, index) {
-                      final deck = filteredDecks[index];
-                      final cardCountDisplay =
-                          '${deck.cardCount}/${deck.targetCardCount}';
-
-                      return RepaintBoundary(
-                        child: InkWell(
-                          key: Key('deck_item_${deck.id}'),
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => DeckBuilderScreen(deck: deck.deck),
-                            ),
-                          );
-                        },
-                        child: Container(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: AppColors.surface,
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(
-                              color: AppColors.surfaceBorder,
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              // Commander Card Artwork / Archetype Icon with Skeleton Shimmer
-                              _buildCommanderCardArt(deck),
-                              const SizedBox(width: 14),
-
-                              // Title, Format, Completeness & Inline Color Pips
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: Text(
-                                            deck.name,
-                                            style: AppTypography.heading2.copyWith(fontSize: 14),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Flexible(
-                                          child: FittedBox(
-                                            fit: BoxFit.scaleDown,
-                                            child: _buildAssemblyStatusPill(deck),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 3),
-                                    FittedBox(
-                                      fit: BoxFit.scaleDown,
-                                      alignment: Alignment.centerLeft,
-                                      child: Text(
-                                        '${deck.format} • $cardCountDisplay',
-                                        style: AppTypography.caption,
-                                      ),
-                                    ),
-                                    _buildColorPips(deck),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-
-                              // Completeness Percentage or Win Rate Pill
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: AppColors.surfaceRaised,
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(
-                                    color: AppColors.surfaceBorder,
-                                  ),
-                                ),
-                                child: Text(
-                                  deck.isRegistered
-                                      ? '100%'
-                                      : '${(deck.completeness * 100).toInt()}%',
-                                  style: const TextStyle(
-                                    color: AppColors.accentEmerald,
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 11,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                    },
-                  ),
-          ),
-        ],
+        ),
       ),
-    );
-  }
-}
-
-class _TabPill extends StatelessWidget {
-  final String label;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  const _TabPill({
-    super.key,
-    required this.label,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? AppColors.accentCyan.withValues(alpha: 0.15)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isSelected ? AppColors.accentCyan : AppColors.surfaceBorder,
+      floatingActionButton: (_tabController.index == 0 &&
+              ref.watch(myDecksSelectedIdsProvider).isEmpty)
+          ? FloatingActionButton.extended(
+              key: const Key('decks_new_deck_fab'),
+              onPressed: () => DeckSetupWizardModal.show(
+                context,
+                initialTcgDomain: activeFilter,
+              ),
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('New Deck'),
+              backgroundColor: AppColors.accentCyan,
+              foregroundColor: AppColors.textDark,
+            )
+          : null,
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          MyDecksTabView(
+            onShareDeckToExplore: _sharePersonalDeckToExplore,
           ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 11.5,
-            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-            color: isSelected ? AppColors.accentCyan : AppColors.textSecondary,
-          ),
-        ),
+          const ExploreDecksTabView(),
+        ],
       ),
     );
   }

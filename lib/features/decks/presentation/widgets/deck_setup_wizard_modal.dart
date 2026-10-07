@@ -197,7 +197,7 @@ class _DeckSetupWizardModalState extends ConsumerState<DeckSetupWizardModal> {
       Navigator.of(context).pop(createdDeck);
 
       // Navigate to DeckBuilderScreen immediately
-      Navigator.of(context).push(
+      Navigator.of(context, rootNavigator: true).push(
         MaterialPageRoute(
           builder: (context) => DeckBuilderScreen(deck: createdDeck),
         ),

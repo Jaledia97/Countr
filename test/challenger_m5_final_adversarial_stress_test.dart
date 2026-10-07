@@ -568,7 +568,6 @@ void main() {
                       analytics: sampleAnalytics,
                       isExpanded: true,
                       onToggleExpand: () {},
-                      onOpenModal: () {},
                       userNotes: notes,
                     ),
                     const SizedBox(height: 16),

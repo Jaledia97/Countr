@@ -791,6 +791,8 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     final trimmed = query.trim();
     final q = select(vaultItems);
     q.where((t) => t.isDeleted.equals(false));
+    q.where((t) => t.dynamicData.like('%"layout":"art_series"%').not() &
+                   t.dynamicData.like('%"layout": "art_series"%').not());
 
     if (normalized != 'all') {
       q.where((t) => t.collectionType.equals(normalized));
@@ -4504,6 +4506,7 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
       ) alloc ON alloc.vault_item_id = vi.id
       WHERE vi.quantity > 0
         AND vi.is_deleted = 0
+        AND (vi.dynamic_data IS NULL OR (vi.dynamic_data NOT LIKE '%"layout":"art_series"%' AND vi.dynamic_data NOT LIKE '%"layout": "art_series"%'))
         $excludeClause
         AND (
           LOWER(vi.name) = ?

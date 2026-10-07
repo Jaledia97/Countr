@@ -381,19 +381,20 @@ void main() {
       // Clear any exception from DeckBuilderScreen rendering
       tester.takeException();
 
-      // Open Visual Analytics modal
-      final analyticsBtn = find.byKey(const Key('inline_analytics_expand_modal_button'));
-      expect(analyticsBtn, findsOneWidget);
-      await tester.tap(analyticsBtn);
+      // Verify Modal button and modal are removed
+      expect(find.byKey(const Key('inline_analytics_expand_modal_button')), findsNothing);
+      expect(find.text('Deck Visual Analytics'), findsNothing);
+
+      // Expand inline analytics card
+      final toggleBtn = find.byKey(const Key('inline_analytics_collapse_toggle'));
+      expect(toggleBtn, findsOneWidget);
+      await tester.tap(toggleBtn);
       await tester.pumpAndSettle();
 
-      final modalException = tester.takeException();
-      expect(modalException, isNull, reason: 'RenderFlex or layout exception in Visual Analytics under 320px & 2.0x text scale: $modalException');
-      expect(find.text('Deck Visual Analytics'), findsOneWidget);
-
-      // Close modal
-      await tester.tap(find.byIcon(Icons.close).last);
-      await tester.pumpAndSettle();
+      final layoutException = tester.takeException();
+      expect(layoutException, isNull, reason: 'RenderFlex or layout exception in Inline Analytics under 320px & 2.0x text scale: $layoutException');
+      expect(find.byKey(const Key('deck_builder_inline_analytics_card')), findsOneWidget);
+      expect(find.text('Mana Curve'), findsOneWidget);
     });
 
     testWidgets('Stress 8: Scroll custom scroll view to collapse SliverAppBar on 320px viewport + 2.0x text scale', (tester) async {

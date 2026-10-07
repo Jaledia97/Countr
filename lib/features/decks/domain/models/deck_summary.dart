@@ -118,6 +118,7 @@ class DeckSummary {
       wins: 0,
       losses: 0,
       draws: 0,
+      isCloned: false,
       isDeleted: false,
     );
 

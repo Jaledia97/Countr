@@ -1,5 +1,6 @@
 import 'dart:collection';
 import 'package:flutter/foundation.dart';
+import 'package:countr/core/cache/parsed_json_cache.dart';
 import 'package:countr/core/database/app_database.dart';
 import 'package:countr/core/state/settings_state.dart';
 import 'package:countr/features/values/domain/exchange_rate_service.dart';
@@ -165,19 +166,95 @@ class DeckItemWithCard extends MapView<String, dynamic> {
   /// Total cost basis for this deck line: effectiveCostBasis * deckQuantity.
   double get lineCostBasis => effectiveCostBasis * deckQuantity;
 
+  /// Whether this card represents a foil or etched printing.
+  bool get isFoil {
+    final rawFinish = this['finish']?.toString().toLowerCase().trim();
+    if (rawFinish == 'nonfoil' || rawFinish == 'regular' || rawFinish == 'normal') {
+      return false;
+    }
+    if (this['is_foil'] == 1 ||
+        this['is_foil'] == true ||
+        this['isFoil'] == true ||
+        this['foil'] == true) {
+      return true;
+    }
+    if (rawFinish != null &&
+        (rawFinish == 'foil' ||
+            rawFinish == 'etched' ||
+            (rawFinish.contains('foil') && !rawFinish.contains('nonfoil')))) {
+      return true;
+    }
+    final cond = condition.toLowerCase();
+    if (cond.contains('etched') ||
+        (cond.contains('foil') && !cond.contains('nonfoil'))) {
+      return true;
+    }
+    if (dynamicData != null && dynamicData!.isNotEmpty) {
+      final dyn = ParsedJsonCache.parse(dynamicData!);
+      if (dyn.isNotEmpty) {
+        final dynFinish = dyn['finish']?.toString().toLowerCase().trim();
+        if (dynFinish == 'nonfoil' || dynFinish == 'regular' || dynFinish == 'normal') {
+          return false;
+        }
+        if (dyn['foil'] == true ||
+            dyn['is_foil'] == true ||
+            dyn['isFoil'] == true) {
+          return true;
+        }
+        if (dynFinish != null &&
+            (dynFinish == 'foil' ||
+                dynFinish == 'etched' ||
+                (dynFinish.contains('foil') && !dynFinish.contains('nonfoil')))) {
+          return true;
+        }
+        final finishes = dyn['finishes'];
+        if (finishes is List &&
+            finishes.contains('foil') &&
+            !finishes.contains('nonfoil')) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  /// Resolved card finish: `'foil'` or `'nonfoil'`.
+  String get finish {
+    final rawFinish = this['finish']?.toString().toLowerCase().trim();
+    if (rawFinish == 'nonfoil' || rawFinish == 'regular' || rawFinish == 'normal') {
+      return 'nonfoil';
+    }
+    if (rawFinish != null && rawFinish.isNotEmpty) {
+      if (rawFinish == 'etched') return 'foil';
+      if (rawFinish.contains('foil') && !rawFinish.contains('nonfoil')) return 'foil';
+    }
+    if (isFoil) return 'foil';
+    return 'nonfoil';
+  }
+
   /// Resolves effective unit market price in [targetCurrency] using Trimmed Average
   /// calculation from dynamicData with fallback to currentMarketPrice.
   double resolveMarketPrice(AppCurrency targetCurrency) {
+    final cardFinish = (isFoil == true ||
+            (finish.toLowerCase().contains('foil') &&
+                !finish.toLowerCase().contains('nonfoil')))
+        ? 'foil'
+        : 'nonfoil';
     final trimmed = TrimmedAverageCalculator.computeFromPayload(
       dynamicData,
       targetCurrency: targetCurrency,
+      finish: cardFinish,
     );
     if (trimmed > 0.0) {
       return trimmed;
     }
     final fallback = currentMarketPrice > 0.0
         ? currentMarketPrice
-        : VaultPricingHelper.extractFromDynamicData(dynamicData);
+        : VaultPricingHelper.extractFromDynamicData(
+            dynamicData,
+            finish: cardFinish,
+            currency: targetCurrency,
+          );
     return ExchangeRateService.convert(
       fallback,
       from: AppCurrency.usd,

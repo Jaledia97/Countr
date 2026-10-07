@@ -327,4 +327,126 @@ void main() {
       expect(avg, closeTo(100.0, 0.01));
     });
   });
+
+  group('TrimmedAverageCalculator - Finish-Aware Pricing (Milestone 3 R6)', () {
+    final mixedPayload = {
+      'prices': {
+        'usd': '1.50',
+        'usd_foil': '25.00',
+        'usd_etched': '30.00',
+        'eur': '1.38', // 1.38 EUR / 0.92 = 1.50 USD
+        'eur_foil': '23.00', // 23.00 EUR / 0.92 = 25.00 USD
+      }
+    };
+
+    test('TAC-5.1: Nonfoil finish only extracts nonfoil quotes (usd, eur)', () {
+      final quotes = TrimmedAverageCalculator.extractQuotesFromPayload(
+        mixedPayload,
+        targetCurrency: AppCurrency.usd,
+        finish: 'nonfoil',
+      );
+
+      expect(quotes.length, 2);
+      expect(quotes.map((q) => q.vendor), containsAll(['TCGplayer Market', 'Cardmarket Trend']));
+      expect(quotes.any((q) => q.vendor.contains('Foil') || q.vendor.contains('Etched')), isFalse);
+    });
+
+    test('TAC-5.2: Foil finish only extracts foil quotes (usd_foil, usd_etched, eur_foil)', () {
+      final quotes = TrimmedAverageCalculator.extractQuotesFromPayload(
+        mixedPayload,
+        targetCurrency: AppCurrency.usd,
+        finish: 'foil',
+      );
+
+      expect(quotes.length, 3);
+      expect(quotes.map((q) => q.vendor), containsAll(['TCGplayer Foil', 'TCGplayer Etched', 'Cardmarket Foil']));
+      expect(quotes.any((q) => q.vendor == 'TCGplayer Market' || q.vendor == 'Cardmarket Trend'), isFalse);
+    });
+
+    test('TAC-5.3: Etched finish extracts foil and etched quotes', () {
+      final quotes = TrimmedAverageCalculator.extractQuotesFromPayload(
+        mixedPayload,
+        targetCurrency: AppCurrency.usd,
+        finish: 'etched',
+      );
+
+      expect(quotes.length, 3);
+      expect(quotes.map((q) => q.vendor), containsAll(['TCGplayer Foil', 'TCGplayer Etched', 'Cardmarket Foil']));
+    });
+
+    test('TAC-5.4: Null finish extracts all 5 quotes for backward compatibility', () {
+      final quotes = TrimmedAverageCalculator.extractQuotesFromPayload(
+        mixedPayload,
+        targetCurrency: AppCurrency.usd,
+        finish: null,
+      );
+
+      expect(quotes.length, 5);
+    });
+
+    test('TAC-5.5: computeFromPayload strictly isolates nonfoil and foil averages', () {
+      final nonfoilAvg = TrimmedAverageCalculator.computeFromPayload(
+        mixedPayload,
+        targetCurrency: AppCurrency.usd,
+        finish: 'nonfoil',
+      );
+      final foilAvg = TrimmedAverageCalculator.computeFromPayload(
+        mixedPayload,
+        targetCurrency: AppCurrency.usd,
+        finish: 'foil',
+      );
+
+      // Nonfoil: 1.50 USD and 1.38 EUR (1.50 USD) -> average = 1.50
+      expect(nonfoilAvg, closeTo(1.50, 0.01));
+
+      // Foil: 25.00, 30.00, 25.00 -> 3 quotes arithmetic mean = 26.666...
+      expect(foilAvg, greaterThan(24.0));
+      expect(foilAvg, lessThan(31.0));
+    });
+
+    test('TAC-5.6: Nonfoil card with only foil prices returns fallback (never mixes foil prices)', () {
+      final foilOnlyPayload = {
+        'prices': {
+          'usd_foil': '45.00',
+          'eur_foil': '40.00',
+        }
+      };
+
+      final quotes = TrimmedAverageCalculator.extractQuotesFromPayload(
+        foilOnlyPayload,
+        targetCurrency: AppCurrency.usd,
+        finish: 'nonfoil',
+      );
+      expect(quotes, isEmpty);
+
+      final avg = TrimmedAverageCalculator.computeFromPayload(
+        foilOnlyPayload,
+        targetCurrency: AppCurrency.usd,
+        finish: 'nonfoil',
+        fallback: 0.0,
+      );
+      expect(avg, 0.0);
+    });
+
+    test('TAC-5.7: Direct prices map without root prices key is parsed correctly', () {
+      final directMap = {
+        'usd': '3.50',
+        'usd_foil': '12.00',
+      };
+
+      final nonfoilAvg = TrimmedAverageCalculator.computeFromPayload(
+        directMap,
+        targetCurrency: AppCurrency.usd,
+        finish: 'nonfoil',
+      );
+      expect(nonfoilAvg, 3.50);
+
+      final foilAvg = TrimmedAverageCalculator.computeFromPayload(
+        directMap,
+        targetCurrency: AppCurrency.usd,
+        finish: 'foil',
+      );
+      expect(foilAvg, 12.00);
+    });
+  });
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../features/command_center/presentation/screens/dummy_menu_screen.dart';
 import '../../features/decks/presentation/screens/decks_screen.dart';
+import '../../features/decks/presentation/screens/read_only_deck_screen.dart';
 import '../../features/feed/presentation/screens/feed_screen.dart';
 import '../../features/shell/presentation/screens/main_shell_screen.dart';
 import '../../features/vault/presentation/screens/vault_screen.dart';
@@ -57,6 +58,18 @@ final GoRouter appRouter = GoRouter(
               pageBuilder: (context, state) => const NoTransitionPage(
                 child: DecksScreen(),
               ),
+              routes: [
+                GoRoute(
+                  path: 'explore/:id',
+                  name: 'exploreDeckDetail',
+                  pageBuilder: (context, state) {
+                    final id = state.pathParameters['id'] ?? '';
+                    return MaterialPage(
+                      child: ReadOnlyDeckScreen(exploreDeckId: id),
+                    );
+                  },
+                ),
+              ],
             ),
           ],
         ),
@@ -74,6 +87,14 @@ final GoRouter appRouter = GoRouter(
           ],
         ),
       ],
+    ),
+    GoRoute(
+      path: '/explore/deck/:id',
+      name: 'exploreDeckDetailDirect',
+      builder: (context, state) {
+        final id = state.pathParameters['id'] ?? '';
+        return ReadOnlyDeckScreen(exploreDeckId: id);
+      },
     ),
   ],
 );

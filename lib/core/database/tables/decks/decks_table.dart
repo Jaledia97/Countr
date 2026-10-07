@@ -24,6 +24,12 @@ class Decks extends Table {
   DateTimeColumn get updatedAt =>
       dateTime().named('updated_at').nullable()();
 
+  // Clone & Explore Lineage (v11)
+  BoolColumn get isCloned =>
+      boolean().named('is_cloned').withDefault(const Constant(false))();
+  TextColumn get sourceExploreDeckId =>
+      text().named('source_explore_deck_id').nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }

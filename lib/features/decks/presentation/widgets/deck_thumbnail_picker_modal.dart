@@ -6,6 +6,7 @@ import 'package:countr/core/constants/app_colors.dart';
 import 'package:countr/core/constants/app_typography.dart';
 import 'package:countr/core/database/app_database.dart';
 import 'package:countr/core/cache/countr_cached_image.dart';
+import 'package:countr/core/cache/countr_image_cache_manager.dart';
 import 'package:countr/core/cache/parsed_json_cache.dart';
 import 'package:countr/features/vault/presentation/providers/vault_providers.dart';
 import 'package:countr/features/decks/presentation/providers/deck_providers.dart';
@@ -171,6 +172,9 @@ class _DeckThumbnailPickerModalState
       }
 
       await dao.updateDeckCover(widget.deck.id, vaultItemId);
+      try {
+        unawaited(CountrImageCacheManager.instance.evictDeckCover(widget.deck.id));
+      } catch (_) {}
 
       ref.invalidate(deckProvider(widget.deck.id));
       ref.invalidate(deckSummariesProvider);
@@ -205,6 +209,9 @@ class _DeckThumbnailPickerModalState
     try {
       final dao = ref.read(vaultDaoProvider);
       await dao.updateDeckCover(widget.deck.id, null);
+      try {
+        unawaited(CountrImageCacheManager.instance.evictDeckCover(widget.deck.id));
+      } catch (_) {}
 
       ref.invalidate(deckProvider(widget.deck.id));
       ref.invalidate(deckSummariesProvider);

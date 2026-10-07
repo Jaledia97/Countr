@@ -155,6 +155,15 @@ class CardLegality {
       );
     }
 
+    final layout = data['layout']?.toString().toLowerCase();
+    if (layout == 'art_series') {
+      return CardLegality(
+        status: LegalityStatus.notLegal,
+        format: formatKey,
+        rawStatus: 'not_legal',
+      );
+    }
+
     Map<String, dynamic>? legalities;
     if (data.containsKey('legalities')) {
       final legVal = data['legalities'];

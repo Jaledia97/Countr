@@ -147,17 +147,16 @@ class TrimmedAverageCalculator {
 
   /// Extracts individual [MarketPriceQuote]s from a Scryfall card payload (`dynamicData` JSON or Map).
   ///
-  /// Maps Scryfall keys:
-  /// - `'usd'` -> TCGplayer Market (USD)
-  /// - `'usd_foil'` -> TCGplayer Foil (USD)
-  /// - `'usd_etched'` -> TCGplayer Etched (USD)
-  /// - `'eur'` -> Cardmarket Market (EUR)
-  /// - `'eur_foil'` -> Cardmarket Foil (EUR)
+  /// Maps Scryfall keys according to [finish]:
+  /// - Non-foil (`'nonfoil'`): `'usd'`, `'eur'`
+  /// - Foil/Etched (`'foil'`, `'etched'`): `'usd_foil'`, `'usd_etched'`, `'eur_foil'`
+  /// - Legacy/null ([finish] == null): extracts all 5 quotes for backward compatibility.
   static List<MarketPriceQuote> extractQuotesFromPayload(
     dynamic dynamicData, {
-    required AppCurrency targetCurrency,
+    AppCurrency targetCurrency = AppCurrency.usd,
     DateTime? timestamp,
     Map<AppCurrency, double>? rates,
+    String? finish,
   }) {
     final quotes = <MarketPriceQuote>[];
     if (dynamicData == null) return quotes;
@@ -188,6 +187,12 @@ class TrimmedAverageCalculator {
       if (firstFace is Map && firstFace['prices'] is Map) {
         pricesMap = firstFace['prices'] as Map;
       }
+    } else if (payloadMap.containsKey('usd') ||
+        payloadMap.containsKey('usd_foil') ||
+        payloadMap.containsKey('usd_etched') ||
+        payloadMap.containsKey('eur') ||
+        payloadMap.containsKey('eur_foil')) {
+      pricesMap = payloadMap;
     }
 
     if (pricesMap == null || pricesMap.isEmpty) return quotes;
@@ -213,14 +218,32 @@ class TrimmedAverageCalculator {
       }
     }
 
-    // TCGplayer Quotes (USD)
-    addQuoteIfValid('usd', 'TCGplayer Market', MarketQuoteType.market, AppCurrency.usd);
-    addQuoteIfValid('usd_foil', 'TCGplayer Foil', MarketQuoteType.market, AppCurrency.usd);
-    addQuoteIfValid('usd_etched', 'TCGplayer Etched', MarketQuoteType.market, AppCurrency.usd);
+    final normFinish = finish?.toLowerCase().trim();
+    final isNonfoilFinish = normFinish == 'nonfoil' ||
+        normFinish == 'regular' ||
+        normFinish == 'normal';
+    final isFoilFinish = !isNonfoilFinish &&
+        (normFinish == 'foil' ||
+            normFinish == 'etched' ||
+            (normFinish != null && normFinish.contains('foil')));
 
-    // Cardmarket Quotes (EUR)
-    addQuoteIfValid('eur', 'Cardmarket Trend', MarketQuoteType.market, AppCurrency.eur);
-    addQuoteIfValid('eur_foil', 'Cardmarket Foil', MarketQuoteType.market, AppCurrency.eur);
+    if (isFoilFinish) {
+      // Foil Quotes only
+      addQuoteIfValid('usd_foil', 'TCGplayer Foil', MarketQuoteType.market, AppCurrency.usd);
+      addQuoteIfValid('usd_etched', 'TCGplayer Etched', MarketQuoteType.market, AppCurrency.usd);
+      addQuoteIfValid('eur_foil', 'Cardmarket Foil', MarketQuoteType.market, AppCurrency.eur);
+    } else if (isNonfoilFinish) {
+      // Non-foil Quotes only
+      addQuoteIfValid('usd', 'TCGplayer Market', MarketQuoteType.market, AppCurrency.usd);
+      addQuoteIfValid('eur', 'Cardmarket Trend', MarketQuoteType.market, AppCurrency.eur);
+    } else {
+      // Legacy / unspecified: extract both for backwards compatibility
+      addQuoteIfValid('usd', 'TCGplayer Market', MarketQuoteType.market, AppCurrency.usd);
+      addQuoteIfValid('usd_foil', 'TCGplayer Foil', MarketQuoteType.market, AppCurrency.usd);
+      addQuoteIfValid('usd_etched', 'TCGplayer Etched', MarketQuoteType.market, AppCurrency.usd);
+      addQuoteIfValid('eur', 'Cardmarket Trend', MarketQuoteType.market, AppCurrency.eur);
+      addQuoteIfValid('eur_foil', 'Cardmarket Foil', MarketQuoteType.market, AppCurrency.eur);
+    }
 
     return quotes;
   }
@@ -228,14 +251,16 @@ class TrimmedAverageCalculator {
   /// High-level method extracting and computing the trimmed market average directly from card payload.
   static double computeFromPayload(
     dynamic dynamicData, {
-    required AppCurrency targetCurrency,
+    AppCurrency targetCurrency = AppCurrency.usd,
     double fallback = 0.0,
     Map<AppCurrency, double>? rates,
+    String? finish,
   }) {
     final quotes = extractQuotesFromPayload(
       dynamicData,
       targetCurrency: targetCurrency,
       rates: rates,
+      finish: finish,
     );
     return computeFromQuotes(quotes, fallback: fallback);
   }
