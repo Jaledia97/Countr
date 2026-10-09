@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:countr/core/constants/app_colors.dart';
@@ -10,6 +12,9 @@ import 'package:countr/features/decks/presentation/widgets/my_decks/my_deck_card
 import 'package:countr/features/decks/presentation/widgets/my_decks/my_decks_search_bar.dart';
 import 'package:countr/features/decks/presentation/widgets/my_decks/my_decks_search_results_view.dart';
 import 'package:countr/features/decks/presentation/widgets/my_decks/my_decks_selection_footer.dart';
+import 'package:countr/features/vault/presentation/providers/vault_providers.dart';
+import 'package:countr/features/decks/data/services/precon_hydration_service.dart';
+import 'package:countr/features/decks/data/services/explore_seeder_service.dart';
 
 /// Tab 0 host widget for "My Decks", maintaining independent scroll offsets via
 /// [AutomaticKeepAliveClientMixin] and [PageStorageKey], providing quick filter pills,
@@ -32,6 +37,19 @@ class _MyDecksTabViewState extends ConsumerState<MyDecksTabView>
 
   @override
   bool get wantKeepAlive => true;
+
+  @override
+  void initState() {
+    super.initState();
+    if (!kIsWeb && !Platform.environment.containsKey('FLUTTER_TEST')) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final db = ref.read(appDatabaseProvider);
+        ExploreSeederService.seedIfNeeded(db);
+        PreconHydrationService.seedHistoricalPrecons(db);
+      });
+    }
+  }
 
   void _navigateToDeckBuilder(DeckSummary summary) {
     Navigator.of(context, rootNavigator: true).push(

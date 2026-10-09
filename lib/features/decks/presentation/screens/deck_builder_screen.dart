@@ -1407,7 +1407,10 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
     final price = typedItem.resolveMarketPrice(baseCurrency);
     final setCode = item['set_or_series'] as String? ?? '';
     final cardId = (item['id'] ?? item['vault_item_id'] ?? '').toString();
-    final cardCacheKey = cardId.isNotEmpty ? 'card_art_$cardId' : null;
+    final isArtSeries = _isArtSeriesLayout(item);
+    final cardCacheKey = cardId.isNotEmpty
+        ? (isArtSeries ? 'card_art_${cardId}_fallback' : 'card_art_$cardId')
+        : null;
 
     final legality = CardLegality.evaluate(item['dynamic_data'], effectiveDeck.format);
 
@@ -1695,7 +1698,10 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
     final name = item['name'] as String? ?? 'Unknown Card';
     final qty = item['deck_quantity'] as int? ?? (item['quantity'] as int? ?? 1);
     final cardId = (item['id'] ?? item['vault_item_id'] ?? '').toString();
-    final cardCacheKey = cardId.isNotEmpty ? 'card_art_$cardId' : null;
+    final isArtSeries = _isArtSeriesLayout(item);
+    final cardCacheKey = cardId.isNotEmpty
+        ? (isArtSeries ? 'card_art_${cardId}_fallback' : 'card_art_$cardId')
+        : null;
     final resolvedImageUrl = _resolveCardPlayImageUrl(item, activeDeck);
     final isProxy = item['is_proxy'] == 1 || item['is_proxy'] == true;
     final tcgDomain = (item['collection_type'] as String?)?.toLowerCase() ??
@@ -1854,29 +1860,85 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
   }
 
   static bool _isArtSeriesLayout(dynamic item) {
-    if (item is Map) {
-      if (item['layout']?.toString().toLowerCase() == 'art_series') return true;
-      final dynStr = item['dynamic_data'] as String?;
-      if (dynStr != null && dynStr.isNotEmpty) {
-        try {
-          final dynData = ParsedJsonCache.parse(dynStr);
+    String? rawLayout;
+    String? name;
+    String? typeLine;
+    String? rawImageUrl;
+    String? rawArtCropUrl;
+    String? setCode;
+    String? dynStr;
+
+    if (item is DeckItemWithCard) {
+      rawLayout = item['layout'] as String?;
+      name = item.name;
+      typeLine = item['type_line'] as String?;
+      rawImageUrl = item.imageUrl;
+      rawArtCropUrl = item['art_crop_url'] as String?;
+      setCode = item.setOrSeries;
+      dynStr = item.dynamicData;
+    } else if (item is Map) {
+      rawLayout = item['layout'] as String?;
+      name = item['name'] as String?;
+      typeLine = item['type_line'] as String?;
+      rawImageUrl = item['image_url'] as String?;
+      rawArtCropUrl = item['art_crop_url'] as String?;
+      setCode = item['set_or_series'] as String? ?? item['set'] as String?;
+      dynStr = item['dynamic_data'] as String?;
+    }
+
+    if (rawLayout?.toLowerCase() == 'art_series') return true;
+
+    final nameLower = name?.toLowerCase() ?? '';
+    if (nameLower.contains('art series') || nameLower.contains('art card')) {
+      return true;
+    }
+
+    final typeLower = typeLine?.toLowerCase() ?? '';
+    if (typeLower.contains('art series') || typeLower.contains('art card')) {
+      return true;
+    }
+
+    if (rawImageUrl != null && rawImageUrl.contains('art_series')) {
+      return true;
+    }
+    if (rawArtCropUrl != null && rawArtCropUrl.contains('art_series')) {
+      return true;
+    }
+
+    final setCodeLower = setCode?.toLowerCase() ?? '';
+    if (setCodeLower.length >= 4 &&
+        setCodeLower.startsWith('a') &&
+        RegExp(r'^a[a-z0-9]{3,4}$').hasMatch(setCodeLower)) {
+      return true;
+    }
+
+    if (dynStr != null && dynStr.isNotEmpty) {
+      try {
+        final dynData = ParsedJsonCache.parse(dynStr);
+        if (dynData.isNotEmpty) {
           if (dynData['layout']?.toString().toLowerCase() == 'art_series') return true;
-        } catch (_) {
-          if (dynStr.contains('"layout":"art_series"') || dynStr.contains('"layout": "art_series"')) {
+          final dynType = dynData['type_line']?.toString().toLowerCase() ?? '';
+          if (dynType.contains('art series') || dynType.contains('art card')) return true;
+          final dynName = dynData['name']?.toString().toLowerCase() ?? '';
+          if (dynName.contains('art series') || dynName.contains('art card')) return true;
+          final dynSet = dynData['set']?.toString().toLowerCase() ?? '';
+          if (dynSet.length >= 4 &&
+              dynSet.startsWith('a') &&
+              RegExp(r'^a[a-z0-9]{3,4}$').hasMatch(dynSet)) {
             return true;
+          }
+          if (dynData['image_uris'] is Map) {
+            final uris = dynData['image_uris'] as Map;
+            for (final u in uris.values) {
+              if (u != null && u.toString().contains('art_series')) return true;
+            }
           }
         }
-      }
-    } else if (item is DeckItemWithCard) {
-      final dynStr = item.dynamicData;
-      if (dynStr != null && dynStr.isNotEmpty) {
-        try {
-          final dynData = ParsedJsonCache.parse(dynStr);
-          if (dynData['layout']?.toString().toLowerCase() == 'art_series') return true;
-        } catch (_) {
-          if (dynStr.contains('"layout":"art_series"') || dynStr.contains('"layout": "art_series"')) {
-            return true;
-          }
+      } catch (_) {
+        if (dynStr.contains('"layout":"art_series"') ||
+            dynStr.contains('"layout": "art_series"') ||
+            dynStr.contains('art_series')) {
+          return true;
         }
       }
     }
@@ -1931,7 +1993,11 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
     }
 
     if (resolvedImageUrl.isEmpty && name.isNotEmpty && name != 'Unknown Card' && tcgDomain == 'mtg') {
-      final clean = name.contains('//') ? name.split('//').first.trim() : name.trim();
+      String clean = name.contains('//') ? name.split('//').first.trim() : name.trim();
+      clean = clean
+          .replaceAll(RegExp(r'\s*\((?:Art Card|Art Series)\)', caseSensitive: false), '')
+          .replaceAll(RegExp(r'\s*-\s*(?:Art Card|Art Series)', caseSensitive: false), '')
+          .trim();
       resolvedImageUrl = CountrCachedImage.buildScryfallNamedUrl(clean, version: 'normal');
     }
 

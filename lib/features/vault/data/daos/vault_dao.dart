@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io' show Platform;
 import 'dart:math' as math;
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
@@ -24,6 +25,8 @@ import 'package:countr/core/database/tables/decks/deck_version_items_table.dart'
 import 'package:countr/core/database/tables/decks/deck_matchups_table.dart';
 import 'package:countr/core/database/tables/decks/deck_synergies_table.dart';
 import 'package:countr/core/database/tables/sync_queue_table.dart';
+import 'package:countr/features/decks/data/services/precon_hydration_service.dart';
+import 'package:countr/features/decks/data/services/explore_seeder_service.dart';
 
 part 'vault_dao.g.dart';
 
@@ -2209,6 +2212,16 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
         ),
         mode: InsertMode.insertOrReplace,
       );
+    }
+
+    // 4. Ensure MTG Preconstructed Decks and Explore Feed are seeded in live app
+    if (!kIsWeb && !Platform.environment.containsKey('FLUTTER_TEST')) {
+      try {
+        await PreconHydrationService.seedHistoricalPrecons(attachedDatabase);
+        await ExploreSeederService.seedIfNeeded(attachedDatabase);
+      } catch (e, stack) {
+        debugPrint('[VaultDao.seedDatabase] Precon/Explore seeding warning: $e\n$stack');
+      }
     }
   }
 

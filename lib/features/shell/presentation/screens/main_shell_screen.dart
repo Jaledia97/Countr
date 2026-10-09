@@ -10,6 +10,8 @@ import 'package:countr/features/command_center/presentation/widgets/morphing_com
 import 'package:countr/features/scanner/presentation/screens/scanner_modal.dart';
 import 'package:countr/features/hydration/presentation/providers/hydration_providers.dart';
 import 'package:countr/features/vault/presentation/providers/vault_providers.dart';
+import 'package:countr/features/decks/data/services/precon_hydration_service.dart';
+import 'package:countr/features/decks/data/services/explore_seeder_service.dart';
 import '../widgets/custom_bottom_nav_bar.dart';
 
 /// The Main Shell Screen wrapping the StatefulNavigationShell.
@@ -43,6 +45,9 @@ class _MainShellScreenState extends ConsumerState<MainShellScreen> {
         ref.read(vaultDaoProvider);
         ref.read(vaultItemsStreamProvider);
         ref.read(mtgAutoHydrationCoordinatorProvider).checkAndTriggerAutoHydration();
+        final db = ref.read(appDatabaseProvider);
+        ExploreSeederService.seedIfNeeded(db);
+        PreconHydrationService.seedHistoricalPrecons(db);
       });
     }
 

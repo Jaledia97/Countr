@@ -5,6 +5,8 @@ import 'package:countr/features/hydration/data/services/scryfall_service.dart';
 import 'package:countr/features/hydration/domain/isolate/scryfall_parser.dart';
 import 'package:countr/features/hydration/presentation/controllers/hydration_state.dart';
 import 'package:countr/features/vault/data/daos/vault_dao.dart';
+import 'package:countr/features/decks/data/services/precon_hydration_service.dart';
+import 'package:countr/features/decks/data/services/explore_seeder_service.dart';
 
 /// StateNotifier controlling the MTG Bulk Hydration pipeline.
 /// Safely coordinates HTTP streaming download, background isolate JSON chunk parsing,
@@ -119,13 +121,25 @@ class HydrationController extends StateNotifier<HydrationState> {
         },
       );
 
-      // Step 4: Hydration Complete
+      // Step 4: Hydrate Preconstructed Decks and Explore Feed
+      state = state.copyWith(
+        statusMessage: 'Seeding official MTG preconstructed decks & explore catalog...',
+      );
+      try {
+        final db = _vaultDao.attachedDatabase;
+        await PreconHydrationService.seedHistoricalPrecons(db, force: true);
+        await ExploreSeederService.seedIfNeeded(db, force: true);
+      } catch (err, stack) {
+        debugPrint('[HydrationController] Precon / explore seeding warning: $err\n$stack');
+      }
+
+      // Step 5: Hydration Complete
       state = state.copyWith(
         status: HydrationStatus.complete,
         progress: 1.0,
         insertedCount: totalCards,
         statusMessage:
-            'Hydration complete! ${totalCards.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},')} MTG cards indexed.',
+            'Hydration complete! ${totalCards.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},')} MTG cards & official precons indexed.',
       );
     } catch (e, stackTrace) {
       debugPrint('[HydrationController] Hydration failed: $e\n$stackTrace');

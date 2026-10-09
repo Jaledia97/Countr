@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:countr/core/constants/app_colors.dart';
@@ -10,6 +12,9 @@ import 'package:countr/features/decks/presentation/providers/explore_deck_provid
 import 'package:countr/features/decks/presentation/widgets/deck_setup_wizard_modal.dart';
 import 'package:countr/features/decks/presentation/widgets/my_decks/my_decks_tab_view.dart';
 import 'package:countr/features/decks/presentation/widgets/explore/explore_decks_tab_view.dart';
+import 'package:countr/features/vault/presentation/providers/vault_providers.dart';
+import 'package:countr/features/decks/data/services/precon_hydration_service.dart';
+import 'package:countr/features/decks/data/services/explore_seeder_service.dart';
 
 /// Root Dual-Tab Decks screen partitioning the experience into "My Decks" and "Explore Decks"
 /// with independent scroll and filter preservation, top TabBar, and persistent action buttons.
@@ -70,6 +75,14 @@ class _DecksScreenState extends ConsumerState<DecksScreen>
       initialIndex: initialTab.clamp(0, 1),
     );
     _tabController.addListener(_onTabChanged);
+    if (!kIsWeb && !Platform.environment.containsKey('FLUTTER_TEST')) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final db = ref.read(appDatabaseProvider);
+        ExploreSeederService.seedIfNeeded(db);
+        PreconHydrationService.seedHistoricalPrecons(db);
+      });
+    }
   }
 
   void _onTabChanged() {

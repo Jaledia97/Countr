@@ -1,3 +1,41 @@
+## [0.5.1] - 2026-10-08
+
+### Phase 5.1: MTGJSON Historical Precon & Starter Deck Seeding & Strict Variant Enforcement
+
+#### Added & Improved
+- **R1: MTGJSON Precon Dataset Sourcing & Extraction**:
+  - Implemented `PreconDeckDto`, `PreconCardDto`, and `PreconSafeCast` in [`lib/features/decks/data/models/precon_deck_dto.dart`](file:///Users/jomelaledia/freeSpc/Countr/lib/features/decks/data/models/precon_deck_dto.dart).
+  - Built `MtgjsonPreconParser` ([`lib/features/decks/data/services/mtgjson_precon_parser.dart`](file:///Users/jomelaledia/freeSpc/Countr/lib/features/decks/data/services/mtgjson_precon_parser.dart)) supporting MTGJSON `AllDeckFiles` and `DeckList` schemas, automatic gzip decompression via magic bytes `[0x1F, 0x8B]`, and deterministic 32-bit FNV-1a hex slugs for collision-free deck IDs across international or non-alphanumeric deck names.
+
+- **R2 & R3: Background Isolate Hydration & Drift SQLite Schema Mapping**:
+  - Created `PreconHydrationService` ([`lib/features/decks/data/services/precon_hydration_service.dart`](file:///Users/jomelaledia/freeSpc/Countr/lib/features/decks/data/services/precon_hydration_service.dart)) offloading parsing and companion generation to background isolates (`Isolate.run`) to ensure zero main-thread frame drops.
+  - Mapped preconstructed decks into `decks_table` (`tcg_domain = 'mtg'`, `is_registered = true`, format normalized) and active versions in `deck_versions_table`.
+  - Mapped card items across `Commander`, `Mainboard`, and `Sideboard` zones in `deck_version_items_table` (`is_proxy = true`).
+  - Synthesized catalog reference rows in `vault_items` with `quantity = 0` and `acquired_price = 0.0`, preserving existing user owned items and maintaining the core inventory invariant `Owned = Available + Allocated`.
+
+- **R4: Idempotency & One-Time Seeding Protection**:
+  - Implemented atomic one-time execution guard via SQLite check (`isHistoricalPreconSeeded`).
+  - Chunked SQLite operations in groups of 250 items (`batchChunkSize = 250`) preventing variable limit exhaustion.
+
+- **R5: Strict Card Variant Resolution & Art Series Filter**:
+  - `ReadOnlyDeckScreen` ([`lib/features/decks/presentation/screens/read_only_deck_screen.dart`](file:///Users/jomelaledia/freeSpc/Countr/lib/features/decks/presentation/screens/read_only_deck_screen.dart)): Added 40x56 `CountrCachedImage` thumbnails in card rows, exact variant CDN URL prioritization, 7-way non-playable `art_series` layout detection with automatic fallback to Scryfall named playable normal printings, banner art fallbacks, and layout overflow defenses (`Flexible` + `ConstrainedBox(maxWidth: 80)` on `ManaCostBar`).
+  - `DeckBuilderScreen` ([`lib/features/decks/presentation/screens/deck_builder_screen.dart`](file:///Users/jomelaledia/freeSpc/Countr/lib/features/decks/presentation/screens/deck_builder_screen.dart)): Expanded `_isArtSeriesLayout` to full 7-way detection and updated cache keys to prevent displaying pre-cached art series images.
+  - `ExploreDeckCard` ([`lib/features/decks/presentation/widgets/explore/explore_deck_card.dart`](file:///Users/jomelaledia/freeSpc/Countr/lib/features/decks/presentation/widgets/explore/explore_deck_card.dart)): Sanitized cover art banners to filter out non-playable art cards in favor of named `art_crop` printings.
+
+- **Precon & Explore Runtime Lifecycle Integration**:
+  - `HydrationController` ([`lib/features/hydration/presentation/controllers/hydration_controller.dart`](file:///Users/jomelaledia/freeSpc/Countr/lib/features/hydration/presentation/controllers/hydration_controller.dart)): Wired Step 4 in `startHydration()` to automatically trigger `PreconHydrationService.seedHistoricalPrecons(force: true)` and `ExploreSeederService.seedIfNeeded(force: true)` when downloading hydration packages.
+  - `MtgAutoHydrationCoordinator` ([`lib/features/hydration/presentation/providers/hydration_providers.dart`](file:///Users/jomelaledia/freeSpc/Countr/lib/features/hydration/presentation/providers/hydration_providers.dart)): Added background checks for `isHistoricalPreconSeeded` and `getExploreDeckCount() == 0` to trigger silent background precon and explore seeding.
+  - `VaultDao` ([`lib/features/vault/data/daos/vault_dao.dart`](file:///Users/jomelaledia/freeSpc/Countr/lib/features/vault/data/daos/vault_dao.dart)): Added automated precon and explore seeding to local SQLite initialization during database seeding.
+  - `MainShellScreen` ([`lib/features/shell/presentation/screens/main_shell_screen.dart`](file:///Users/jomelaledia/freeSpc/Countr/lib/features/shell/presentation/screens/main_shell_screen.dart)), `DecksScreen` ([`lib/features/decks/presentation/screens/decks_screen.dart`](file:///Users/jomelaledia/freeSpc/Countr/lib/features/decks/presentation/screens/decks_screen.dart)), `ExploreDecksTabView` ([`lib/features/decks/presentation/widgets/explore/explore_decks_tab_view.dart`](file:///Users/jomelaledia/freeSpc/Countr/lib/features/decks/presentation/widgets/explore/explore_decks_tab_view.dart)), and `MyDecksTabView` ([`lib/features/decks/presentation/widgets/my_decks/my_decks_tab_view.dart`](file:///Users/jomelaledia/freeSpc/Countr/lib/features/decks/presentation/widgets/my_decks/my_decks_tab_view.dart)): Added post-frame background triggers in `initState` to seed precons and explore decks if missing.
+  - `ExploreDecksTabView`: Added an interactive empty-state action button (`load_precons_button`: "Load Official Precons & Community Decks") allowing users to manually trigger or re-sync seeding on demand with instant UI refresh and SnackBar feedback.
+
+#### Verification & Quality
+- **Test Suite**: 1,098/1,098 tests passing across all deck, precon, journey, voting, carousel, and feed test suites.
+- **Static Analysis**: `flutter analyze` clean with 0 errors and 0 warnings.
+- **Audit Verification**: Passed independent Post-Victory Audit (`VICTORY CONFIRMED`).
+
+---
+
 ## [0.5.0] - 2026-10-07
 
 ### Phase 5.0: Explore Decks Discovery, Dual-Tab Architecture, Persistent Voting & Deck Sharing Overhaul

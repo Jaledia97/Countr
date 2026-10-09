@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:countr/core/constants/app_colors.dart';
 import 'package:countr/core/constants/app_typography.dart';
 import 'package:countr/core/cache/countr_cached_image.dart';
+import 'package:countr/core/cache/parsed_json_cache.dart';
 import 'package:countr/core/database/app_database.dart';
 import 'package:countr/features/decks/domain/models/explore_deck_models.dart';
 import 'package:countr/features/decks/presentation/providers/deck_providers.dart';
@@ -136,24 +137,44 @@ class _ReadOnlyDeckScreenState extends ConsumerState<ReadOnlyDeckScreen> {
   }
 
   Widget _buildArtBanner(ExploreDeck deck) {
-    final artUrl = deck.commanderArtCrop ?? deck.commanderImageUrl;
+    final rawArtUrl = deck.commanderArtCrop ?? deck.commanderImageUrl;
     const bannerHeight = 180.0;
 
     Widget imageContent;
-    if (artUrl != null && artUrl.isNotEmpty) {
-      imageContent = CountrCachedImage(
-        imageUrl: artUrl,
-        cacheKey: 'explore_cover_${deck.id}',
-        cardName: deck.commanderName ?? deck.name,
-        tcgDomain: deck.tcgDomain,
-        fit: BoxFit.cover,
-        placeholder: const SkeletonShimmerBox(
-          width: double.infinity,
-          height: bannerHeight,
-          animate: false,
-        ),
-        errorWidget: _buildFallbackBanner(bannerHeight),
-      );
+    if (rawArtUrl != null) {
+      final isArtSeries = rawArtUrl.contains('art_series');
+      final isEmptyUrl = rawArtUrl.isEmpty;
+      String resolvedArtUrl = rawArtUrl;
+      String cacheKey = 'explore_cover_${deck.id}';
+
+      if (isArtSeries || isEmptyUrl) {
+        final commander = deck.commanderName ?? deck.name;
+        if (commander.isNotEmpty && commander != 'Unknown Card') {
+          final clean = commander.contains('//') ? commander.split('//').first.trim() : commander.trim();
+          resolvedArtUrl = CountrCachedImage.buildScryfallNamedUrl(clean, version: 'art_crop');
+          cacheKey = 'explore_cover_${deck.id}_fallback';
+        } else {
+          resolvedArtUrl = '';
+        }
+      }
+
+      if (resolvedArtUrl.isNotEmpty) {
+        imageContent = CountrCachedImage(
+          imageUrl: resolvedArtUrl,
+          cacheKey: cacheKey,
+          cardName: deck.commanderName ?? deck.name,
+          tcgDomain: deck.tcgDomain,
+          fit: BoxFit.cover,
+          placeholder: const SkeletonShimmerBox(
+            width: double.infinity,
+            height: bannerHeight,
+            animate: false,
+          ),
+          errorWidget: _buildFallbackBanner(bannerHeight),
+        );
+      } else {
+        imageContent = _buildFallbackBanner(bannerHeight);
+      }
     } else {
       imageContent = _buildFallbackBanner(bannerHeight);
     }
@@ -348,6 +369,133 @@ class _ReadOnlyDeckScreenState extends ConsumerState<ReadOnlyDeckScreen> {
     );
   }
 
+  static bool _isArtSeriesCard(ExploreDeckItem card) {
+    final nameLower = card.cardName.toLowerCase();
+    if (nameLower.contains('art series') || nameLower.contains('art card')) {
+      return true;
+    }
+    final typeLower = (card.typeLine ?? '').toLowerCase();
+    if (typeLower.contains('art series') || typeLower.contains('art card')) {
+      return true;
+    }
+    final imgUrl = card.imageUrl;
+    if (imgUrl != null && imgUrl.contains('art_series')) {
+      return true;
+    }
+    final artCrop = card.artCropUrl;
+    if (artCrop != null && artCrop.contains('art_series')) {
+      return true;
+    }
+    final dynStr = card.dynamicData;
+    if (dynStr != null && dynStr.isNotEmpty) {
+      try {
+        final dynData = ParsedJsonCache.parse(dynStr);
+        if (dynData.isNotEmpty) {
+          final dynLayout = dynData['layout']?.toString().toLowerCase();
+          if (dynLayout == 'art_series') return true;
+          final dynType = dynData['type_line']?.toString().toLowerCase() ?? '';
+          if (dynType.contains('art series') || dynType.contains('art card')) return true;
+          final dynName = dynData['name']?.toString().toLowerCase() ?? '';
+          if (dynName.contains('art series') || dynName.contains('art card')) return true;
+          final setCode = dynData['set']?.toString().toLowerCase();
+          if (setCode != null &&
+              setCode.length >= 4 &&
+              setCode.startsWith('a') &&
+              RegExp(r'^a[a-z0-9]{3,4}$').hasMatch(setCode)) {
+            return true;
+          }
+          if (dynData['image_uris'] is Map) {
+            final uris = dynData['image_uris'] as Map;
+            for (final u in uris.values) {
+              if (u != null && u.toString().contains('art_series')) return true;
+            }
+          }
+        }
+      } catch (_) {
+        if (dynStr.contains('"layout":"art_series"') ||
+            dynStr.contains('"layout": "art_series"') ||
+            dynStr.contains('art_series')) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  static String _resolveCardThumbnailUrl(ExploreDeckItem card) {
+    final isArtSeries = _isArtSeriesCard(card);
+    final rawUrl = card.imageUrl?.trim() ?? '';
+    String resolvedUrl = isArtSeries ? '' : rawUrl;
+
+    if (!isArtSeries && (resolvedUrl.contains('/back.jpg') || resolvedUrl.contains('/art_crop/'))) {
+      resolvedUrl = '';
+    }
+
+    if (!isArtSeries && resolvedUrl.isEmpty && card.dynamicData != null && card.dynamicData!.isNotEmpty) {
+      try {
+        final dynData = ParsedJsonCache.parse(card.dynamicData!);
+        if (dynData['image_uris'] is Map) {
+          final uris = dynData['image_uris'] as Map;
+          final u = uris['normal'] ?? uris['large'] ?? uris['small'];
+          if (u != null && u.toString().isNotEmpty && !u.toString().contains('/back.jpg')) {
+            resolvedUrl = u.toString();
+          }
+        }
+      } catch (_) {}
+    }
+
+    if (resolvedUrl.isEmpty && card.cardName.isNotEmpty && card.cardName != 'Unknown Card') {
+      String cleanName = card.cardName;
+      cleanName = cleanName.contains('//') ? cleanName.split('//').first.trim() : cleanName.trim();
+      cleanName = cleanName
+          .replaceAll(RegExp(r'\s*\((?:Art Card|Art Series)\)', caseSensitive: false), '')
+          .replaceAll(RegExp(r'\s*-\s*(?:Art Card|Art Series)', caseSensitive: false), '')
+          .trim();
+      resolvedUrl = CountrCachedImage.buildScryfallNamedUrl(cleanName, version: 'normal');
+    }
+
+    return resolvedUrl;
+  }
+
+  Widget _buildCardThumbnail(ExploreDeckItem card) {
+    final isArtSeries = _isArtSeriesCard(card);
+    final resolvedUrl = _resolveCardThumbnailUrl(card);
+    final cacheKey = card.id.isNotEmpty
+        ? (isArtSeries ? 'explore_item_${card.id}_fallback' : 'explore_item_${card.id}')
+        : null;
+
+    return Container(
+      width: 40,
+      height: 56,
+      decoration: const BoxDecoration(
+        color: AppColors.surfaceRaised,
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: (resolvedUrl.isNotEmpty || (card.cardName.isNotEmpty && card.cardName != 'Unknown Card'))
+          ? CountrCachedImage(
+              imageUrl: resolvedUrl,
+              cacheKey: cacheKey,
+              cardName: card.cardName,
+              width: 40,
+              height: 56,
+              fit: BoxFit.cover,
+              fallbackVersion: 'normal',
+              errorWidget: Container(
+                color: AppColors.surfaceRaised,
+                child: const Center(
+                  child: Icon(Icons.style_outlined, size: 16, color: AppColors.textMuted),
+                ),
+              ),
+            )
+          : Container(
+              color: AppColors.surfaceRaised,
+              child: const Center(
+                child: Icon(Icons.style_outlined, size: 16, color: AppColors.textMuted),
+              ),
+            ),
+    );
+  }
+
   Widget _buildCardRow(ExploreDeckItem card) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
@@ -371,6 +519,9 @@ class _ReadOnlyDeckScreenState extends ConsumerState<ReadOnlyDeckScreen> {
             ),
           ),
           const SizedBox(width: 10),
+          // Thumbnail
+          _buildCardThumbnail(card),
+          const SizedBox(width: 10),
           // Card Name
           Expanded(
             child: Text(
@@ -384,14 +535,19 @@ class _ReadOnlyDeckScreenState extends ConsumerState<ReadOnlyDeckScreen> {
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          const SizedBox(width: 8),
-          // Mana Cost
-          if (card.manaCost != null && card.manaCost!.isNotEmpty)
-            ManaCostBar(
-              manaCost: card.manaCost!,
-              symbolSize: 12,
-              spacing: 2,
+          if (card.manaCost != null && card.manaCost!.isNotEmpty) ...[
+            const SizedBox(width: 8),
+            Flexible(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 80.0),
+                child: ManaCostBar(
+                  manaCost: card.manaCost!,
+                  symbolSize: 12,
+                  spacing: 2,
+                ),
+              ),
             ),
+          ],
           // Card Price
           if (card.price != null && card.price! > 0) ...[
             const SizedBox(width: 8),

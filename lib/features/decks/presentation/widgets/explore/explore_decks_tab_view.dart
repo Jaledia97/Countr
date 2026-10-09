@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:countr/core/constants/app_colors.dart';
@@ -8,6 +10,10 @@ import 'package:countr/features/decks/presentation/widgets/explore/explore_searc
 import 'package:countr/features/decks/presentation/widgets/explore/explore_carousel_section.dart';
 import 'package:countr/features/decks/presentation/widgets/explore/explore_deck_card.dart';
 import 'package:countr/features/decks/presentation/widgets/explore/explore_search_results_view.dart';
+import 'package:countr/features/vault/presentation/providers/vault_providers.dart';
+import 'package:countr/features/decks/presentation/providers/deck_providers.dart';
+import 'package:countr/features/decks/data/services/precon_hydration_service.dart';
+import 'package:countr/features/decks/data/services/explore_seeder_service.dart';
 
 /// Tab 1 host widget for "Explore Decks", maintaining independent scroll offsets via
 /// [AutomaticKeepAliveClientMixin] and [PageStorageKey], providing top category pills,
@@ -24,6 +30,19 @@ class _ExploreDecksTabViewState extends ConsumerState<ExploreDecksTabView>
     with AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
+
+  @override
+  void initState() {
+    super.initState();
+    if (!kIsWeb && !Platform.environment.containsKey('FLUTTER_TEST')) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final db = ref.read(appDatabaseProvider);
+        ExploreSeederService.seedIfNeeded(db);
+        PreconHydrationService.seedHistoricalPrecons(db);
+      });
+    }
+  }
 
   Widget _buildTopCategoryPills(ExploreCategory currentCategory) {
     return Container(
@@ -181,6 +200,33 @@ class _ExploreDecksTabViewState extends ConsumerState<ExploreDecksTabView>
                         'No community or precon decks found in this category',
                         style: AppTypography.caption.copyWith(color: AppColors.textMuted),
                         textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton.icon(
+                        key: const Key('load_precons_button'),
+                        onPressed: () async {
+                          final db = ref.read(appDatabaseProvider);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Loading official precons & community decks...'),
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                          await ExploreSeederService.seedIfNeeded(db, force: true);
+                          await PreconHydrationService.seedHistoricalPrecons(db, force: true);
+                          ref.invalidate(exploreDecksStreamProvider);
+                          ref.invalidate(deckSummariesProvider);
+                        },
+                        icon: const Icon(Icons.download_rounded, size: 18),
+                        label: const Text('Load Official Precons & Community Decks'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.accentCyan.withValues(alpha: 0.15),
+                          foregroundColor: AppColors.accentCyan,
+                          side: const BorderSide(color: AppColors.accentCyan),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
                       ),
                     ],
                   ),

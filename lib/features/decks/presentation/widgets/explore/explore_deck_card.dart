@@ -28,24 +28,44 @@ class ExploreDeckCard extends ConsumerWidget {
   });
 
   Widget _buildArtBanner() {
-    final artUrl = deckWithVote.commanderArtCrop ?? deckWithVote.commanderImageUrl;
+    final rawArtUrl = deckWithVote.commanderArtCrop ?? deckWithVote.commanderImageUrl;
     final bannerHeight = isCompact ? 74.0 : 86.0;
 
     Widget imageContent;
-    if (artUrl != null && artUrl.isNotEmpty) {
-      imageContent = CountrCachedImage(
-        imageUrl: artUrl,
-        cacheKey: 'explore_cover_${deckWithVote.id}',
-        cardName: deckWithVote.commanderName ?? deckWithVote.name,
-        tcgDomain: deckWithVote.tcgDomain,
-        fit: BoxFit.cover,
-        placeholder: SkeletonShimmerBox(
-          width: double.infinity,
-          height: bannerHeight,
-          animate: false,
-        ),
-        errorWidget: _buildFallbackBanner(bannerHeight),
-      );
+    if (rawArtUrl != null) {
+      final isArtSeries = rawArtUrl.contains('art_series');
+      final isEmptyUrl = rawArtUrl.isEmpty;
+      String resolvedArtUrl = rawArtUrl;
+      String cacheKey = 'explore_cover_${deckWithVote.id}';
+
+      if (isArtSeries || isEmptyUrl) {
+        final commander = deckWithVote.commanderName ?? deckWithVote.name;
+        if (commander.isNotEmpty && commander != 'Unknown Card') {
+          final clean = commander.contains('//') ? commander.split('//').first.trim() : commander.trim();
+          resolvedArtUrl = CountrCachedImage.buildScryfallNamedUrl(clean, version: 'art_crop');
+          cacheKey = 'explore_cover_${deckWithVote.id}_fallback';
+        } else {
+          resolvedArtUrl = '';
+        }
+      }
+
+      if (resolvedArtUrl.isNotEmpty) {
+        imageContent = CountrCachedImage(
+          imageUrl: resolvedArtUrl,
+          cacheKey: cacheKey,
+          cardName: deckWithVote.commanderName ?? deckWithVote.name,
+          tcgDomain: deckWithVote.tcgDomain,
+          fit: BoxFit.cover,
+          placeholder: SkeletonShimmerBox(
+            width: double.infinity,
+            height: bannerHeight,
+            animate: false,
+          ),
+          errorWidget: _buildFallbackBanner(bannerHeight),
+        );
+      } else {
+        imageContent = _buildFallbackBanner(bannerHeight);
+      }
     } else {
       imageContent = _buildFallbackBanner(bannerHeight);
     }

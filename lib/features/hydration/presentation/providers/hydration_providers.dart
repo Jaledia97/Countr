@@ -7,6 +7,8 @@ import 'package:countr/features/hydration/domain/isolate/scryfall_parser.dart';
 import 'package:countr/features/hydration/presentation/controllers/hydration_controller.dart';
 import 'package:countr/features/hydration/presentation/controllers/hydration_state.dart';
 import 'package:countr/features/vault/presentation/providers/vault_providers.dart';
+import 'package:countr/features/decks/data/services/precon_hydration_service.dart';
+import 'package:countr/features/decks/data/services/explore_seeder_service.dart';
 
 /// Provider for the Scryfall API and download streaming service.
 final scryfallServiceProvider = Provider<ScryfallService>((ref) {
@@ -71,19 +73,32 @@ class MtgAutoHydrationCoordinator {
       final bool cacheHealthy =
           await CountrImageCacheManager.instance.isImageCacheHealthy();
 
-      if (needsCatalogHydration || !cacheHealthy || force) {
+      // Check if preconstructed decks or explore feed require seeding
+      final db = dao.attachedDatabase;
+      final bool preconsSeeded =
+          await PreconHydrationService.isHistoricalPreconSeeded(db);
+      final int exploreCount = await db.exploreDeckDao.getExploreDeckCount();
+      final bool needsPreconHydration = !preconsSeeded || exploreCount == 0;
+
+      if (needsCatalogHydration || !cacheHealthy || needsPreconHydration || force) {
         debugPrint(
-          '[MtgAutoHydration] Health check: catalogCount=$catalogCount, cacheHealthy=$cacheHealthy. '
-          'Auto-triggering Scryfall hydration & pre-caching.',
+          '[MtgAutoHydration] Health check: catalogCount=$catalogCount, cacheHealthy=$cacheHealthy, '
+          'preconsSeeded=$preconsSeeded, exploreCount=$exploreCount. Auto-triggering hydration & seeding.',
         );
 
-        // 1. Trigger background bulk hydration
+        // 1. Trigger background bulk hydration if catalog is unpopulated
         if (needsCatalogHydration || force) {
           _ref.read(hydrationControllerProvider.notifier).startHydration();
         }
 
         // 2. Pre-cache essential deck cover images
         _precacheEssentialArt();
+
+        // 3. Seed precons and explore feed if missing
+        if (needsPreconHydration || force) {
+          await PreconHydrationService.seedHistoricalPrecons(db, force: force);
+          await ExploreSeederService.seedIfNeeded(db, force: force);
+        }
       }
     } catch (e, stackTrace) {
       debugPrint('[MtgAutoHydration] Health check failed: $e\n$stackTrace');
