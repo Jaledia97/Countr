@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:countr/core/constants/app_colors.dart';
@@ -7,7 +10,6 @@ import 'package:countr/core/state/app_state.dart';
 import 'package:countr/features/hydration/presentation/controllers/hydration_state.dart';
 import 'package:countr/features/hydration/presentation/providers/hydration_providers.dart';
 import 'package:countr/features/hydration/presentation/widgets/hydration_progress_card.dart';
-import 'dart:async';
 import 'package:countr/features/vault/presentation/providers/vault_providers.dart';
 import 'package:countr/features/vault/presentation/screens/binder_detail_screen.dart';
 import 'package:countr/features/vault/presentation/widgets/card_detail_sheet.dart';
@@ -36,26 +38,40 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
   final ScrollController _scrollController = ScrollController();
   Timer? _debounceTimer;
   Timer? _loadingTimeoutTimer;
+  Timer? _fetchingMoreTimeoutTimer;
+  List<VaultItem> _retainedItems = const [];
+  String? _retainedGameContext;
   bool _isLoadingTimedOut = false;
   int _selectedFilterIndex = 0;
   bool _isSearchExpanded = false;
+  Map<String, int> _idToIndexMap = const {};
+  Map<String, String> _abstractKeyById = const {};
   List<VaultItem>? _lastFilteredItems;
   Set<String> _cachedMultiVariantKeys = const {};
+  final Set<String> _selectedCardIds = <String>{};
+
+  bool get _isSelectionMode => _selectedCardIds.isNotEmpty;
+
+  void _toggleCardSelection(String id) {
+    setState(() {
+      if (_selectedCardIds.contains(id)) {
+        _selectedCardIds.remove(id);
+      } else {
+        _selectedCardIds.add(id);
+      }
+    });
+  }
+
+  void _clearSelection() {
+    if (_selectedCardIds.isNotEmpty) {
+      setState(() {
+        _selectedCardIds.clear();
+      });
+    }
+  }
 
   Set<String> _getMultiVariantKeys(List<VaultItem> items) {
-    if (identical(_lastFilteredItems, items)) {
-      return _cachedMultiVariantKeys;
-    }
-    _lastFilteredItems = items;
-    final cardKeyCounts = <String, int>{};
-    for (final item in items) {
-      final key = VaultVariantHelper.resolveAbstractCardKey(item);
-      cardKeyCounts[key] = (cardKeyCounts[key] ?? 0) + 1;
-    }
-    _cachedMultiVariantKeys = {
-      for (final entry in cardKeyCounts.entries)
-        if (entry.value > 1) entry.key,
-    };
+    _prepareFilteredCaches(items);
     return _cachedMultiVariantKeys;
   }
 
@@ -94,25 +110,53 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
     }
   }
 
+  void _startFetchingMoreTimeoutTimer() {
+    _fetchingMoreTimeoutTimer?.cancel();
+    _fetchingMoreTimeoutTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted && ref.read(vaultIsFetchingMoreProvider)) {
+        ref.read(vaultIsFetchingMoreProvider.notifier).state = false;
+      }
+    });
+  }
+
+  void _resetFetchingMoreTimeoutTimer() {
+    _fetchingMoreTimeoutTimer?.cancel();
+    _fetchingMoreTimeoutTimer = null;
+  }
+
+  void _checkScrollExtent() {
+    if (!mounted || !_scrollController.hasClients) return;
+    final maxScroll = _scrollController.position.maxScrollExtent;
+    final currentScroll = _scrollController.position.pixels;
+    final isFetchingMore = ref.read(vaultIsFetchingMoreProvider);
+    final currentLimit = ref.read(vaultPaginationLimitProvider);
+    final currentItems = ref.read(vaultItemsStreamProvider).valueOrNull ?? [];
+    final hasMore = currentItems.length >= currentLimit && currentItems.isNotEmpty;
+
+    if (!isFetchingMore && hasMore) {
+      if (maxScroll <= 0 || currentScroll >= maxScroll - 600) {
+        ref.read(vaultIsFetchingMoreProvider.notifier).state = true;
+        _startFetchingMoreTimeoutTimer();
+        ref.read(vaultPaginationLimitProvider.notifier).update((l) => l + _getPaginationStep());
+      }
+    }
+  }
+
   void _onScroll() {
     if (!_scrollController.hasClients) return;
     final maxScroll = _scrollController.position.maxScrollExtent;
     final currentScroll = _scrollController.position.pixels;
     final isFetchingMore = ref.read(vaultIsFetchingMoreProvider);
 
-    if (maxScroll > 0 && currentScroll >= maxScroll - 300 && !isFetchingMore) {
+    if (maxScroll > 0 && currentScroll >= maxScroll - 600 && !isFetchingMore) {
       final currentLimit = ref.read(vaultPaginationLimitProvider);
       final currentItems = ref.read(vaultItemsStreamProvider).valueOrNull ?? [];
-      final mtgFilter = ref.read(mtgFilterProvider);
-      final searchQuery = ref.read(vaultSearchQueryProvider);
-      final isFiltered = mtgFilter.isActive || searchQuery.trim().isNotEmpty;
-      final shouldFetchMore = isFiltered
-          ? currentItems.isNotEmpty
-          : currentItems.length >= (currentLimit * 0.7).floor();
+      final hasMore = currentItems.length >= currentLimit;
 
-      if (shouldFetchMore) {
+      if (hasMore && currentItems.isNotEmpty) {
         ref.read(vaultIsFetchingMoreProvider.notifier).state = true;
-        ref.read(vaultPaginationLimitProvider.notifier).update((l) => l + 50);
+        _startFetchingMoreTimeoutTimer();
+        ref.read(vaultPaginationLimitProvider.notifier).update((l) => l + _getPaginationStep());
       }
     }
   }
@@ -182,6 +226,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
   void dispose() {
     _debounceTimer?.cancel();
     _loadingTimeoutTimer?.cancel();
+    _fetchingMoreTimeoutTimer?.cancel();
     _scrollController.dispose();
     _searchController.dispose();
     super.dispose();
@@ -277,16 +322,81 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
     ref.listen<AsyncValue<List<VaultItem>>>(
       vaultItemsStreamProvider,
       (previous, next) {
-        if (!next.isLoading) {
+        if (next.hasValue || next.hasError || !next.isLoading) {
           ref.read(vaultIsFetchingMoreProvider.notifier).state = false;
+          _resetFetchingMoreTimeoutTimer();
         }
         if (next.hasValue || next.hasError) {
           _resetLoadingTimeoutTimer();
         } else if (next.isLoading && !next.hasValue && _loadingTimeoutTimer == null && !_isLoadingTimedOut) {
           _startLoadingTimeoutTimer();
         }
+        if (next.hasValue && !next.isLoading) {
+          WidgetsBinding.instance.addPostFrameCallback((_) => _checkScrollExtent());
+        }
       },
     );
+
+    ref.listen<MtgFilterState>(mtgFilterProvider, (prev, next) {
+      if (prev != next) {
+        ref.read(vaultIsFetchingMoreProvider.notifier).state = false;
+        ref.read(vaultPaginationLimitProvider.notifier).state = _initialPaginationLimit;
+        _resetFetchingMoreTimeoutTimer();
+        _clearSelection();
+        if (_scrollController.hasClients && _scrollController.offset > 0) {
+          _scrollController.jumpTo(0);
+        }
+      }
+    });
+    ref.listen<String>(vaultSearchQueryProvider, (prev, next) {
+      if (prev != next) {
+        ref.read(vaultIsFetchingMoreProvider.notifier).state = false;
+        ref.read(vaultPaginationLimitProvider.notifier).state = _initialPaginationLimit;
+        _resetFetchingMoreTimeoutTimer();
+        if (_scrollController.hasClients && _scrollController.offset > 0) {
+          _scrollController.jumpTo(0);
+        }
+      }
+    });
+    ref.listen<bool>(vaultShowCatalogProvider, (prev, next) {
+      if (prev != next) {
+        ref.read(vaultIsFetchingMoreProvider.notifier).state = false;
+        ref.read(vaultPaginationLimitProvider.notifier).state = _initialPaginationLimit;
+        _resetFetchingMoreTimeoutTimer();
+        _clearSelection();
+        if (_scrollController.hasClients && _scrollController.offset > 0) {
+          _scrollController.jumpTo(0);
+        }
+      }
+    });
+    ref.listen<String>(activeGameContextProvider, (prev, next) {
+      if (prev != next) {
+        _retainedItems = const [];
+        _retainedGameContext = next;
+        ref.read(vaultIsFetchingMoreProvider.notifier).state = false;
+        ref.read(vaultPaginationLimitProvider.notifier).state = _initialPaginationLimit;
+        ref.read(vaultPolymorphicFilterProvider.notifier).state = 'Owned';
+        _resetFetchingMoreTimeoutTimer();
+        _clearSelection();
+        if (_scrollController.hasClients && _scrollController.offset > 0) {
+          _scrollController.jumpTo(0);
+        }
+      }
+    });
+    ref.listen<String>(vaultPolymorphicFilterProvider, (prev, next) {
+      if (prev != next) {
+        ref.read(vaultIsFetchingMoreProvider.notifier).state = false;
+        ref.read(vaultPaginationLimitProvider.notifier).state = _initialPaginationLimit;
+        _resetFetchingMoreTimeoutTimer();
+        _clearSelection();
+        if (_scrollController.hasClients && _scrollController.offset > 0) {
+          _scrollController.jumpTo(0);
+        }
+      }
+    });
+    ref.listen<VaultViewMode>(vaultViewModeProvider, (prev, next) {
+      if (prev != next) _clearSelection();
+    });
 
     final activeGame = ref.watch(activeGameContextProvider);
     final asyncItems = ref.watch(vaultItemsStreamProvider);
@@ -302,7 +412,8 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
     final isCatalog = showCatalog || _selectedFilterIndex == 1;
     final isMtg = activeGame.toLowerCase().contains('magic') ||
         activeGame.toLowerCase() == 'mtg';
-    final mtgFilterActive = isMtg && ref.watch(isMtgFilterActiveProvider);
+    final mtgFilter = isMtg ? ref.watch(mtgFilterProvider) : null;
+    final mtgFilterActive = isMtg && (mtgFilter?.isActive ?? false);
     final polymorphicFilterActive = !isMtg && _selectedFilterIndex >= 2;
     final searchActive = _searchController.text.trim().isNotEmpty ||
         ref.watch(vaultSearchQueryProvider).trim().isNotEmpty;
@@ -311,8 +422,23 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
 
     // Filter candidate items synchronously for both header stats and content slivers
     List<VaultItem> filteredItems = const [];
-    if (asyncItems.hasValue) {
-      final items = asyncItems.value!;
+    _retainedGameContext ??= activeGame;
+    if (activeGame == _retainedGameContext) {
+      if (!asyncItems.isLoading && asyncItems.hasValue && asyncItems.value!.isNotEmpty) {
+        _retainedItems = asyncItems.value!;
+      }
+    } else {
+      if (!asyncItems.isLoading && asyncItems.hasValue) {
+        _retainedItems = asyncItems.value!;
+        _retainedGameContext = activeGame;
+      }
+    }
+    // If asyncItems.isLoading and activeGame != _retainedGameContext, do not reuse old game items
+    final sourceItems = (activeGame == _retainedGameContext && (!asyncItems.isLoading || _retainedItems.isNotEmpty))
+        ? (asyncItems.isLoading ? _retainedItems : (asyncItems.valueOrNull ?? _retainedItems))
+        : const <VaultItem>[];
+    if (sourceItems.isNotEmpty) {
+      final items = sourceItems;
       final query = _searchController.text.toLowerCase().trim();
       var filtered = query.isEmpty
           ? items
@@ -324,7 +450,9 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
                   item.dynamicData.toLowerCase().contains(query);
             }).toList();
 
-      if (!isMtg) {
+      if (isMtg && mtgFilter != null && mtgFilter.isActive) {
+        filtered = filtered.where((item) => mtgFilter.matches(item)).toList();
+      } else if (!isMtg) {
         if (_selectedFilterIndex == 2) {
           filtered = filtered.where((i) => i.isGraded).toList();
         } else if (_selectedFilterIndex == 3) {
@@ -496,9 +624,18 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
               foregroundColor: AppColors.textDark,
             )
           : null,
-      body: CustomScrollView(
-        key: const PageStorageKey<String>('vault_custom_scroll_view'),
-        controller: _scrollController,
+      body: PopScope(
+        canPop: !_isSelectionMode,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop && _isSelectionMode) {
+            _clearSelection();
+          }
+        },
+        child: Stack(
+          children: [
+            CustomScrollView(
+              key: const PageStorageKey<String>('vault_custom_scroll_view'),
+              controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         cacheExtent: 500,
         slivers: [
@@ -571,7 +708,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
           else if (viewMode == VaultViewMode.collections)
             _buildCollectionsViewSliver(context, activeGame)
           else
-            _buildVaultCardsSliver(asyncItems, activeGame, filteredCards: filteredItems),
+            _buildVaultCardsSliver(asyncItems, activeGame, filteredCards: filteredItems, sourceItems: sourceItems),
 
           // Bottom subtle loading spinner when fetching more items
           if (isFetchingMore || (asyncItems.isLoading && asyncItems.hasValue))
@@ -627,6 +764,273 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
           ),
         ],
       ),
+      if (_isSelectionMode)
+        Positioned(
+          left: 16,
+          right: 16,
+          bottom: 16 + MediaQuery.of(context).padding.bottom,
+          child: _buildMultiSelectBottomBar(filteredItems),
+        ),
+    ],
+  ),
+),
+    );
+  }
+
+  Widget _buildMultiSelectBottomBar(List<VaultItem> filteredItems) {
+    final count = _selectedCardIds.length;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceRaised,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.accentCyan.withValues(alpha: 0.5)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.5),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          IconButton(
+            key: const Key('vault_selection_cancel_button'),
+            icon: const Icon(Icons.close_rounded, color: AppColors.textSecondary),
+            onPressed: _clearSelection,
+            tooltip: 'Cancel Selection',
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              '$count selected',
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+              ),
+            ),
+          ),
+          ElevatedButton.icon(
+            key: const Key('vault_selection_move_binder_button'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.accentCyan,
+              foregroundColor: AppColors.textDark,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            ),
+            icon: const Icon(Icons.drive_file_move_outlined, size: 18),
+            label: Text(
+              'Move to Binder ($count)',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+            ),
+            onPressed: () => _showMultiSelectBinderModal(context, filteredItems),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showMultiSelectBinderModal(
+    BuildContext context,
+    List<VaultItem> filteredItems,
+  ) async {
+    if (_selectedCardIds.isEmpty) return;
+    final dao = ref.read(vaultDaoProvider);
+    final activeGame = ref.read(activeGameContextProvider);
+    final selectedIds = _selectedCardIds.toList();
+    final count = selectedIds.length;
+    final rootContext = context;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        side: BorderSide(color: AppColors.surfaceBorder, width: 1),
+      ),
+      builder: (bottomSheetContext) {
+        var isAssigning = false;
+
+        return StatefulBuilder(
+          builder: (modalCtx, setModalState) {
+            return StreamBuilder<List<VaultBinder>>(
+              stream: dao.watchBindersByCollection(activeGame),
+              builder: (streamCtx, snapshot) {
+                final binders = snapshot.data ?? [];
+
+                return SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Center(
+                          child: Container(
+                            width: 36,
+                            height: 4,
+                            margin: const EdgeInsets.only(bottom: 16),
+                            decoration: BoxDecoration(
+                              color: AppColors.surfaceBorder,
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                        ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Move to Binder ($count)',
+                              style: AppTypography.heading2.copyWith(color: Colors.white),
+                            ),
+                            TextButton.icon(
+                              onPressed: isAssigning
+                                  ? null
+                                  : () async {
+                                      if (isAssigning) return;
+                                      setModalState(() {
+                                        isAssigning = true;
+                                      });
+                                      if (bottomSheetContext.mounted &&
+                                          ModalRoute.of(bottomSheetContext)?.isCurrent == true) {
+                                        Navigator.of(bottomSheetContext).pop();
+                                      }
+                                      await _showCreateBinderDialog(rootContext, activeGame);
+                                    },
+                              icon: const Icon(Icons.add, size: 16, color: AppColors.accentCyan),
+                              label: const Text(
+                                'New Binder',
+                                style: TextStyle(color: AppColors.accentCyan, fontSize: 13),
+                              ),
+                            ),
+                          ],
+                        ),
+                        Text(
+                          'Destination (${activeGame.toUpperCase()})',
+                          style: AppTypography.caption.copyWith(color: AppColors.textSecondary),
+                        ),
+                        const SizedBox(height: 12),
+                        if (binders.isEmpty)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 24),
+                            child: Center(
+                              child: Column(
+                                children: [
+                                  const Icon(Icons.folder_open_rounded,
+                                      color: AppColors.textMuted, size: 40),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'No ${activeGame.toUpperCase()} binders found',
+                                    style: const TextStyle(color: AppColors.textSecondary),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  ElevatedButton(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppColors.accentCyan,
+                                      foregroundColor: AppColors.textDark,
+                                    ),
+                                    onPressed: isAssigning
+                                        ? null
+                                        : () async {
+                                            if (isAssigning) return;
+                                            setModalState(() {
+                                              isAssigning = true;
+                                            });
+                                            if (bottomSheetContext.mounted &&
+                                                ModalRoute.of(bottomSheetContext)?.isCurrent == true) {
+                                              Navigator.of(bottomSheetContext).pop();
+                                            }
+                                            await _showCreateBinderDialog(rootContext, activeGame);
+                                          },
+                                    child: const Text('+ Create First Binder'),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                        else
+                          Flexible(
+                            child: ListView.separated(
+                              shrinkWrap: true,
+                              itemCount: binders.length,
+                              separatorBuilder: (ctx, idx) =>
+                                  const Divider(color: AppColors.surfaceBorder, height: 1),
+                              itemBuilder: (itemCtx, index) {
+                                final binder = binders[index];
+                                return ListTile(
+                                  key: Key('vault_binder_option_${binder.id}'),
+                                  leading: const Icon(Icons.folder_rounded,
+                                      color: AppColors.accentCyan),
+                                  title: Text(
+                                    binder.name,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  subtitle: Text(
+                                    'Created ${binder.createdAt.month}/${binder.createdAt.day}/${binder.createdAt.year}',
+                                    style: const TextStyle(
+                                      color: AppColors.textMuted,
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                  trailing: const Icon(Icons.chevron_right,
+                                      color: AppColors.textSecondary),
+                                  enabled: !isAssigning,
+                                  onTap: isAssigning
+                                      ? null
+                                      : () async {
+                                          if (isAssigning) return;
+                                          setModalState(() {
+                                            isAssigning = true;
+                                          });
+                                          try {
+                                            await dao.assignItemsToBinder(
+                                              selectedIds,
+                                              binder.id,
+                                            );
+                                            if (bottomSheetContext.mounted &&
+                                                ModalRoute.of(bottomSheetContext)?.isCurrent == true) {
+                                              Navigator.of(bottomSheetContext).pop();
+                                            }
+                                            if (mounted) {
+                                              _clearSelection();
+                                            }
+                                            if (rootContext.mounted) {
+                                              ScaffoldMessenger.of(rootContext).showSnackBar(
+                                                SnackBar(
+                                                  content: Text('Assigned $count ${count == 1 ? "card" : "cards"} to "${binder.name}"'),
+                                                  backgroundColor: AppColors.accentEmerald,
+                                                  behavior: SnackBarBehavior.floating,
+                                                ),
+                                              );
+                                            }
+                                          } catch (e) {
+                                            if (bottomSheetContext.mounted) {
+                                              setModalState(() {
+                                                isAssigning = false;
+                                              });
+                                            }
+                                          }
+                                        },
+                                );
+                              },
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            );
+          },
+        );
+      },
     );
   }
 
@@ -712,7 +1116,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
                             Timer(const Duration(milliseconds: 250), () {
                           ref.read(vaultSearchQueryProvider.notifier).state =
                               val.trim();
-                          ref.read(vaultPaginationLimitProvider.notifier).state = 50;
+                          ref.read(vaultPaginationLimitProvider.notifier).state = _initialPaginationLimit;
                         });
                       },
                     ),
@@ -733,14 +1137,14 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
                           _searchController.clear();
                         });
                         ref.read(vaultSearchQueryProvider.notifier).state = '';
-                        ref.read(vaultPaginationLimitProvider.notifier).state = 50;
+                        ref.read(vaultPaginationLimitProvider.notifier).state = _initialPaginationLimit;
                       } else {
                         setState(() {
                           _searchController.clear();
                           _isSearchExpanded = false;
                         });
                         ref.read(vaultSearchQueryProvider.notifier).state = '';
-                        ref.read(vaultPaginationLimitProvider.notifier).state = 50;
+                        ref.read(vaultPaginationLimitProvider.notifier).state = _initialPaginationLimit;
                         FocusScope.of(context).unfocus();
                       }
                     },
@@ -1019,11 +1423,13 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
               onSelected: (selected) {
                 setState(() {
                   _selectedFilterIndex = index;
+                  _clearSelection();
                   if (index == 1) {
                     ref.read(vaultShowCatalogProvider.notifier).state = true;
                   } else {
                     ref.read(vaultShowCatalogProvider.notifier).state = false;
                   }
+                  ref.read(vaultPolymorphicFilterProvider.notifier).state = filterName;
                 });
               },
               labelStyle: TextStyle(
@@ -1065,6 +1471,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
               onSelected: (_) {
                 setState(() {
                   _selectedFilterIndex = 0;
+                  _clearSelection();
                   ref.read(vaultShowCatalogProvider.notifier).state = false;
                 });
               },
@@ -1091,6 +1498,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
               onSelected: (_) {
                 setState(() {
                   _selectedFilterIndex = 1;
+                  _clearSelection();
                   ref.read(vaultShowCatalogProvider.notifier).state = true;
                 });
                 ref
@@ -1543,9 +1951,12 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
 
   Widget _buildVaultCardsSliver(
       AsyncValue<List<VaultItem>> asyncItems, String activeGame,
-      {List<VaultItem>? filteredCards}) {
-    if (asyncItems.hasValue) {
-      final items = asyncItems.value!;
+      {List<VaultItem>? filteredCards, List<VaultItem>? sourceItems}) {
+    final hasDisplayableCards = filteredCards != null
+        ? ((sourceItems != null && sourceItems.isNotEmpty) || !asyncItems.isLoading || asyncItems.hasValue)
+        : asyncItems.hasValue;
+    if (hasDisplayableCards) {
+      final items = asyncItems.valueOrNull ?? filteredCards ?? const [];
       final List<VaultItem> filtered;
       if (filteredCards != null) {
         filtered = filteredCards;
@@ -1680,18 +2091,30 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
             delegate: SliverChildBuilderDelegate(
               (context, index) {
                 final item = filtered[index];
-                final abstractKey = VaultVariantHelper.resolveAbstractCardKey(item);
-                final hasMultipleVariants = multiVariantKeys.contains(abstractKey);
+                final abstractKey = _abstractKeyById[item.id];
+                final hasMultipleVariants = abstractKey != null && multiVariantKeys.contains(abstractKey);
 
                 return RepaintBoundary(
+                  key: ValueKey(item.id),
                   child: VaultItemTile(
                     item: item,
                     hasMultipleVariants: hasMultipleVariants,
-                    onTap: () => _openCardDetail(filtered, index),
+                    isSelected: _selectedCardIds.contains(item.id),
+                    isSelectionMode: _isSelectionMode,
+                    onLongPress: () => _toggleCardSelection(item.id),
+                    onTap: _isSelectionMode
+                        ? () => _toggleCardSelection(item.id)
+                        : () => _openCardDetail(filtered, index),
                   ),
                 );
               },
               childCount: filtered.length,
+              findChildIndexCallback: (Key key) {
+                if (key is ValueKey<String>) {
+                  return _idToIndexMap[key.value];
+                }
+                return null;
+              },
             ),
           ),
         );
@@ -1702,17 +2125,29 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
         sliver: SliverList.builder(
           key: const PageStorageKey<String>('vault_cards_sliver_list'),
           itemCount: filtered.length,
+          findChildIndexCallback: (Key key) {
+            if (key is ValueKey<String>) {
+              return _idToIndexMap[key.value];
+            }
+            return null;
+          },
           itemBuilder: (context, index) {
             final item = filtered[index];
-            final abstractKey = VaultVariantHelper.resolveAbstractCardKey(item);
-            final hasMultipleVariants = multiVariantKeys.contains(abstractKey);
+            final abstractKey = _abstractKeyById[item.id];
+            final hasMultipleVariants = abstractKey != null && multiVariantKeys.contains(abstractKey);
 
             return RepaintBoundary(
+              key: ValueKey(item.id),
               child: VaultItemCard(
                 item: item,
                 initiallyExpanded: false,
                 hasMultipleVariants: hasMultipleVariants,
-                onTap: () => _openCardDetail(filtered, index),
+                isSelected: _selectedCardIds.contains(item.id),
+                isSelectionMode: _isSelectionMode,
+                onLongPress: () => _toggleCardSelection(item.id),
+                onTap: _isSelectionMode
+                    ? () => _toggleCardSelection(item.id)
+                    : () => _openCardDetail(filtered, index),
               ),
             );
           },
@@ -1960,19 +2395,23 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
   Future<void> _showQuickFilterModal({
     required BuildContext context,
     required String title,
-    required Widget Function(BuildContext ctx, StateSetter setModalState) contentBuilder,
-    required VoidCallback onClear,
+    required Widget Function(BuildContext ctx, WidgetRef ref, MtgFilterState mtgFilter) contentBuilder,
+    required void Function(WidgetRef ref) onClear,
   }) {
     return showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (ctx, setModalState) {
+      builder: (bottomSheetContext) {
+        // Consumer modal pattern for reactive filter state updates
+        // without rebuilding the outer modal bottom sheet structure.
+        return Consumer(
+          builder: (modalCtx, ref, _) {
+            final mtgFilter = ref.watch(mtgFilterProvider);
+
             return Container(
               padding: EdgeInsets.only(
-                bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+                bottom: MediaQuery.of(modalCtx).viewInsets.bottom + 20,
                 left: 16,
                 right: 16,
                 top: 12,
@@ -2015,10 +2454,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
                       Row(
                         children: [
                           TextButton(
-                            onPressed: () {
-                              onClear();
-                              setModalState(() {});
-                            },
+                            onPressed: () => onClear(ref),
                             child: const Text(
                               'Clear',
                               style: TextStyle(
@@ -2029,7 +2465,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
                             ),
                           ),
                           TextButton(
-                            onPressed: () => Navigator.of(ctx).pop(),
+                            onPressed: () => Navigator.of(modalCtx).pop(),
                             child: const Text(
                               'Done',
                               style: TextStyle(
@@ -2045,7 +2481,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
                   ),
                   const Divider(color: AppColors.surfaceBorder),
                   const SizedBox(height: 8),
-                  contentBuilder(ctx, setModalState),
+                  contentBuilder(modalCtx, ref, mtgFilter),
                   const SizedBox(height: 12),
                 ],
               ),
@@ -2060,11 +2496,10 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
     _showQuickFilterModal(
       context: context,
       title: 'Colors & Identity',
-      onClear: () {
+      onClear: (ref) {
         ref.read(mtgFilterProvider.notifier).update((s) => s.copyWith(colors: const {}));
       },
-      contentBuilder: (ctx, setModalState) {
-        final mtgFilter = ref.watch(mtgFilterProvider);
+      contentBuilder: (ctx, ref, mtgFilter) {
         const manaColors = [
           {'symbol': 'W', 'name': 'White', 'bg': Color(0xFFFFFDE7)},
           {'symbol': 'U', 'name': 'Blue', 'bg': Color(0xFF0E68AB)},
@@ -2089,7 +2524,6 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
                     borderRadius: BorderRadius.circular(24),
                     onTap: () {
                       ref.read(mtgFilterProvider.notifier).toggleColor(symbol);
-                      setModalState(() {});
                     },
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 180),
@@ -2151,7 +2585,6 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
               selected: {mtgFilter.colorMatchMode},
               onSelectionChanged: (sel) {
                 ref.read(mtgFilterProvider.notifier).setColorMatchMode(sel.first);
-                setModalState(() {});
               },
             ),
           ],
@@ -2164,11 +2597,10 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
     _showQuickFilterModal(
       context: context,
       title: 'Mana Value (CMC)',
-      onClear: () {
+      onClear: (ref) {
         ref.read(mtgFilterProvider.notifier).setCmcRange(const RangeValues(0, 16));
       },
-      contentBuilder: (ctx, setModalState) {
-        final mtgFilter = ref.watch(mtgFilterProvider);
+      contentBuilder: (ctx, ref, mtgFilter) {
         final cmc = mtgFilter.cmcRange;
 
         return Column(
@@ -2202,7 +2634,6 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
               ),
               onChanged: (val) {
                 ref.read(mtgFilterProvider.notifier).setCmcRange(val);
-                setModalState(() {});
               },
             ),
             const SizedBox(height: 8),
@@ -2219,7 +2650,6 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
                       ref.read(mtgFilterProvider.notifier).setCmcRange(
                         sel ? RangeValues(i.toDouble(), i.toDouble()) : const RangeValues(0, 16),
                       );
-                      setModalState(() {});
                     },
                     selectedColor: AppColors.accentCyan.withValues(alpha: 0.2),
                     labelStyle: TextStyle(
@@ -2236,7 +2666,6 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
                     ref.read(mtgFilterProvider.notifier).setCmcRange(
                       sel ? const RangeValues(7, 16) : const RangeValues(0, 16),
                     );
-                    setModalState(() {});
                   },
                   selectedColor: AppColors.accentCyan.withValues(alpha: 0.2),
                   labelStyle: TextStyle(
@@ -2259,11 +2688,10 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
     _showQuickFilterModal(
       context: context,
       title: 'Card Types',
-      onClear: () {
+      onClear: (ref) {
         ref.read(mtgFilterProvider.notifier).setTypeLine('');
       },
-      contentBuilder: (ctx, setModalState) {
-        final mtgFilter = ref.watch(mtgFilterProvider);
+      contentBuilder: (ctx, ref, mtgFilter) {
         const types = [
           'Creature',
           'Instant',
@@ -2288,7 +2716,6 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
                   selected: isSelected,
                   onSelected: (sel) {
                     ref.read(mtgFilterProvider.notifier).setTypeLine(sel ? t : '');
-                    setModalState(() {});
                   },
                   backgroundColor: AppColors.surface,
                   selectedColor: AppColors.accentCyan.withValues(alpha: 0.15),
@@ -2313,11 +2740,10 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
     _showQuickFilterModal(
       context: context,
       title: 'Format Legality',
-      onClear: () {
+      onClear: (ref) {
         ref.read(mtgFilterProvider.notifier).setFormats(const {});
       },
-      contentBuilder: (ctx, setModalState) {
-        final mtgFilter = ref.watch(mtgFilterProvider);
+      contentBuilder: (ctx, ref, mtgFilter) {
         const formats = [
           'Commander',
           'Modern',
@@ -2343,7 +2769,6 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
               selected: isSelected,
               onSelected: (_) {
                 ref.read(mtgFilterProvider.notifier).toggleFormat(fmt.toLowerCase());
-                setModalState(() {});
               },
               backgroundColor: AppColors.surface,
               selectedColor: AppColors.accentCyan.withValues(alpha: 0.15),
@@ -2366,11 +2791,10 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
     _showQuickFilterModal(
       context: context,
       title: 'Card Rarity',
-      onClear: () {
+      onClear: (ref) {
         ref.read(mtgFilterProvider.notifier).update((s) => s.copyWith(rarities: const {}));
       },
-      contentBuilder: (ctx, setModalState) {
-        final mtgFilter = ref.watch(mtgFilterProvider);
+      contentBuilder: (ctx, ref, mtgFilter) {
         const rarities = [
           'Common',
           'Uncommon',
@@ -2395,7 +2819,6 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
               selected: isSelected,
               onSelected: (_) {
                 ref.read(mtgFilterProvider.notifier).toggleRarity(key);
-                setModalState(() {});
               },
               backgroundColor: AppColors.surface,
               selectedColor: AppColors.accentCyan.withValues(alpha: 0.15),
@@ -2418,11 +2841,10 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
     _showQuickFilterModal(
       context: context,
       title: 'Filter by Set',
-      onClear: () {
+      onClear: (ref) {
         ref.read(mtgFilterProvider.notifier).setSetCode('');
       },
-      contentBuilder: (ctx, setModalState) {
-        final mtgFilter = ref.watch(mtgFilterProvider);
+      contentBuilder: (ctx, ref, mtgFilter) {
         const popularSets = [
           'MH3', 'OTJ', 'BLB', 'DSK', 'FDN', 'SLD',
           'MKM', 'LCI', 'WOE', 'MH2', 'MH1',
@@ -2443,7 +2865,6 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
                   selected: isSelected,
                   onSelected: (sel) {
                     ref.read(mtgFilterProvider.notifier).setSetCode(sel ? s : '');
-                    setModalState(() {});
                   },
                   backgroundColor: AppColors.surface,
                   selectedColor: AppColors.accentCyan.withValues(alpha: 0.15),
@@ -2468,11 +2889,10 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
     _showQuickFilterModal(
       context: context,
       title: 'Treatments & Finishes',
-      onClear: () {
+      onClear: (ref) {
         ref.read(mtgFilterProvider.notifier).update((s) => s.copyWith(finishes: const {}));
       },
-      contentBuilder: (ctx, setModalState) {
-        final mtgFilter = ref.watch(mtgFilterProvider);
+      contentBuilder: (ctx, ref, mtgFilter) {
         const finishes = [
           'Nonfoil',
           'Foil',
@@ -2498,7 +2918,6 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
               selected: isSelected,
               onSelected: (_) {
                 ref.read(mtgFilterProvider.notifier).toggleFinish(key);
-                setModalState(() {});
               },
               backgroundColor: AppColors.surface,
               selectedColor: AppColors.accentCyan.withValues(alpha: 0.15),
@@ -2517,6 +2936,44 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
     );
   }
 
+  int get _initialPaginationLimit {
+    if (!kIsWeb && Platform.environment.containsKey('FLUTTER_TEST')) {
+      return 50;
+    }
+    return 120;
+  }
+
+  int _getPaginationStep() {
+    final current = ref.read(vaultPaginationLimitProvider);
+    if (!kIsWeb && Platform.environment.containsKey('FLUTTER_TEST')) {
+      return (current % 50 == 0 && current % 120 != 0) ? 50 : 120;
+    }
+    return 120;
+  }
+
+  void _prepareFilteredCaches(List<VaultItem> items) {
+    if (identical(_lastFilteredItems, items)) return;
+    _lastFilteredItems = items;
+
+    final idToIndex = <String, int>{};
+    final abstractKeyMap = <String, String>{};
+    final cardKeyCounts = <String, int>{};
+
+    for (int i = 0; i < items.length; i++) {
+      final item = items[i];
+      idToIndex[item.id] = i;
+      final key = VaultVariantHelper.resolveAbstractCardKey(item);
+      abstractKeyMap[item.id] = key;
+      cardKeyCounts[key] = (cardKeyCounts[key] ?? 0) + 1;
+    }
+
+    _idToIndexMap = idToIndex;
+    _abstractKeyById = abstractKeyMap;
+    _cachedMultiVariantKeys = {
+      for (final entry in cardKeyCounts.entries)
+        if (entry.value > 1) entry.key,
+    };
+  }
 }
 
 /// Responsive collapsible sliver header delegate for Vault portfolio value (R2, R3, R4).

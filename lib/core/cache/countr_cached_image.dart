@@ -29,6 +29,9 @@ class CountrCachedImage extends StatefulWidget {
   final int maxRetries;
   final Duration initialRetryDelay;
   final String fallbackVersion;
+  final bool isBackFace;
+  final int? memCacheWidth;
+  final int? memCacheHeight;
 
   const CountrCachedImage({
     super.key,
@@ -50,6 +53,9 @@ class CountrCachedImage extends StatefulWidget {
     this.maxRetries = 3,
     this.initialRetryDelay = const Duration(milliseconds: 400),
     this.fallbackVersion = 'normal',
+    this.isBackFace = false,
+    this.memCacheWidth,
+    this.memCacheHeight,
   });
 
   /// Canonical Scryfall named redirect endpoint URL builder for MTG cards.
@@ -66,7 +72,17 @@ class CountrCachedImage extends StatefulWidget {
       if (cardId!.startsWith('deck-')) {
         return CountrImageCacheManager.deckCoverKey(cardId!);
       }
-      return CountrImageCacheManager.cardArtKey(cardId!);
+      final effectiveVersion = imageUrl.isNotEmpty
+          ? CountrImageCacheManager.inferImageVersion(imageUrl, fallback: fallbackVersion)
+          : fallbackVersion;
+      final isBack = isBackFace ||
+          imageUrl.toLowerCase().contains('/back/') ||
+          imageUrl.toLowerCase().contains('/back.jpg');
+      return CountrImageCacheManager.cardArtKey(
+        cardId!,
+        version: effectiveVersion,
+        isBack: isBack,
+      );
     }
     return null;
   }
@@ -80,13 +96,20 @@ class _CountrCachedImageState extends State<CountrCachedImage> {
   bool _useFallback = false;
 
   @override
+  void initState() {
+    super.initState();
+    CountrImageCacheManager.ensureMemoryImageCacheConfigured();
+  }
+
+  @override
   void didUpdateWidget(CountrCachedImage oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.imageUrl != widget.imageUrl ||
         oldWidget.cacheKey != widget.cacheKey ||
         oldWidget.cardId != widget.cardId ||
         oldWidget.cardName != widget.cardName ||
-        oldWidget.fallbackVersion != widget.fallbackVersion) {
+        oldWidget.fallbackVersion != widget.fallbackVersion ||
+        oldWidget.isBackFace != widget.isBackFace) {
       _useFallback = false;
       _retryRevision = 0;
     }
@@ -379,6 +402,20 @@ class _CountrCachedImageState extends State<CountrCachedImage> {
     final effectiveKey = (isUsingFallback && widget.effectiveCacheKey != null)
         ? '${widget.effectiveCacheKey}_fallback'
         : widget.effectiveCacheKey;
+    final isFallbackKey = isUsingFallback || (effectiveKey?.endsWith('_fallback') ?? false);
+
+    // 5b. Register cross-instance card aliases in CountrImageCacheManager so
+    // any instance of this card (Vault, My Decks, Explore, Precons) resolves
+    // from the shared cache before ever hitting the network.
+    CountrImageCacheManager.instance.registerCardAliases(
+      cacheKey: effectiveKey,
+      cardId: isFallbackKey ? null : widget.cardId,
+      imageUrl: effectiveUrl,
+      cardName: widget.cardName,
+      version: widget.fallbackVersion,
+      isArtSeries: isFallbackKey,
+      isBack: widget.isBackFace,
+    );
 
     // 6. Immediate Short-Circuit: If effectiveUrl is empty or failed in registry, return error widget instantly
     if (effectiveUrl.isEmpty ||
@@ -423,15 +460,49 @@ class _CountrCachedImageState extends State<CountrCachedImage> {
       return _wrapWithDimensions(child: testWidget);
     }
 
-    // 8. Production CachedNetworkImage backed by CountrImageCacheManager
+    // 8. Synchronous Frame-0 Memory/Disk Hit: If we already resolved this card's
+    // image file in this session, render Image.file immediately with gaplessPlayback
+    // so scrolling past cards or opening another screen never shows a loading spinner.
+    if (widget.cacheManager == null ||
+        identical(widget.cacheManager, CountrImageCacheManager.instance)) {
+      final memFile = CountrImageCacheManager.instance.getMemoryCachedFile(
+        effectiveKey,
+        imageUrl: effectiveUrl,
+        cardId: isFallbackKey ? null : widget.cardId,
+        cardName: widget.cardName,
+        version: widget.fallbackVersion,
+        isBack: widget.isBackFace,
+      );
+      if (memFile != null) {
+        final instantFileImage = Image.file(
+          memFile,
+          key: _buildStableKey(effectiveUrl, effectiveKey),
+          fit: widget.fit,
+          width: widget.width,
+          height: widget.height,
+          cacheWidth: widget.memCacheWidth,
+          cacheHeight: widget.memCacheHeight,
+          alignment: widget.alignment,
+          gaplessPlayback: true,
+          errorBuilder: (context, error, stackTrace) =>
+              _buildEffectiveErrorWidget(context),
+        );
+        return _wrapWithDimensions(child: instantFileImage);
+      }
+    }
+
+    // 9. Production CachedNetworkImage backed by CountrImageCacheManager
     final cachedImage = CachedNetworkImage(
       key: _buildStableKey(effectiveUrl, effectiveKey),
       imageUrl: effectiveUrl,
       cacheKey: effectiveKey,
       cacheManager: widget.cacheManager ?? CountrImageCacheManager.instance,
+      useOldImageOnUrlChange: true,
       fit: widget.fit,
       width: widget.width,
       height: widget.height,
+      memCacheWidth: widget.memCacheWidth,
+      memCacheHeight: widget.memCacheHeight,
       alignment: widget.alignment,
       fadeInDuration: widget.fadeInDuration,
       fadeOutDuration: const Duration(milliseconds: 150),

@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:isolate';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -10,44 +12,123 @@ import 'package:countr/features/decks/data/services/fallback_explore_seeds.dart'
 /// Service responsible for offline parsing and ingestion of MTGJSON precons
 /// and mock community decks into local SQLite via Drift.
 class ExploreSeederService {
-  static bool _isSeeding = false;
+  static Future<void>? _activeSeedFuture;
+
+  /// Visible for testing and coordination: returns the active seed Future if running.
+  static Future<void>? get activeSeedFuture => _activeSeedFuture;
+
+  static const _exploreZoneKey = #_exploreSeedInProgress;
+
+  /// Checks whether both official WotC precons and curated community decks
+  /// have been seeded into `explore_decks` (ignoring `user_shared` decks so
+  /// sharing a personal deck never prevents initial catalog seeding).
+  static Future<bool> isExploreCatalogSeeded(
+    AppDatabase db, {
+    int minOfficialDecks = 12,
+    int minCommunityDecks = 7,
+  }) async {
+    final officialRow = await (db.selectOnly(db.exploreDecks)
+          ..addColumns([db.exploreDecks.id.count()])
+          ..where(
+            db.exploreDecks.sourceType.equals('official') &
+                db.exploreDecks.isDeleted.equals(false),
+          ))
+        .getSingle();
+    final officialCount = officialRow.read(db.exploreDecks.id.count()) ?? 0;
+    if (officialCount < minOfficialDecks) return false;
+
+    final communityRow = await (db.selectOnly(db.exploreDecks)
+          ..addColumns([db.exploreDecks.id.count()])
+          ..where(
+            db.exploreDecks.sourceType.equals('community') &
+                db.exploreDecks.isDeleted.equals(false),
+          ))
+        .getSingle();
+    final communityCount = communityRow.read(db.exploreDecks.id.count()) ?? 0;
+    return communityCount >= minCommunityDecks;
+  }
 
   /// Idempotently seeds bundled MTG precons and community decks off the UI thread.
   static Future<void> seedIfNeeded(AppDatabase db, {bool force = false}) async {
-    if (_isSeeding) return;
-    _isSeeding = true;
+    if (Zone.current[_exploreZoneKey] == true) {
+      debugPrint('[ExploreSeederService] Re-entrant call detected; skipping to prevent self-await deadlock.');
+      return;
+    }
 
-    try {
-      final existingCount = await db.exploreDeckDao.getExploreDeckCount();
-      if (existingCount > 0 && !force) {
-        debugPrint(
-            '[ExploreSeederService] Explore catalog already populated ($existingCount decks). Skipping seed.');
+    if (Zone.current[AppDatabase.beforeOpenZoneKey] == true) {
+      debugPrint('[ExploreSeederService] Call from within beforeOpen detected; deferring to microtask to prevent deadlock.');
+      Zone.root.scheduleMicrotask(() => seedIfNeeded(db, force: force));
+      return;
+    }
+
+    if (_activeSeedFuture != null) {
+      try {
+        await _activeSeedFuture;
+      } catch (_) {}
+      if (!force && await isExploreCatalogSeeded(db)) {
         return;
       }
+    }
 
-      debugPrint('[ExploreSeederService] Starting background explore deck ingestion...');
+    final future = runZoned(
+      () => _executeSeed(db, force: force),
+      zoneValues: {_exploreZoneKey: true},
+    );
+    _activeSeedFuture = future;
+    try {
+      await future;
+    } finally {
+      if (identical(_activeSeedFuture, future)) {
+        _activeSeedFuture = null;
+      }
+    }
+  }
 
-      // 1. Offload JSON decoding and normalization to background isolate
-      List<Map<String, dynamic>> rawDecks = [];
-      try {
-        final preconStr = await rootBundle.loadString('assets/decks/precons.json');
-        final commStr = await rootBundle.loadString('assets/decks/community.json');
-
-        rawDecks = await parseRawDecksInIsolate(preconStr, commStr);
-      } catch (e) {
+  static Future<void> _executeSeed(AppDatabase db, {required bool force}) async {
+    if (!force) {
+      final alreadySeeded = await isExploreCatalogSeeded(db);
+      if (alreadySeeded) {
         debugPrint(
-            '[ExploreSeederService] Asset load failed ($e). Using compiled FallbackExploreSeeds.');
-        rawDecks = FallbackExploreSeeds.allSeeds;
+          '[ExploreSeederService] Explore catalog already populated with official & community decks. Skipping seed.',
+        );
+        return;
+      }
+    }
+
+    // 1. Offload JSON decoding and normalization to background isolate
+    List<Map<String, dynamic>> rawDecks = [];
+    try {
+      String? preconStr;
+      String? commStr;
+
+      try {
+        final pFile = File('assets/decks/precons.json');
+        final cFile = File('assets/decks/community.json');
+        if (pFile.existsSync() && cFile.existsSync()) {
+          preconStr = pFile.readAsStringSync();
+          commStr = cFile.readAsStringSync();
+        }
+      } catch (_) {}
+
+      if (preconStr == null || commStr == null) {
+        preconStr ??= await rootBundle.loadString('assets/decks/precons.json');
+        commStr ??= await rootBundle.loadString('assets/decks/community.json');
       }
 
-      await seedFromRawDecks(db, rawDecks);
-
+      rawDecks = await parseRawDecksInIsolate(preconStr, commStr);
+    } catch (e) {
       debugPrint(
-        '[ExploreSeederService] Ingestion complete: ${rawDecks.length} decks seeded.',
+        '[ExploreSeederService] Asset load failed ($e). Using compiled FallbackExploreSeeds.',
       );
-    } finally {
-      _isSeeding = false;
+      rawDecks = FallbackExploreSeeds.allSeeds;
     }
+
+    debugPrint('[ExploreSeederService] Calling seedFromRawDecks...');
+    await seedFromRawDecks(db, rawDecks);
+
+    debugPrint(
+      '[ExploreSeederService] Ingestion complete: ${rawDecks.length} decks seeded.',
+    );
   }
 
   /// Parses precon and community JSON strings on a background isolate.
@@ -55,6 +136,11 @@ class ExploreSeederService {
     String preconJson,
     String communityJson,
   ) {
+    if (Platform.environment.containsKey('FLUTTER_TEST')) {
+      final pList = (jsonDecode(preconJson) as List).cast<Map<String, dynamic>>();
+      final cList = (jsonDecode(communityJson) as List).cast<Map<String, dynamic>>();
+      return Future.value([...pList, ...cList]);
+    }
     return Isolate.run(() {
       final pList = (jsonDecode(preconJson) as List).cast<Map<String, dynamic>>();
       final cList = (jsonDecode(communityJson) as List).cast<Map<String, dynamic>>();
@@ -187,9 +273,9 @@ class ExploreSeederService {
       }
     }
 
-    await db.transaction(() async {
-      await db.exploreDeckDao.batchInsertExploreDecks(deckCompanions);
-      await db.exploreDeckDao.batchInsertExploreDeckItems(itemCompanions, chunkSize: 250);
+    await db.batch((b) {
+      b.insertAll(db.exploreDecks, deckCompanions, mode: InsertMode.insertOrReplace);
+      b.insertAll(db.exploreDeckItems, itemCompanions, mode: InsertMode.insertOrReplace);
     });
   }
 }

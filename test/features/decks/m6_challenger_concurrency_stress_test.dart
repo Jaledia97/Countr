@@ -725,7 +725,8 @@ void main() {
 
       // Check ledger: proxy must NEVER allocate stock or cause negative available!
       final map = await vaultDao.watchAllCardAvailability().first;
-      final lotusAvail = map[proxyCardId]!;
+      expect(map.containsKey(proxyCardId), isFalse);
+      final lotusAvail = map[proxyCardId] ?? CardAvailability.zero;
       expect(lotusAvail.owned, equals(0));
       expect(lotusAvail.inDeck, equals(0), reason: 'Proxies do not allocate physical stock');
       expect(lotusAvail.available, equals(0));

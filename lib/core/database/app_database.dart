@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:drift/drift.dart';
 import 'package:countr/core/database/connection/connection.dart';
@@ -55,6 +56,12 @@ QueryExecutor _resolveConnection(QueryExecutor? e) {
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? e]) : super(_resolveConnection(e));
+
+  static const beforeOpenZoneKey = #_driftBeforeOpen;
+
+  bool _isOpening = false;
+  /// Returns true while Drift's [beforeOpen] lifecycle callback is actively executing.
+  bool get isOpening => _isOpening;
 
   @override
   int get schemaVersion => 11;
@@ -253,7 +260,11 @@ class AppDatabase extends _$AppDatabase {
         }
       },
       beforeOpen: (details) async {
-        // High-performance SQLite configuration
+        _isOpening = true;
+        try {
+          await runZoned(
+            () async {
+              // High-performance SQLite configuration
         try {
           await customStatement('PRAGMA journal_mode = WAL;');
           await customStatement('PRAGMA synchronous = NORMAL;');
@@ -447,6 +458,53 @@ class AppDatabase extends _$AppDatabase {
           ''');
         } catch (error, stackTrace) {
           debugPrint('[AppDatabase.beforeOpen] explore_deck_votes table creation warning: $error\n$stackTrace');
+        }
+
+        // Fast unconditional verification for v11 columns on decks and explore_deck_items
+        try {
+          final decksInfo =
+              await customSelect('PRAGMA table_info("decks");').get();
+          final deckCols =
+              decksInfo.map((row) => row.read<String>('name')).toSet();
+          if (deckCols.isNotEmpty) {
+            if (!deckCols.contains('is_cloned')) {
+              await customStatement(
+                'ALTER TABLE "decks" ADD COLUMN "is_cloned" INTEGER NOT NULL DEFAULT 0;',
+              );
+            }
+            if (!deckCols.contains('source_explore_deck_id')) {
+              await customStatement(
+                'ALTER TABLE "decks" ADD COLUMN "source_explore_deck_id" TEXT;',
+              );
+            }
+          }
+
+          final exploreItemsInfo =
+              await customSelect('PRAGMA table_info("explore_deck_items");').get();
+          final exploreItemCols =
+              exploreItemsInfo.map((row) => row.read<String>('name')).toSet();
+          if (exploreItemCols.isNotEmpty &&
+              !exploreItemCols.contains('dynamic_data')) {
+            await customStatement(
+              'ALTER TABLE "explore_deck_items" ADD COLUMN "dynamic_data" TEXT;',
+            );
+          }
+        } catch (error, stackTrace) {
+          debugPrint('[AppDatabase.beforeOpen] v11 column verification warning: $error\n$stackTrace');
+        }
+
+        // Fast unconditional covering indexes for Vault browse and catalog ordering
+        try {
+          await customStatement('''
+            CREATE INDEX IF NOT EXISTS "idx_vault_items_browse"
+            ON "vault_items" ("is_deleted", "collection_type", "acquired_date" DESC, "name" ASC);
+          ''');
+          await customStatement('''
+            CREATE INDEX IF NOT EXISTS "idx_vault_items_catalog_name"
+            ON "vault_items" ("is_deleted", "collection_type", "name" COLLATE NOCASE ASC);
+          ''');
+        } catch (error, stackTrace) {
+          debugPrint('[AppDatabase.beforeOpen] Vault browse covering indexes warning: $error\n$stackTrace');
         }
 
         // Heavy column verifications, index creations, and full-table data repairs
@@ -905,6 +963,14 @@ class AppDatabase extends _$AppDatabase {
           // Fallback gracefully; seeding can also be triggered manually
         }
       },
+      zoneValues: {beforeOpenZoneKey: true},
+    );
+  } catch (error, stackTrace) {
+    debugPrint('[AppDatabase.beforeOpen] beforeOpen unhandled error: $error\n$stackTrace');
+  } finally {
+    _isOpening = false;
+  }
+},
     );
   }
 }

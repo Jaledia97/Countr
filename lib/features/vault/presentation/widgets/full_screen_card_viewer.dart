@@ -5,6 +5,7 @@ import 'package:countr/core/constants/app_colors.dart';
 import 'package:countr/core/constants/app_typography.dart';
 import 'package:countr/core/database/app_database.dart';
 import 'package:countr/core/cache/countr_cached_image.dart';
+import 'package:countr/core/cache/countr_image_cache_manager.dart';
 
 /// Immersive, zoomable full-screen card viewer featuring [PageView.builder]
 /// for swiping across cards, [InteractiveViewer] for pinch/pan zoom,
@@ -441,6 +442,34 @@ class _FullScreenCardViewerState extends State<FullScreenCardViewer>
         : name;
   }
 
+  String _getActiveFaceNameFor(VaultItem item, Map<String, dynamic> data, bool isBackFace) {
+    if (_isAdventureCardFor(item, data)) {
+      return item.flavorName != null && item.flavorName!.isNotEmpty
+          ? item.flavorName!
+          : item.name;
+    }
+    final faces = data['card_faces'];
+    if (faces is List && faces.isNotEmpty) {
+      final index = isBackFace && faces.length > 1 ? 1 : 0;
+      final face = faces[index];
+      if (face is Map && face['name'] != null && face['name'].toString().isNotEmpty) {
+        return face['name'].toString();
+      }
+    }
+    final name = item.name;
+    if (name.contains(' // ') || name.contains('//')) {
+      final sep = name.contains(' // ') ? ' // ' : '//';
+      final parts = name.split(sep);
+      if (isBackFace && parts.length > 1) {
+        return parts[1].trim();
+      }
+      return parts[0].trim();
+    }
+    return item.flavorName != null && item.flavorName!.isNotEmpty
+        ? item.flavorName!
+        : name;
+  }
+
   void _toggleFlip() {
     if (!_hasMultipleFaces || _isAdventureCard()) return;
     final nextFlipped = !_isFlipped;
@@ -492,14 +521,16 @@ class _FullScreenCardViewerState extends State<FullScreenCardViewer>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                _activeFaceName,
+                _currentItem.flavorName != null && _currentItem.flavorName!.isNotEmpty
+                    ? _currentItem.flavorName!
+                    : _currentItem.name,
                 style: AppTypography.heading2.copyWith(color: Colors.white, fontSize: 16),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
               Text(
                 _hasMultipleFaces
-                    ? 'Face ${_isFlipped ? 2 : 1} of 2 • ${_currentItem.setOrSeries}'
+                    ? 'Face ${_isFlipped ? 2 : 1} of 2 • $_activeFaceName • ${_currentItem.setOrSeries}'
                     : (_currentItem.flavorName != null && _currentItem.flavorName!.isNotEmpty
                         ? '[${_currentItem.name}] • ${_currentItem.setOrSeries}'
                         : _currentItem.setOrSeries),
@@ -641,7 +672,9 @@ class _FullScreenCardViewerState extends State<FullScreenCardViewer>
                     }
                   },
                   child: Hero(
-                    tag: 'card_artwork_${item.id}',
+                    tag: isCurrent
+                        ? 'card_artwork_${item.id}'
+                        : 'fullscreen_card_artwork_${item.id}_$index',
                     child: Center(
                       child: ConstrainedBox(
                         constraints: const BoxConstraints(
@@ -687,6 +720,8 @@ class _FullScreenCardViewerState extends State<FullScreenCardViewer>
 
     Widget cardFace;
     if (isCurrent && hasFlip) {
+      final frontName = _getActiveFaceNameFor(item, itemData, false);
+      final backName = _getActiveFaceNameFor(item, itemData, true);
       cardFace = Semantics(
         button: true,
         label: 'Card artwork, tap to flip',
@@ -710,9 +745,19 @@ class _FullScreenCardViewerState extends State<FullScreenCardViewer>
                   ? Transform(
                       alignment: Alignment.center,
                       transform: Matrix4.identity()..rotateY(math.pi),
-                      child: _buildFaceImage(currentUrl, item),
+                      child: _buildFaceImage(
+                        currentUrl,
+                        item,
+                        cardName: backName,
+                        isBackFace: true,
+                      ),
                     )
-                  : _buildFaceImage(currentUrl, item),
+                  : _buildFaceImage(
+                      currentUrl,
+                      item,
+                      cardName: frontName,
+                      isBackFace: false,
+                    ),
             );
           },
         ),
@@ -720,7 +765,13 @@ class _FullScreenCardViewerState extends State<FullScreenCardViewer>
     );
     } else {
       final frontUrl = _getFrontImageUrlFor(item, itemData);
-      cardFace = _buildFaceImage(frontUrl, item);
+      final frontName = _getActiveFaceNameFor(item, itemData, false);
+      cardFace = _buildFaceImage(
+        frontUrl,
+        item,
+        cardName: frontName,
+        isBackFace: false,
+      );
     }
 
     Widget renderedArtwork = cardFace;
@@ -810,10 +861,24 @@ class _FullScreenCardViewerState extends State<FullScreenCardViewer>
     );
   }
 
-  Widget _buildFaceImage(String url, VaultItem item) {
-    if (url.isNotEmpty) {
+  Widget _buildFaceImage(
+    String url,
+    VaultItem item, {
+    String? cardName,
+    bool isBackFace = false,
+  }) {
+    final effectiveName = cardName ?? item.name;
+    if (url.isNotEmpty || effectiveName.isNotEmpty) {
       return CountrCachedImage(
         imageUrl: url,
+        cardId: isBackFace ? null : item.id,
+        cacheKey: isBackFace
+            ? '${CountrImageCacheManager.cardArtKey(item.id)}_back'
+            : CountrImageCacheManager.cardArtKey(item.id),
+        cardName: effectiveName,
+        tcgDomain: item.collectionType,
+        fallbackVersion: 'normal',
+        isBackFace: isBackFace,
         fit: BoxFit.contain,
         errorWidget: _buildPlaceholder(item),
       );

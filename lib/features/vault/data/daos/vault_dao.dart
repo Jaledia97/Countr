@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io' show Platform;
 import 'dart:math' as math;
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
@@ -25,8 +24,6 @@ import 'package:countr/core/database/tables/decks/deck_version_items_table.dart'
 import 'package:countr/core/database/tables/decks/deck_matchups_table.dart';
 import 'package:countr/core/database/tables/decks/deck_synergies_table.dart';
 import 'package:countr/core/database/tables/sync_queue_table.dart';
-import 'package:countr/features/decks/data/services/precon_hydration_service.dart';
-import 'package:countr/features/decks/data/services/explore_seeder_service.dart';
 
 part 'vault_dao.g.dart';
 
@@ -199,8 +196,14 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     }
 
     final hasActiveMtgFilter = effectiveMtgFilter != null && effectiveMtgFilter.isActive;
-    if (!hasActiveMtgFilter && limit != null) {
-      query.limit(limit, offset: offset);
+    if (limit != null) {
+      if (!hasActiveMtgFilter) {
+        query.limit(limit, offset: offset);
+      } else {
+        final targetCount = (offset ?? 0) + limit;
+        final sqlLimit = math.min(math.max(targetCount * 4, 200), 5000);
+        query.limit(sqlLimit);
+      }
     }
 
     // Stage 2: In-memory stream mapping using mtgFilter.matches(item)
@@ -297,8 +300,14 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     }
 
     final hasActiveMtgFilter = effectiveMtgFilter != null && effectiveMtgFilter.isActive;
-    if (!hasActiveMtgFilter && limit != null) {
-      query.limit(limit, offset: offset);
+    if (limit != null) {
+      if (!hasActiveMtgFilter) {
+        query.limit(limit, offset: offset);
+      } else {
+        final targetCount = (offset ?? 0) + limit;
+        final sqlLimit = math.min(math.max(targetCount * 4, 200), 5000);
+        query.limit(sqlLimit);
+      }
     }
 
     final items = await query.get();
@@ -2213,16 +2222,6 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
         mode: InsertMode.insertOrReplace,
       );
     }
-
-    // 4. Ensure MTG Preconstructed Decks and Explore Feed are seeded in live app
-    if (!kIsWeb && !Platform.environment.containsKey('FLUTTER_TEST')) {
-      try {
-        await PreconHydrationService.seedHistoricalPrecons(attachedDatabase);
-        await ExploreSeederService.seedIfNeeded(attachedDatabase);
-      } catch (e, stack) {
-        debugPrint('[VaultDao.seedDatabase] Precon/Explore seeding warning: $e\n$stack');
-      }
-    }
   }
 
   /// Inserts a new vault item.
@@ -2464,19 +2463,63 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
   }
 
   /// Bulk assigns a list of item IDs to their physical home anchor (binder).
+  /// If any item has quantity == 0 (unowned catalog card), it is automatically
+  /// promoted to an owned collection item (quantity = 1, acquiredPrice = currentMarketPrice,
+  /// acquiredDate = now, dateObtained = now, purchasePrice = currentMarketPrice,
+  /// protectionStatus = 'Sleeved', isDeleted = false, updatedAt = now).
   Future<int> assignItemsToBinder(
       List<String> itemIds, String targetBinderId) async {
-    final now = DateTime.now();
-    final count = await (update(vaultItems)..where((t) => t.id.isIn(itemIds))).write(
-      VaultItemsCompanion(
-        primaryBinderId: Value(targetBinderId),
-        updatedAt: Value(now),
-      ),
-    );
-    for (final id in itemIds) {
-      await _recordSync('vault_item', id, 'UPDATE', timestamp: now);
-    }
-    return count;
+    if (itemIds.isEmpty) return 0;
+
+    return transaction(() async {
+      final now = DateTime.now();
+      final items = await (select(vaultItems)..where((t) => t.id.isIn(itemIds))).get();
+      if (items.isEmpty) return 0;
+
+      int updatedCount = 0;
+      final unownedItems = items.where((i) => i.quantity <= 0).toList();
+      final ownedItems = items.where((i) => i.quantity > 0).toList();
+
+      // 1. Process already-owned items (update binder anchor and timestamp only)
+      if (ownedItems.isNotEmpty) {
+        final ownedIds = ownedItems.map((e) => e.id).toList();
+        final count = await (update(vaultItems)..where((t) => t.id.isIn(ownedIds))).write(
+          VaultItemsCompanion(
+            primaryBinderId: Value(targetBinderId),
+            updatedAt: Value(now),
+          ),
+        );
+        updatedCount += count;
+        for (final id in ownedIds) {
+          await _recordSync('vault_item', id, 'UPDATE', timestamp: now);
+        }
+      }
+
+      // 2. Process unowned items (promote quantity == 0 -> quantity = 1 with acquisition financials)
+      for (final item in unownedItems) {
+        final price = item.currentMarketPrice > 0
+            ? item.currentMarketPrice
+            : (item.acquiredPrice > 0 ? item.acquiredPrice : 0.0);
+
+        final count = await (update(vaultItems)..where((t) => t.id.equals(item.id))).write(
+          VaultItemsCompanion(
+            quantity: const Value(1),
+            primaryBinderId: Value(targetBinderId),
+            acquiredDate: Value(now),
+            dateObtained: Value(now),
+            acquiredPrice: Value(price),
+            purchasePrice: Value(price),
+            protectionStatus: const Value('Sleeved'),
+            isDeleted: const Value(false),
+            updatedAt: Value(now),
+          ),
+        );
+        updatedCount += count;
+        await _recordSync('vault_item', item.id, 'UPDATE', timestamp: now);
+      }
+
+      return updatedCount;
+    });
   }
 
   /// Alias for assignItemsToBinder
@@ -3799,7 +3842,7 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
           AND d.is_deleted = 0
         GROUP BY dvi.vault_item_id
       ) alloc ON alloc.vault_item_id = vi.id
-      WHERE vi.is_deleted = 0;
+      WHERE vi.is_deleted = 0 AND vi.quantity > 0;
     ''';
 
     return customSelect(

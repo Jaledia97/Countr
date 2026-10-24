@@ -537,19 +537,19 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
     if (_currentItem.imageUrl.isNotEmpty) {
       return _currentItem.imageUrl;
     }
+    final uris = _dynamicData['image_uris'];
+    if (uris is Map) {
+      final normal = uris['normal'] ?? uris['large'] ?? uris['png'];
+      if (normal is String && normal.isNotEmpty) return normal;
+    }
     final faces = _dynamicData['card_faces'];
     if (faces is List && faces.isNotEmpty) {
       final frontFace = faces[0];
       if (frontFace is Map) {
-        final uris = frontFace['image_uris'];
-        if (uris is Map && uris['normal'] is String) {
-          return uris['normal'] as String;
-        }
-        if (uris is Map && uris['large'] is String) {
-          return uris['large'] as String;
-        }
-        if (uris is Map && uris['small'] is String) {
-          return uris['small'] as String;
+        final fUris = frontFace['image_uris'];
+        if (fUris is Map) {
+          final normal = fUris['normal'] ?? fUris['large'] ?? fUris['png'];
+          if (normal is String && normal.isNotEmpty) return normal;
         }
         final img = frontFace['image_url'] ?? frontFace['imageUrl'];
         if (img is String && img.isNotEmpty) {
@@ -557,7 +557,34 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
         }
       }
     }
-    return _currentItem.imageUrl;
+    return '';
+  }
+
+  String _getFrontImageUrlFor(VaultItem item) {
+    if (item.id == _currentItem.id) return _getFrontImageUrl();
+    if (item.imageUrl.isNotEmpty) return item.imageUrl;
+    final d = _parseItemData(item);
+    final uris = d['image_uris'];
+    if (uris is Map) {
+      final normal = uris['normal'] ?? uris['large'] ?? uris['png'];
+      if (normal is String && normal.isNotEmpty) return normal;
+    }
+    final faces = d['card_faces'];
+    if (faces is List && faces.isNotEmpty) {
+      final frontFace = faces[0];
+      if (frontFace is Map) {
+        final fUris = frontFace['image_uris'];
+        if (fUris is Map) {
+          final normal = fUris['normal'] ?? fUris['large'] ?? fUris['png'];
+          if (normal is String && normal.isNotEmpty) return normal;
+        }
+        final img = frontFace['image_url'] ?? frontFace['imageUrl'];
+        if (img is String && img.isNotEmpty) {
+          return img;
+        }
+      }
+    }
+    return '';
   }
 
   bool get _hasFlipArt => _isDfc() && _getBackImageUrl() != null;
@@ -2569,10 +2596,10 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
     final targetIndex = itemIndex >= 0 ? itemIndex : null;
 
     if (!isCurrent) {
-      final frontUrl = item.imageUrl.isNotEmpty ? item.imageUrl : '';
+      final frontUrl = _getFrontImageUrlFor(item);
       return Hero(
         key: Key('card_artwork_${item.id}'),
-        tag: 'card_artwork_${item.id}',
+        tag: 'card_artwork_${item.id}_sheet_$itemIndex',
         child: Semantics(
           button: true,
           label: 'Card artwork, tap to view full screen',
@@ -2765,13 +2792,14 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
         ],
       ),
       clipBehavior: Clip.antiAlias,
-      child: imageUrl.isNotEmpty
+      child: (imageUrl.isNotEmpty || (cardName != null && cardName.isNotEmpty))
           ? IgnorePointer(
               child: CountrCachedImage(
                 imageUrl: imageUrl,
                 cardId: cardId,
                 cardName: cardName,
                 tcgDomain: tcgDomain,
+                fallbackVersion: 'normal',
                 fit: BoxFit.cover,
                 errorWidget: _buildPlaceholderArt(cardName: cardName),
               ),
@@ -3518,7 +3546,7 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
           ),
         );
       }
-      if (isBinderContext) {
+      if (isBinderContext || isOwned) {
         actions.add(
           _buildQuickActionButton(
             key: const Key('quick_action_move_binder'),
@@ -3833,90 +3861,159 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (sheetCtx) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.drive_file_move_outlined, color: AppColors.accentCyan),
-                      const SizedBox(width: 8),
-                      const Text('Move to Binder', style: AppTypography.heading2),
-                      const Spacer(),
-                      IconButton(
-                        icon: const Icon(Icons.close, color: AppColors.textMuted),
-                        onPressed: () => Navigator.of(sheetCtx).pop(),
-                      ),
-                    ],
-                  ),
-                ),
-                const Divider(color: AppColors.surfaceBorder),
-                ListTile(
-                  key: const Key('move_to_inbox_tile'),
-                  leading: const Icon(Icons.inbox_outlined, color: AppColors.textSecondary),
-                  title: const Text('Unassigned / Inbox', style: TextStyle(color: Colors.white)),
-                  onTap: () async {
-                    await dao.assignItemsToBinder([_currentItem.id], 'INBOX');
-                    if (sheetCtx.mounted) Navigator.of(sheetCtx).pop();
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Moved ${_currentItem.name} to Inbox')),
-                      );
-                      Navigator.of(context).pop();
+        bool isAssigning = false;
+
+        return StatefulBuilder(
+          builder: (modalCtx, setModalState) {
+            final effectiveCurrentBinderId = widget.binderId ?? widget.binder?.id ?? _currentItem.primaryBinderId;
+            final isCurrentInbox = _currentItem.quantity > 0 &&
+                (effectiveCurrentBinderId == 'INBOX' || effectiveCurrentBinderId == null);
+
+            Future<void> handleAssign({
+              required String targetBinderId,
+              required String destinationName,
+            }) async {
+              if (isAssigning) return;
+              setModalState(() {
+                isAssigning = true;
+              });
+
+              try {
+                await dao.assignItemsToBinder([_currentItem.id], targetBinderId);
+                final latest = await dao.getItemById(_currentItem.id);
+
+                if (sheetCtx.mounted && ModalRoute.of(sheetCtx)?.isCurrent == true) {
+                  Navigator.of(sheetCtx).pop();
+                }
+
+                if (mounted) {
+                  setState(() {
+                    final updated = latest ?? _currentItem.copyWith(
+                      primaryBinderId: targetBinderId == 'INBOX'
+                          ? const Value('INBOX')
+                          : Value(targetBinderId),
+                      quantity: _currentItem.quantity == 0 ? 1 : _currentItem.quantity,
+                      updatedAt: Value(DateTime.now()),
+                    );
+                    _currentItem = updated;
+                    if (_currentIndex < _items.length) {
+                      _items[_currentIndex] = updated;
                     }
-                  },
-                ),
-                if (binders.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.all(20),
-                    child: Text('No other binders available.', style: TextStyle(color: AppColors.textMuted)),
-                  )
-                else
-                  ...binders.map((b) {
-                    final isCurrentBinder = b.id == (widget.binderId ?? widget.binder?.id);
-                    return ListTile(
-                      key: Key('move_to_binder_${b.id}'),
+                    _parseDynamicData();
+                  });
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Moved ${_currentItem.name} to $destinationName')),
+                  );
+                }
+              } catch (e) {
+                if (sheetCtx.mounted) {
+                  setModalState(() {
+                    isAssigning = false;
+                  });
+                }
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Failed to move: $e')),
+                  );
+                }
+              }
+            }
+
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.drive_file_move_outlined, color: AppColors.accentCyan),
+                          const SizedBox(width: 8),
+                          const Text('Move to Binder', style: AppTypography.heading2),
+                          const Spacer(),
+                          IconButton(
+                            icon: const Icon(Icons.close, color: AppColors.textMuted),
+                            onPressed: isAssigning
+                                ? null
+                                : () {
+                                    if (sheetCtx.mounted && ModalRoute.of(sheetCtx)?.isCurrent == true) {
+                                      Navigator.of(sheetCtx).pop();
+                                    }
+                                  },
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Divider(color: AppColors.surfaceBorder),
+                    ListTile(
+                      key: const Key('move_to_inbox_tile'),
                       leading: Icon(
-                        Icons.folder_outlined,
-                        color: isCurrentBinder ? AppColors.textMuted : AppColors.accentCyan,
+                        Icons.inbox_outlined,
+                        color: (isCurrentInbox || isAssigning) ? AppColors.textMuted : AppColors.textSecondary,
                       ),
                       title: Text(
-                        b.name,
+                        'Unassigned / Inbox',
                         style: TextStyle(
-                          color: isCurrentBinder ? AppColors.textMuted : Colors.white,
-                          fontWeight: isCurrentBinder ? FontWeight.normal : FontWeight.w600,
+                          color: (isCurrentInbox || isAssigning) ? AppColors.textMuted : Colors.white,
+                          fontWeight: isCurrentInbox ? FontWeight.normal : FontWeight.w600,
                         ),
                       ),
-                      subtitle: Text(
-                        b.collectionType,
-                        style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
-                      ),
-                      trailing: isCurrentBinder
+                      trailing: isCurrentInbox
                           ? const Text('Current', style: TextStyle(color: AppColors.textMuted, fontSize: 11))
                           : null,
-                      enabled: !isCurrentBinder,
-                      onTap: isCurrentBinder
+                      enabled: !isCurrentInbox && !isAssigning,
+                      onTap: (isCurrentInbox || isAssigning)
                           ? null
-                          : () async {
-                              await dao.assignItemsToBinder([_currentItem.id], b.id);
-                              if (sheetCtx.mounted) Navigator.of(sheetCtx).pop();
-                              if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Moved ${_currentItem.name} to ${b.name}')),
-                                );
-                                Navigator.of(context).pop();
-                              }
-                            },
-                    );
-                  }),
-              ],
-            ),
-          ),
+                          : () => handleAssign(
+                                targetBinderId: 'INBOX',
+                                destinationName: 'Inbox',
+                              ),
+                    ),
+                    if (binders.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.all(20),
+                        child: Text('No other binders available.', style: TextStyle(color: AppColors.textMuted)),
+                      )
+                    else
+                      ...binders.map((b) {
+                        final isCurrentBinder = b.id == effectiveCurrentBinderId;
+                        return ListTile(
+                          key: Key('move_to_binder_${b.id}'),
+                          leading: Icon(
+                            Icons.folder_outlined,
+                            color: (isCurrentBinder || isAssigning) ? AppColors.textMuted : AppColors.accentCyan,
+                          ),
+                          title: Text(
+                            b.name,
+                            style: TextStyle(
+                              color: (isCurrentBinder || isAssigning) ? AppColors.textMuted : Colors.white,
+                              fontWeight: isCurrentBinder ? FontWeight.normal : FontWeight.w600,
+                            ),
+                          ),
+                          subtitle: Text(
+                            b.collectionType,
+                            style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                          ),
+                          trailing: isCurrentBinder
+                              ? const Text('Current', style: TextStyle(color: AppColors.textMuted, fontSize: 11))
+                              : null,
+                          enabled: !isCurrentBinder && !isAssigning,
+                          onTap: (isCurrentBinder || isAssigning)
+                              ? null
+                              : () => handleAssign(
+                                    targetBinderId: b.id,
+                                    destinationName: b.name,
+                                  ),
+                        );
+                      }),
+                  ],
+                ),
+              ),
+            );
+          },
         );
       },
     );
@@ -4075,7 +4172,9 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
                   title: const Text('Binders', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
                   subtitle: const Text('Store in binders or inbox', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
                   onTap: () {
-                    Navigator.of(modalCtx).pop();
+                    if (modalCtx.mounted && ModalRoute.of(modalCtx)?.isCurrent == true) {
+                      Navigator.of(modalCtx).pop();
+                    }
                     _showMoveBinderModal();
                   },
                 ),
@@ -4085,7 +4184,9 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
                   title: const Text('Decks', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
                   subtitle: const Text('Add as proxy or active card to a deck', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
                   onTap: () {
-                    Navigator.of(modalCtx).pop();
+                    if (modalCtx.mounted && ModalRoute.of(modalCtx)?.isCurrent == true) {
+                      Navigator.of(modalCtx).pop();
+                    }
                     _showAddToDeckDialog();
                   },
                 ),

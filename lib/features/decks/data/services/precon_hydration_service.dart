@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:isolate';
 
@@ -5,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:drift/drift.dart';
 
+import 'package:countr/core/cache/countr_cached_image.dart';
 import 'package:countr/core/database/app_database.dart';
 import 'package:countr/features/decks/data/models/precon_deck_dto.dart';
 import 'package:countr/features/decks/data/services/mtgjson_precon_parser.dart';
@@ -13,7 +15,12 @@ import 'package:countr/features/decks/data/services/fallback_explore_seeds.dart'
 /// Service orchestrating offline ingestion, background isolate parsing,
 /// and atomic SQLite seeding of official MTG preconstructed decks.
 class PreconHydrationService {
-  static bool _isSeeding = false;
+  static Future<void>? _activeSeedFuture;
+
+  /// Visible for testing and coordination: returns the active seed Future if running.
+  static Future<void>? get activeSeedFuture => _activeSeedFuture;
+
+  static const _preconZoneKey = #_preconSeedInProgress;
 
   /// Default asset path for bundled preconstructed decks.
   static const String defaultPreconAssetPath = 'assets/decks/precons.json';
@@ -44,11 +51,17 @@ class PreconHydrationService {
 
   /// Parses raw JSON string into [PreconDeckDto]s in a background isolate.
   static Future<List<PreconDeckDto>> parseJsonInIsolate(String rawJson) {
+    if (Platform.environment.containsKey('FLUTTER_TEST')) {
+      return Future.value(MtgjsonPreconParser.parseJson(rawJson));
+    }
     return Isolate.run(() => MtgjsonPreconParser.parseJson(rawJson));
   }
 
   /// Parses raw byte data into [PreconDeckDto]s in a background isolate.
   static Future<List<PreconDeckDto>> parseBytesInIsolate(Uint8List byteData) {
+    if (Platform.environment.containsKey('FLUTTER_TEST')) {
+      return Future.value(MtgjsonPreconParser.parseBytes(byteData));
+    }
     return Isolate.run(() => MtgjsonPreconParser.parseBytes(byteData));
   }
 
@@ -62,15 +75,16 @@ class PreconHydrationService {
     Uint8List? byteData;
 
     try {
-      final bd = await rootBundle.load(effectivePath);
-      byteData = bd.buffer.asUint8List();
-    } catch (_) {
-      // Fallback: Check local filesystem for test environments
+      final file = File(effectivePath);
+      if (file.existsSync()) {
+        byteData = file.readAsBytesSync();
+      }
+    } catch (_) {}
+
+    if (byteData == null) {
       try {
-        final file = File(effectivePath);
-        if (file.existsSync()) {
-          byteData = await file.readAsBytes();
-        }
+        final bd = await rootBundle.load(effectivePath);
+        byteData = bd.buffer.asUint8List();
       } catch (_) {}
     }
 
@@ -104,39 +118,80 @@ class PreconHydrationService {
     String? assetPath,
     List<PreconDeckDto>? customPrecons,
   }) async {
-    if (_isSeeding) {
-      debugPrint('[PreconHydrationService] Seeding already in progress. Skipping concurrent request.');
+    if (Zone.current[_preconZoneKey] == true) {
+      debugPrint('[PreconHydrationService] Re-entrant call detected; skipping to prevent self-await deadlock.');
       return;
     }
-    _isSeeding = true;
 
-    try {
+    if (Zone.current[AppDatabase.beforeOpenZoneKey] == true) {
+      debugPrint('[PreconHydrationService] Call from within beforeOpen detected; deferring to microtask to prevent deadlock.');
+      Zone.root.scheduleMicrotask(() => seedHistoricalPrecons(
+        db,
+        force: force,
+        assetPath: assetPath,
+        customPrecons: customPrecons,
+      ));
+      return;
+    }
+
+    if (_activeSeedFuture != null) {
+      try {
+        await _activeSeedFuture;
+      } catch (_) {}
       if (!force && customPrecons == null) {
         final alreadySeeded = await isHistoricalPreconSeeded(db);
-        if (alreadySeeded) {
-          debugPrint('[PreconHydrationService] Preconstructed decks already seeded. Skipping.');
-          return;
-        }
+        if (alreadySeeded) return;
       }
+    }
 
-      debugPrint('[PreconHydrationService] Starting precon hydration pipeline...');
+    final future = runZoned(
+      () => _executeHistoricalPreconSeed(
+        db,
+        force: force,
+        assetPath: assetPath,
+        customPrecons: customPrecons,
+      ),
+      zoneValues: {_preconZoneKey: true},
+    );
+    _activeSeedFuture = future;
+    try {
+      await future;
+    } finally {
+      if (identical(_activeSeedFuture, future)) {
+        _activeSeedFuture = null;
+      }
+    }
+  }
 
-      final List<PreconDeckDto> precons = customPrecons ??
-          await loadAndParseBundledPrecons(assetPath: assetPath);
-
-      if (precons.isEmpty) {
-        debugPrint('[PreconHydrationService] No preconstructed decks to seed.');
+  static Future<void> _executeHistoricalPreconSeed(
+    AppDatabase db, {
+    required bool force,
+    String? assetPath,
+    List<PreconDeckDto>? customPrecons,
+  }) async {
+    if (!force && customPrecons == null) {
+      final alreadySeeded = await isHistoricalPreconSeeded(db);
+      if (alreadySeeded) {
+        debugPrint('[PreconHydrationService] Preconstructed decks already seeded. Skipping.');
         return;
       }
-
-      await _executeAtomicBatchIngestion(db, precons);
-
-      debugPrint(
-        '[PreconHydrationService] Successfully seeded ${precons.length} preconstructed decks.',
-      );
-    } finally {
-      _isSeeding = false;
     }
+
+    debugPrint('[PreconHydrationService] Starting precon hydration pipeline...');
+
+    final List<PreconDeckDto> precons = customPrecons ??
+        await loadAndParseBundledPrecons(assetPath: assetPath);
+
+    if (precons.isEmpty) {
+      debugPrint('[PreconHydrationService] No preconstructed decks to seed.');
+      return;
+    }
+
+    await _executeAtomicBatchIngestion(db, precons);
+
+    debugPrint(
+      '[PreconHydrationService] Successfully seeded ${precons.length} preconstructed decks.',
+    );
   }
 
   /// Executes chunked SQLite insertions inside a single atomic transaction.
@@ -154,7 +209,8 @@ class PreconHydrationService {
     final Map<String, int> itemKeyCounts = {};
 
     for (final precon in precons) {
-      final deckCreatedAt = precon.releaseDate ?? now;
+      final deckCreatedAt = precon.releaseDate ??
+          (precon.releaseYear != null ? DateTime(precon.releaseYear!) : DateTime(2020));
       final versionId = '${precon.id}-v1';
 
       // 1. Deck Companion
@@ -192,6 +248,15 @@ class PreconHydrationService {
 
       // 3. Process Cards (vault_items and deck_version_items)
       for (final card in precon.allCards) {
+        final isSyntheticOracle = card.oracleId != null &&
+            (card.oracleId!.startsWith('12a34567-') ||
+             card.oracleId!.startsWith('722a3456-') ||
+             card.oracleId!.startsWith('812a3456-'));
+
+        final effectiveImageUrl = isSyntheticOracle
+            ? CountrCachedImage.buildScryfallNamedUrl(card.name, version: 'normal')
+            : (card.imageUrl ?? '');
+
         // Collect catalog reference row for vault_items (unowned, quantity = 0)
         if (!vaultItemsMap.containsKey(card.scryfallId)) {
           vaultItemsMap[card.scryfallId] = VaultItemsCompanion.insert(
@@ -199,7 +264,7 @@ class PreconHydrationService {
             collectionType: 'mtg',
             name: card.name,
             setOrSeries: precon.setCode ?? 'Catalog',
-            imageUrl: card.imageUrl ?? '',
+            imageUrl: effectiveImageUrl,
             acquiredPrice: 0.0,
             acquiredDate: deckCreatedAt,
             quantity: const Value(0), // Unowned catalog reference preserves Owned = 0
@@ -236,64 +301,93 @@ class PreconHydrationService {
 
     final vaultCompanions = vaultItemsMap.values.toList();
 
-    // Execute everything in a single atomic transaction
-    await db.transaction(() async {
-      // Step A: Insert parent decks
-      for (var i = 0; i < deckCompanions.length; i += batchChunkSize) {
-        final chunk = deckCompanions.skip(i).take(batchChunkSize).toList();
-        await db.batch((b) {
-          b.insertAll(db.decks, chunk, mode: InsertMode.insertOrReplace);
-        });
-      }
-
-      // Step B: Insert active deck versions (FK references decks)
-      for (var i = 0; i < versionCompanions.length; i += batchChunkSize) {
-        final chunk = versionCompanions.skip(i).take(batchChunkSize).toList();
-        await db.batch((b) {
-          b.insertAll(db.deckVersions, chunk, mode: InsertMode.insertOrReplace);
-        });
-      }
-
-      // Step C: Insert catalog reference rows into vault_items (preserving owned cards)
-      for (var i = 0; i < vaultCompanions.length; i += batchChunkSize) {
-        final chunk = vaultCompanions.skip(i).take(batchChunkSize).toList();
-        await db.batch((b) {
-          b.insertAll(
-            db.vaultItems,
-            chunk,
-            onConflict: DoUpdate<$VaultItemsTable, VaultItem>.withExcluded(
-              (old, excluded) => VaultItemsCompanion.custom(
-                name: excluded.name,
-                flavorName: excluded.flavorName,
-                setOrSeries: excluded.setOrSeries,
-                imageUrl: const CustomExpression<String>(
-                  'CASE WHEN excluded.image_url IS NOT NULL AND excluded.image_url != \'\' THEN excluded.image_url ELSE vault_items.image_url END',
-                ),
-                currentMarketPrice: const CustomExpression<double>(
-                  'CASE WHEN excluded.current_market_price > 0.0 THEN excluded.current_market_price ELSE vault_items.current_market_price END',
-                ),
-                lastPriceUpdate: const CustomExpression<DateTime>(
-                  'CASE WHEN excluded.current_market_price > 0.0 THEN excluded.last_price_update ELSE vault_items.last_price_update END',
-                ),
-                dynamicData: excluded.dynamicData,
-                collectionType: excluded.collectionType,
-              ),
-              target: [db.vaultItems.id],
+    // Execute all precon insertions atomically inside a single Drift batch
+    await db.batch((b) {
+      b.insertAll(db.decks, deckCompanions, mode: InsertMode.insertOrReplace);
+      b.insertAll(db.deckVersions, versionCompanions, mode: InsertMode.insertOrReplace);
+      b.insertAll(
+        db.vaultItems,
+        vaultCompanions,
+        onConflict: DoUpdate<$VaultItemsTable, VaultItem>.withExcluded(
+          (old, excluded) => VaultItemsCompanion.custom(
+            name: excluded.name,
+            flavorName: excluded.flavorName,
+            setOrSeries: excluded.setOrSeries,
+            imageUrl: const CustomExpression<String>(
+              'CASE WHEN vault_items.image_url IS NOT NULL AND vault_items.image_url != \'\' THEN vault_items.image_url ELSE excluded.image_url END',
             ),
-          );
-        });
-      }
+            currentMarketPrice: const CustomExpression<double>(
+              'CASE WHEN excluded.current_market_price > 0.0 THEN excluded.current_market_price ELSE vault_items.current_market_price END',
+            ),
+            lastPriceUpdate: const CustomExpression<DateTime>(
+              'CASE WHEN excluded.current_market_price > 0.0 THEN excluded.last_price_update ELSE vault_items.last_price_update END',
+            ),
+            dynamicData: const CustomExpression<String>(
+              'CASE WHEN vault_items.dynamic_data IS NOT NULL AND vault_items.dynamic_data != \'\' AND vault_items.dynamic_data != \'{}\' THEN vault_items.dynamic_data ELSE excluded.dynamic_data END',
+            ),
+            collectionType: excluded.collectionType,
+          ),
+          target: [db.vaultItems.id],
+        ),
+      );
+      b.insertAll(db.deckVersionItems, itemCompanions, mode: InsertMode.insertOrReplace);
+    });
 
-      // Step D: Insert deck items (FK references deck_versions and vault_items)
-      for (var i = 0; i < itemCompanions.length; i += batchChunkSize) {
-        final chunk = itemCompanions.skip(i).take(batchChunkSize).toList();
-        await db.batch((b) {
-          b.insertAll(
-            db.deckVersionItems,
-            chunk,
-            mode: InsertMode.insertOrReplace,
+    await repairSyntheticPreconVaultItems(db);
+  }
+
+  /// Repairs synthetic precon vault_items rows in SQLite so that cards with
+  /// synthetic oracle IDs ('12a34567-...', '722a3456-...', '812a3456-...')
+  /// or recent acquired_date timestamps use Scryfall named normal URLs
+  /// and historical release timestamps.
+  static Future<void> repairSyntheticPreconVaultItems(AppDatabase db) async {
+    final syntheticRows = await db.customSelect('''
+      SELECT id, name, set_or_series, acquired_date, image_url, dynamic_data
+      FROM vault_items
+      WHERE quantity = 0 AND (
+        dynamic_data LIKE '%12a34567-%' OR
+        dynamic_data LIKE '%722a3456-%' OR
+        dynamic_data LIKE '%812a3456-%'
+      );
+    ''').get();
+
+    if (syntheticRows.isEmpty) return;
+
+    await db.batch((b) {
+      for (final row in syntheticRows) {
+        final id = row.read<String>('id');
+        final name = row.read<String>('name');
+        final setCode = (row.readNullable<String>('set_or_series') ?? '').toUpperCase();
+        final currentAcquired = row.read<DateTime>('acquired_date');
+        final currentImageUrl = row.readNullable<String>('image_url') ?? '';
+
+        DateTime historicalDate;
+        if (setCode == 'C17') {
+          historicalDate = DateTime(2017);
+        } else if (setCode == 'C16') {
+          historicalDate = DateTime(2016);
+        } else if (setCode == 'MOC') {
+          historicalDate = DateTime(2023);
+        } else {
+          historicalDate = DateTime(2020);
+        }
+
+        final namedUrl = CountrCachedImage.buildScryfallNamedUrl(name, version: 'normal');
+        final needsUrlRepair = currentImageUrl.isEmpty ||
+            currentImageUrl.contains('cards.scryfall.io') ||
+            currentImageUrl.contains('/normal/front/');
+        final needsDateRepair = currentAcquired.isAfter(DateTime(2025));
+
+        if (needsUrlRepair || needsDateRepair) {
+          b.update(
+            db.vaultItems,
+            VaultItemsCompanion(
+              acquiredDate: needsDateRepair ? Value(historicalDate) : const Value.absent(),
+              imageUrl: needsUrlRepair ? Value(namedUrl) : const Value.absent(),
+            ),
+            where: (t) => t.id.equals(id),
           );
-        });
+        }
       }
     });
   }

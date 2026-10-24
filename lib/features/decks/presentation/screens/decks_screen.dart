@@ -76,11 +76,15 @@ class _DecksScreenState extends ConsumerState<DecksScreen>
     );
     _tabController.addListener(_onTabChanged);
     if (!kIsWeb && !Platform.environment.containsKey('FLUTTER_TEST')) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
         if (!mounted) return;
         final db = ref.read(appDatabaseProvider);
-        ExploreSeederService.seedIfNeeded(db);
-        PreconHydrationService.seedHistoricalPrecons(db);
+        await ExploreSeederService.seedIfNeeded(db);
+        await PreconHydrationService.seedHistoricalPrecons(db);
+        if (!mounted) return;
+        ref.invalidate(exploreDecksStreamProvider);
+        ref.invalidate(featuredExploreCategoryStreamProvider);
+        ref.invalidate(deckSummariesProvider);
       });
     }
   }

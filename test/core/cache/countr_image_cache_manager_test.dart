@@ -177,6 +177,70 @@ void main() {
       final fileByUrl = await manager.getFileFromCache(normUrl);
       expect(fileByUrl, isNotNull);
     });
+
+    test('Cross-instance card caching resolves Vault, My Decks, Explore Decks, and generic Scryfall named URLs from a single cached image', () async {
+      final manager = CountrImageCacheManager.instance;
+      const scryfallId = 'sol-ring-c21-uuid';
+      const rawUrl = 'https://cards.scryfall.io/normal/front/4/c/4cbc6901-6a4a-4d0a-83ea-7eefa3b35021.jpg?1625194522';
+      const namedUrl = 'https://api.scryfall.com/cards/named?exact=Sol%20Ring&format=image&version=normal';
+      final dummyBytes = Uint8List.fromList([0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10]);
+
+      // 1. Instance 1 (Vault card) registers aliases and caches the file once
+      final vaultKey = CountrImageCacheManager.cardArtKey(scryfallId);
+      manager.registerCardAliases(
+        cacheKey: vaultKey,
+        cardId: scryfallId,
+        imageUrl: rawUrl,
+        cardName: 'Sol Ring',
+        version: 'normal',
+      );
+      await manager.putFile(rawUrl, dummyBytes, key: vaultKey);
+
+      // 2. Instance 2 (Explore deck item with its own row ID explore_item_99)
+      const exploreItemKey = 'explore_item_99';
+      manager.registerCardAliases(
+        cacheKey: exploreItemKey,
+        cardId: scryfallId,
+        imageUrl: rawUrl,
+        cardName: 'Sol Ring',
+        version: 'normal',
+      );
+
+      final exploreHit = await manager.getFileFromCache(exploreItemKey);
+      expect(exploreHit, isNotNull,
+          reason: 'Explore deck item must resolve immediately from the already-cached Vault card image');
+      expect(await exploreHit!.file.exists(), isTrue);
+
+      // Synchronous Frame-0 memory file lookup must also hit immediately
+      final syncMemFile = manager.getMemoryCachedFile(
+        exploreItemKey,
+        imageUrl: rawUrl,
+        cardId: scryfallId,
+        cardName: 'Sol Ring',
+        version: 'normal',
+      );
+      expect(syncMemFile, isNotNull);
+      expect(syncMemFile!.existsSync(), isTrue);
+
+      // 3. Instance 3 (Precon / fallback item using generic Scryfall named URL)
+      const preconItemKey = 'explore_item_precon_sol_ring';
+      manager.registerCardAliases(
+        cacheKey: preconItemKey,
+        imageUrl: namedUrl,
+        cardName: 'Sol Ring',
+        version: 'normal',
+      );
+
+      final namedHit = await manager.getFileFromCache(namedUrl);
+      expect(namedHit, isNotNull,
+          reason: 'Generic Scryfall named URL must resolve from the already-cached Sol Ring image without network request');
+      expect(await namedHit!.file.exists(), isTrue);
+
+      // 4. getFileStream on the Explore item key yields the cached FileInfo and closes without HTTP request
+      final streamEvents = await manager.getFileStream(rawUrl, key: exploreItemKey).toList();
+      expect(streamEvents.length, equals(1));
+      expect(streamEvents.first, isA<FileInfo>());
+    });
   });
 
   group('CountrHttpFileService: Network Interception & Failure Registry Integration', () {

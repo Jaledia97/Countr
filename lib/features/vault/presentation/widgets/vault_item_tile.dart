@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:countr/core/constants/app_colors.dart';
 import 'package:countr/core/constants/app_typography.dart';
@@ -17,6 +18,9 @@ class VaultItemTile extends StatelessWidget {
   final VoidCallback? onTap;
   final bool? isPrivacyMode;
   final bool hasMultipleVariants;
+  final bool isSelected;
+  final bool isSelectionMode;
+  final VoidCallback? onLongPress;
 
   const VaultItemTile({
     super.key,
@@ -24,7 +28,39 @@ class VaultItemTile extends StatelessWidget {
     this.onTap,
     this.isPrivacyMode,
     this.hasMultipleVariants = false,
+    this.isSelected = false,
+    this.isSelectionMode = false,
+    this.onLongPress,
   });
+
+  String _resolveFullSizeImageUrl() {
+    if (item.imageUrl.isNotEmpty) return item.imageUrl;
+    if (item.dynamicData.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(item.dynamicData);
+        if (decoded is Map) {
+          final uris = decoded['image_uris'];
+          if (uris is Map) {
+            final normal = uris['normal'] ?? uris['large'] ?? uris['png'];
+            if (normal is String && normal.isNotEmpty) return normal;
+          }
+          final faces = decoded['card_faces'];
+          if (faces is List && faces.isNotEmpty && faces[0] is Map) {
+            final fUris = faces[0]['image_uris'];
+            if (fUris is Map) {
+              final normal = fUris['normal'] ?? fUris['large'] ?? fUris['png'];
+              if (normal is String && normal.isNotEmpty) return normal;
+            }
+            final direct = faces[0]['image_url'] ?? faces[0]['imageUrl'];
+            if (direct != null && direct.toString().isNotEmpty) {
+              return direct.toString();
+            }
+          }
+        }
+      } catch (_) {}
+    }
+    return '';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -35,7 +71,10 @@ class VaultItemTile extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.surfaceBorder),
+        border: Border.all(
+          color: isSelected ? AppColors.accentCyan : AppColors.surfaceBorder,
+          width: isSelected ? 2.0 : 1.0,
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.35),
@@ -47,11 +86,13 @@ class VaultItemTile extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap ?? () => CardDetailSheet.show(context, item),
+        onLongPress: onLongPress,
         child: LayoutBuilder(
           builder: (context, constraints) {
             final maxCaptionHeight = constraints.hasBoundedHeight
                 ? constraints.maxHeight * 0.48
                 : double.infinity;
+            final resolvedUrl = _resolveFullSizeImageUrl();
 
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -63,12 +104,14 @@ class VaultItemTile extends StatelessWidget {
                 children: [
                   // Image
                   IgnorePointer(
-                    child: item.imageUrl.isNotEmpty
+                    child: (resolvedUrl.isNotEmpty || item.name.isNotEmpty)
                         ? CountrCachedImage(
-                            imageUrl: item.imageUrl,
+                            imageUrl: resolvedUrl,
                             cardId: item.id,
                             cardName: item.name,
                             tcgDomain: item.collectionType,
+                            fallbackVersion: 'normal',
+                            memCacheWidth: 320,
                             fit: BoxFit.contain,
                             errorWidget: _buildPlaceholder(),
                           )
@@ -150,75 +193,11 @@ class VaultItemTile extends StatelessWidget {
                       ),
                     ),
 
-                  // Top Right: Quantity Duplicate Badge or Unowned Reference Badge
+                  // Top Right: Selection Indicator or Quantity/Unowned Badge
                   Positioned(
                     top: 6,
                     right: 6,
-                    child: isOwned
-                        ? (item.quantity > 1 || hasMultipleVariants
-                            ? Container(
-                                key: item.quantity > 1
-                                    ? Key('vault_tile_duplicate_badge_${item.id}')
-                                    : Key('vault_tile_variant_badge_${item.id}'),
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: Colors.black.withValues(alpha: 0.88),
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(
-                                    color: Colors.white.withValues(alpha: 0.3),
-                                    width: 1,
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withValues(alpha: 0.45),
-                                      blurRadius: 4,
-                                      offset: const Offset(0, 1),
-                                    ),
-                                  ],
-                                ),
-                                child: Text(
-                                  '${item.quantity}x',
-                                  key: Key('vault_tile_quantity_badge_${item.id}'),
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 10.5,
-                                  ),
-                                ),
-                              )
-                            : const SizedBox.shrink())
-                        : (item.quantity == 0
-                            ? Container(
-                                key: Key('vault_tile_unowned_badge_${item.id}'),
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 2.0, vertical: 1.0),
-                                decoration: BoxDecoration(
-                                  color: Colors.black.withValues(alpha: 0.88),
-                                  borderRadius: BorderRadius.circular(4),
-                                  border: Border.all(
-                                    color: AppColors.accentAmber.withValues(alpha: 0.85),
-                                    width: 1,
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withValues(alpha: 0.45),
-                                      blurRadius: 4,
-                                      offset: const Offset(0, 1),
-                                    ),
-                                  ],
-                                ),
-                                child: const Text(
-                                  'UNOWNED',
-                                  style: TextStyle(
-                                    color: AppColors.accentAmber,
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 6.8,
-                                    letterSpacing: -0.5,
-                                  ),
-                                ),
-                              )
-                            : const SizedBox.shrink()),
+                    child: _buildTopRightBadge(isOwned),
                   ),
 
                   // Bottom Left on Image: Price Badge
@@ -313,6 +292,93 @@ class VaultItemTile extends StatelessWidget {
   double _getEffectiveMarketPrice() =>
       VaultPricingHelper.resolveEffectiveMarketPrice(item);
 
+  Widget _buildTopRightBadge(bool isOwned) {
+    if (isSelectionMode) {
+      return Container(
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.75),
+          shape: BoxShape.circle,
+        ),
+        padding: const EdgeInsets.all(2),
+        child: Icon(
+          isSelected
+              ? Icons.check_circle_rounded
+              : Icons.radio_button_unchecked_rounded,
+          color: isSelected
+              ? AppColors.accentCyan
+              : AppColors.textMuted,
+          size: 22,
+        ),
+      );
+    }
+    if (isOwned) {
+      if (item.quantity > 1 || hasMultipleVariants) {
+        return Container(
+          key: item.quantity > 1
+              ? Key('vault_tile_duplicate_badge_${item.id}')
+              : Key('vault_tile_variant_badge_${item.id}'),
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.88),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.3),
+              width: 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.45),
+                blurRadius: 4,
+                offset: const Offset(0, 1),
+              ),
+            ],
+          ),
+          child: Text(
+            '${item.quantity}x',
+            key: Key('vault_tile_quantity_badge_${item.id}'),
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w800,
+              fontSize: 10.5,
+            ),
+          ),
+        );
+      }
+      return const SizedBox.shrink();
+    }
+    if (item.quantity == 0) {
+      return Container(
+        key: Key('vault_tile_unowned_badge_${item.id}'),
+        padding: const EdgeInsets.symmetric(horizontal: 2.0, vertical: 1.0),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.88),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: AppColors.accentAmber.withValues(alpha: 0.85),
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.45),
+              blurRadius: 4,
+              offset: const Offset(0, 1),
+            ),
+          ],
+        ),
+        child: const Text(
+          'UNOWNED',
+          style: TextStyle(
+            color: AppColors.accentAmber,
+            fontWeight: FontWeight.w800,
+            fontSize: 6.8,
+            letterSpacing: -0.5,
+          ),
+        ),
+      );
+    }
+    return const SizedBox.shrink();
+  }
+
   Widget _buildPlaceholder() {
     return Container(
       color: AppColors.surfaceRaised,
@@ -366,24 +432,28 @@ class _OptionalTileDeckBadges extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (item.quantity <= 0) return const SizedBox.shrink();
     bool hasProviderScope = false;
-    context.visitAncestorElements((element) {
-      final typeStr = element.widget.runtimeType.toString();
-      if (typeStr == 'ProviderScope' || typeStr == 'UncontrolledProviderScope') {
-        hasProviderScope = true;
-        return false;
-      }
-      return true;
-    });
+    try {
+      ProviderScope.containerOf(context, listen: false);
+      hasProviderScope = true;
+    } catch (_) {
+      hasProviderScope = false;
+    }
 
     if (!hasProviderScope) return const SizedBox.shrink();
 
     return Consumer(
       builder: (context, ref, _) {
-        final assignedDecks = ref.watch(
-          allCardActiveDecksProvider.select((asyncVal) =>
-              asyncVal.asData?.value[item.id] ?? const <String>[]),
+        final serializedDecks = ref.watch(
+          allCardActiveDecksProvider.select(
+            (asyncVal) =>
+                (asyncVal.valueOrNull?[item.id] ?? const <String>[]).join('\u0000'),
+          ),
         );
+        final assignedDecks = serializedDecks.isEmpty
+            ? const <String>[]
+            : serializedDecks.split('\u0000');
         if (assignedDecks.isEmpty) return const SizedBox.shrink();
         return Wrap(
           spacing: 4,
@@ -421,14 +491,12 @@ class _OptionalTileAvailabilityBreakdown extends StatelessWidget {
     if (item.quantity <= 0) return const SizedBox.shrink();
 
     bool hasProviderScope = false;
-    context.visitAncestorElements((element) {
-      final typeStr = element.widget.runtimeType.toString();
-      if (typeStr == 'ProviderScope' || typeStr == 'UncontrolledProviderScope') {
-        hasProviderScope = true;
-        return false;
-      }
-      return true;
-    });
+    try {
+      ProviderScope.containerOf(context, listen: false);
+      hasProviderScope = true;
+    } catch (_) {
+      hasProviderScope = false;
+    }
 
     if (!hasProviderScope) {
       return _buildStaticBreakdown(item.quantity, item.quantity, 0);
@@ -436,8 +504,11 @@ class _OptionalTileAvailabilityBreakdown extends StatelessWidget {
 
     return Consumer(
       builder: (context, ref, _) {
-        final availabilityMap = ref.watch(allCardAvailabilityProvider).valueOrNull;
-        final availability = availabilityMap?[item.id] ??
+        final availability = ref.watch(
+          allCardAvailabilityProvider.select(
+            (asyncVal) => asyncVal.valueOrNull?[item.id],
+          ),
+        ) ??
             CardAvailability(
               owned: item.quantity,
               available: item.quantity,

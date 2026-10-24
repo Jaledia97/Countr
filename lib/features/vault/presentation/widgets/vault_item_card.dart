@@ -25,6 +25,9 @@ class VaultItemCard extends StatefulWidget {
   final bool? isPrivacyMode;
   final bool? initiallyExpanded;
   final bool hasMultipleVariants;
+  final bool isSelected;
+  final bool isSelectionMode;
+  final VoidCallback? onLongPress;
 
   const VaultItemCard({
     super.key,
@@ -34,6 +37,9 @@ class VaultItemCard extends StatefulWidget {
     this.isPrivacyMode,
     this.initiallyExpanded,
     this.hasMultipleVariants = false,
+    this.isSelected = false,
+    this.isSelectionMode = false,
+    this.onLongPress,
   });
 
   @override
@@ -148,39 +154,65 @@ class _VaultItemCardState extends State<VaultItemCard> {
           color: AppColors.surface,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: AppColors.surfaceBorderSubtle,
-            width: 1,
+            color: widget.isSelected ? AppColors.accentCyan : AppColors.surfaceBorderSubtle,
+            width: widget.isSelected ? 2 : 1,
           ),
         ),
         clipBehavior: Clip.antiAlias,
-        child: Theme(
-          data: Theme.of(context).copyWith(
-            dividerColor: Colors.transparent,
-            splashColor: AppColors.accentCyan.withValues(alpha: 0.08),
-            highlightColor: Colors.transparent,
-            listTileTheme: const ListTileThemeData(
-              horizontalTitleGap: 12.0,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onLongPress: widget.onLongPress,
+          onTap: widget.isSelectionMode ? widget.onTap : null,
+          child: Theme(
+            data: Theme.of(context).copyWith(
+              dividerColor: Colors.transparent,
+              splashColor: AppColors.accentCyan.withValues(alpha: 0.08),
+              highlightColor: Colors.transparent,
+              listTileTheme: const ListTileThemeData(
+                horizontalTitleGap: 12.0,
+              ),
             ),
-          ),
-          child: ExpansionTile(
-            key: Key('vault_item_expansion_tile_${item.id}'),
-            initiallyExpanded: effectiveExpanded,
-            maintainState: true,
-            onExpansionChanged: (expanded) {
-              setState(() {
-                _isExpanded = expanded;
-              });
-            },
-            shape: const Border(),
-            collapsedShape: const Border(),
-            tilePadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-            childrenPadding: const EdgeInsets.fromLTRB(8, 2, 8, 2),
-            leading: GestureDetector(
-              key: Key('vault_card_thumbnail_tap_${item.id}'),
-              behavior: HitTestBehavior.opaque,
-              onTap: onTap ?? () => CardDetailSheet.show(context, item),
-              child: _buildLeadingThumbnail(width: 38, height: 52),
-            ),
+            child: ExpansionTile(
+              key: Key('vault_item_expansion_tile_${item.id}'),
+              enabled: !widget.isSelectionMode,
+              initiallyExpanded: effectiveExpanded,
+              maintainState: true,
+              onExpansionChanged: (expanded) {
+                setState(() {
+                  _isExpanded = expanded;
+                });
+              },
+              shape: const Border(),
+              collapsedShape: const Border(),
+              tilePadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+              childrenPadding: const EdgeInsets.fromLTRB(8, 2, 8, 2),
+              leading: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (widget.isSelectionMode)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: Icon(
+                        widget.isSelected
+                            ? Icons.check_circle_rounded
+                            : Icons.radio_button_unchecked_rounded,
+                        color: widget.isSelected
+                            ? AppColors.accentCyan
+                            : AppColors.textMuted,
+                        size: 20,
+                      ),
+                    ),
+                  GestureDetector(
+                    key: Key('vault_card_thumbnail_tap_${item.id}'),
+                    behavior: HitTestBehavior.opaque,
+                    onTap: widget.isSelectionMode
+                        ? widget.onTap
+                        : (onTap ?? () => CardDetailSheet.show(context, item, binderId: item.primaryBinderId)),
+                    onLongPress: widget.onLongPress,
+                    child: _buildLeadingThumbnail(width: 38, height: 52),
+                  ),
+                ],
+              ),
             title: Row(
               children: [
                 Expanded(
@@ -272,7 +304,8 @@ class _VaultItemCardState extends State<VaultItemCard> {
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 
   Widget _buildSubtitleRow(
@@ -523,7 +556,11 @@ class _VaultItemCardState extends State<VaultItemCard> {
               'Full Details',
               style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
             ),
-            onPressed: onTap ?? () => CardDetailSheet.show(context, item),
+            onPressed: onTap ?? () => CardDetailSheet.show(
+              context,
+              item,
+              binderId: item.primaryBinderId,
+            ),
           ),
           const SizedBox(width: 6),
           OutlinedButton.icon(
@@ -541,7 +578,11 @@ class _VaultItemCardState extends State<VaultItemCard> {
             ),
             icon: const Icon(Icons.swap_horiz_rounded, size: 13),
             label: const Text('Switch', style: TextStyle(fontSize: 10)),
-            onPressed: () => CardDetailSheet.show(context, item),
+            onPressed: () => CardDetailSheet.show(
+              context,
+              item,
+              binderId: item.primaryBinderId,
+            ),
           ),
           const SizedBox(width: 6),
           OutlinedButton.icon(
@@ -559,7 +600,11 @@ class _VaultItemCardState extends State<VaultItemCard> {
             ),
             icon: const Icon(Icons.drive_file_move_outlined, size: 13),
             label: const Text('Move', style: TextStyle(fontSize: 10)),
-            onPressed: () => CardDetailSheet.show(context, item),
+            onPressed: () => CardDetailSheet.show(
+              context,
+              item,
+              binderId: item.primaryBinderId,
+            ),
           ),
         ],
       ),
@@ -1106,9 +1151,11 @@ class _VaultItemCardState extends State<VaultItemCard> {
         child: IgnorePointer(
           child: CountrCachedImage(
             imageUrl: thumbUrl,
-            cacheKey: CountrImageCacheManager.cardArtKey(item.id),
+            cacheKey: CountrImageCacheManager.cardArtKey(item.id, version: 'small'),
             cardName: item.name,
             tcgDomain: item.collectionType,
+            fallbackVersion: 'small',
+            memCacheWidth: 120,
             fit: BoxFit.cover,
             width: width,
             height: height,
@@ -1185,24 +1232,28 @@ class OptionalDeckBadges extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (item.quantity <= 0) return const SizedBox.shrink();
     bool hasProviderScope = false;
-    context.visitAncestorElements((element) {
-      final typeStr = element.widget.runtimeType.toString();
-      if (typeStr == 'ProviderScope' || typeStr == 'UncontrolledProviderScope') {
-        hasProviderScope = true;
-        return false;
-      }
-      return true;
-    });
+    try {
+      ProviderScope.containerOf(context, listen: false);
+      hasProviderScope = true;
+    } catch (_) {
+      hasProviderScope = false;
+    }
 
     if (!hasProviderScope) return const SizedBox.shrink();
 
     return Consumer(
       builder: (context, ref, _) {
-        final assignedDecks = ref.watch(
-          allCardActiveDecksProvider.select((asyncVal) =>
-              asyncVal.asData?.value[item.id] ?? const <String>[]),
+        final serializedDecks = ref.watch(
+          allCardActiveDecksProvider.select(
+            (asyncVal) =>
+                (asyncVal.valueOrNull?[item.id] ?? const <String>[]).join('\u0000'),
+          ),
         );
+        final assignedDecks = serializedDecks.isEmpty
+            ? const <String>[]
+            : serializedDecks.split('\u0000');
         if (assignedDecks.isEmpty) return const SizedBox.shrink();
         return Wrap(
           spacing: 4,
@@ -1240,14 +1291,12 @@ class OptionalCardAvailabilityBreakdown extends StatelessWidget {
     if (item.quantity <= 0) return const SizedBox.shrink();
 
     bool hasProviderScope = false;
-    context.visitAncestorElements((element) {
-      final typeStr = element.widget.runtimeType.toString();
-      if (typeStr == 'ProviderScope' || typeStr == 'UncontrolledProviderScope') {
-        hasProviderScope = true;
-        return false;
-      }
-      return true;
-    });
+    try {
+      ProviderScope.containerOf(context, listen: false);
+      hasProviderScope = true;
+    } catch (_) {
+      hasProviderScope = false;
+    }
 
     if (!hasProviderScope) {
       return _buildPill(item.quantity, item.quantity, 0);
@@ -1255,8 +1304,11 @@ class OptionalCardAvailabilityBreakdown extends StatelessWidget {
 
     return Consumer(
       builder: (context, ref, _) {
-        final availabilityMap = ref.watch(allCardAvailabilityProvider).valueOrNull;
-        final availability = availabilityMap?[item.id] ??
+        final availability = ref.watch(
+          allCardAvailabilityProvider.select(
+            (asyncVal) => asyncVal.valueOrNull?[item.id],
+          ),
+        ) ??
             CardAvailability(
               owned: item.quantity,
               available: item.quantity,

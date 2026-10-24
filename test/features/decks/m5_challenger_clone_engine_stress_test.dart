@@ -7,6 +7,7 @@ import 'package:uuid/uuid.dart';
 
 import 'package:countr/core/database/app_database.dart';
 import 'package:countr/features/vault/data/daos/vault_dao.dart';
+import 'package:countr/features/vault/domain/models/card_availability.dart';
 import 'package:countr/features/vault/presentation/providers/vault_providers.dart';
 import 'package:countr/features/decks/data/daos/explore_deck_dao.dart';
 import 'package:countr/features/decks/presentation/providers/explore_deck_providers.dart';
@@ -727,18 +728,8 @@ void main() {
       // 3. Inspect VaultDao.watchAllCardAvailability
       final postCloneAvailability = await vaultDao.watchAllCardAvailability().first;
 
-      // 5 synthesized vault items created
-      expect(postCloneAvailability.length, equals(5));
-
-      for (final entry in postCloneAvailability.entries) {
-        final avail = entry.value;
-        // Invariant: Owned = 0, InDeck = 0, Available = 0
-        expect(avail.owned, equals(0), reason: 'Unowned synthesized card must have owned: 0');
-        expect(avail.inDeck, equals(0), reason: 'Unowned draft card must have inDeck: 0');
-        expect(avail.available, equals(0), reason: 'Available must be 0, never negative');
-        expect(avail.owned, equals(avail.available + avail.inDeck),
-            reason: 'Ledger invariant Owned = Available + InDeck must hold');
-      }
+      // 5 synthesized vault items created with quantity == 0 are excluded from watchAllCardAvailability (restricted to owned cards)
+      expect(postCloneAvailability.length, equals(0));
     });
 
     test('Cloned draft deck does NOT lock pre-owned cards; transitioning to Assembled locks correctly and respects proxies', () async {
@@ -926,9 +917,11 @@ void main() {
       final brainstormVaultItem = await (db.select(db.vaultItems)
             ..where((t) => t.name.equals('Brainstorm')))
           .getSingle();
-      expect(postCloneDraftAvail[brainstormVaultItem.id]!.owned, equals(0));
-      expect(postCloneDraftAvail[brainstormVaultItem.id]!.inDeck, equals(0));
-      expect(postCloneDraftAvail[brainstormVaultItem.id]!.available, equals(0));
+      expect(postCloneDraftAvail.containsKey(brainstormVaultItem.id), isFalse);
+      final brainstormDraftAvail = postCloneDraftAvail[brainstormVaultItem.id] ?? CardAvailability.zero;
+      expect(brainstormDraftAvail.owned, equals(0));
+      expect(brainstormDraftAvail.inDeck, equals(0));
+      expect(brainstormDraftAvail.available, equals(0));
 
       // 5. Transition cloned deck to Assembled state (isAssembled = true)
       await (db.update(db.decks)..where((t) => t.id.equals(clonedDeck.id))).write(
@@ -952,9 +945,11 @@ void main() {
 
       // Brainstorm: unowned proxy!
       // inDeck: 0, available: 0, owned: 0
-      expect(assembledAvail[brainstormVaultItem.id]!.owned, equals(0));
-      expect(assembledAvail[brainstormVaultItem.id]!.inDeck, equals(0));
-      expect(assembledAvail[brainstormVaultItem.id]!.available, equals(0));
+      expect(assembledAvail.containsKey(brainstormVaultItem.id), isFalse);
+      final brainstormAssembledAvail = assembledAvail[brainstormVaultItem.id] ?? CardAvailability.zero;
+      expect(brainstormAssembledAvail.owned, equals(0));
+      expect(brainstormAssembledAvail.inDeck, equals(0));
+      expect(brainstormAssembledAvail.available, equals(0));
 
       // 6. Transition back to Draft: physical lock releases immediately!
       await (db.update(db.decks)..where((t) => t.id.equals(clonedDeck.id))).write(

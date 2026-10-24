@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:countr/core/database/app_database.dart';
 import 'package:countr/features/decks/data/services/explore_seeder_service.dart';
 import 'package:countr/features/decks/data/services/fallback_explore_seeds.dart';
+import 'package:countr/features/vault/domain/models/card_availability.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -495,7 +496,8 @@ void main() {
       final urDragonVaultItem = await (db.select(db.vaultItems)
             ..where((t) => t.name.equals('The Ur-Dragon')))
           .getSingle();
-      final urDragonAvail = postCloneAvailMap[urDragonVaultItem.id]!;
+      expect(postCloneAvailMap.containsKey(urDragonVaultItem.id), isFalse);
+      final urDragonAvail = postCloneAvailMap[urDragonVaultItem.id] ?? CardAvailability.zero;
       expect(urDragonAvail.owned, equals(0));
       expect(urDragonAvail.inDeck, equals(0));
       expect(urDragonAvail.available, equals(0));
@@ -572,7 +574,8 @@ void main() {
       final urDragonItem = await (db.select(db.vaultItems)
             ..where((t) => t.name.equals('The Ur-Dragon')))
           .getSingle();
-      final urAvail = availMap[urDragonItem.id]!;
+      expect(availMap.containsKey(urDragonItem.id), isFalse);
+      final urAvail = availMap[urDragonItem.id] ?? CardAvailability.zero;
       expect(urAvail.owned, equals(0));
       expect(urAvail.inDeck, equals(0),
           reason: 'Proxy cards must not be counted in in_deck allocation');

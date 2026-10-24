@@ -512,9 +512,11 @@ void main() {
       );
 
       final map = await db.vaultDao.watchAllCardAvailability().first;
-      final avail = map[cardId]!;
+      // Cards with quantity <= 0 (unowned/catalog/reference) are excluded from watchAllCardAvailability
+      expect(map.containsKey(cardId), isFalse);
+      final avail = map[cardId] ?? CardAvailability.zero;
       expect(avail.owned, equals(0));
-      expect(avail.inDeck, equals(2));
+      expect(avail.inDeck, equals(0));
       expect(avail.available, equals(0));
     });
   });

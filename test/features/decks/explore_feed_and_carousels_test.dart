@@ -7,10 +7,20 @@ import 'package:countr/core/database/app_database.dart';
 import 'package:countr/features/vault/data/daos/vault_dao.dart';
 import 'package:countr/features/vault/presentation/providers/vault_providers.dart';
 import 'package:countr/features/decks/data/daos/explore_deck_dao.dart';
+import 'package:countr/features/decks/data/services/explore_seeder_service.dart';
 import 'package:countr/features/decks/domain/models/explore_deck_models.dart';
 import 'package:countr/features/decks/presentation/providers/deck_providers.dart';
 import 'package:countr/features/decks/presentation/providers/explore_deck_providers.dart';
 import 'package:countr/features/decks/presentation/screens/decks_screen.dart';
+
+class _FailingAppDatabase extends AppDatabase {
+  _FailingAppDatabase() : super(NativeDatabase.memory());
+
+  @override
+  Future<void> batch(Function(Batch) runInBatch) {
+    throw Exception('Simulated SQLite disk write failure');
+  }
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -365,5 +375,286 @@ void main() {
       // User switched vote to -1 -> score becomes 15 (base 16 - 1)
       expect(tester.widget<Text>(scoreFinder).data, '15');
     });
+
+    testWidgets('6. Seed Precons & Community button (load_precons_button) is always visible at the top of ExploreDecksTabView',
+        (tester) async {
+      await tester.pumpWidget(createSubject(initialTopTab: 1));
+      await tester.pumpAndSettle();
+
+      // Button must be visible without scrolling even on a standard viewport
+      expect(find.byKey(const Key('load_precons_button')), findsOneWidget);
+    });
+
+    testWidgets('7. Tapping Seed Precons & Community button (load_precons_button) triggers seeding, displays loading indicator, shows completion SnackBar, and populates 19 decks into the feed and carousels',
+        (tester) async {
+      final freshDb = AppDatabase(NativeDatabase.memory());
+      addTearDown(freshDb.close);
+
+      final freshVaultDao = VaultDao(freshDb);
+      final freshExploreDao = ExploreDeckDao(freshDb);
+
+      expect(await freshExploreDao.getExploreDeckCount(), 0);
+
+      final container = ProviderContainer(
+        overrides: [
+          appDatabaseProvider.overrideWithValue(freshDb),
+          vaultDaoProvider.overrideWithValue(freshVaultDao),
+          exploreDeckDaoProvider.overrideWithValue(freshExploreDao),
+          decksTopTabProvider.overrideWith((ref) => 1),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      tester.view.physicalSize = const Size(800, 2600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(
+            home: ScaffoldMessenger(
+              child: DecksScreen(),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Initially, 0 decks in DB
+      expect(await freshExploreDao.getExploreDeckCount(), 0);
+
+      // Seed Precons & Community button is visible
+      final seedButton = find.byKey(const Key('load_precons_button'));
+      expect(seedButton, findsOneWidget);
+      expect(find.text('Load Official Precons & Community Decks'), findsOneWidget);
+
+      // Tap the seed button and pump to dispatch tap event and trigger _seedPreconsAndCommunity
+      await tester.tap(seedButton);
+      await tester.pump();
+
+      // Verify loading state is shown on the button
+      expect(find.text('Loading Decks...'), findsOneWidget);
+
+      // Advance time past the inter-seed delay and allow seeding to complete
+      await tester.pump(const Duration(milliseconds: 50));
+      // Pump frame for the completion SnackBar animation to enter
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      // Verify completion SnackBar
+      expect(find.text('Successfully loaded precons & community decks!'), findsOneWidget);
+
+      // Settle animations and stream updates
+      await tester.pumpAndSettle();
+
+      // Verify database has all 19 decks
+      final count = await freshExploreDao.getExploreDeckCount();
+      expect(count, 19);
+
+      // Verify decks are rendered in the feed and carousels
+      expect(find.byKey(const Key('explore_carousel_suggested_commanders')), findsOneWidget);
+      expect(find.byKey(const Key('explore_carousel_top_builders')), findsOneWidget);
+
+      // Ur-Dragon official precon card is rendered
+      expect(find.byKey(const Key('explore_card_precon-c17-draconic-domination')), findsWidgets);
+
+      // Button in populated state header is visible with 'Seed Precons & Community'
+      expect(find.byKey(const Key('load_precons_button')), findsOneWidget);
+      expect(find.text('Seed Precons & Community'), findsOneWidget);
+
+      // Verify re-seeding by tapping the populated state header button
+      await tester.tap(find.byKey(const Key('load_precons_button')));
+      await tester.pump();
+
+      // Loading state shown in header button
+      expect(find.text('Loading Decks...'), findsOneWidget);
+
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.text('Successfully loaded precons & community decks!'), findsOneWidget);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Seed Precons & Community'), findsOneWidget);
+      expect(await freshExploreDao.getExploreDeckCount(), 19);
+    });
+
+    testWidgets('8. Rapid tab switching between My Decks and Explore Decks maintains state integrity and populates feed without deadlock or exceptions',
+        (tester) async {
+      final freshDb = AppDatabase(NativeDatabase.memory());
+      addTearDown(freshDb.close);
+
+      final freshVaultDao = VaultDao(freshDb);
+      final freshExploreDao = ExploreDeckDao(freshDb);
+
+      final container = ProviderContainer(
+        overrides: [
+          appDatabaseProvider.overrideWithValue(freshDb),
+          vaultDaoProvider.overrideWithValue(freshVaultDao),
+          exploreDeckDaoProvider.overrideWithValue(freshExploreDao),
+          decksTopTabProvider.overrideWith((ref) => 0),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      tester.view.physicalSize = const Size(800, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(
+            home: ScaffoldMessenger(
+              child: DecksScreen(),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Start asynchronous seeding while user rapidly switches tabs back and forth
+      final seedFuture = ExploreSeederService.seedIfNeeded(freshDb);
+
+      // Perform rapid 10x tab switching cycles
+      for (int i = 0; i < 10; i++) {
+        container.read(decksTopTabProvider.notifier).state = (i % 2 == 0) ? 1 : 0;
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+
+      await seedFuture;
+      await tester.pumpAndSettle();
+
+      // Settle on Explore tab
+      container.read(decksTopTabProvider.notifier).state = 1;
+      await tester.pumpAndSettle();
+
+      // Verify all 19 decks are populated and rendered without exception
+      final count = await freshExploreDao.getExploreDeckCount();
+      expect(count, equals(19));
+      expect(find.byKey(const Key('load_precons_button')), findsOneWidget);
+      expect(find.text('Seed Precons & Community'), findsOneWidget);
+    });
+
+    testWidgets('9. Seeding error is caught gracefully, displays error feedback SnackBar, resets loading state, and allows user retry',
+        (tester) async {
+      final failingDb = _FailingAppDatabase();
+      addTearDown(failingDb.close);
+
+      final freshVaultDao = VaultDao(failingDb);
+      final freshExploreDao = ExploreDeckDao(failingDb);
+
+      final container = ProviderContainer(
+        overrides: [
+          appDatabaseProvider.overrideWithValue(failingDb),
+          vaultDaoProvider.overrideWithValue(freshVaultDao),
+          exploreDeckDaoProvider.overrideWithValue(freshExploreDao),
+          decksTopTabProvider.overrideWith((ref) => 1),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      tester.view.physicalSize = const Size(800, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(
+            home: ScaffoldMessenger(
+              child: DecksScreen(),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final seedButton = find.byKey(const Key('load_precons_button'));
+      expect(seedButton, findsOneWidget);
+
+      // Tap seed button; batch insertion throws
+      await tester.tap(seedButton);
+      await tester.pump();
+
+      // Error SnackBar is displayed with failure feedback
+      expect(find.textContaining('Failed to load decks:'), findsOneWidget);
+
+      // Settle animations
+      await tester.pumpAndSettle();
+
+      // Button is re-enabled for retry and not stuck in loading state
+      expect(find.text('Loading Decks...'), findsNothing);
+      expect(find.byKey(const Key('load_precons_button')), findsOneWidget);
+    });
+
+    testWidgets('10. Rapid multi-tapping on seed button while active seeding is in progress is debounced/ignored safely',
+        (tester) async {
+      final freshDb = AppDatabase(NativeDatabase.memory());
+      addTearDown(freshDb.close);
+
+      final freshVaultDao = VaultDao(freshDb);
+      final freshExploreDao = ExploreDeckDao(freshDb);
+
+      final container = ProviderContainer(
+        overrides: [
+          appDatabaseProvider.overrideWithValue(freshDb),
+          vaultDaoProvider.overrideWithValue(freshVaultDao),
+          exploreDeckDaoProvider.overrideWithValue(freshExploreDao),
+          decksTopTabProvider.overrideWith((ref) => 1),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      tester.view.physicalSize = const Size(800, 2600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(
+            home: ScaffoldMessenger(
+              child: DecksScreen(),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final seedButton = find.byKey(const Key('load_precons_button'));
+      expect(seedButton, findsOneWidget);
+
+      // Perform initial tap to initiate seeding
+      await tester.tap(seedButton);
+      await tester.pump();
+
+      // Immediately attempt 3 additional rapid taps while button is in loading state
+      await tester.tap(seedButton, warnIfMissed: false);
+      await tester.tap(seedButton, warnIfMissed: false);
+      await tester.tap(seedButton, warnIfMissed: false);
+      await tester.pump();
+
+      // Ensure button reflects loading state
+      expect(find.text('Loading Decks...'), findsOneWidget);
+
+      // Allow seeding to complete
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      // Exactly 1 completion SnackBar is present
+      expect(find.text('Successfully loaded precons & community decks!'), findsOneWidget);
+
+      await tester.pumpAndSettle();
+
+      // 19 decks populated cleanly
+      final count = await freshExploreDao.getExploreDeckCount();
+      expect(count, equals(19));
+      expect(find.text('Seed Precons & Community'), findsOneWidget);
+    });
   });
 }
+

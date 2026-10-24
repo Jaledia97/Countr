@@ -13,6 +13,7 @@ import 'package:countr/features/decks/presentation/widgets/my_decks/my_decks_sea
 import 'package:countr/features/decks/presentation/widgets/my_decks/my_decks_search_results_view.dart';
 import 'package:countr/features/decks/presentation/widgets/my_decks/my_decks_selection_footer.dart';
 import 'package:countr/features/vault/presentation/providers/vault_providers.dart';
+import 'package:countr/features/decks/presentation/providers/explore_deck_providers.dart';
 import 'package:countr/features/decks/data/services/precon_hydration_service.dart';
 import 'package:countr/features/decks/data/services/explore_seeder_service.dart';
 
@@ -42,11 +43,15 @@ class _MyDecksTabViewState extends ConsumerState<MyDecksTabView>
   void initState() {
     super.initState();
     if (!kIsWeb && !Platform.environment.containsKey('FLUTTER_TEST')) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
         if (!mounted) return;
         final db = ref.read(appDatabaseProvider);
-        ExploreSeederService.seedIfNeeded(db);
-        PreconHydrationService.seedHistoricalPrecons(db);
+        await ExploreSeederService.seedIfNeeded(db);
+        await PreconHydrationService.seedHistoricalPrecons(db);
+        if (!mounted) return;
+        ref.invalidate(exploreDecksStreamProvider);
+        ref.invalidate(featuredExploreCategoryStreamProvider);
+        ref.invalidate(deckSummariesProvider);
       });
     }
   }

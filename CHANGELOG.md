@@ -1,3 +1,35 @@
+## [0.5.2] - 2026-10-24
+
+### Phase 5.2: Vault & Binders Performance Overhaul, Full-Size Card Viewer Restoration, Unfiltered Catalog Indexing & Deadlock Resolution
+
+#### Added, Fixed & Improved
+- **Direct Binder Addition from "All Cards" & Multi-Select Assignment**:
+  - `VaultDao.assignItemsToBinder` ([`lib/features/vault/data/daos/vault_dao.dart`](file:///Users/jomelaledia/freeSpc/Countr/lib/features/vault/data/daos/vault_dao.dart)): Automatically promotes unowned catalog cards (`quantity == 0`) to owned collection items (`quantity = 1`, `acquiredDate`, `dateObtained`, `acquiredPrice`, `purchasePrice`, `protectionStatus = 'Sleeved'`) inside an atomic transaction when assigned to a binder.
+  - `CardDetailSheet` ([`lib/features/vault/presentation/widgets/card_detail_sheet.dart`](file:///Users/jomelaledia/freeSpc/Countr/lib/features/vault/presentation/widgets/card_detail_sheet.dart)) & `VaultItemCard` ([`lib/features/vault/presentation/widgets/vault_item_card.dart`](file:///Users/jomelaledia/freeSpc/Countr/lib/features/vault/presentation/widgets/vault_item_card.dart)): Enabled direct binder assignment and moving for both unowned and owned cards opened from the global Singles view ("All Cards" and "Owned"), and added press-and-hold multi-select binder assignment in `VaultScreen`.
+
+- **Full-Size Card Rendering, Version-Scoped Image Cache & Precon Catalog Repair**:
+  - `FullScreenCardViewer` ([`lib/features/vault/presentation/widgets/full_screen_card_viewer.dart`](file:///Users/jomelaledia/freeSpc/Countr/lib/features/vault/presentation/widgets/full_screen_card_viewer.dart)): Passed complete card metadata (`cardId`, active DFC `cardName`, `tcgDomain`, `fallbackVersion: 'normal'`, `isBackFace`) to `CountrCachedImage` and enabled Scryfall named fallback even when `imageUrl` is empty.
+  - `CountrImageCacheManager` ([`lib/core/cache/countr_image_cache_manager.dart`](file:///Users/jomelaledia/freeSpc/Countr/lib/core/cache/countr_image_cache_manager.dart)) & `CountrCachedImage` ([`lib/core/cache/countr_cached_image.dart`](file:///Users/jomelaledia/freeSpc/Countr/lib/core/cache/countr_cached_image.dart)): Added synchronous Frame-0 memory file lookups (`getMemoryCachedFile`), expanded Flutter's in-memory `ImageCache` (2,500 entries / 256MB), and scoped cache keys/aliases by image version (`normal`, `small`, `art_crop`) and face (`_back`) so small list thumbnails or cropped banners never overwrite full-size playable card images.
+  - `VaultItemTile` ([`lib/features/vault/presentation/widgets/vault_item_tile.dart`](file:///Users/jomelaledia/freeSpc/Countr/lib/features/vault/presentation/widgets/vault_item_tile.dart)) & `CardDetailSheet`: Added multi-source full-size URL resolution (`item.imageUrl` -> `dynamicData['image_uris']['normal' | 'large']` -> `dynamicData['card_faces'][0]['image_uris']['normal' | 'large']` -> Scryfall named fallback) and scoped `Hero` tags to the active page (`isCurrent`) to prevent duplicate Hero tag collisions.
+  - `PreconHydrationService` ([`lib/features/decks/data/services/precon_hydration_service.dart`](file:///Users/jomelaledia/freeSpc/Countr/lib/features/decks/data/services/precon_hydration_service.dart)): Preserved historical release dates on synthesized precon catalog rows, guarded existing hydrated `dynamic_data` / `image_url` columns against overwrite during conflict resolution, and repaired synthetic precon rows so they no longer sit at the top of "All Cards".
+
+- **Vault Filter Reactivity, Uncapped Pagination & Unfiltered "All Cards" Scroll Optimization**:
+  - `AppDatabase.beforeOpen` ([`lib/core/database/app_database.dart`](file:///Users/jomelaledia/freeSpc/Countr/lib/core/database/app_database.dart)): Added unconditional `CREATE INDEX IF NOT EXISTS` statements for `idx_vault_items_browse (is_deleted, collection_type, acquired_date DESC, name ASC)` and `idx_vault_items_catalog_name (is_deleted, collection_type, name COLLATE NOCASE ASC)`, eliminating 90,000-row temp B-tree sorts on unfiltered catalog queries.
+  - `VaultScreen` ([`lib/features/vault/presentation/screens/vault_screen.dart`](file:///Users/jomelaledia/freeSpc/Countr/lib/features/vault/presentation/screens/vault_screen.dart)) & `vault_providers.dart` ([`lib/features/vault/presentation/providers/vault_providers.dart`](file:///Users/jomelaledia/freeSpc/Countr/lib/features/vault/presentation/providers/vault_providers.dart)): Converted quick-filter modals to scoped `Consumer`s, applied synchronous `mtgFilter.matches(item)` filtering for immediate zero-scroll filter reactivity, removed the 150-item pagination cap, increased browse page chunks to 120 items with a 1.25x unfiltered SQL multiplier and 600px scroll-extent triggers, and replaced $O(N)$ `findChildIndexCallback` scans with $O(1)$ `_idToIndexMap` lookups.
+  - `VaultVariantHelper` ([`lib/features/vault/domain/vault_variant_helper.dart`](file:///Users/jomelaledia/freeSpc/Countr/lib/features/vault/domain/vault_variant_helper.dart)): Added bounded memoization for `computeVariantKey` and `resolveAbstractCardKey`.
+  - `VaultDao.watchAllCardAvailability`: Restricted availability aggregation strictly to owned cards (`WHERE vi.is_deleted = 0 AND vi.quantity > 0`), and short-circuited deck badge `Consumer`s on unowned catalog tiles (`quantity <= 0`).
+  - `CountrImageCacheManager.getFileFromCache` & `CountrCachedImage`: Removed the expensive `config.repo.getAllObjects()` scan on cache misses and added `memCacheWidth` thumbnail downsampling (`320` for grid tiles, `120` for list thumbnails).
+
+- **SQLite `beforeOpen` Seeding Deadlock Fix**:
+  - Decoupled `PreconHydrationService` and `ExploreSeederService` from `VaultDao.seedDatabase()` during `AppDatabase.beforeOpen` and added zone-based re-entrancy guards so concurrent startup seeding never deadlocks database initialization.
+
+#### Verification & Quality
+- **Test Suite**: 1,072/1,072 automated tests passing across `test/features/vault/`, `test/core/cache/`, and deck/precon suites.
+- **Static Analysis**: `flutter analyze` clean with 0 errors and 0 warnings.
+- **Audit Verification**: Passed independent Victory Audits (`VICTORY CONFIRMED`).
+
+---
+
 ## [0.5.1] - 2026-10-08
 
 ### Phase 5.1: MTGJSON Historical Precon & Starter Deck Seeding & Strict Variant Enforcement

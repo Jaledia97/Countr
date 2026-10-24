@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:typed_data';
+import 'package:flutter/painting.dart';
 import 'package:flutter_cache_manager/file.dart' show File;
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:countr/core/cache/failed_image_registry.dart';
@@ -105,6 +107,25 @@ class CountrImageCacheManager extends CacheManager with ImageCacheManager {
   static FailedImageRegistry get failedRegistry => FailedImageRegistry.instance;
 
   final Map<String, Set<String>> _aliases = {};
+  final Map<String, File> _memoryFiles = {};
+  final Map<String, Set<String>> _cardNameCacheKeys = {};
+  static bool _memoryCacheConfigured = false;
+
+  /// Expands Flutter's in-memory decoded [ImageCache] so card thumbnails
+  /// remain decoded in RAM while scrolling through large decklists and the Vault.
+  static void ensureMemoryImageCacheConfigured() {
+    if (_memoryCacheConfigured) return;
+    try {
+      final imageCache = PaintingBinding.instance.imageCache;
+      if (imageCache.maximumSize < 2500) {
+        imageCache.maximumSize = 2500;
+      }
+      if (imageCache.maximumSizeBytes < 256 * 1024 * 1024) {
+        imageCache.maximumSizeBytes = 256 * 1024 * 1024;
+      }
+      _memoryCacheConfigured = true;
+    } catch (_) {}
+  }
 
   CountrImageCacheManager._()
       : super(
@@ -115,13 +136,70 @@ class CountrImageCacheManager extends CacheManager with ImageCacheManager {
             repo: JsonCacheInfoRepository(databaseName: key),
             fileService: CountrHttpFileService(),
           ),
-        );
+        ) {
+    ensureMemoryImageCacheConfigured();
+  }
 
-  /// Helper to generate a deterministic cache key for a card record id.
-  static String cardArtKey(String cardId) => 'card_art_$cardId';
+  /// Helper to generate a deterministic cache key for a card record id,
+  /// scoped by image version ('normal', 'small', 'art_crop') and face (front vs back).
+  static String cardArtKey(
+    String cardId, {
+    String version = 'normal',
+    bool isBack = false,
+  }) {
+    final cleanId = cardId.trim();
+    final faceSuffix = isBack ? '_back' : '';
+    final normVersion = version.trim().toLowerCase();
+    if (normVersion.isNotEmpty && normVersion != 'normal' && normVersion != 'large') {
+      return 'card_art_${normVersion}_$cleanId$faceSuffix';
+    }
+    return 'card_art_$cleanId$faceSuffix';
+  }
 
   /// Helper to generate a deterministic cache key for a deck cover.
   static String deckCoverKey(String deckId) => 'deck_cover_$deckId';
+
+  /// Helper to generate a canonical card-name + version key for fallback lookups.
+  static String cardNameKey(String cardName, {String version = 'normal'}) {
+    final clean = cardName.contains('//')
+        ? cardName.split('//').first.trim().toLowerCase()
+        : cardName.trim().toLowerCase();
+    if (clean.isEmpty || clean == 'unknown card') return '';
+    return 'card_name_${version.trim().toLowerCase()}_$clean';
+  }
+
+  /// Infers the Scryfall image version ('art_crop', 'small', 'large', 'normal') from a URL.
+  static String inferImageVersion(String url, {String fallback = 'normal'}) {
+    final lower = url.toLowerCase();
+    if (lower.contains('/small/') || lower.contains('version=small')) {
+      return 'small';
+    }
+    if (lower.contains('/art_crop/') || lower.contains('version=art_crop')) {
+      return 'art_crop';
+    }
+    if (lower.contains('/large/') || lower.contains('version=large')) {
+      return 'large';
+    }
+    if (lower.contains('/normal/') || lower.contains('version=normal')) {
+      return 'normal';
+    }
+    return fallback;
+  }
+
+  /// Extracts `(cardName, version)` if [url] is a Scryfall named card redirect URL.
+  static ({String name, String version})? parseScryfallNamedUrl(String url) {
+    final trimmed = url.trim();
+    if (!trimmed.contains('api.scryfall.com/cards/named')) return null;
+    try {
+      final uri = Uri.parse(trimmed);
+      final exact = uri.queryParameters['exact'] ?? uri.queryParameters['fuzzy'];
+      if (exact == null || exact.trim().isEmpty) return null;
+      final version = uri.queryParameters['version'] ?? 'normal';
+      return (name: exact.trim(), version: version.trim());
+    } catch (_) {
+      return null;
+    }
+  }
 
   /// Instance alias for card art key generation.
   String generateCardKey(String cardId) => cardArtKey(cardId);
@@ -158,13 +236,19 @@ class CountrImageCacheManager extends CacheManager with ImageCacheManager {
     String? cardId,
     String? imageUrl,
     String? cacheKey,
+    String version = 'normal',
+    bool isBack = false,
   }) {
     if (cacheKey != null && cacheKey.isNotEmpty) return cacheKey;
     if (cardId != null && cardId.isNotEmpty) {
       if (cardId.startsWith('deck-')) {
         return deckCoverKey(cardId);
       }
-      return cardArtKey(cardId);
+      final effectiveVersion = imageUrl != null && imageUrl.isNotEmpty
+          ? inferImageVersion(imageUrl, fallback: version)
+          : version;
+      final isBackFace = isBack || (imageUrl?.toLowerCase().contains('/back/') ?? false);
+      return cardArtKey(cardId, version: effectiveVersion, isBack: isBackFace);
     }
     if (imageUrl != null && imageUrl.isNotEmpty) {
       return normalizeUrl(imageUrl);
@@ -200,6 +284,191 @@ class CountrImageCacheManager extends CacheManager with ImageCacheManager {
     }
   }
 
+  /// Registers all cross-instance identifiers for a card (`cacheKey`, `cardId`,
+  /// `imageUrl`, and `cardName`) so that any instance of the same card printing
+  /// across the Vault, My Decks, Explore Decks, and Precons resolves from the
+  /// shared cache first before ever hitting the network.
+  void registerCardAliases({
+    String? cacheKey,
+    String? cardId,
+    String? imageUrl,
+    String? cardName,
+    String version = 'normal',
+    bool isArtSeries = false,
+    bool isBack = false,
+  }) {
+    final cleanKey = cacheKey?.trim() ?? '';
+    final cleanCardId = cardId?.trim() ?? '';
+    final cleanUrl = imageUrl?.trim() ?? '';
+    final cleanName = cardName?.trim() ?? '';
+
+    final effectiveVersion = inferImageVersion(cleanUrl, fallback: version);
+    final isBackFace = isBack ||
+        cleanUrl.toLowerCase().contains('/back/') ||
+        cleanUrl.toLowerCase().contains('/back.jpg');
+
+    final String scopedCardKey = cleanCardId.isNotEmpty
+        ? (cleanCardId.startsWith('deck-')
+            ? deckCoverKey(cleanCardId)
+            : cardArtKey(cleanCardId, version: effectiveVersion, isBack: isBackFace))
+        : '';
+
+    if (cleanKey.isNotEmpty && cleanUrl.isNotEmpty) {
+      registerKeyAlias(cleanKey, cleanUrl);
+    }
+
+    if (!isArtSeries && scopedCardKey.isNotEmpty) {
+      if (cleanUrl.isNotEmpty && !cleanUrl.contains('art_series')) {
+        registerKeyAlias(scopedCardKey, cleanUrl);
+      }
+      if (cleanKey.isNotEmpty && !cleanKey.endsWith('_fallback')) {
+        registerKeyAlias(scopedCardKey, cleanKey);
+      }
+    }
+
+    if (cleanName.isNotEmpty && cleanName != 'Unknown Card') {
+      final nameKey = cardNameKey(cleanName, version: effectiveVersion);
+      if (nameKey.isNotEmpty) {
+        if (cleanUrl.isNotEmpty && !cleanUrl.contains('art_series')) {
+          final normUrl = normalizeUrl(cleanUrl);
+          (_cardNameCacheKeys[nameKey] ??= <String>{})
+              .add(normUrl.isNotEmpty ? normUrl : cleanUrl);
+        }
+        if (cleanKey.isNotEmpty && (!isArtSeries || cleanKey.endsWith('_fallback'))) {
+          (_cardNameCacheKeys[nameKey] ??= <String>{}).add(cleanKey);
+        }
+      }
+    }
+  }
+
+  void _recordMemoryFile(String key, File file) {
+    final clean = key.trim();
+    if (clean.isEmpty) return;
+    _memoryFiles[clean] = file;
+    final lower = clean.toLowerCase();
+    if (lower.startsWith('http://') || lower.startsWith('https://')) {
+      final norm = normalizeUrl(clean);
+      if (norm.isNotEmpty) {
+        _memoryFiles[norm] = file;
+      }
+      final parsedNamed = parseScryfallNamedUrl(clean);
+      if (parsedNamed != null) {
+        final nameKey = cardNameKey(parsedNamed.name, version: parsedNamed.version);
+        if (nameKey.isNotEmpty) {
+          (_cardNameCacheKeys[nameKey] ??= <String>{}).add(clean);
+          _memoryFiles[nameKey] = file;
+        }
+      }
+    }
+  }
+
+  FileInfo _ensureFreshFileInfo(FileInfo info) {
+    final minValid = DateTime.now().add(const Duration(days: 1));
+    if (info.validTill.isBefore(minValid)) {
+      return FileInfo(
+        info.file,
+        info.source,
+        DateTime.now().add(stalePeriod),
+        info.originalUrl,
+      );
+    }
+    return info;
+  }
+
+  /// Synchronously returns an already-resolved local [File] from memory if
+  /// this card image has already been encountered in the current session.
+  /// Enables 0ms Frame-0 rendering when scrolling back and forth.
+  File? getMemoryCachedFile(
+    String? key, {
+    String? imageUrl,
+    String? cardId,
+    String? cardName,
+    String version = 'normal',
+    bool isBack = false,
+  }) {
+    final candidates = <String>[];
+    final visited = <String>{};
+
+    void addCandidate(String? k) {
+      if (k == null) return;
+      final trimmed = k.trim();
+      if (trimmed.isEmpty) return;
+      if (visited.add(trimmed)) {
+        candidates.add(trimmed);
+      }
+      final lower = trimmed.toLowerCase();
+      if (lower.startsWith('http://') || lower.startsWith('https://')) {
+        final norm = normalizeUrl(trimmed);
+        if (norm.isNotEmpty && visited.add(norm)) {
+          candidates.add(norm);
+        }
+      }
+    }
+
+    addCandidate(key);
+    addCandidate(imageUrl);
+    if (cardId != null && cardId.trim().isNotEmpty) {
+      final cid = cardId.trim();
+      if (cid.startsWith('deck-')) {
+        addCandidate(deckCoverKey(cid));
+      } else {
+        final effVer = imageUrl != null && imageUrl.trim().isNotEmpty
+            ? inferImageVersion(imageUrl, fallback: version)
+            : version;
+        final isBackFace = isBack || (imageUrl?.toLowerCase().contains('/back/') ?? false);
+        addCandidate(cardArtKey(cid, version: effVer, isBack: isBackFace));
+      }
+    }
+
+    var head = 0;
+    while (head < candidates.length) {
+      final cand = candidates[head++];
+      final memFile = _memoryFiles[cand];
+      if (memFile != null) {
+        if (memFile.existsSync()) {
+          if (key != null && key.trim().isNotEmpty) {
+            _memoryFiles[key.trim()] = memFile;
+          }
+          return memFile;
+        } else {
+          _memoryFiles.remove(cand);
+        }
+      }
+      final aliases = _aliases[cand];
+      if (aliases != null) {
+        for (final a in aliases) {
+          addCandidate(a);
+        }
+      }
+    }
+
+    final checkUrl = (imageUrl ?? key ?? '').trim();
+    final parsedNamed = parseScryfallNamedUrl(checkUrl);
+    if (parsedNamed != null) {
+      final nameKey = cardNameKey(parsedNamed.name, version: parsedNamed.version);
+      if (nameKey.isNotEmpty) {
+        final directNameFile = _memoryFiles[nameKey];
+        if (directNameFile != null && directNameFile.existsSync()) {
+          return directNameFile;
+        }
+        final nameCandidates = _cardNameCacheKeys[nameKey];
+        if (nameCandidates != null) {
+          for (final cand in nameCandidates) {
+            final memFile = _memoryFiles[cand];
+            if (memFile != null && memFile.existsSync()) {
+              if (key != null && key.trim().isNotEmpty) {
+                _memoryFiles[key.trim()] = memFile;
+              }
+              return memFile;
+            }
+          }
+        }
+      }
+    }
+
+    return null;
+  }
+
   /// Resolves registered alias for [key] if one exists.
   String? resolveKeyAlias(String key) => _aliases[key.trim()]?.firstOrNull;
 
@@ -207,15 +476,36 @@ class CountrImageCacheManager extends CacheManager with ImageCacheManager {
   Set<String> resolveKeyAliases(String key) => _aliases[key.trim()] ?? const {};
 
   /// Alias-aware cache lookup that checks the key, its registered aliases,
-  /// normalized URLs, and repo storage for raw query-parameterized URLs.
+  /// normalized URLs, repo storage for raw query-parameterized URLs, and
+  /// card-name fallbacks for generic Scryfall named lookups.
   @override
   Future<FileInfo?> getFileFromCache(String key, {bool ignoreMemCache = false}) async {
     final cleanKey = key.trim();
     if (cleanKey.isEmpty) return null;
 
+    // 0. Fast in-memory verified file lookup
+    if (!ignoreMemCache) {
+      final memFile = _memoryFiles[cleanKey];
+      if (memFile != null) {
+        if (await memFile.exists()) {
+          return FileInfo(
+            memFile,
+            FileSource.Cache,
+            DateTime.now().add(stalePeriod),
+            cleanKey,
+          );
+        } else {
+          _memoryFiles.remove(cleanKey);
+        }
+      }
+    }
+
     // 1. Direct lookup
     var info = await super.getFileFromCache(cleanKey, ignoreMemCache: ignoreMemCache);
-    if (info != null && await info.file.exists()) return info;
+    if (info != null && await info.file.exists()) {
+      _recordMemoryFile(cleanKey, info.file);
+      return _ensureFreshFileInfo(info);
+    }
 
     // 2. Candidate collection with transitive alias traversal and URL normalization
     final visited = <String>{cleanKey};
@@ -251,12 +541,30 @@ class CountrImageCacheManager extends CacheManager with ImageCacheManager {
     var head = 0;
     while (head < queue.length) {
       final cand = queue[head++];
+      if (!ignoreMemCache) {
+        final candMemFile = _memoryFiles[cand];
+        if (candMemFile != null && await candMemFile.exists()) {
+          if (cand != cleanKey) {
+            registerKeyAlias(cleanKey, cand);
+          }
+          _recordMemoryFile(cleanKey, candMemFile);
+          return FileInfo(
+            candMemFile,
+            FileSource.Cache,
+            DateTime.now().add(stalePeriod),
+            cand,
+          );
+        }
+      }
+
       info = await super.getFileFromCache(cand, ignoreMemCache: ignoreMemCache);
       if (info != null && await info.file.exists()) {
         if (cand != cleanKey) {
           registerKeyAlias(cleanKey, cand);
         }
-        return info;
+        _recordMemoryFile(cleanKey, info.file);
+        _recordMemoryFile(cand, info.file);
+        return _ensureFreshFileInfo(info);
       }
 
       final candAliases = _aliases[cand];
@@ -267,40 +575,156 @@ class CountrImageCacheManager extends CacheManager with ImageCacheManager {
       }
     }
 
-    // 3. Fallback repository scan for raw URLs with query parameters (Reverse Aliasing)
-    final urlTargets = <String>{};
+    // 3. Fallback for generic Scryfall named URLs (e.g. Precon / fallback cards):
+    // If any playable printing of the same card name + image version is already cached,
+    // return that cached image immediately without hitting the network.
     for (final v in visited) {
-      final lower = v.toLowerCase();
-      if (lower.startsWith('http://') || lower.startsWith('https://')) {
-        final norm = normalizeUrl(v);
-        if (norm.isNotEmpty) {
-          urlTargets.add(norm);
-        }
-      }
-    }
-
-    if (urlTargets.isNotEmpty) {
-      try {
-        final objects = await config.repo.getAllObjects();
-        for (final obj in objects) {
-          final normObjKey = normalizeUrl(obj.key);
-          if (urlTargets.contains(normObjKey)) {
-            info = await super.getFileFromCache(obj.key, ignoreMemCache: ignoreMemCache);
+      final parsedNamed = parseScryfallNamedUrl(v);
+      if (parsedNamed != null) {
+        final nameKey = cardNameKey(parsedNamed.name, version: parsedNamed.version);
+        final nameCandidates = _cardNameCacheKeys[nameKey];
+        if (nameCandidates != null) {
+          for (final cand in nameCandidates.toList()) {
+            if (visited.contains(cand)) continue;
+            info = await super.getFileFromCache(cand, ignoreMemCache: ignoreMemCache);
             if (info != null && await info.file.exists()) {
-              registerKeyAlias(cleanKey, obj.key);
-              return info;
+              _recordMemoryFile(cleanKey, info.file);
+              _recordMemoryFile(nameKey, info.file);
+              return _ensureFreshFileInfo(info);
             }
           }
         }
-      } catch (_) {}
+      }
     }
 
     return null;
   }
 
+  /// Overrides getSingleFile so all callers check the multi-alias cache first.
+  @override
+  Future<File> getSingleFile(
+    String url, {
+    String? key,
+    Map<String, String>? headers,
+  }) async {
+    final cleanUrl = url.trim();
+    final effectiveKey =
+        (key != null && key.trim().isNotEmpty) ? key.trim() : cleanUrl;
+    if (cleanUrl.isNotEmpty && effectiveKey.isNotEmpty) {
+      registerKeyAlias(effectiveKey, cleanUrl);
+    }
+    var cacheFile = await getFileFromCache(effectiveKey);
+    if (cacheFile == null && cleanUrl.isNotEmpty && cleanUrl != effectiveKey) {
+      cacheFile = await getFileFromCache(cleanUrl);
+    }
+    if (cacheFile != null && await cacheFile.file.exists()) {
+      _recordMemoryFile(effectiveKey, cacheFile.file);
+      return cacheFile.file;
+    }
+    final downloaded = await downloadFile(
+      cleanUrl,
+      key: effectiveKey,
+      authHeaders: headers,
+    );
+    _recordMemoryFile(effectiveKey, downloaded.file);
+    return downloaded.file;
+  }
+
+  /// Overrides getFileStream so CachedNetworkImage always checks all aliases
+  /// in the cache FIRST and never re-downloads an image once cached on disk.
+  @override
+  Stream<FileResponse> getFileStream(
+    String url, {
+    String? key,
+    Map<String, String>? headers,
+    bool withProgress = false,
+  }) {
+    final cleanUrl = url.trim();
+    final effectiveKey =
+        (key != null && key.trim().isNotEmpty) ? key.trim() : cleanUrl;
+    if (cleanUrl.isNotEmpty && effectiveKey.isNotEmpty) {
+      registerKeyAlias(effectiveKey, cleanUrl);
+    }
+    final parsedNamed = parseScryfallNamedUrl(cleanUrl);
+    if (parsedNamed != null) {
+      registerCardAliases(
+        cacheKey: effectiveKey,
+        imageUrl: cleanUrl,
+        cardName: parsedNamed.name,
+        version: parsedNamed.version,
+      );
+    }
+
+    final streamController = StreamController<FileResponse>();
+    _pushCardFileToStream(
+      streamController,
+      cleanUrl,
+      effectiveKey,
+      headers,
+      withProgress,
+    );
+    return streamController.stream;
+  }
+
+  Future<void> _pushCardFileToStream(
+    StreamController<FileResponse> streamController,
+    String url,
+    String key,
+    Map<String, String>? headers,
+    bool withProgress,
+  ) async {
+    FileInfo? cacheFile;
+    try {
+      cacheFile = await getFileFromCache(key);
+      if (cacheFile == null && url.isNotEmpty && url != key) {
+        cacheFile = await getFileFromCache(url);
+      }
+      if (cacheFile != null && await cacheFile.file.exists()) {
+        _recordMemoryFile(key, cacheFile.file);
+        if (url.isNotEmpty) {
+          _recordMemoryFile(url, cacheFile.file);
+        }
+        if (!streamController.isClosed) {
+          streamController.add(_ensureFreshFileInfo(cacheFile));
+          await streamController.close();
+        }
+        return;
+      }
+    } on Object catch (_) {}
+
+    try {
+      await for (final response in webHelper.downloadFile(
+        url,
+        key: key,
+        authHeaders: headers,
+      )) {
+        if (streamController.isClosed) break;
+        if (response is DownloadProgress && withProgress) {
+          streamController.add(response);
+        }
+        if (response is FileInfo) {
+          _recordMemoryFile(key, response.file);
+          if (url.isNotEmpty) {
+            _recordMemoryFile(url, response.file);
+            final normUrl = normalizeUrl(url);
+            if (normUrl.isNotEmpty && normUrl != key) {
+              registerKeyAlias(key, normUrl);
+            }
+          }
+          streamController.add(_ensureFreshFileInfo(response));
+        }
+      }
+    } on Object catch (e) {
+      if (cacheFile == null && streamController.hasListener) {
+        streamController.addError(e);
+      }
+    }
+    await streamController.close();
+  }
+
   /// Overrides putFile to ensure images cached directly via putFile under raw URLs
   /// automatically register bidirectional aliases with their canonical normalized URLs,
-  /// and dual-caches under the normalized URL.
+  /// dual-caches under the normalized URL, and populates in-memory file references.
   @override
   Future<File> putFile(
     String url,
@@ -326,6 +750,7 @@ class CountrImageCacheManager extends CacheManager with ImageCacheManager {
       maxAge: maxAge,
       fileExtension: fileExtension,
     );
+    _recordMemoryFile(effectiveKey, file);
     if (lowerKey.startsWith('http://') || lowerKey.startsWith('https://')) {
       final norm = normalizeUrl(effectiveKey);
       if (norm.isNotEmpty && norm != effectiveKey) {
@@ -338,6 +763,7 @@ class CountrImageCacheManager extends CacheManager with ImageCacheManager {
             maxAge: maxAge,
             fileExtension: fileExtension,
           );
+          _recordMemoryFile(norm, file);
         } catch (_) {}
       }
     }
@@ -362,7 +788,7 @@ class CountrImageCacheManager extends CacheManager with ImageCacheManager {
         registerKeyAlias(cleanKey, norm);
       }
     }
-    return super.putFileStream(
+    final file = await super.putFileStream(
       url,
       source,
       key: key,
@@ -370,6 +796,11 @@ class CountrImageCacheManager extends CacheManager with ImageCacheManager {
       maxAge: maxAge,
       fileExtension: fileExtension,
     );
+    _recordMemoryFile(cleanKey, file);
+    if (url.trim().isNotEmpty) {
+      _recordMemoryFile(url.trim(), file);
+    }
+    return file;
   }
 
   /// Overrides downloadFile to automatically record URL normalizations into the alias map.
@@ -397,13 +828,34 @@ class CountrImageCacheManager extends CacheManager with ImageCacheManager {
           registerKeyAlias(cleanKey, norm);
         }
       }
+      if (cleanUrl.isNotEmpty && cleanKey.isNotEmpty) {
+        registerKeyAlias(cleanKey, cleanUrl);
+      }
     }
-    return super.downloadFile(
+    final info = await super.downloadFile(
       url,
       key: key,
       authHeaders: authHeaders,
       force: force,
     );
+    if (cleanUrl.isNotEmpty) {
+      _recordMemoryFile(cleanUrl, info.file);
+    }
+    if (key != null && key.trim().isNotEmpty) {
+      _recordMemoryFile(key.trim(), info.file);
+    }
+    return _ensureFreshFileInfo(info);
+  }
+
+  @override
+  Future<void> removeFile(String key) async {
+    final clean = key.trim();
+    _memoryFiles.remove(clean);
+    final lower = clean.toLowerCase();
+    if (lower.startsWith('http://') || lower.startsWith('https://')) {
+      _memoryFiles.remove(normalizeUrl(clean));
+    }
+    await super.removeFile(key);
   }
 
   /// Convenience lookup for a cached card image file by cardId.
@@ -469,15 +921,22 @@ class CountrImageCacheManager extends CacheManager with ImageCacheManager {
 
   /// Evicts a specific card image from cache and clears failure registry records.
   Future<void> evictCardArt(String cardId) async {
-    final key = cardArtKey(cardId);
-    await removeFile(key);
-    final aliases = _aliases.remove(key) ?? const <String>{};
-    for (final alias in aliases) {
-      await removeFile(alias);
-      _aliases[alias]?.remove(key);
-      FailedImageRegistry.instance.reset(alias, cacheKey: key);
+    final keys = [
+      cardArtKey(cardId),
+      cardArtKey(cardId, isBack: true),
+      cardArtKey(cardId, version: 'small'),
+      cardArtKey(cardId, version: 'art_crop'),
+    ];
+    for (final key in keys) {
+      await removeFile(key);
+      final aliases = _aliases.remove(key) ?? const <String>{};
+      for (final alias in aliases) {
+        await removeFile(alias);
+        _aliases[alias]?.remove(key);
+        FailedImageRegistry.instance.reset(alias, cacheKey: key);
+      }
+      FailedImageRegistry.instance.reset(null, cacheKey: key);
     }
-    FailedImageRegistry.instance.reset(null, cacheKey: key);
   }
 
   /// Evicts a specific deck cover from cache and clears failure registry records.

@@ -1407,6 +1407,7 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
     final price = typedItem.resolveMarketPrice(baseCurrency);
     final setCode = item['set_or_series'] as String? ?? '';
     final cardId = (item['id'] ?? item['vault_item_id'] ?? '').toString();
+    final vaultItemId = (item['vault_item_id'] ?? item['id'] ?? '').toString();
     final isArtSeries = _isArtSeriesLayout(item);
     final cardCacheKey = cardId.isNotEmpty
         ? (isArtSeries ? 'card_art_${cardId}_fallback' : 'card_art_$cardId')
@@ -1497,6 +1498,7 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
                         ? CountrCachedImage(
                             imageUrl: resolvedImageUrl,
                             cacheKey: cardCacheKey,
+                            cardId: (!isArtSeries && vaultItemId.isNotEmpty) ? vaultItemId : null,
                             cardName: name,
                             tcgDomain: tcgDomain,
                             width: 40,
@@ -1698,6 +1700,7 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
     final name = item['name'] as String? ?? 'Unknown Card';
     final qty = item['deck_quantity'] as int? ?? (item['quantity'] as int? ?? 1);
     final cardId = (item['id'] ?? item['vault_item_id'] ?? '').toString();
+    final vaultItemId = (item['vault_item_id'] ?? item['id'] ?? '').toString();
     final isArtSeries = _isArtSeriesLayout(item);
     final cardCacheKey = cardId.isNotEmpty
         ? (isArtSeries ? 'card_art_${cardId}_fallback' : 'card_art_$cardId')
@@ -1731,6 +1734,7 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
                   ? CountrCachedImage(
                       imageUrl: resolvedImageUrl,
                       cacheKey: cardCacheKey,
+                      cardId: (!isArtSeries && vaultItemId.isNotEmpty) ? vaultItemId : null,
                       cardName: name,
                       tcgDomain: tcgDomain,
                       fit: BoxFit.cover,

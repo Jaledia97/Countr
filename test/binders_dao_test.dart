@@ -194,5 +194,124 @@ void main() {
       expect(binderCards.map((c) => c.id).toSet(), equals({'c1', 'c2'}));
       expect(binderCards.every((c) => c.primaryBinderId == binder.id), isTrue);
     });
+
+    test('assignItemsToBinder promotes unowned card (quantity == 0) to quantity 1 and records sync', () async {
+      final binder = await dao.createBinder(
+        name: 'Promo Binder',
+        collectionType: 'mtg',
+      );
+
+      final unownedCard = VaultItem(
+        id: 'unowned-1',
+        collectionType: 'mtg',
+        name: 'Sol Ring',
+        setOrSeries: 'Commander',
+        imageUrl: 'https://example.com/solring.jpg',
+        acquiredPrice: 0.0,
+        acquiredDate: DateTime(2020, 1, 1),
+        quantity: 0,
+        condition: 'NM',
+        isGraded: false,
+        isAltered: false,
+        isMisprint: false,
+        isSigned: false,
+        isDeleted: false,
+        personalNotes: null,
+        currentMarketPrice: 2.50,
+        lastPriceUpdate: DateTime.now(),
+        dynamicData: '{}',
+        primaryBinderId: null,
+      );
+
+      await dao.into(dao.vaultItems).insert(unownedCard);
+
+      final before = await dao.getItemById('unowned-1');
+      expect(before!.quantity, equals(0));
+      expect(before.primaryBinderId, isNull);
+
+      final count = await dao.assignItemsToBinder(['unowned-1'], binder.id);
+      expect(count, equals(1));
+
+      final after = await dao.getItemById('unowned-1');
+      expect(after, isNotNull);
+      expect(after!.quantity, equals(1));
+      expect(after.primaryBinderId, equals(binder.id));
+      expect(after.acquiredPrice, equals(2.50));
+      expect(after.isDeleted, isFalse);
+
+      final syncEntries = await (dao.select(dao.syncQueue)
+            ..where((tbl) => tbl.entityId.equals('unowned-1')))
+          .get();
+      expect(syncEntries.isNotEmpty, isTrue);
+      expect(syncEntries.first.operation, equals('UPDATE'));
+    });
+
+    test('assignItemsToBinder handles mixed list of unowned and owned cards correctly', () async {
+      final binder = await dao.createBinder(
+        name: 'Mixed Binder',
+        collectionType: 'mtg',
+      );
+
+      final owned = VaultItem(
+        id: 'owned-item',
+        collectionType: 'mtg',
+        name: 'Lightning Bolt',
+        setOrSeries: 'M10',
+        imageUrl: 'https://example.com/bolt.jpg',
+        acquiredPrice: 1.0,
+        acquiredDate: DateTime(2021, 5, 1),
+        quantity: 3,
+        condition: 'LP',
+        isGraded: false,
+        isAltered: false,
+        isMisprint: false,
+        isSigned: false,
+        isDeleted: false,
+        personalNotes: 'Play copy',
+        currentMarketPrice: 3.0,
+        lastPriceUpdate: DateTime.now(),
+        dynamicData: '{}',
+        primaryBinderId: null,
+      );
+
+      final unowned = VaultItem(
+        id: 'unowned-item',
+        collectionType: 'mtg',
+        name: 'Black Lotus',
+        setOrSeries: 'Alpha',
+        imageUrl: 'https://example.com/lotus.jpg',
+        acquiredPrice: 0.0,
+        acquiredDate: DateTime(2020, 1, 1),
+        quantity: 0,
+        condition: 'NM',
+        isGraded: false,
+        isAltered: false,
+        isMisprint: false,
+        isSigned: false,
+        isDeleted: false,
+        personalNotes: null,
+        currentMarketPrice: 15000.0,
+        lastPriceUpdate: DateTime.now(),
+        dynamicData: '{}',
+        primaryBinderId: null,
+      );
+
+      await dao.into(dao.vaultItems).insert(owned);
+      await dao.into(dao.vaultItems).insert(unowned);
+
+      final affected = await dao.assignItemsToBinder(['owned-item', 'unowned-item'], binder.id);
+      expect(affected, equals(2));
+
+      final ownedAfter = await dao.getItemById('owned-item');
+      expect(ownedAfter!.quantity, equals(3));
+      expect(ownedAfter.acquiredPrice, equals(1.0)); // Preserved
+      expect(ownedAfter.condition, equals('LP')); // Preserved
+      expect(ownedAfter.primaryBinderId, equals(binder.id));
+
+      final unownedAfter = await dao.getItemById('unowned-item');
+      expect(unownedAfter!.quantity, equals(1)); // Promoted
+      expect(unownedAfter.acquiredPrice, equals(15000.0)); // Set to market price
+      expect(unownedAfter.primaryBinderId, equals(binder.id));
+    });
   });
 }

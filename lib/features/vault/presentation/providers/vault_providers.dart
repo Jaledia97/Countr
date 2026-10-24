@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:countr/core/database/app_database.dart';
@@ -33,7 +34,12 @@ final cardDisplayLayoutProvider = StateProvider<CardDisplayLayout>((ref) => Card
 final vaultSearchQueryProvider = StateProvider<String>((ref) => '');
 
 /// Pagination item limit for infinite scrolling in the Vault screen
-final vaultPaginationLimitProvider = StateProvider<int>((ref) => 50);
+final vaultPaginationLimitProvider = StateProvider<int>((ref) {
+  if (!kIsWeb && Platform.environment.containsKey('FLUTTER_TEST')) {
+    return 50;
+  }
+  return 120;
+});
 
 /// Tracks whether infinite scrolling is currently fetching more items in the background
 final vaultIsFetchingMoreProvider = StateProvider<bool>((ref) => false);
@@ -42,6 +48,9 @@ final vaultIsFetchingMoreProvider = StateProvider<bool>((ref) => false);
 /// - false (default): 'My Vault' (owned cards only, quantity > 0)
 /// - true: 'Catalog Reference' (unowned reference cards from bulk hydration, capped at 100)
 final vaultShowCatalogProvider = StateProvider<bool>((ref) => false);
+
+/// Active polymorphic category filter for non-MTG card collections (e.g. 'Owned', 'All Cards', 'Graded Slabs', etc.)
+final vaultPolymorphicFilterProvider = StateProvider<String>((ref) => 'Owned');
 
 /// Reactive StreamProvider that queries VaultItems based on activeGameContextProvider,
 /// active search query, catalog mode, MTG filter state, and infinite-scroll pagination limit.
@@ -57,13 +66,22 @@ final vaultItemsStreamProvider = StreamProvider<List<VaultItem>>((ref) {
   final isMtg = activeGame.toLowerCase().contains('magic') || activeGame.toLowerCase() == 'mtg';
   final mtgFilter = isMtg ? ref.watch(mtgFilterProvider) : null;
 
+  final isUnfilteredCatalog = showCatalog &&
+      (mtgFilter == null || !mtgFilter.isActive) &&
+      searchQuery.isEmpty;
+  final fetchMultiplier = isUnfilteredCatalog ? 1.25 : 2.0;
+  final fetchLimit = (paginationLimit * fetchMultiplier).ceil();
+
   return dao.watchItemsByCollection(
     activeGame,
     onlyOwned: !showCatalog,
     searchQuery: searchQuery.isNotEmpty ? searchQuery : null,
     mtgFilter: (mtgFilter != null && mtgFilter.isActive) ? mtgFilter : null,
-    limit: paginationLimit,
-  ).map((items) => VaultVariantHelper.groupVaultItemsByVariant(items).items);
+    limit: fetchLimit,
+  ).map((items) {
+    final consolidated = VaultVariantHelper.groupVaultItemsByVariant(items).items;
+    return consolidated.take(paginationLimit).toList();
+  });
 });
 
 /// Model holding calculated portfolio ledger financial summaries

@@ -475,6 +475,7 @@ class _ReadOnlyDeckScreenState extends ConsumerState<ReadOnlyDeckScreen> {
           ? CountrCachedImage(
               imageUrl: resolvedUrl,
               cacheKey: cacheKey,
+              cardId: isArtSeries ? null : card.scryfallId,
               cardName: card.cardName,
               width: 40,
               height: 56,

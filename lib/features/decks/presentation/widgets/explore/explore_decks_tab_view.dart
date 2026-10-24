@@ -28,6 +28,8 @@ class ExploreDecksTabView extends ConsumerStatefulWidget {
 
 class _ExploreDecksTabViewState extends ConsumerState<ExploreDecksTabView>
     with AutomaticKeepAliveClientMixin {
+  bool _isSeeding = false;
+
   @override
   bool get wantKeepAlive => true;
 
@@ -36,15 +38,67 @@ class _ExploreDecksTabViewState extends ConsumerState<ExploreDecksTabView>
     super.initState();
     if (!kIsWeb && !Platform.environment.containsKey('FLUTTER_TEST')) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        final db = ref.read(appDatabaseProvider);
-        ExploreSeederService.seedIfNeeded(db);
-        PreconHydrationService.seedHistoricalPrecons(db);
+        _seedPreconsAndCommunity(force: false);
       });
     }
   }
 
-  Widget _buildTopCategoryPills(ExploreCategory currentCategory) {
+  Future<void> _seedPreconsAndCommunity({
+    required bool force,
+    bool showSnackBar = false,
+  }) async {
+    if (!mounted || _isSeeding) return;
+    setState(() => _isSeeding = true);
+    final db = ref.read(appDatabaseProvider);
+    if (showSnackBar && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Loading official precons & community decks...'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+    try {
+      await ExploreSeederService.seedIfNeeded(db, force: force);
+      // Brief yield to allow pending StreamQueries to settle before precon hydration batch
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      await PreconHydrationService.seedHistoricalPrecons(db, force: force);
+      if (!mounted) return;
+      ref.invalidate(exploreDecksStreamProvider);
+      ref.invalidate(featuredExploreCategoryStreamProvider);
+      ref.invalidate(deckSummariesProvider);
+      if (showSnackBar && mounted) {
+        final messenger = ScaffoldMessenger.of(context);
+        messenger.clearSnackBars();
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('Successfully loaded precons & community decks!'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (showSnackBar && mounted) {
+        final messenger = ScaffoldMessenger.of(context);
+        messenger.clearSnackBars();
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('Failed to load decks: $e'),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSeeding = false);
+      }
+    }
+  }
+
+  Widget _buildTopCategoryPills(
+    ExploreCategory currentCategory, {
+    required bool showHeaderSeedButton,
+  }) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: const BoxDecoration(
@@ -88,6 +142,58 @@ class _ExploreDecksTabViewState extends ConsumerState<ExploreDecksTabView>
                     ExploreCategory.community;
               },
             ),
+            if (showHeaderSeedButton) ...[
+              const SizedBox(width: 8),
+              InkWell(
+                key: const Key('load_precons_button'),
+                onTap: _isSeeding
+                    ? null
+                    : () => _seedPreconsAndCommunity(
+                          force: true,
+                          showSnackBar: true,
+                        ),
+                borderRadius: BorderRadius.circular(20),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AppColors.accentCyan.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: AppColors.accentCyan.withValues(alpha: 0.6),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (_isSeeding)
+                        const SizedBox(
+                          width: 13,
+                          height: 13,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppColors.accentCyan,
+                          ),
+                        )
+                      else
+                        const Icon(
+                          Icons.download_rounded,
+                          size: 13,
+                          color: AppColors.accentCyan,
+                        ),
+                      const SizedBox(width: 4),
+                      Text(
+                        _isSeeding ? 'Loading Decks...' : 'Seed Precons & Community',
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.accentCyan,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -128,6 +234,8 @@ class _ExploreDecksTabViewState extends ConsumerState<ExploreDecksTabView>
     final slice1 = decks.take(4).toList();
     final slice2 = decks.skip(4).take(4).toList();
     final slice3 = decks.skip(8).toList();
+    final showEmptyStateBanner =
+        !isSearching && decks.isEmpty && !exploreDecksAsync.isLoading;
 
     return CustomScrollView(
       key: const PageStorageKey('explore_decks_scroll_key'),
@@ -137,9 +245,12 @@ class _ExploreDecksTabViewState extends ConsumerState<ExploreDecksTabView>
           child: ExploreSearchBar(),
         ),
 
-        // 2. Top Category Pills
+        // 2. Top Category Pills + Seed Action Button
         SliverToBoxAdapter(
-          child: _buildTopCategoryPills(currentCategory),
+          child: _buildTopCategoryPills(
+            currentCategory,
+            showHeaderSeedButton: !showEmptyStateBanner,
+          ),
         ),
 
         // 3. Search Mode vs Discovery Feed Mode
@@ -151,6 +262,64 @@ class _ExploreDecksTabViewState extends ConsumerState<ExploreDecksTabView>
             ),
           ),
         ] else ...[
+          // Empty state indicator placed at the top of the feed so it is never buried below empty carousels
+          if (showEmptyStateBanner)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Center(
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.explore_off_rounded,
+                        size: 40,
+                        color: AppColors.textMuted.withValues(alpha: 0.4),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'No community or precon decks found in this category',
+                        style: AppTypography.caption.copyWith(color: AppColors.textMuted),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton.icon(
+                        key: const Key('load_precons_button'),
+                        onPressed: _isSeeding
+                            ? null
+                            : () => _seedPreconsAndCommunity(
+                                  force: true,
+                                  showSnackBar: true,
+                                ),
+                        icon: _isSeeding
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: AppColors.accentCyan,
+                                ),
+                              )
+                            : const Icon(Icons.download_rounded, size: 18),
+                        label: Text(
+                          _isSeeding
+                              ? 'Loading Decks...'
+                              : 'Load Official Precons & Community Decks',
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.accentCyan.withValues(alpha: 0.15),
+                          foregroundColor: AppColors.accentCyan,
+                          side: const BorderSide(color: AppColors.accentCyan),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
           // Discovery Feed Mode
           // Carousel 1: Suggested Commanders
           const SliverToBoxAdapter(
@@ -181,58 +350,6 @@ class _ExploreDecksTabViewState extends ConsumerState<ExploreDecksTabView>
 
           // Primary 2-Column Grid: Slice 3 (if present)
           if (slice3.isNotEmpty) _buildGridSlice(slice3),
-
-          // Empty state indicator if feed has no decks and is not loading
-          if (decks.isEmpty && !exploreDecksAsync.isLoading)
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Center(
-                  child: Column(
-                    children: [
-                      Icon(
-                        Icons.explore_off_rounded,
-                        size: 40,
-                        color: AppColors.textMuted.withValues(alpha: 0.4),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'No community or precon decks found in this category',
-                        style: AppTypography.caption.copyWith(color: AppColors.textMuted),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 16),
-                      ElevatedButton.icon(
-                        key: const Key('load_precons_button'),
-                        onPressed: () async {
-                          final db = ref.read(appDatabaseProvider);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Loading official precons & community decks...'),
-                              duration: Duration(seconds: 2),
-                            ),
-                          );
-                          await ExploreSeederService.seedIfNeeded(db, force: true);
-                          await PreconHydrationService.seedHistoricalPrecons(db, force: true);
-                          ref.invalidate(exploreDecksStreamProvider);
-                          ref.invalidate(deckSummariesProvider);
-                        },
-                        icon: const Icon(Icons.download_rounded, size: 18),
-                        label: const Text('Load Official Precons & Community Decks'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.accentCyan.withValues(alpha: 0.15),
-                          foregroundColor: AppColors.accentCyan,
-                          side: const BorderSide(color: AppColors.accentCyan),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
 
           // Bottom padding
           const SliverToBoxAdapter(

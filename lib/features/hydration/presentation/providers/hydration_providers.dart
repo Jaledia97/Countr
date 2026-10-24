@@ -9,6 +9,8 @@ import 'package:countr/features/hydration/presentation/controllers/hydration_sta
 import 'package:countr/features/vault/presentation/providers/vault_providers.dart';
 import 'package:countr/features/decks/data/services/precon_hydration_service.dart';
 import 'package:countr/features/decks/data/services/explore_seeder_service.dart';
+import 'package:countr/features/decks/presentation/providers/deck_providers.dart';
+import 'package:countr/features/decks/presentation/providers/explore_deck_providers.dart';
 
 /// Provider for the Scryfall API and download streaming service.
 final scryfallServiceProvider = Provider<ScryfallService>((ref) {
@@ -77,13 +79,14 @@ class MtgAutoHydrationCoordinator {
       final db = dao.attachedDatabase;
       final bool preconsSeeded =
           await PreconHydrationService.isHistoricalPreconSeeded(db);
-      final int exploreCount = await db.exploreDeckDao.getExploreDeckCount();
-      final bool needsPreconHydration = !preconsSeeded || exploreCount == 0;
+      final bool exploreSeeded =
+          await ExploreSeederService.isExploreCatalogSeeded(db);
+      final bool needsPreconHydration = !preconsSeeded || !exploreSeeded;
 
       if (needsCatalogHydration || !cacheHealthy || needsPreconHydration || force) {
         debugPrint(
           '[MtgAutoHydration] Health check: catalogCount=$catalogCount, cacheHealthy=$cacheHealthy, '
-          'preconsSeeded=$preconsSeeded, exploreCount=$exploreCount. Auto-triggering hydration & seeding.',
+          'preconsSeeded=$preconsSeeded, exploreSeeded=$exploreSeeded. Auto-triggering hydration & seeding.',
         );
 
         // 1. Trigger background bulk hydration if catalog is unpopulated
@@ -98,6 +101,9 @@ class MtgAutoHydrationCoordinator {
         if (needsPreconHydration || force) {
           await PreconHydrationService.seedHistoricalPrecons(db, force: force);
           await ExploreSeederService.seedIfNeeded(db, force: force);
+          _ref.invalidate(exploreDecksStreamProvider);
+          _ref.invalidate(featuredExploreCategoryStreamProvider);
+          _ref.invalidate(deckSummariesProvider);
         }
       }
     } catch (e, stackTrace) {

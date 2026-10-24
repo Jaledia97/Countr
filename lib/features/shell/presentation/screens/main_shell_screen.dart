@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:countr/core/state/app_state.dart';
 import 'package:countr/core/state/tcg_context_sync.dart';
 import 'package:countr/features/decks/presentation/providers/deck_providers.dart';
+import 'package:countr/features/decks/presentation/providers/explore_deck_providers.dart';
 import 'package:countr/features/command_center/presentation/widgets/morphing_command_center.dart';
 import 'package:countr/features/scanner/presentation/screens/scanner_modal.dart';
 import 'package:countr/features/hydration/presentation/providers/hydration_providers.dart';
@@ -41,13 +42,18 @@ class _MainShellScreenState extends ConsumerState<MainShellScreen> {
     // Warm up the database and initial vault items in the background
     // so navigating to Vault is instantaneous with zero load lag
     if (!kIsWeb && !Platform.environment.containsKey('FLUTTER_TEST')) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!mounted) return;
         ref.read(vaultDaoProvider);
         ref.read(vaultItemsStreamProvider);
         ref.read(mtgAutoHydrationCoordinatorProvider).checkAndTriggerAutoHydration();
         final db = ref.read(appDatabaseProvider);
-        ExploreSeederService.seedIfNeeded(db);
-        PreconHydrationService.seedHistoricalPrecons(db);
+        await ExploreSeederService.seedIfNeeded(db);
+        await PreconHydrationService.seedHistoricalPrecons(db);
+        if (!mounted) return;
+        ref.invalidate(exploreDecksStreamProvider);
+        ref.invalidate(featuredExploreCategoryStreamProvider);
+        ref.invalidate(deckSummariesProvider);
       });
     }
 
