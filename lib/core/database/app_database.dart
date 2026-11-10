@@ -19,6 +19,25 @@ import 'package:countr/core/database/tables/decks/explore_decks_table.dart';
 import 'package:countr/core/database/tables/decks/explore_deck_items_table.dart';
 import 'package:countr/core/database/tables/decks/explore_deck_votes_table.dart';
 import 'package:countr/features/decks/data/daos/explore_deck_dao.dart';
+import 'package:countr/core/database/tables/user_profiles_table.dart';
+import 'package:countr/features/profile/data/daos/user_profile_dao.dart';
+import 'package:countr/core/database/tables/social/feed_posts_table.dart';
+import 'package:countr/core/database/tables/social/post_likes_table.dart';
+import 'package:countr/core/database/tables/social/post_comments_table.dart';
+import 'package:countr/core/database/tables/social/friendships_table.dart';
+import 'package:countr/core/database/tables/social/notifications_table.dart';
+import 'package:countr/core/database/tables/social/messages_table.dart';
+import 'package:countr/core/database/tables/social/trade_proposals_table.dart';
+import 'package:countr/core/database/tables/social/user_follows_table.dart';
+import 'package:countr/core/database/tables/social/card_reputation_votes_table.dart';
+import 'package:countr/core/database/tables/social/post_votes_table.dart';
+import 'package:countr/core/database/tables/social/post_reactions_table.dart';
+import 'package:countr/core/database/tables/social/comment_reactions_table.dart';
+import 'package:countr/core/database/tables/social/saved_posts_table.dart';
+import 'package:countr/features/feed/data/daos/feed_dao.dart';
+import 'package:countr/features/feed/data/daos/inbox_dao.dart';
+import 'package:countr/features/feed/data/daos/friends_dao.dart';
+import 'package:countr/features/vault/data/daos/card_reputation_dao.dart';
 
 part 'app_database.g.dart';
 
@@ -51,8 +70,34 @@ QueryExecutor _resolveConnection(QueryExecutor? e) {
     ExploreDecks,
     ExploreDeckItems,
     ExploreDeckVotes,
+    // Milestone 3 (v12): User Profiles
+    UserProfiles,
+    // Milestone 4: Social, Feed, Inbox, Friends
+    FeedPosts,
+    PostLikes,
+    PostComments,
+    Friendships,
+    Notifications,
+    Messages,
+    TradeProposals,
+    UserFollows,
+    CardReputationVotes,
+    // Milestone 1 (v16): Social Votes, Reactions & Bookmarks
+    PostVotes,
+    PostReactions,
+    CommentReactions,
+    SavedPosts,
   ],
-  daos: [VaultDao, MatchDao, ExploreDeckDao],
+  daos: [
+    VaultDao,
+    MatchDao,
+    ExploreDeckDao,
+    UserProfileDao,
+    FeedDao,
+    InboxDao,
+    FriendsDao,
+    CardReputationDao,
+  ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? e]) : super(_resolveConnection(e));
@@ -64,7 +109,7 @@ class AppDatabase extends _$AppDatabase {
   bool get isOpening => _isOpening;
 
   @override
-  int get schemaVersion => 11;
+  int get schemaVersion => 16;
 
   @override
   MigrationStrategy get migration {
@@ -257,6 +302,96 @@ class AppDatabase extends _$AppDatabase {
 
           await safeAddColumn(decks, decks.isCloned);
           await safeAddColumn(decks, decks.sourceExploreDeckId);
+          await safeAddColumn(exploreDecks, exploreDecks.authorId);
+        }
+
+        if (from < 12) {
+          try {
+            await m.createTable(userProfiles);
+          } catch (error, stackTrace) {
+            debugPrint('[AppDatabase.onUpgrade] Migration to v12 (userProfiles) warning: $error\n$stackTrace');
+          }
+
+          await safeAddColumn(vaultBinders, vaultBinders.isSystemBinder);
+          await safeAddColumn(vaultBinders, vaultBinders.systemBinderType);
+          await safeAddColumn(vaultBinders, vaultBinders.userId);
+          await safeAddColumn(vaultBinders, vaultBinders.deletedAt);
+          await safeAddColumn(vaultBinders, vaultBinders.syncStatus);
+
+          await safeAddColumn(vaultItems, vaultItems.userId);
+          await safeAddColumn(vaultItems, vaultItems.isTraded);
+          await safeAddColumn(vaultItems, vaultItems.deletedAt);
+          await safeAddColumn(vaultItems, vaultItems.syncStatus);
+
+          await safeAddColumn(decks, decks.userId);
+          await safeAddColumn(decks, decks.deletedAt);
+          await safeAddColumn(decks, decks.syncStatus);
+
+          await safeAddColumn(deckVersions, deckVersions.deletedAt);
+          await safeAddColumn(deckVersions, deckVersions.syncStatus);
+
+          await safeAddColumn(deckVersionItems, deckVersionItems.deletedAt);
+          await safeAddColumn(deckVersionItems, deckVersionItems.syncStatus);
+
+          await safeAddColumn(deckMatchups, deckMatchups.deletedAt);
+          await safeAddColumn(deckMatchups, deckMatchups.syncStatus);
+
+          await safeAddColumn(deckSynergies, deckSynergies.deletedAt);
+          await safeAddColumn(deckSynergies, deckSynergies.syncStatus);
+
+          await safeAddColumn(exploreDeckVotes, exploreDeckVotes.isDeleted);
+          await safeAddColumn(exploreDeckVotes, exploreDeckVotes.deletedAt);
+          await safeAddColumn(exploreDeckVotes, exploreDeckVotes.syncStatus);
+        }
+
+        if (from < 13) {
+          try {
+            await m.createTable(userFollows);
+          } catch (error, stackTrace) {
+            debugPrint('[AppDatabase.onUpgrade] Migration to v13 (userFollows) warning: $error\n$stackTrace');
+          }
+          await safeAddColumn(feedPosts, feedPosts.sharedByUserId);
+        }
+
+        if (from < 14) {
+          try {
+            await m.createTable(cardReputationVotes);
+          } catch (error, stackTrace) {
+            debugPrint('[AppDatabase.onUpgrade] Migration to v14 (cardReputationVotes) warning: $error\n$stackTrace');
+          }
+          await safeAddColumn(vaultItems, vaultItems.reputationScore);
+          await safeAddColumn(vaultItems, vaultItems.upvotes);
+          await safeAddColumn(vaultItems, vaultItems.downvotes);
+        }
+
+        if (from < 15) {
+          await safeAddColumn(userProfiles, userProfiles.collectionVisibility);
+        }
+
+        if (from < 16) {
+          try {
+            await m.createTable(postVotes);
+          } catch (error, stackTrace) {
+            debugPrint('[AppDatabase.onUpgrade] Migration to v16 (postVotes) warning: $error\n$stackTrace');
+          }
+          try {
+            await m.createTable(postReactions);
+          } catch (error, stackTrace) {
+            debugPrint('[AppDatabase.onUpgrade] Migration to v16 (postReactions) warning: $error\n$stackTrace');
+          }
+          try {
+            await m.createTable(commentReactions);
+          } catch (error, stackTrace) {
+            debugPrint('[AppDatabase.onUpgrade] Migration to v16 (commentReactions) warning: $error\n$stackTrace');
+          }
+          try {
+            await m.createTable(savedPosts);
+          } catch (error, stackTrace) {
+            debugPrint('[AppDatabase.onUpgrade] Migration to v16 (savedPosts) warning: $error\n$stackTrace');
+          }
+
+          await safeAddColumn(postComments, postComments.parentCommentId);
+          await safeAddColumn(vaultItems, vaultItems.isWishlisted);
         }
       },
       beforeOpen: (details) async {
@@ -397,6 +532,7 @@ class AppDatabase extends _$AppDatabase {
               "tcg_domain" TEXT NOT NULL DEFAULT 'mtg',
               "source_type" TEXT NOT NULL DEFAULT 'official',
               "creator_name" TEXT NOT NULL DEFAULT 'Wizards of the Coast',
+              "author_id" TEXT,
               "description" TEXT,
               "commander_name" TEXT,
               "commander_image_url" TEXT,
@@ -489,20 +625,654 @@ class AppDatabase extends _$AppDatabase {
               'ALTER TABLE "explore_deck_items" ADD COLUMN "dynamic_data" TEXT;',
             );
           }
+
+          final exploreDecksInfo =
+              await customSelect('PRAGMA table_info("explore_decks");').get();
+          final exploreCols =
+              exploreDecksInfo.map((row) => row.read<String>('name')).toSet();
+          if (exploreCols.isNotEmpty && !exploreCols.contains('author_id')) {
+            await customStatement(
+              'ALTER TABLE "explore_decks" ADD COLUMN "author_id" TEXT;',
+            );
+          }
+
+          // Defensive column verification for M5 (deck_versions, deck_version_items, explore_deck_votes)
+          final deckVersionsInfo =
+              await customSelect('PRAGMA table_info("deck_versions");').get();
+          final dvCols =
+              deckVersionsInfo.map((row) => row.read<String>('name')).toSet();
+          if (dvCols.isNotEmpty) {
+            if (!dvCols.contains('deleted_at')) {
+              await customStatement('ALTER TABLE "deck_versions" ADD COLUMN "deleted_at" INTEGER;');
+            }
+            if (!dvCols.contains('sync_status')) {
+              await customStatement('ALTER TABLE "deck_versions" ADD COLUMN "sync_status" TEXT DEFAULT \'synced\';');
+            }
+          }
+
+          final deckVersionItemsInfo =
+              await customSelect('PRAGMA table_info("deck_version_items");').get();
+          final dviCols =
+              deckVersionItemsInfo.map((row) => row.read<String>('name')).toSet();
+          if (dviCols.isNotEmpty) {
+            if (!dviCols.contains('deleted_at')) {
+              await customStatement('ALTER TABLE "deck_version_items" ADD COLUMN "deleted_at" INTEGER;');
+            }
+            if (!dviCols.contains('sync_status')) {
+              await customStatement('ALTER TABLE "deck_version_items" ADD COLUMN "sync_status" TEXT DEFAULT \'synced\';');
+            }
+          }
+
+          final exploreVotesInfo =
+              await customSelect('PRAGMA table_info("explore_deck_votes");').get();
+          final evCols =
+              exploreVotesInfo.map((row) => row.read<String>('name')).toSet();
+          if (evCols.isNotEmpty) {
+            if (!evCols.contains('is_deleted')) {
+              await customStatement('ALTER TABLE "explore_deck_votes" ADD COLUMN "is_deleted" INTEGER NOT NULL DEFAULT 0;');
+            }
+            if (!evCols.contains('deleted_at')) {
+              await customStatement('ALTER TABLE "explore_deck_votes" ADD COLUMN "deleted_at" INTEGER;');
+            }
+            if (!evCols.contains('sync_status')) {
+              await customStatement('ALTER TABLE "explore_deck_votes" ADD COLUMN "sync_status" TEXT DEFAULT \'synced\';');
+            }
+          }
+
+          final deckMatchupsInfo =
+              await customSelect('PRAGMA table_info("deck_matchups");').get();
+          final dmCols =
+              deckMatchupsInfo.map((row) => row.read<String>('name')).toSet();
+          if (dmCols.isNotEmpty) {
+            if (!dmCols.contains('deleted_at')) {
+              await customStatement('ALTER TABLE "deck_matchups" ADD COLUMN "deleted_at" INTEGER;');
+            }
+            if (!dmCols.contains('sync_status')) {
+              await customStatement('ALTER TABLE "deck_matchups" ADD COLUMN "sync_status" TEXT DEFAULT \'synced\';');
+            }
+          }
+
+          final deckSynergiesInfo =
+              await customSelect('PRAGMA table_info("deck_synergies");').get();
+          final dsCols =
+              deckSynergiesInfo.map((row) => row.read<String>('name')).toSet();
+          if (dsCols.isNotEmpty) {
+            if (!dsCols.contains('deleted_at')) {
+              await customStatement('ALTER TABLE "deck_synergies" ADD COLUMN "deleted_at" INTEGER;');
+            }
+            if (!dsCols.contains('sync_status')) {
+              await customStatement('ALTER TABLE "deck_synergies" ADD COLUMN "sync_status" TEXT DEFAULT \'synced\';');
+            }
+          }
         } catch (error, stackTrace) {
-          debugPrint('[AppDatabase.beforeOpen] v11 column verification warning: $error\n$stackTrace');
+          debugPrint('[AppDatabase.beforeOpen] v11/v12 column verification warning: $error\n$stackTrace');
+        }
+
+        // Defensive runtime schema verification for v12 (User Profiles, System Binders, Scoped items/decks):
+        try {
+          await customStatement('''
+            CREATE TABLE IF NOT EXISTS "user_profiles" (
+              "id" TEXT NOT NULL PRIMARY KEY,
+              "username" TEXT NOT NULL,
+              "display_name" TEXT NOT NULL,
+              "bio" TEXT,
+              "avatar_url" TEXT,
+              "banner_url" TEXT,
+              "account_type" TEXT NOT NULL DEFAULT 'individual',
+              "is_verified_business" INTEGER NOT NULL DEFAULT 0,
+              "store_address" TEXT,
+              "store_phone" TEXT,
+              "store_website" TEXT,
+              "friend_count" INTEGER NOT NULL DEFAULT 0,
+              "rep_count" INTEGER NOT NULL DEFAULT 0,
+              "tier" TEXT NOT NULL DEFAULT 'free',
+              "sync_status" TEXT NOT NULL DEFAULT 'synced',
+              "created_at" INTEGER NOT NULL,
+              "updated_at" INTEGER,
+              "deleted_at" INTEGER,
+              "is_deleted" INTEGER NOT NULL DEFAULT 0
+            );
+          ''');
+
+          // Check vault_binders v12 columns
+          final bindersInfo = await customSelect('PRAGMA table_info("vault_binders");').get();
+          final binderCols = bindersInfo.map((row) => row.read<String>('name')).toSet();
+          if (binderCols.isNotEmpty) {
+            if (!binderCols.contains('is_system_binder')) {
+              await customStatement('ALTER TABLE "vault_binders" ADD COLUMN "is_system_binder" INTEGER NOT NULL DEFAULT 0;');
+            }
+            if (!binderCols.contains('system_binder_type')) {
+              await customStatement('ALTER TABLE "vault_binders" ADD COLUMN "system_binder_type" TEXT;');
+            }
+            if (!binderCols.contains('user_id')) {
+              await customStatement('ALTER TABLE "vault_binders" ADD COLUMN "user_id" TEXT;');
+            }
+            if (!binderCols.contains('deleted_at')) {
+              await customStatement('ALTER TABLE "vault_binders" ADD COLUMN "deleted_at" INTEGER;');
+            }
+            if (!binderCols.contains('sync_status')) {
+              await customStatement('ALTER TABLE "vault_binders" ADD COLUMN "sync_status" TEXT NOT NULL DEFAULT \'synced\';');
+            }
+          }
+
+          // Check vault_items v12 columns
+          final itemsInfo = await customSelect('PRAGMA table_info("vault_items");').get();
+          final itemCols = itemsInfo.map((row) => row.read<String>('name')).toSet();
+          if (itemCols.isNotEmpty) {
+            if (!itemCols.contains('user_id')) {
+              await customStatement('ALTER TABLE "vault_items" ADD COLUMN "user_id" TEXT;');
+            }
+            if (!itemCols.contains('is_traded')) {
+              await customStatement('ALTER TABLE "vault_items" ADD COLUMN "is_traded" INTEGER NOT NULL DEFAULT 0;');
+            }
+            if (!itemCols.contains('deleted_at')) {
+              await customStatement('ALTER TABLE "vault_items" ADD COLUMN "deleted_at" INTEGER;');
+            }
+            if (!itemCols.contains('sync_status')) {
+              await customStatement('ALTER TABLE "vault_items" ADD COLUMN "sync_status" TEXT NOT NULL DEFAULT \'synced\';');
+            }
+          }
+
+          // Check decks v12 columns
+          final decksInfo12 = await customSelect('PRAGMA table_info("decks");').get();
+          final deckCols12 = decksInfo12.map((row) => row.read<String>('name')).toSet();
+          if (deckCols12.isNotEmpty) {
+            if (!deckCols12.contains('user_id')) {
+              await customStatement('ALTER TABLE "decks" ADD COLUMN "user_id" TEXT;');
+            }
+            if (!deckCols12.contains('deleted_at')) {
+              await customStatement('ALTER TABLE "decks" ADD COLUMN "deleted_at" INTEGER;');
+            }
+            if (!deckCols12.contains('sync_status')) {
+              await customStatement('ALTER TABLE "decks" ADD COLUMN "sync_status" TEXT NOT NULL DEFAULT \'synced\';');
+            }
+          }
+
+          // v12 Covering Indexes
+          await customStatement('''
+            CREATE INDEX IF NOT EXISTS "idx_user_profiles_username"
+            ON "user_profiles" ("username" COLLATE NOCASE);
+          ''');
+          await customStatement('''
+            CREATE INDEX IF NOT EXISTS "idx_vault_binders_user_system"
+            ON "vault_binders" ("user_id", "is_system_binder");
+          ''');
+          await customStatement('''
+            CREATE INDEX IF NOT EXISTS "idx_vault_binders_user"
+            ON "vault_binders" ("user_id");
+          ''');
+          await customStatement('''
+            CREATE INDEX IF NOT EXISTS "idx_vault_items_user"
+            ON "vault_items" ("user_id");
+          ''');
+          await customStatement('''
+            CREATE INDEX IF NOT EXISTS "idx_decks_user"
+            ON "decks" ("user_id");
+          ''');
+
+          // Milestone 4: Social tables and indexes
+          await customStatement('''
+            CREATE TABLE IF NOT EXISTS "feed_posts" (
+              "id" TEXT NOT NULL PRIMARY KEY,
+              "author_id" TEXT NOT NULL,
+              "author_username" TEXT NOT NULL,
+              "author_display_name" TEXT NOT NULL,
+              "author_avatar_url" TEXT,
+              "type" TEXT NOT NULL,
+              "text_content" TEXT,
+              "location_tag" TEXT,
+              "card_id" TEXT,
+              "card_title" TEXT,
+              "card_subtitle" TEXT,
+              "card_rarity" TEXT,
+              "estimated_value" REAL,
+              "card_image_url" TEXT,
+              "pull_images_json" TEXT,
+              "pull_card_ids_json" TEXT,
+              "like_count" INTEGER NOT NULL DEFAULT 0,
+              "comment_count" INTEGER NOT NULL DEFAULT 0,
+              "created_at" INTEGER NOT NULL,
+              "updated_at" INTEGER NOT NULL,
+              "deleted_at" INTEGER,
+              "is_deleted" INTEGER NOT NULL DEFAULT 0,
+              "sync_status" TEXT NOT NULL DEFAULT 'synced'
+            );
+          ''');
+
+          await customStatement('''
+            CREATE TABLE IF NOT EXISTS "post_likes" (
+              "id" TEXT NOT NULL PRIMARY KEY,
+              "post_id" TEXT NOT NULL,
+              "user_id" TEXT NOT NULL,
+              "is_liked" INTEGER NOT NULL DEFAULT 1,
+              "created_at" INTEGER NOT NULL,
+              "updated_at" INTEGER NOT NULL,
+              "deleted_at" INTEGER,
+              "is_deleted" INTEGER NOT NULL DEFAULT 0,
+              "sync_status" TEXT NOT NULL DEFAULT 'synced'
+            );
+          ''');
+
+          await customStatement('''
+            CREATE TABLE IF NOT EXISTS "post_comments" (
+              "id" TEXT NOT NULL PRIMARY KEY,
+              "post_id" TEXT NOT NULL,
+              "author_id" TEXT NOT NULL,
+              "author_username" TEXT NOT NULL,
+              "author_display_name" TEXT NOT NULL,
+              "author_avatar_url" TEXT,
+              "content" TEXT NOT NULL,
+              "created_at" INTEGER NOT NULL,
+              "updated_at" INTEGER NOT NULL,
+              "deleted_at" INTEGER,
+              "is_deleted" INTEGER NOT NULL DEFAULT 0,
+              "sync_status" TEXT NOT NULL DEFAULT 'synced'
+            );
+          ''');
+
+          await customStatement('''
+            CREATE TABLE IF NOT EXISTS "friendships" (
+              "id" TEXT NOT NULL PRIMARY KEY,
+              "user_id" TEXT NOT NULL,
+              "friend_id" TEXT NOT NULL,
+              "status" TEXT NOT NULL DEFAULT 'pending',
+              "created_at" INTEGER NOT NULL,
+              "updated_at" INTEGER,
+              "deleted_at" INTEGER,
+              "is_deleted" INTEGER NOT NULL DEFAULT 0,
+              "sync_status" TEXT NOT NULL DEFAULT 'synced'
+            );
+          ''');
+
+          await customStatement('''
+            CREATE TABLE IF NOT EXISTS "notifications" (
+              "id" TEXT NOT NULL PRIMARY KEY,
+              "user_id" TEXT NOT NULL,
+              "actor_id" TEXT NOT NULL,
+              "actor_username" TEXT NOT NULL,
+              "actor_display_name" TEXT,
+              "actor_avatar_url" TEXT,
+              "type" TEXT NOT NULL,
+              "title" TEXT NOT NULL,
+              "body" TEXT NOT NULL,
+              "target_entity_id" TEXT,
+              "target_entity_type" TEXT,
+              "status" TEXT NOT NULL DEFAULT 'unread',
+              "is_read" INTEGER NOT NULL DEFAULT 0,
+              "is_actioned" INTEGER NOT NULL DEFAULT 0,
+              "created_at" INTEGER NOT NULL,
+              "updated_at" INTEGER,
+              "deleted_at" INTEGER,
+              "is_deleted" INTEGER NOT NULL DEFAULT 0,
+              "sync_status" TEXT NOT NULL DEFAULT 'synced'
+            );
+          ''');
+
+          await customStatement('''
+            CREATE TABLE IF NOT EXISTS "messages" (
+              "id" TEXT NOT NULL PRIMARY KEY,
+              "conversation_id" TEXT NOT NULL,
+              "sender_id" TEXT NOT NULL,
+              "recipient_id" TEXT NOT NULL,
+              "message_text" TEXT NOT NULL,
+              "attachment_type" TEXT NOT NULL DEFAULT 'none',
+              "attachment_card_id" TEXT,
+              "attachment_card_json" TEXT,
+              "attachment_trade_proposal_id" TEXT,
+              "is_read" INTEGER NOT NULL DEFAULT 0,
+              "created_at" INTEGER NOT NULL,
+              "updated_at" INTEGER,
+              "deleted_at" INTEGER,
+              "is_deleted" INTEGER NOT NULL DEFAULT 0,
+              "sync_status" TEXT NOT NULL DEFAULT 'synced'
+            );
+          ''');
+
+          await customStatement('''
+            CREATE TABLE IF NOT EXISTS "trade_proposals" (
+              "id" TEXT NOT NULL PRIMARY KEY,
+              "proposer_id" TEXT NOT NULL,
+              "receiver_id" TEXT NOT NULL,
+              "offered_card_ids_json" TEXT NOT NULL,
+              "requested_card_ids_json" TEXT NOT NULL,
+              "offered_cards_snapshot_json" TEXT,
+              "requested_cards_snapshot_json" TEXT,
+              "proposer_cash_delta" REAL NOT NULL DEFAULT 0.0,
+              "offered_total_value" REAL NOT NULL DEFAULT 0.0,
+              "requested_total_value" REAL NOT NULL DEFAULT 0.0,
+              "status" TEXT NOT NULL DEFAULT 'pending',
+              "note" TEXT,
+              "is_transferred" INTEGER NOT NULL DEFAULT 0,
+              "created_at" INTEGER NOT NULL,
+              "updated_at" INTEGER,
+              "deleted_at" INTEGER,
+              "is_deleted" INTEGER NOT NULL DEFAULT 0,
+              "sync_status" TEXT NOT NULL DEFAULT 'synced'
+            );
+          ''');
+
+          // Social covering indexes
+          await customStatement('''
+            CREATE INDEX IF NOT EXISTS "idx_feed_posts_created_at"
+            ON "feed_posts" ("is_deleted", "created_at" DESC);
+          ''');
+          await customStatement('''
+            CREATE INDEX IF NOT EXISTS "idx_feed_posts_author"
+            ON "feed_posts" ("author_id", "is_deleted", "created_at" DESC);
+          ''');
+          await customStatement('''
+            CREATE UNIQUE INDEX IF NOT EXISTS "unique_post_likes"
+            ON "post_likes" ("post_id", "user_id");
+          ''');
+          await customStatement('''
+            CREATE INDEX IF NOT EXISTS "idx_post_comments_post"
+            ON "post_comments" ("post_id", "is_deleted", "created_at" ASC);
+          ''');
+          await customStatement('''
+            CREATE INDEX IF NOT EXISTS "idx_friendships_user_status"
+            ON "friendships" ("user_id", "status", "is_deleted");
+          ''');
+          await customStatement('''
+            CREATE INDEX IF NOT EXISTS "idx_friendships_friend_status"
+            ON "friendships" ("friend_id", "status", "is_deleted");
+          ''');
+          await customStatement('''
+            CREATE INDEX IF NOT EXISTS "idx_notifications_user_read"
+            ON "notifications" ("user_id", "is_read", "is_deleted", "created_at" DESC);
+          ''');
+          await customStatement('''
+            CREATE INDEX IF NOT EXISTS "idx_messages_conversation"
+            ON "messages" ("conversation_id", "is_deleted", "created_at" ASC);
+          ''');
+          await customStatement('''
+            CREATE INDEX IF NOT EXISTS "idx_messages_recipient_read"
+            ON "messages" ("recipient_id", "is_read", "is_deleted");
+          ''');
+          await customStatement('''
+            CREATE INDEX IF NOT EXISTS "idx_trade_proposals_proposer"
+            ON "trade_proposals" ("proposer_id", "status", "is_deleted");
+          ''');
+          await customStatement('''
+            CREATE INDEX IF NOT EXISTS "idx_trade_proposals_receiver"
+            ON "trade_proposals" ("receiver_id", "status", "is_deleted");
+          ''');
+
+          // Milestone 3 (v13): User Follows table and feed_posts shared_by_user_id column
+          await customStatement('''
+            CREATE TABLE IF NOT EXISTS "user_follows" (
+              "id" TEXT NOT NULL PRIMARY KEY,
+              "follower_id" TEXT NOT NULL,
+              "target_user_id" TEXT NOT NULL,
+              "created_at" INTEGER NOT NULL,
+              "deleted_at" INTEGER,
+              "is_deleted" INTEGER NOT NULL DEFAULT 0,
+              "sync_status" TEXT DEFAULT 'synced'
+            );
+          ''');
+
+          final feedPostsInfo =
+              await customSelect('PRAGMA table_info("feed_posts");').get();
+          final feedPostCols =
+              feedPostsInfo.map((row) => row.read<String>('name')).toSet();
+          if (feedPostCols.isNotEmpty && !feedPostCols.contains('shared_by_user_id')) {
+            await customStatement(
+              'ALTER TABLE "feed_posts" ADD COLUMN "shared_by_user_id" TEXT;',
+            );
+          }
+
+          await customStatement('''
+            CREATE INDEX IF NOT EXISTS "idx_user_follows_follower"
+            ON "user_follows" ("follower_id");
+          ''');
+          await customStatement('''
+            CREATE INDEX IF NOT EXISTS "idx_user_follows_target"
+            ON "user_follows" ("target_user_id");
+          ''');
+        } catch (error, stackTrace) {
+          debugPrint('[AppDatabase.beforeOpen] v12/v13 column & table verification warning: $error\n$stackTrace');
+        }
+
+        // Milestone 4 (v14): Card Reputation Votes table and VaultItems reputation columns
+        try {
+          await customStatement('''
+            CREATE TABLE IF NOT EXISTS "card_reputation_votes" (
+              "id" TEXT NOT NULL PRIMARY KEY,
+              "card_id" TEXT NOT NULL,
+              "user_id" TEXT NOT NULL DEFAULT 'local_user',
+              "vote" INTEGER NOT NULL DEFAULT 0,
+              "updated_at" INTEGER NOT NULL,
+              "is_deleted" INTEGER NOT NULL DEFAULT 0,
+              "deleted_at" INTEGER,
+              "sync_status" TEXT DEFAULT 'synced'
+            );
+          ''');
+
+          await customStatement('''
+            CREATE UNIQUE INDEX IF NOT EXISTS "unique_card_reputation_votes"
+            ON "card_reputation_votes" ("card_id", "user_id");
+          ''');
+
+          await customStatement('''
+            CREATE INDEX IF NOT EXISTS "idx_card_reputation_votes_card"
+            ON "card_reputation_votes" ("card_id", "is_deleted");
+          ''');
+
+          final vaultItemsInfo =
+              await customSelect('PRAGMA table_info("vault_items");').get();
+          final viCols =
+              vaultItemsInfo.map((row) => row.read<String>('name')).toSet();
+          if (viCols.isNotEmpty) {
+            if (!viCols.contains('reputation_score')) {
+              await customStatement(
+                'ALTER TABLE "vault_items" ADD COLUMN "reputation_score" INTEGER DEFAULT 0;',
+              );
+            }
+            if (!viCols.contains('upvotes')) {
+              await customStatement(
+                'ALTER TABLE "vault_items" ADD COLUMN "upvotes" INTEGER DEFAULT 0;',
+              );
+            }
+            if (!viCols.contains('downvotes')) {
+              await customStatement(
+                'ALTER TABLE "vault_items" ADD COLUMN "downvotes" INTEGER DEFAULT 0;',
+              );
+            }
+          }
+
+          if (viCols.contains('is_deleted')) {
+            await customStatement('''
+              CREATE INDEX IF NOT EXISTS "idx_vault_items_reputation"
+              ON "vault_items" ("is_deleted", "collection_type", "reputation_score" DESC);
+            ''');
+          }
+        } catch (error, stackTrace) {
+          debugPrint('[AppDatabase.beforeOpen] v14 reputation table & column verification warning: $error\n$stackTrace');
+        }
+
+        // Milestone 1 (v16): Post Votes, Post Reactions, Comment Reactions, Saved Posts
+        try {
+          await customStatement('''
+            CREATE TABLE IF NOT EXISTS "post_votes" (
+              "id" TEXT NOT NULL PRIMARY KEY,
+              "post_id" TEXT NOT NULL,
+              "user_id" TEXT NOT NULL,
+              "vote" INTEGER NOT NULL DEFAULT 0,
+              "created_at" INTEGER NOT NULL,
+              "updated_at" INTEGER NOT NULL,
+              "deleted_at" INTEGER,
+              "is_deleted" INTEGER NOT NULL DEFAULT 0,
+              "sync_status" TEXT DEFAULT 'synced'
+            );
+          ''');
+
+          await customStatement('''
+            CREATE UNIQUE INDEX IF NOT EXISTS "unique_post_votes"
+            ON "post_votes" ("post_id", "user_id");
+          ''');
+
+          await customStatement('''
+            CREATE INDEX IF NOT EXISTS "idx_post_votes_post"
+            ON "post_votes" ("post_id", "is_deleted");
+          ''');
+
+          await customStatement('''
+            CREATE TABLE IF NOT EXISTS "post_reactions" (
+              "id" TEXT NOT NULL PRIMARY KEY,
+              "post_id" TEXT NOT NULL,
+              "user_id" TEXT NOT NULL,
+              "emoji" TEXT NOT NULL,
+              "created_at" INTEGER NOT NULL,
+              "deleted_at" INTEGER,
+              "is_deleted" INTEGER NOT NULL DEFAULT 0,
+              "sync_status" TEXT DEFAULT 'synced'
+            );
+          ''');
+
+          await customStatement('''
+            CREATE UNIQUE INDEX IF NOT EXISTS "unique_post_reactions"
+            ON "post_reactions" ("post_id", "user_id", "emoji");
+          ''');
+
+          await customStatement('''
+            CREATE INDEX IF NOT EXISTS "idx_post_reactions_post"
+            ON "post_reactions" ("post_id", "is_deleted");
+          ''');
+
+          await customStatement('''
+            CREATE TABLE IF NOT EXISTS "comment_reactions" (
+              "id" TEXT NOT NULL PRIMARY KEY,
+              "comment_id" TEXT NOT NULL,
+              "user_id" TEXT NOT NULL,
+              "emoji" TEXT NOT NULL,
+              "created_at" INTEGER NOT NULL,
+              "deleted_at" INTEGER,
+              "is_deleted" INTEGER NOT NULL DEFAULT 0,
+              "sync_status" TEXT DEFAULT 'synced'
+            );
+          ''');
+
+          await customStatement('''
+            CREATE UNIQUE INDEX IF NOT EXISTS "unique_comment_reactions"
+            ON "comment_reactions" ("comment_id", "user_id", "emoji");
+          ''');
+
+          await customStatement('''
+            CREATE INDEX IF NOT EXISTS "idx_comment_reactions_comment"
+            ON "comment_reactions" ("comment_id", "is_deleted");
+          ''');
+
+          await customStatement('''
+            CREATE TABLE IF NOT EXISTS "saved_posts" (
+              "id" TEXT NOT NULL PRIMARY KEY,
+              "post_id" TEXT NOT NULL,
+              "user_id" TEXT NOT NULL,
+              "created_at" INTEGER NOT NULL,
+              "deleted_at" INTEGER,
+              "is_deleted" INTEGER NOT NULL DEFAULT 0,
+              "sync_status" TEXT DEFAULT 'synced'
+            );
+          ''');
+
+          await customStatement('''
+            CREATE UNIQUE INDEX IF NOT EXISTS "unique_saved_posts"
+            ON "saved_posts" ("post_id", "user_id");
+          ''');
+
+          await customStatement('''
+            CREATE INDEX IF NOT EXISTS "idx_saved_posts_user"
+            ON "saved_posts" ("user_id", "is_deleted", "created_at" DESC);
+          ''');
+
+          final commentCols = (await customSelect('PRAGMA table_info("post_comments");').get())
+              .map((row) => row.read<String>('name'))
+              .toSet();
+          if (commentCols.isNotEmpty && !commentCols.contains('parent_comment_id')) {
+            await customStatement('ALTER TABLE "post_comments" ADD COLUMN "parent_comment_id" TEXT;');
+          }
+
+          final vaultCols = (await customSelect('PRAGMA table_info("vault_items");').get())
+              .map((row) => row.read<String>('name'))
+              .toSet();
+          if (vaultCols.isNotEmpty && !vaultCols.contains('is_wishlisted')) {
+            await customStatement('ALTER TABLE "vault_items" ADD COLUMN "is_wishlisted" INTEGER NOT NULL DEFAULT 0;');
+          }
+
+          if (commentCols.contains('parent_comment_id') && commentCols.contains('is_deleted')) {
+            await customStatement('''
+              CREATE INDEX IF NOT EXISTS "idx_post_comments_parent"
+              ON "post_comments" ("parent_comment_id", "is_deleted");
+            ''');
+          }
+
+          if (vaultCols.contains('is_wishlisted') && vaultCols.contains('is_deleted')) {
+            await customStatement('''
+              CREATE INDEX IF NOT EXISTS "idx_vault_items_wishlisted"
+              ON "vault_items" ("is_deleted", "is_wishlisted");
+            ''');
+          }
+        } catch (error, stackTrace) {
+          debugPrint('[AppDatabase.beforeOpen] v16 table & column verification warning: $error\n$stackTrace');
         }
 
         // Fast unconditional covering indexes for Vault browse and catalog ordering
         try {
-          await customStatement('''
-            CREATE INDEX IF NOT EXISTS "idx_vault_items_browse"
-            ON "vault_items" ("is_deleted", "collection_type", "acquired_date" DESC, "name" ASC);
-          ''');
-          await customStatement('''
-            CREATE INDEX IF NOT EXISTS "idx_vault_items_catalog_name"
-            ON "vault_items" ("is_deleted", "collection_type", "name" COLLATE NOCASE ASC);
-          ''');
+          final vaultBrowseCols = (await customSelect('PRAGMA table_info("vault_items");').get())
+              .map((row) => row.read<String>('name'))
+              .toSet();
+
+          if (vaultBrowseCols.contains('is_deleted')) {
+            await customStatement('''
+              CREATE INDEX IF NOT EXISTS "idx_vault_items_browse"
+              ON "vault_items" ("is_deleted", "collection_type", "acquired_date" DESC, "name" ASC);
+            ''');
+            await customStatement('''
+              CREATE INDEX IF NOT EXISTS "idx_vault_items_catalog_name"
+              ON "vault_items" ("is_deleted", "collection_type", "name" COLLATE NOCASE ASC);
+            ''');
+          }
+
+          if (vaultBrowseCols.contains('dynamic_data')) {
+            await customStatement('''
+              CREATE INDEX IF NOT EXISTS "idx_vault_items_expr_set_code"
+              ON "vault_items" (json_extract(dynamic_data, '\$.set_code'))
+              WHERE json_valid(dynamic_data) = 1;
+            ''');
+            await customStatement('''
+              CREATE INDEX IF NOT EXISTS "idx_vault_items_expr_collector_number"
+              ON "vault_items" (json_extract(dynamic_data, '\$.collector_number'))
+              WHERE json_valid(dynamic_data) = 1;
+            ''');
+            await customStatement('''
+              CREATE INDEX IF NOT EXISTS "idx_vault_items_expr_rarity"
+              ON "vault_items" (json_extract(dynamic_data, '\$.rarity'))
+              WHERE json_valid(dynamic_data) = 1;
+            ''');
+            await customStatement('''
+              CREATE INDEX IF NOT EXISTS "idx_vault_items_expr_cmc"
+              ON "vault_items" (CAST(json_extract(dynamic_data, '\$.cmc') AS REAL))
+              WHERE json_valid(dynamic_data) = 1;
+            ''');
+            await customStatement('''
+              CREATE INDEX IF NOT EXISTS "idx_vault_items_expr_type_line"
+              ON "vault_items" (json_extract(dynamic_data, '\$.type_line') COLLATE NOCASE)
+              WHERE json_valid(dynamic_data) = 1;
+            ''');
+            await customStatement('''
+              CREATE INDEX IF NOT EXISTS "idx_vault_items_expr_colors"
+              ON "vault_items" (json_extract(dynamic_data, '\$.colors'))
+              WHERE json_valid(dynamic_data) = 1;
+            ''');
+            await customStatement('''
+              CREATE INDEX IF NOT EXISTS "idx_vault_items_expr_color_identity"
+              ON "vault_items" (json_extract(dynamic_data, '\$.color_identity'))
+              WHERE json_valid(dynamic_data) = 1;
+            ''');
+            await customStatement('''
+              CREATE INDEX IF NOT EXISTS "idx_vault_items_expr_layout"
+              ON "vault_items" (json_extract(dynamic_data, '\$.layout'))
+              WHERE json_valid(dynamic_data) = 1;
+            ''');
+          }
         } catch (error, stackTrace) {
           debugPrint('[AppDatabase.beforeOpen] Vault browse covering indexes warning: $error\n$stackTrace');
         }
@@ -860,6 +1630,46 @@ class AppDatabase extends _$AppDatabase {
               ON "vault_items" ("is_graded", "is_altered", "is_misprint", "is_signed");
             ''');
             await customStatement('''
+              CREATE INDEX IF NOT EXISTS "idx_vault_items_expr_set_code"
+              ON "vault_items" (json_extract(dynamic_data, '\$.set_code'))
+              WHERE json_valid(dynamic_data) = 1;
+            ''');
+            await customStatement('''
+              CREATE INDEX IF NOT EXISTS "idx_vault_items_expr_collector_number"
+              ON "vault_items" (json_extract(dynamic_data, '\$.collector_number'))
+              WHERE json_valid(dynamic_data) = 1;
+            ''');
+            await customStatement('''
+              CREATE INDEX IF NOT EXISTS "idx_vault_items_expr_rarity"
+              ON "vault_items" (json_extract(dynamic_data, '\$.rarity'))
+              WHERE json_valid(dynamic_data) = 1;
+            ''');
+            await customStatement('''
+              CREATE INDEX IF NOT EXISTS "idx_vault_items_expr_cmc"
+              ON "vault_items" (CAST(json_extract(dynamic_data, '\$.cmc') AS REAL))
+              WHERE json_valid(dynamic_data) = 1;
+            ''');
+            await customStatement('''
+              CREATE INDEX IF NOT EXISTS "idx_vault_items_expr_type_line"
+              ON "vault_items" (json_extract(dynamic_data, '\$.type_line') COLLATE NOCASE)
+              WHERE json_valid(dynamic_data) = 1;
+            ''');
+            await customStatement('''
+              CREATE INDEX IF NOT EXISTS "idx_vault_items_expr_colors"
+              ON "vault_items" (json_extract(dynamic_data, '\$.colors'))
+              WHERE json_valid(dynamic_data) = 1;
+            ''');
+            await customStatement('''
+              CREATE INDEX IF NOT EXISTS "idx_vault_items_expr_color_identity"
+              ON "vault_items" (json_extract(dynamic_data, '\$.color_identity'))
+              WHERE json_valid(dynamic_data) = 1;
+            ''');
+            await customStatement('''
+              CREATE INDEX IF NOT EXISTS "idx_vault_items_expr_layout"
+              ON "vault_items" (json_extract(dynamic_data, '\$.layout'))
+              WHERE json_valid(dynamic_data) = 1;
+            ''');
+            await customStatement('''
               CREATE INDEX IF NOT EXISTS "idx_decks_active"
               ON "decks" ("is_deleted");
             ''');
@@ -922,6 +1732,10 @@ class AppDatabase extends _$AppDatabase {
             await customStatement('''
               CREATE UNIQUE INDEX IF NOT EXISTS "idx_explore_deck_votes_unique"
               ON "explore_deck_votes" ("explore_deck_id", "user_id");
+            ''');
+            await customStatement('''
+              CREATE INDEX IF NOT EXISTS "idx_explore_decks_author"
+              ON "explore_decks" ("author_id");
             ''');
           } catch (error, stackTrace) {
             debugPrint('[AppDatabase.beforeOpen] Explore index creation warning: $error\n$stackTrace');

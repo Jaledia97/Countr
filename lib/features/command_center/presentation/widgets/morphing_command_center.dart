@@ -16,6 +16,11 @@ import '../../../../features/life_counter/presentation/widgets/pod_scaffold_widg
 import '../../../../features/hydration/presentation/controllers/hydration_state.dart';
 import '../../../../features/hydration/presentation/providers/hydration_providers.dart';
 import '../../../../features/vault/presentation/providers/vault_providers.dart';
+import '../../../../features/auth/presentation/widgets/verified_store_badge.dart';
+import '../../../../features/auth/presentation/widgets/logout_confirmation_dialog.dart';
+import '../../../../features/profile/presentation/providers/profile_providers.dart';
+import '../../../../features/feed/presentation/providers/feed_providers.dart';
+import '../../../../features/feed/presentation/screens/saved_posts_screen.dart';
 
 /// The Morphing Global Command Center.
 /// Morphs and expands directly outward from the Menu button (Alignment.bottomRight).
@@ -191,6 +196,15 @@ class _MorphingCommandCenterState extends ConsumerState<MorphingCommandCenter> {
                 controller: _scrollController,
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 children: [
+                  // Top-Most Active Profile Tile
+                  _MyProfileCommandCenterTile(
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      context.push('/profile/me');
+                    },
+                  ),
+                  const SizedBox(height: 6),
+
                   // Active Context Status Indicator
                   Container(
                     margin: const EdgeInsets.symmetric(
@@ -597,6 +611,19 @@ class _MorphingCommandCenterState extends ConsumerState<MorphingCommandCenter> {
                           Expanded(
                             child: _QuickActionItem(
                               key: const Key(
+                                'command_center_friends_quick_action',
+                              ),
+                              icon: Icons.people_outline_rounded,
+                              label: 'Friends & Groups',
+                              onTap: () {
+                                Navigator.of(context).pop();
+                                context.push('/friends');
+                              },
+                            ),
+                          ),
+                          Expanded(
+                            child: _QuickActionItem(
+                              key: const Key(
                                 'command_center_settings_quick_action',
                               ),
                               icon: Icons.settings_outlined,
@@ -618,6 +645,46 @@ class _MorphingCommandCenterState extends ConsumerState<MorphingCommandCenter> {
                       ),
                     ),
                   ),
+
+                  const SizedBox(height: 12),
+
+                  // High-visibility Log Out button at bottom of Command Center
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        key: const Key('command_center_logout_button'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.surfaceRaised,
+                          foregroundColor: AppColors.accentRed,
+                          side: BorderSide(
+                            color: AppColors.accentRed.withValues(alpha: 0.5),
+                            width: 1.2,
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 0,
+                        ),
+                        icon: const Icon(Icons.logout_rounded, size: 18),
+                        label: const Text(
+                          'Log Out',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                        onPressed: () {
+                          LogoutConfirmationDialog.show(context);
+                        },
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
                 ],
               ),
             ),
@@ -665,3 +732,254 @@ class _QuickActionItem extends StatelessWidget {
     );
   }
 }
+
+class _MyProfileCommandCenterTile extends ConsumerStatefulWidget {
+  final VoidCallback onTap;
+
+  const _MyProfileCommandCenterTile({required this.onTap});
+
+  @override
+  ConsumerState<_MyProfileCommandCenterTile> createState() =>
+      _MyProfileCommandCenterTileState();
+}
+
+class _MyProfileCommandCenterTileState
+    extends ConsumerState<_MyProfileCommandCenterTile> {
+  bool _isSavedPostsExpanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final profile = ref.watch(currentUserProfileProvider);
+    final userTier = ref.watch(currentUserTierProvider);
+    final savedCountAsync = ref.watch(savedPostsCountProvider);
+    final savedCount = savedCountAsync.valueOrNull ?? 0;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceRaised,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppColors.accentCyan.withValues(alpha: 0.35),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.accentCyan.withValues(alpha: 0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // 1. Profile Tile Row (Tapping navigates to /profile/me)
+          InkWell(
+            key: const Key('command_center_my_profile_tile'),
+            onTap: widget.onTap,
+            borderRadius: _isSavedPostsExpanded
+                ? const BorderRadius.vertical(top: Radius.circular(16))
+                : BorderRadius.circular(16),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                children: [
+                  // Circular Avatar
+                  CircleAvatar(
+                    radius: 20,
+                    backgroundColor: AppColors.surfaceHighlight,
+                    backgroundImage: profile?.avatarUrl != null &&
+                            profile!.avatarUrl!.isNotEmpty
+                        ? NetworkImage(profile.avatarUrl!)
+                        : null,
+                    child: (profile?.avatarUrl == null ||
+                            profile!.avatarUrl!.isEmpty)
+                        ? Text(
+                            (profile?.displayName.isNotEmpty == true)
+                                ? profile!.displayName.substring(0, 1).toUpperCase()
+                                : 'G',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.textPrimary,
+                            ),
+                          )
+                        : null,
+                  ),
+                  const SizedBox(width: 12),
+                  // Middle Details Column
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                profile?.displayName ?? 'Guest Collector',
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                            if (profile?.isVerifiedBusiness == true) ...[
+                              const SizedBox(width: 6),
+                              const VerifiedStoreBadge(iconSize: 11, fontSize: 8.5),
+                            ],
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        Row(
+                          children: [
+                            Text(
+                              profile?.username ?? '@guest',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: AppColors.accentCyan,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            // Tier pill
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 5, vertical: 1.5),
+                              decoration: BoxDecoration(
+                                color:
+                                    AppColors.accentViolet.withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                userTier.name.toUpperCase(),
+                                style: const TextStyle(
+                                  fontSize: 8.5,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppColors.accentVioletLight,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Trailing Chevron Button expanding downward
+                  IconButton(
+                    key: const Key('command_center_profile_chevron'),
+                    icon: Icon(
+                      _isSavedPostsExpanded
+                          ? Icons.keyboard_arrow_down_rounded
+                          : Icons.expand_more,
+                      color: AppColors.accentCyan,
+                      size: 24,
+                    ),
+                    tooltip: _isSavedPostsExpanded ? 'Collapse' : 'Expand Saved Posts',
+                    onPressed: () {
+                      setState(() {
+                        _isSavedPostsExpanded = !_isSavedPostsExpanded;
+                      });
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // 2. Expandable Saved Posts Row (Key('command_center_saved_posts_tile'))
+          if (_isSavedPostsExpanded) ...[
+            const Divider(color: AppColors.surfaceBorderSubtle, height: 1),
+            InkWell(
+              key: const Key('command_center_saved_posts_tile'),
+              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
+              onTap: () {
+                Navigator.of(context).pop();
+                try {
+                  context.push('/saved-posts');
+                } catch (_) {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const SavedPostsScreen()),
+                  );
+                }
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: AppColors.accentAmber.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.bookmark_rounded,
+                        color: AppColors.accentAmber,
+                        size: 18,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Saved Posts',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
+                          Text(
+                            'View bookmarked feed posts',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Count Badge
+                    Container(
+                      key: const Key('command_center_saved_posts_count_badge'),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppColors.accentAmber.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: AppColors.accentAmber.withValues(alpha: 0.4),
+                          width: 0.8,
+                        ),
+                      ),
+                      child: Text(
+                        '$savedCount',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.accentAmber,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    const Icon(
+                      Icons.chevron_right_rounded,
+                      color: AppColors.textSecondary,
+                      size: 18,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+

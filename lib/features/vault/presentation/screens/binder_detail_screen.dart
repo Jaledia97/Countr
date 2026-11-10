@@ -56,16 +56,47 @@ class BinderDetailScreen extends ConsumerWidget {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              currentBinder.name,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w800,
-                fontSize: 16,
-              ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Flexible(
+                  child: Text(
+                    currentBinder.name,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+                if (currentBinder.isSystemBinder == true) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    key: Key('binder_detail_system_badge_${currentBinder.id}'),
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppColors.accentCyan.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: AppColors.accentCyan, width: 0.8),
+                    ),
+                    child: const Text(
+                      'PINNED SYSTEM',
+                      style: TextStyle(
+                        color: AppColors.accentCyan,
+                        fontSize: 7.5,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
             ),
             Text(
-              '${currentBinder.collectionType.toUpperCase()} Physical Anchor',
+              currentBinder.isSystemBinder == true
+                  ? 'Permanent System Binder • Quota Exempt'
+                  : '${currentBinder.collectionType.toUpperCase()} Physical Anchor',
               style: const TextStyle(
                 color: AppColors.accentCyan,
                 fontSize: 11,
@@ -75,13 +106,15 @@ class BinderDetailScreen extends ConsumerWidget {
           ],
         ),
         actions: [
-          // Edit Binder button
-          IconButton(
-            key: const Key('binder_edit_button'),
-            icon: const Icon(Icons.edit_outlined, color: Colors.white, size: 20),
-            tooltip: 'Edit Binder',
-            onPressed: () => EditBinderModal.show(context, currentBinder),
-          ),
+          // Edit Binder button (hidden for system binders)
+          if (currentBinder.isSystemBinder != true &&
+              !currentBinder.id.startsWith('system_'))
+            IconButton(
+              key: const Key('binder_edit_button'),
+              icon: const Icon(Icons.edit_outlined, color: Colors.white, size: 20),
+              tooltip: 'Edit Binder',
+              onPressed: () => EditBinderModal.show(context, currentBinder),
+            ),
           // View Mode toggle (3x3 Grid vs List)
           IconButton(
             key: const Key('binder_view_mode_toggle'),
@@ -433,11 +466,32 @@ class BinderGridCardTile extends StatelessWidget {
                   ),
                 ),
 
+              // Wishlist Badge
+              if (item.isWishlisted == true)
+                Positioned(
+                  top: 4,
+                  right: 4,
+                  child: Container(
+                    key: const Key('vault_card_wishlist_badge'),
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.75),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.bookmark,
+                      key: Key('wishlist_badge_pos'),
+                      color: Colors.purpleAccent,
+                      size: 14,
+                    ),
+                  ),
+                ),
+
               // Quantity Badge (if > 1)
               if (item.quantity > 1)
                 Positioned(
                   top: 4,
-                  right: 4,
+                  right: (item.isWishlisted == true) ? 22 : 4,
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                     decoration: BoxDecoration(

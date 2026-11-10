@@ -24,6 +24,14 @@ class ExploreDeckVotes extends Table {
   /// Timestamp when vote was recorded or updated
   DateTimeColumn get updatedAt => dateTime().named('updated_at')();
 
+  /// Soft Delete & Outbox Sync (v12 / Epic 5)
+  BoolColumn get isDeleted =>
+      boolean().named('is_deleted').withDefault(const Constant(false))();
+  DateTimeColumn get deletedAt =>
+      dateTime().named('deleted_at').nullable()();
+  TextColumn get syncStatus =>
+      text().named('sync_status').withDefault(const Constant('synced')).nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 

@@ -13,6 +13,7 @@ import 'package:countr/features/hydration/presentation/providers/hydration_provi
 import 'package:countr/features/vault/presentation/providers/vault_providers.dart';
 import 'package:countr/features/decks/data/services/precon_hydration_service.dart';
 import 'package:countr/features/decks/data/services/explore_seeder_service.dart';
+import 'package:countr/features/decks/data/services/mtgjson_precon_sync_service.dart';
 import '../widgets/custom_bottom_nav_bar.dart';
 
 /// The Main Shell Screen wrapping the StatefulNavigationShell.
@@ -50,8 +51,10 @@ class _MainShellScreenState extends ConsumerState<MainShellScreen> {
         final db = ref.read(appDatabaseProvider);
         await ExploreSeederService.seedIfNeeded(db);
         await PreconHydrationService.seedHistoricalPrecons(db);
+        await MtgjsonPreconSyncService.checkAndSyncNewlyReleasedPrecons(db);
         if (!mounted) return;
         ref.invalidate(exploreDecksStreamProvider);
+        ref.invalidate(exploreFilteredDeckCountProvider);
         ref.invalidate(featuredExploreCategoryStreamProvider);
         ref.invalidate(deckSummariesProvider);
       });

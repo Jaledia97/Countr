@@ -270,13 +270,20 @@ void main() {
 
           expect(tester.takeException(), isNull);
 
+          // Scroll down past the featured carousels to reveal the unified 2-column grid
+          await tester.drag(
+            find.byType(CustomScrollView),
+            const Offset(0, -1000),
+          );
+          await tester.pumpAndSettle();
+
           final gridFinder = find.byType(SliverGrid);
           expect(gridFinder, findsWidgets);
 
           final sliverGrid = tester.widget<SliverGrid>(gridFinder.first);
           final delegate = sliverGrid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount;
           expect(delegate.crossAxisCount, 2);
-          expect(delegate.childAspectRatio, 0.72);
+          expect(delegate.childAspectRatio, 0.52);
         },
       );
     });
@@ -802,7 +809,7 @@ void main() {
       testWidgets(
         '3.2 Feed slice partitioning handles sparse and empty datasets gracefully without range errors',
         (tester) async {
-          tester.view.physicalSize = const Size(800, 1400);
+          tester.view.physicalSize = const Size(800, 2400);
           tester.view.devicePixelRatio = 1.0;
           addTearDown(tester.view.resetPhysicalSize);
 

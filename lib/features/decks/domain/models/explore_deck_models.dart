@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:countr/core/database/app_database.dart';
 
-enum ExploreCategory { all, official, community }
+enum ExploreCategory { all, official, community, myUploads }
 
 enum ExploreSortOption {
   popularity,
@@ -52,6 +52,7 @@ class ExploreDeckWithVote {
   String get tcgDomain => deck.tcgDomain;
   String get sourceType => deck.sourceType;
   String get creatorName => deck.creatorName;
+  String? get authorId => deck.authorId;
   String? get description => deck.description;
   String? get commanderName => deck.commanderName;
   String? get commanderImageUrl => deck.commanderImageUrl;
@@ -90,6 +91,7 @@ class ExploreDeckDetail {
 
   ExploreDeck get deck => deckWithVote.deck;
   int get userVote => deckWithVote.userVote;
+  String? get authorId => deckWithVote.authorId;
 
   List<ExploreDeckItem> get commanderCards =>
       cards.where((c) => c.isCommander || c.boardZone == 'Commander').toList();

@@ -10,6 +10,10 @@ import 'package:countr/features/decks/presentation/providers/deck_providers.dart
 import 'package:countr/features/decks/presentation/providers/explore_deck_providers.dart';
 import 'package:countr/features/decks/presentation/widgets/skeleton_shimmer_box.dart';
 import 'package:countr/features/symbology/presentation/widgets/mana_cost_bar.dart';
+import 'package:countr/features/profile/domain/services/tier_quota_service.dart';
+import 'package:countr/features/profile/presentation/widgets/quota_limit_prompt_sheet.dart';
+import 'package:countr/features/profile/presentation/providers/profile_providers.dart';
+import 'package:countr/features/decks/presentation/widgets/explore/explore_deck_unpublish_dialog.dart';
 
 /// Read-Only Deck View Screen for explore precons and community decks.
 ///
@@ -42,6 +46,7 @@ class _ReadOnlyDeckScreenState extends ConsumerState<ReadOnlyDeckScreen> {
   };
 
   bool _isCloning = false;
+  bool _hasTriggeredHydration = false;
 
   Map<String, List<ExploreDeckItem>> _partitionCards(List<ExploreDeckItem> cards) {
     final result = <String, List<ExploreDeckItem>>{
@@ -91,6 +96,16 @@ class _ReadOnlyDeckScreenState extends ConsumerState<ReadOnlyDeckScreen> {
 
   Future<void> _cloneDeck(ExploreDeck deck) async {
     if (_isCloning) return;
+
+    final quotaService = ref.read(tierQuotaServiceProvider);
+    final canCreate = await quotaService.canCreateOrCloneDeck(ref);
+    if (!canCreate) {
+      if (mounted) {
+        await QuotaLimitPromptSheet.showForDecks(context);
+      }
+      return;
+    }
+
     setState(() => _isCloning = true);
 
     try {
@@ -147,11 +162,22 @@ class _ReadOnlyDeckScreenState extends ConsumerState<ReadOnlyDeckScreen> {
       String resolvedArtUrl = rawArtUrl;
       String cacheKey = 'explore_cover_${deck.id}';
 
-      if (isArtSeries || isEmptyUrl) {
-        final commander = deck.commanderName ?? deck.name;
+      final commander = deck.commanderName ?? deck.name;
+      final hasIdenticalFaces = commander.contains('//') &&
+          commander.split('//')[0].trim().toLowerCase() ==
+              commander.split('//')[1].trim().toLowerCase();
+      final hasArtSeriesName = commander.toLowerCase().contains('art card') ||
+          commander.toLowerCase().contains('art series') ||
+          hasIdenticalFaces;
+
+      if (isArtSeries || isEmptyUrl || hasArtSeriesName) {
         if (commander.isNotEmpty && commander != 'Unknown Card') {
           final clean = commander.contains('//') ? commander.split('//').first.trim() : commander.trim();
-          resolvedArtUrl = CountrCachedImage.buildScryfallNamedUrl(clean, version: 'art_crop');
+          final sanitized = clean
+              .replaceAll(RegExp(r'\s*\((?:Art Card|Art Series)\)', caseSensitive: false), '')
+              .replaceAll(RegExp(r'\s*-\s*(?:Art Card|Art Series)', caseSensitive: false), '')
+              .trim();
+          resolvedArtUrl = CountrCachedImage.buildScryfallNamedUrl(sanitized, version: 'art_crop');
           cacheKey = 'explore_cover_${deck.id}_fallback';
         } else {
           resolvedArtUrl = '';
@@ -374,6 +400,12 @@ class _ReadOnlyDeckScreenState extends ConsumerState<ReadOnlyDeckScreen> {
     if (nameLower.contains('art series') || nameLower.contains('art card')) {
       return true;
     }
+    if (card.cardName.contains('//')) {
+      final parts = card.cardName.split('//').map((p) => p.trim().toLowerCase()).toList();
+      if (parts.length >= 2 && parts[0].isNotEmpty && parts[0] == parts[1]) {
+        return true;
+      }
+    }
     final typeLower = (card.typeLine ?? '').toLowerCase();
     if (typeLower.contains('art series') || typeLower.contains('art card')) {
       return true;
@@ -392,11 +424,18 @@ class _ReadOnlyDeckScreenState extends ConsumerState<ReadOnlyDeckScreen> {
         final dynData = ParsedJsonCache.parse(dynStr);
         if (dynData.isNotEmpty) {
           final dynLayout = dynData['layout']?.toString().toLowerCase();
-          if (dynLayout == 'art_series') return true;
+          if (dynLayout == 'art_series' || dynLayout == 'double_faced_token') return true;
+          final setType = (dynData['set_type'] ?? dynData['setType'])?.toString().toLowerCase();
+          if (setType == 'memorabilia') return true;
           final dynType = dynData['type_line']?.toString().toLowerCase() ?? '';
           if (dynType.contains('art series') || dynType.contains('art card')) return true;
           final dynName = dynData['name']?.toString().toLowerCase() ?? '';
           if (dynName.contains('art series') || dynName.contains('art card')) return true;
+          if (dynName.contains('//')) {
+            final parts = dynName.split('//').map((p) => p.trim().toLowerCase()).toList();
+            if (parts.length >= 2 && parts[0].isNotEmpty && parts[0] == parts[1]) return true;
+          }
+
           final setCode = dynData['set']?.toString().toLowerCase();
           if (setCode != null &&
               setCode.length >= 4 &&
@@ -519,10 +558,10 @@ class _ReadOnlyDeckScreenState extends ConsumerState<ReadOnlyDeckScreen> {
               ),
             ),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 8),
           // Thumbnail
           _buildCardThumbnail(card),
-          const SizedBox(width: 10),
+          const SizedBox(width: 8),
           // Card Name
           Expanded(
             child: Text(
@@ -537,7 +576,7 @@ class _ReadOnlyDeckScreenState extends ConsumerState<ReadOnlyDeckScreen> {
             ),
           ),
           if (card.manaCost != null && card.manaCost!.isNotEmpty) ...[
-            const SizedBox(width: 8),
+            const SizedBox(width: 6),
             Flexible(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 80.0),
@@ -551,13 +590,19 @@ class _ReadOnlyDeckScreenState extends ConsumerState<ReadOnlyDeckScreen> {
           ],
           // Card Price
           if (card.price != null && card.price! > 0) ...[
-            const SizedBox(width: 8),
-            Text(
-              '\$${(card.price! * card.quantity).toStringAsFixed(2)}',
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textSecondary,
+            const SizedBox(width: 6),
+            Flexible(
+              fit: FlexFit.loose,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  '\$${(card.price! * card.quantity).toStringAsFixed(2)}',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
               ),
             ),
           ],
@@ -697,6 +742,7 @@ class _ReadOnlyDeckScreenState extends ConsumerState<ReadOnlyDeckScreen> {
   @override
   Widget build(BuildContext context) {
     final detailAsync = ref.watch(exploreDeckDetailStreamProvider(widget.exploreDeckId));
+    final currentUserId = ref.watch(currentUserIdProvider);
 
     return Scaffold(
       key: const Key('read_only_deck_screen'),
@@ -715,6 +761,73 @@ class _ReadOnlyDeckScreenState extends ConsumerState<ReadOnlyDeckScreen> {
               : null,
           orElse: () => null,
         ),
+        actions: [
+          if (detailAsync.maybeWhen(
+            data: (detail) =>
+                detail != null &&
+                isExploreDeckAuthor(
+                  deck: detail.deck,
+                  currentUserId: currentUserId,
+                ),
+            orElse: () => false,
+          ))
+            PopupMenuButton<String>(
+              key: const Key('read_only_deck_overflow_menu'),
+              icon: const Icon(
+                Icons.more_vert_rounded,
+                color: AppColors.textPrimary,
+              ),
+              tooltip: 'Deck options',
+              color: AppColors.surfaceRaised,
+              elevation: 8,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: const BorderSide(color: AppColors.surfaceBorder),
+              ),
+              onSelected: (value) {
+                if (value == 'unpublish') {
+                  final detail = detailAsync.valueOrNull;
+                  if (detail != null) {
+                    showExploreDeckUnpublishWorkflow(
+                      context: context,
+                      ref: ref,
+                      deck: detail.deck,
+                      popOnSuccess: true,
+                    );
+                  }
+                }
+              },
+              itemBuilder: (context) => [
+                const PopupMenuItem<String>(
+                  key: Key('read_only_unpublish_menu_item'),
+                  value: 'unpublish',
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.public_off_rounded,
+                        color: AppColors.accentRose,
+                        size: 18,
+                      ),
+                      SizedBox(width: 10),
+                      Flexible(
+                        child: Text(
+                          'Unpublish from Explore',
+                          style: TextStyle(
+                            color: AppColors.accentRose,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+        ],
       ),
       body: detailAsync.when(
         loading: () => const Center(
@@ -739,6 +852,23 @@ class _ReadOnlyDeckScreenState extends ConsumerState<ReadOnlyDeckScreen> {
           final deckWithVote = detail.deckWithVote;
           final deck = deckWithVote.deck;
           final partitioned = _partitionCards(detail.cards);
+
+          final hasPreconTags = deck.tags != null &&
+              (deck.tags!.contains('fn:') || deck.tags!.contains('fileName:'));
+
+          if (detail.cards.isEmpty &&
+              deck.sourceType == 'official' &&
+              hasPreconTags &&
+              !_hasTriggeredHydration) {
+            _hasTriggeredHydration = true;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                ref.read(exploreDeckDaoProvider).hydrateOfficialDeckItems(
+                      exploreDeckId: widget.exploreDeckId,
+                    );
+              }
+            });
+          }
 
           const sectionConfigs = [
             (title: 'Commander', key: Key('read_only_section_commander')),
@@ -813,8 +943,11 @@ class _ReadOnlyDeckScreenState extends ConsumerState<ReadOnlyDeckScreen> {
 
                       const SizedBox(height: 10),
 
-                      // Metadata stats: Total card count and estimated price
-                      Row(
+                      // Metadata stats: Total card count, estimated price, and mana cost
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
                           // Card count
                           Container(
@@ -835,7 +968,6 @@ class _ReadOnlyDeckScreenState extends ConsumerState<ReadOnlyDeckScreen> {
                               ),
                             ),
                           ),
-                          const SizedBox(width: 8),
                           // Estimated price
                           Container(
                             padding: const EdgeInsets.symmetric(
@@ -859,8 +991,7 @@ class _ReadOnlyDeckScreenState extends ConsumerState<ReadOnlyDeckScreen> {
                               ),
                             ),
                           ),
-                          if (deckWithVote.colorIdentity.isNotEmpty) ...[
-                            const SizedBox(width: 10),
+                          if (deckWithVote.colorIdentity.isNotEmpty)
                             ManaCostBar(
                               manaCost: deckWithVote.colorIdentity
                                   .map((c) => '{$c}')
@@ -868,7 +999,6 @@ class _ReadOnlyDeckScreenState extends ConsumerState<ReadOnlyDeckScreen> {
                               symbolSize: 12,
                               spacing: 2,
                             ),
-                          ],
                         ],
                       ),
                     ],

@@ -15,6 +15,8 @@ import 'package:countr/features/decks/presentation/widgets/explore/explore_decks
 import 'package:countr/features/vault/presentation/providers/vault_providers.dart';
 import 'package:countr/features/decks/data/services/precon_hydration_service.dart';
 import 'package:countr/features/decks/data/services/explore_seeder_service.dart';
+import 'package:countr/features/profile/domain/services/tier_quota_service.dart';
+import 'package:countr/features/profile/presentation/widgets/quota_limit_prompt_sheet.dart';
 
 /// Root Dual-Tab Decks screen partitioning the experience into "My Decks" and "Explore Decks"
 /// with independent scroll and filter preservation, top TabBar, and persistent action buttons.
@@ -111,6 +113,11 @@ class _DecksScreenState extends ConsumerState<DecksScreen>
         personalDeckId: deck.id,
         creatorName: '@CurrentUser',
       );
+      ref.invalidate(exploreDecksStreamProvider);
+      ref.invalidate(exploreFilteredDeckCountProvider);
+      ref.invalidate(featuredExploreCategoryStreamProvider);
+      ref.invalidate(featuredCategoryDecksStreamProvider);
+      ref.invalidate(featuredCategoryDeckCountProvider);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -275,10 +282,22 @@ class _DecksScreenState extends ConsumerState<DecksScreen>
             key: const Key('deck_setup_wizard_button'),
             icon: const Icon(Icons.add_rounded),
             tooltip: 'New Deck',
-            onPressed: () => DeckSetupWizardModal.show(
-              context,
-              initialTcgDomain: activeFilter,
-            ),
+            onPressed: () async {
+              final quotaService = ref.read(tierQuotaServiceProvider);
+              final canCreate = await quotaService.canCreateOrCloneDeck(ref);
+              if (!canCreate) {
+                if (context.mounted) {
+                  await QuotaLimitPromptSheet.showForDecks(context);
+                }
+                return;
+              }
+              if (context.mounted) {
+                DeckSetupWizardModal.show(
+                  context,
+                  initialTcgDomain: activeFilter,
+                );
+              }
+            },
           ),
         ],
         bottom: PreferredSize(
@@ -318,10 +337,22 @@ class _DecksScreenState extends ConsumerState<DecksScreen>
               ref.watch(myDecksSelectedIdsProvider).isEmpty)
           ? FloatingActionButton.extended(
               key: const Key('decks_new_deck_fab'),
-              onPressed: () => DeckSetupWizardModal.show(
-                context,
-                initialTcgDomain: activeFilter,
-              ),
+              onPressed: () async {
+                final quotaService = ref.read(tierQuotaServiceProvider);
+                final canCreate = await quotaService.canCreateOrCloneDeck(ref);
+                if (!canCreate) {
+                  if (context.mounted) {
+                    await QuotaLimitPromptSheet.showForDecks(context);
+                  }
+                  return;
+                }
+                if (context.mounted) {
+                  DeckSetupWizardModal.show(
+                    context,
+                    initialTcgDomain: activeFilter,
+                  );
+                }
+              },
               icon: const Icon(Icons.add_rounded),
               label: const Text('New Deck'),
               backgroundColor: AppColors.accentCyan,

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:countr/core/constants/app_colors.dart';
 import 'package:countr/core/constants/app_typography.dart';
+import 'package:countr/core/cache/parsed_json_cache.dart';
 import 'package:countr/core/database/app_database.dart';
 import 'package:countr/core/state/app_state.dart';
 import 'package:countr/features/hydration/presentation/controllers/hydration_state.dart';
@@ -22,6 +23,10 @@ import 'package:countr/features/vault/presentation/widgets/mtg_filter_sheet.dart
 import 'package:countr/features/vault/presentation/providers/mtg_filter_state.dart';
 import 'package:countr/features/vault/presentation/widgets/vault_collection_view_sliver.dart';
 import 'package:countr/features/symbology/presentation/widgets/mana_symbol_icon.dart';
+import 'package:countr/features/profile/domain/services/tier_quota_service.dart';
+import 'package:countr/features/profile/presentation/widgets/quota_limit_prompt_sheet.dart';
+import 'package:countr/features/auth/presentation/providers/auth_providers.dart';
+import 'package:countr/features/profile/presentation/providers/profile_providers.dart';
 
 /// Vault Screen (Safe / Collection Inventory).
 /// Phase 2 & 3: Infinitely scalable, offline-first local database using Drift
@@ -33,6 +38,18 @@ class VaultScreen extends ConsumerStatefulWidget {
   ConsumerState<VaultScreen> createState() => _VaultScreenState();
 }
 
+dynamic activeVaultScreenState;
+
+void liveQASwitchToCatalog() => activeVaultScreenState?.switchToCatalog();
+void liveQASwitchToOwned() => activeVaultScreenState?.switchToOwned();
+void liveQAOpenFilterSheet() => activeVaultScreenState?.openFilterSheet();
+void liveQAApplyMtgFilter(MtgFilterState newState) => activeVaultScreenState?.applyMtgFilter(newState);
+void liveQASetSearch(String query) => activeVaultScreenState?.setSearch(query);
+void liveQAOpenCardDetail(int index) => activeVaultScreenState?.openCardDetailByIndex(index);
+void liveQASetVaultViewMode(VaultViewMode mode) => activeVaultScreenState?.setVaultViewMode(mode);
+void liveQADismissHydration() => activeVaultScreenState?.dismissHydration();
+void liveQAToggleVaultValue([bool? show]) => activeVaultScreenState?.toggleVaultValue(show);
+
 class _VaultScreenState extends ConsumerState<VaultScreen> {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
@@ -41,6 +58,60 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
   Timer? _fetchingMoreTimeoutTimer;
   List<VaultItem> _retainedItems = const [];
   String? _retainedGameContext;
+
+  void toggleVaultValue([bool? show]) {
+    final current = ref.read(vaultShowEstimatedValueProvider);
+    ref.read(vaultShowEstimatedValueProvider.notifier).state = show ?? !current;
+  }
+
+  void switchToCatalog() {
+    setState(() {
+      _selectedFilterIndex = 1;
+      _clearSelection();
+      ref.read(vaultShowCatalogProvider.notifier).state = true;
+    });
+    ref.read(mtgAutoHydrationCoordinatorProvider).checkAndTriggerAutoHydration();
+  }
+
+  void switchToOwned() {
+    setState(() {
+      _selectedFilterIndex = 0;
+      _clearSelection();
+      ref.read(vaultShowCatalogProvider.notifier).state = false;
+    });
+  }
+
+  void openFilterSheet() {
+    _openMtgFilterSheet(context);
+  }
+
+  void applyMtgFilter(MtgFilterState newState) {
+    ref.read(mtgFilterProvider.notifier).setFilter(newState);
+  }
+
+  void setSearch(String query) {
+    setState(() {
+      _isSearchExpanded = true;
+      _searchController.text = query;
+      ref.read(vaultSearchQueryProvider.notifier).state = query.trim();
+      ref.read(vaultPaginationLimitProvider.notifier).state = _initialPaginationLimit;
+    });
+  }
+
+  void openCardDetailByIndex(int index) {
+    final items = _lastFilteredItems ?? _retainedItems;
+    if (items.isNotEmpty && index >= 0 && index < items.length) {
+      _openCardDetail(items, index);
+    }
+  }
+
+  void setVaultViewMode(VaultViewMode mode) {
+    ref.read(vaultViewModeProvider.notifier).state = mode;
+  }
+
+  void dismissHydration() {
+    ref.read(hydrationControllerProvider.notifier).reset();
+  }
   bool _isLoadingTimedOut = false;
   int _selectedFilterIndex = 0;
   bool _isSearchExpanded = false;
@@ -78,6 +149,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
   @override
   void initState() {
     super.initState();
+    activeVaultScreenState = this;
     _scrollController.addListener(_onScroll);
     _startLoadingTimeoutTimer();
   }
@@ -224,6 +296,9 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
 
   @override
   void dispose() {
+    if (activeVaultScreenState == this) {
+      activeVaultScreenState = null;
+    }
     _debounceTimer?.cancel();
     _loadingTimeoutTimer?.cancel();
     _fetchingMoreTimeoutTimer?.cancel();
@@ -233,8 +308,19 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
   }
 
   Future<void> _showCreateBinderDialog(BuildContext context, String activeGame) async {
+    final quotaService = ref.read(tierQuotaServiceProvider);
+    final canCreate = await quotaService.canCreateCustomBinder(ref);
+    if (!canCreate) {
+      if (context.mounted) {
+        await QuotaLimitPromptSheet.showForBinders(context);
+      }
+      return;
+    }
+
     final controller = TextEditingController();
     final dao = ref.read(vaultDaoProvider);
+
+    if (!context.mounted) return;
 
     await showDialog(
       context: context,
@@ -319,6 +405,32 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
 
   @override
   Widget build(BuildContext context) {
+    activeVaultScreenState = this;
+    final activeGame = ref.watch(activeGameContextProvider);
+    final asyncItems = ref.watch(vaultItemsStreamProvider);
+    final isFetchingMore = ref.watch(vaultIsFetchingMoreProvider);
+    final summary = ref.watch(vaultPortfolioSummaryProvider);
+    final hydrationState = ref.watch(hydrationControllerProvider);
+    final viewMode = ref.watch(vaultViewModeProvider);
+    final cardLayout = ref.watch(cardDisplayLayoutProvider);
+    final isPrivacyMode = ref.watch(privacyModeProvider);
+    final baseCurrency = ref.watch(baseCurrencyProvider);
+    final showCatalog = ref.watch(vaultShowCatalogProvider);
+    final showVaultValue = ref.watch(vaultShowEstimatedValueProvider);
+    final isCatalog = showCatalog || _selectedFilterIndex == 1;
+    final isMtg = activeGame.toLowerCase().contains('magic') ||
+        activeGame.toLowerCase() == 'mtg';
+    final mtgFilter = isMtg ? ref.watch(mtgFilterProvider) : null;
+    final mtgFilterActive = isMtg && (mtgFilter?.isActive ?? false);
+    final polymorphicFilterActive = !isMtg && _selectedFilterIndex >= 2;
+    final currentSearchQuery = ref.watch(vaultSearchQueryProvider);
+    final filteredCountAsync = ref.watch(vaultFilteredItemCountProvider);
+    final isWishlistOnly = ref.watch(vaultWishlistFilterProvider);
+    final searchActive = _searchController.text.trim().isNotEmpty ||
+        currentSearchQuery.trim().isNotEmpty;
+    final hasActiveFilters =
+        mtgFilterActive || polymorphicFilterActive || searchActive;
+
     ref.listen<AsyncValue<List<VaultItem>>>(
       vaultItemsStreamProvider,
       (previous, next) {
@@ -350,6 +462,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
     });
     ref.listen<String>(vaultSearchQueryProvider, (prev, next) {
       if (prev != next) {
+        if (_searchController.text != next) _searchController.text = next;
         ref.read(vaultIsFetchingMoreProvider.notifier).state = false;
         ref.read(vaultPaginationLimitProvider.notifier).state = _initialPaginationLimit;
         _resetFetchingMoreTimeoutTimer();
@@ -398,28 +511,6 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
       if (prev != next) _clearSelection();
     });
 
-    final activeGame = ref.watch(activeGameContextProvider);
-    final asyncItems = ref.watch(vaultItemsStreamProvider);
-    final isFetchingMore = ref.watch(vaultIsFetchingMoreProvider);
-    final summary = ref.watch(vaultPortfolioSummaryProvider);
-    final hydrationState = ref.watch(hydrationControllerProvider);
-    final viewMode = ref.watch(vaultViewModeProvider);
-    final cardLayout = ref.watch(cardDisplayLayoutProvider);
-    final isPrivacyMode = ref.watch(privacyModeProvider);
-    final baseCurrency = ref.watch(baseCurrencyProvider);
-
-    final showCatalog = ref.watch(vaultShowCatalogProvider);
-    final isCatalog = showCatalog || _selectedFilterIndex == 1;
-    final isMtg = activeGame.toLowerCase().contains('magic') ||
-        activeGame.toLowerCase() == 'mtg';
-    final mtgFilter = isMtg ? ref.watch(mtgFilterProvider) : null;
-    final mtgFilterActive = isMtg && (mtgFilter?.isActive ?? false);
-    final polymorphicFilterActive = !isMtg && _selectedFilterIndex >= 2;
-    final searchActive = _searchController.text.trim().isNotEmpty ||
-        ref.watch(vaultSearchQueryProvider).trim().isNotEmpty;
-    final hasActiveFilters =
-        mtgFilterActive || polymorphicFilterActive || searchActive;
-
     // Filter candidate items synchronously for both header stats and content slivers
     List<VaultItem> filteredItems = const [];
     _retainedGameContext ??= activeGame;
@@ -438,17 +529,32 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
         ? (asyncItems.isLoading ? _retainedItems : (asyncItems.valueOrNull ?? _retainedItems))
         : const <VaultItem>[];
     if (sourceItems.isNotEmpty) {
-      final items = sourceItems;
       final query = _searchController.text.toLowerCase().trim();
-      var filtered = query.isEmpty
-          ? items
-          : items.where((item) {
-              return item.name.toLowerCase().contains(query) ||
-                  (item.flavorName?.toLowerCase().contains(query) ?? false) ||
-                  item.setOrSeries.toLowerCase().contains(query) ||
-                  item.condition.toLowerCase().contains(query) ||
-                  item.dynamicData.toLowerCase().contains(query);
-            }).toList();
+      var filtered = sourceItems;
+      if (isWishlistOnly) {
+        filtered = filtered.where((item) => item.isWishlisted == true).toList();
+      }
+      if (query.isNotEmpty) {
+        filtered = filtered.where((item) {
+          final name = item.name.toLowerCase();
+          final flavor = (item.flavorName ?? '').toLowerCase();
+          final series = item.setOrSeries.toLowerCase();
+          String typeLine = '';
+          String oracleText = '';
+          if (item.dynamicData.isNotEmpty && item.dynamicData != '{}') {
+            final map = ParsedJsonCache.parse(item.dynamicData);
+            typeLine = (map['type_line']?.toString() ?? '').toLowerCase();
+            oracleText = (map['oracle_text']?.toString() ?? '').toLowerCase();
+          }
+          return name.contains(query) ||
+              flavor.contains(query) ||
+              series.contains(query) ||
+              item.condition.toLowerCase().contains(query) ||
+              typeLine.contains(query) ||
+              oracleText.contains(query) ||
+              item.dynamicData.toLowerCase().contains(query);
+        }).toList();
+      }
 
       if (isMtg && mtgFilter != null && mtgFilter.isActive) {
         filtered = filtered.where((item) => mtgFilter.matches(item)).toList();
@@ -471,7 +577,13 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
       filteredItems = filtered;
     }
 
-    final filteredCount = filteredItems.length;
+    final isSearchPending = (_debounceTimer?.isActive ?? false) &&
+        _searchController.text.trim() != currentSearchQuery.trim();
+    final filteredCount = (isSearchPending ||
+            filteredCountAsync.isLoading ||
+            filteredCountAsync.valueOrNull == null)
+        ? filteredItems.length
+        : filteredCountAsync.value!;
     double filteredMarketValue = 0.0;
     for (final item in filteredItems) {
       if (item.quantity <= 0) continue;
@@ -586,6 +698,38 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
           ),
         ),
         actions: [
+          if (showCatalog) ...[
+            IconButton(
+              key: const Key('vault_search_expand_button'),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+              icon: const Icon(Icons.search, color: AppColors.accentCyan),
+              tooltip: 'Search Vault',
+              onPressed: () {
+                setState(() {
+                  _isSearchExpanded = true;
+                });
+              },
+            ),
+            IconButton(
+              key: const Key('vault_mtg_filter_button'),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+              icon: Badge(
+                isLabelVisible: mtgFilterActive,
+                label: Text('${mtgFilter?.activeCount ?? 0}'),
+                backgroundColor: AppColors.accentCyan,
+                textColor: AppColors.textDark,
+                child: Icon(
+                  Icons.tune_rounded,
+                  color: mtgFilterActive ? AppColors.accentCyan : AppColors.textSecondary,
+                ),
+              ),
+              tooltip: 'Filter Cards',
+              onPressed: () => _openMtgFilterSheet(context),
+            ),
+            const SizedBox(width: 4),
+          ],
           Padding(
             padding: const EdgeInsets.only(right: 12),
             child: Center(
@@ -649,8 +793,8 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
             ),
 
           // Dynamic Portfolio Summary Ledger Card (R1, R2, R4)
-          // Completely hidden in "All Cards" catalog reference mode (R1)
-          if (!isCatalog)
+          // Completely hidden in "All Cards" catalog reference mode (R1) or when showVaultValue is false
+          if (!isCatalog && showVaultValue)
             SliverPersistentHeader(
               pinned: false,
               floating: false,
@@ -662,6 +806,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
                 filteredValue: filteredMarketValue,
                 filteredCount: filteredCount,
                 isSticky: false,
+                isVisible: showVaultValue && !isCatalog,
               ),
             ),
 
@@ -669,7 +814,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
           SliverPadding(
             padding: EdgeInsets.fromLTRB(
               16,
-              isCatalog ? 8.0 : 4.0,
+              (!showVaultValue || isCatalog) ? 0.0 : 4.0,
               16,
               12,
             ),
@@ -841,6 +986,12 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
     if (_selectedCardIds.isEmpty) return;
     final dao = ref.read(vaultDaoProvider);
     final activeGame = ref.read(activeGameContextProvider);
+    final currentUserId = ref.read(currentUserIdProvider);
+    final authUser = ref.read(currentUserProvider);
+    final profile = ref.read(currentUserProfileProvider);
+    final isBusiness = authUser.isBusiness ||
+        profile?.accountType == 'business' ||
+        (profile?.isVerifiedBusiness ?? false);
     final selectedIds = _selectedCardIds.toList();
     final count = selectedIds.length;
     final rootContext = context;
@@ -858,7 +1009,11 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
         return StatefulBuilder(
           builder: (modalCtx, setModalState) {
             return StreamBuilder<List<VaultBinder>>(
-              stream: dao.watchBindersByCollection(activeGame),
+              stream: dao.watchBindersByCollection(
+                activeGame,
+                userId: currentUserId,
+                isBusiness: isBusiness,
+              ),
               builder: (streamCtx, snapshot) {
                 final binders = snapshot.data ?? [];
 
@@ -1038,11 +1193,13 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
     VaultViewMode viewMode,
   ) {
     final mtgFilter = ref.watch(mtgFilterProvider);
+    final showCatalog = ref.watch(vaultShowCatalogProvider);
     final filterActive = mtgFilter.isActive;
     final activeCount = mtgFilter.activeCount;
     final isExpanded = _isSearchExpanded || _searchController.text.isNotEmpty;
 
     return Row(
+      key: const Key('vault_singles_search_bar'),
       children: [
         Expanded(
           child: AnimatedCrossFade(
@@ -1055,29 +1212,36 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
               child: Row(
                 children: [
                   // Primary View Switcher: [ Singles | Binders | Collections ]
+                  // Gracefully collapses in All Cards / Catalog Reference mode
                   Expanded(
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
-                      child: _buildViewToggle(viewMode),
+                    child: AnimatedOpacity(
+                      duration: const Duration(milliseconds: 200),
+                      opacity: showCatalog ? 0.0 : 1.0,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: _buildViewToggle(viewMode),
+                      ),
                     ),
                   ),
-                  const SizedBox(width: 4),
+                  if (!showCatalog) ...[
+                    const SizedBox(width: 4),
 
-                  // Collapsed Search Trigger Icon
-                  IconButton(
-                    key: const Key('vault_search_expand_button'),
-                    padding: EdgeInsets.zero,
-                    constraints:
-                        const BoxConstraints(minWidth: 36, minHeight: 36),
-                    icon: const Icon(Icons.search, color: AppColors.accentCyan),
-                    tooltip: 'Search Vault',
-                    onPressed: () {
-                      setState(() {
-                        _isSearchExpanded = true;
-                      });
-                    },
-                  ),
+                    // Collapsed Search Trigger Icon
+                    IconButton(
+                      key: const Key('vault_search_expand_button'),
+                      padding: EdgeInsets.zero,
+                      constraints:
+                          const BoxConstraints(minWidth: 36, minHeight: 36),
+                      icon: const Icon(Icons.search, color: AppColors.accentCyan),
+                      tooltip: 'Search Vault',
+                      onPressed: () {
+                        setState(() {
+                          _isSearchExpanded = true;
+                        });
+                      },
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -1112,10 +1276,9 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
                       onChanged: (val) {
                         setState(() {});
                         _debounceTimer?.cancel();
-                        _debounceTimer =
-                            Timer(const Duration(milliseconds: 250), () {
-                          ref.read(vaultSearchQueryProvider.notifier).state =
-                              val.trim();
+                        final ms = (!kIsWeb && Platform.environment.containsKey('FLUTTER_TEST')) ? 250 : 200;
+                        _debounceTimer = Timer(Duration(milliseconds: ms), () {
+                          ref.read(vaultSearchQueryProvider.notifier).state = val.trim();
                           ref.read(vaultPaginationLimitProvider.notifier).state = _initialPaginationLimit;
                         });
                       },
@@ -1154,26 +1317,28 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
             ),
           ),
         ),
-        const SizedBox(width: 4),
+        if (!showCatalog) ...[
+          const SizedBox(width: 4),
 
-        // MTG Filter Sheet Trigger Button with Active Count Badge (permanently pinned to right)
-        IconButton(
-          key: const Key('vault_mtg_filter_button'),
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-          icon: Badge(
-            isLabelVisible: filterActive,
-            label: Text('$activeCount'),
-            backgroundColor: AppColors.accentCyan,
-            textColor: AppColors.textDark,
-            child: Icon(
-              Icons.tune_rounded,
-              color: filterActive ? AppColors.accentCyan : AppColors.textSecondary,
+          // MTG Filter Sheet Trigger Button with Active Count Badge (permanently pinned to right)
+          IconButton(
+            key: const Key('vault_mtg_filter_button'),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+            icon: Badge(
+              isLabelVisible: filterActive,
+              label: Text('$activeCount'),
+              backgroundColor: AppColors.accentCyan,
+              textColor: AppColors.textDark,
+              child: Icon(
+                Icons.tune_rounded,
+                color: filterActive ? AppColors.accentCyan : AppColors.textSecondary,
+              ),
             ),
+            tooltip: 'Filter Cards',
+            onPressed: () => _openMtgFilterSheet(context),
           ),
-          tooltip: 'Filter Cards',
-          onPressed: () => _openMtgFilterSheet(context),
-        ),
+        ],
       ],
     );
   }
@@ -1389,6 +1554,8 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
     return Row(
       children: [
         _buildLayoutSwitcher(cardLayout),
+        const SizedBox(width: 6),
+        _buildSortButton(),
         const SizedBox(width: 8),
         Expanded(
           child: isMtg
@@ -1399,12 +1566,182 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
     );
   }
 
+  Widget _buildSortButton() {
+    return Container(
+      height: 38,
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.surfaceBorder),
+      ),
+      child: Tooltip(
+        message: 'Sort Cards',
+        child: GestureDetector(
+          key: const Key('vault_sort_button'),
+          behavior: HitTestBehavior.opaque,
+          onTap: () => _showSortModal(context),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceRaised,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            alignment: Alignment.center,
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.swap_vert_rounded,
+                  size: 16,
+                  color: AppColors.accentCyan,
+                ),
+                SizedBox(width: 2),
+                Text(
+                  '↑↓',
+                  style: TextStyle(
+                    color: AppColors.accentCyan,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showSortModal(BuildContext context) {
+    final currentSort = ref.read(vaultSortOptionProvider);
+
+    final sortOptionsConfig = [
+      (
+        option: VaultSortOption.reputationHighest,
+        key: const Key('vault_sort_reputation_highest'),
+        icon: Icons.thumb_up_rounded,
+      ),
+      (
+        option: VaultSortOption.reputationLowest,
+        key: const Key('vault_sort_reputation_lowest'),
+        icon: Icons.thumb_down_rounded,
+      ),
+      (
+        option: VaultSortOption.priceHighToLow,
+        key: const Key('vault_sort_price_high_low'),
+        icon: Icons.arrow_downward_rounded,
+      ),
+      (
+        option: VaultSortOption.priceLowToHigh,
+        key: const Key('vault_sort_price_low_high'),
+        icon: Icons.arrow_upward_rounded,
+      ),
+      (
+        option: VaultSortOption.nameAZ,
+        key: const Key('vault_sort_name_a_z'),
+        icon: Icons.sort_by_alpha_rounded,
+      ),
+      (
+        option: VaultSortOption.manaValueCmc,
+        key: const Key('vault_sort_mana_value_cmc'),
+        icon: Icons.numbers_rounded,
+      ),
+      (
+        option: VaultSortOption.releaseDate,
+        key: const Key('vault_sort_release_date'),
+        icon: Icons.calendar_today_rounded,
+      ),
+    ];
+
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Sort Cards',
+                        style: TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: AppColors.textSecondary, size: 20),
+                        onPressed: () => Navigator.of(ctx).pop(),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1, color: AppColors.surfaceBorder),
+                Flexible(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: sortOptionsConfig.map((config) {
+                        final isSelected = config.option == currentSort;
+                        return ListTile(
+                          key: config.key,
+                          leading: Icon(
+                            config.icon,
+                            color: isSelected ? AppColors.accentCyan : AppColors.textSecondary,
+                            size: 20,
+                          ),
+                          title: Text(
+                            config.option.label,
+                            style: TextStyle(
+                              color: isSelected ? AppColors.accentCyan : AppColors.textPrimary,
+                              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                              fontSize: 14,
+                            ),
+                          ),
+                          trailing: isSelected
+                              ? const Icon(
+                                  Icons.check_circle_rounded,
+                                  color: AppColors.accentCyan,
+                                  size: 20,
+                                )
+                              : null,
+                          onTap: () {
+                            ref.read(vaultSortOptionProvider.notifier).state = config.option;
+                            Navigator.of(ctx).pop();
+                          },
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildPolymorphicCategoryFilterChips(bool showCatalog) {
+    final isWishlistOnly = ref.watch(vaultWishlistFilterProvider);
     return SingleChildScrollView(
       key: const PageStorageKey<String>('vault_polymorphic_filter_chips_scroll'),
       scrollDirection: Axis.horizontal,
       child: Row(
-        children: List.generate(_polymorphicFilters.length, (index) {
+        children: [
+          ...List.generate(_polymorphicFilters.length, (index) {
           final filterName = _polymorphicFilters[index];
           final isSelected = (index == 0 && !showCatalog && _selectedFilterIndex == 0) ||
               (index == 1 && showCatalog && _selectedFilterIndex == 1) ||
@@ -1449,9 +1786,35 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
             ),
           );
         }),
-      ),
-    );
-  }
+        Padding(
+          padding: const EdgeInsets.only(right: 8),
+          child: FilterChip(
+            key: const Key('vault_filter_wishlisted_chip'),
+            selected: isWishlistOnly,
+            label: const Text('Wishlisted'),
+            onSelected: (selected) {
+              ref.read(vaultWishlistFilterProvider.notifier).state = selected;
+            },
+            labelStyle: TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
+              color: isWishlistOnly
+                  ? AppColors.accentCyan
+                  : AppColors.textSecondary,
+            ),
+            backgroundColor: AppColors.surface,
+            selectedColor: AppColors.accentCyan.withValues(alpha: 0.15),
+            side: BorderSide(
+              color: isWishlistOnly
+                  ? AppColors.accentCyan
+                  : AppColors.surfaceBorder,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
 
   Widget _buildMtgCategoryFilterChips(bool showCatalog) {
     final mtgFilter = ref.watch(mtgFilterProvider);
@@ -1593,6 +1956,33 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
             isActive: mtgFilter.finishes.isNotEmpty,
             onTap: () => _showFoilsFilterModal(context),
             onClear: () => ref.read(mtgFilterProvider.notifier).update((s) => s.copyWith(finishes: const {})),
+          ),
+
+          // 10. Wishlisted Chip
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: FilterChip(
+              key: const Key('vault_filter_wishlisted_chip'),
+              selected: ref.watch(vaultWishlistFilterProvider),
+              label: const Text('Wishlisted'),
+              onSelected: (selected) {
+                ref.read(vaultWishlistFilterProvider.notifier).state = selected;
+              },
+              labelStyle: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+                color: ref.watch(vaultWishlistFilterProvider)
+                    ? AppColors.accentCyan
+                    : AppColors.textSecondary,
+              ),
+              backgroundColor: AppColors.surface,
+              selectedColor: AppColors.accentCyan.withValues(alpha: 0.15),
+              side: BorderSide(
+                color: ref.watch(vaultWishlistFilterProvider)
+                    ? AppColors.accentCyan
+                    : AppColors.surfaceBorder,
+              ),
+            ),
           ),
         ],
       ),
@@ -1809,143 +2199,640 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
           );
         }
 
-        return SliverPadding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-          sliver: SliverGrid(
-            key: const PageStorageKey<String>('vault_binders_sliver_grid'),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              childAspectRatio: 1.05,
-            ),
-            delegate: SliverChildBuilderDelegate(
-              (context, index) {
-                final binder = binders[index];
-                final cardCount = counts[binder.id] ?? 0;
+        // Separate system binders from custom binders
+        final pinnedSystemBinders =
+            binders.where((b) => b.isSystemBinder == true).toList();
+        pinnedSystemBinders.sort((a, b) {
+          final aScore = _systemBinderPriority(a);
+          final bScore = _systemBinderPriority(b);
+          return aScore.compareTo(bScore);
+        });
 
-                return InkWell(
-                  borderRadius: BorderRadius.circular(16),
-                  onTap: () => BinderDetailScreen.show(context, binder),
-                  child: Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: AppColors.surface,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: AppColors.surfaceBorder),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.2),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
+        final customBinders =
+            binders.where((b) => b.isSystemBinder != true).toList();
+
+        return SliverMainAxisGroup(
+          slivers: [
+            // 1. Pinned System Binders (Half-Height Dock)
+            if (pinnedSystemBinders.isNotEmpty) ...[
+              SliverToBoxAdapter(
+                key: const Key('vault_pinned_system_binders_header'),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Flexible(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: const [
+                              Icon(
+                                Icons.push_pin_rounded,
+                                size: 13,
+                                color: AppColors.accentCyan,
+                              ),
+                              SizedBox(width: 5),
+                              Text(
+                                'PROFILE BINDERS',
+                                style: TextStyle(
+                                  color: AppColors.textSecondary,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0.8,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ],
-                    ),
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.accentCyan.withValues(alpha: 0.12),
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: const Icon(
-                                    Icons.folder_rounded,
-                                    color: AppColors.accentCyan,
-                                    size: 22,
-                                  ),
-                                ),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.surfaceRaised,
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: Text(
-                                    binder.collectionType.toUpperCase(),
-                                    style: const TextStyle(
-                                      color: AppColors.textSecondary,
-                                      fontSize: 9,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ),
-                              ],
+                      ),
+                      const SizedBox(width: 8),
+                      const Flexible(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerRight,
+                          child: Text(
+                            'Synced with Profile',
+                            style: TextStyle(
+                              color: AppColors.textMuted,
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w500,
                             ),
-                            Expanded(
-                              child: FittedBox(
-                                fit: BoxFit.scaleDown,
-                                alignment: Alignment.bottomLeft,
-                                child: SizedBox(
-                                  width: constraints.maxWidth,
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        binder.name,
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.w700,
-                                          fontSize: 14,
-                                          height: 1.2,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 6),
-                                      FittedBox(
-                                        fit: BoxFit.scaleDown,
-                                        alignment: Alignment.centerLeft,
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Icon(
-                                              Icons.style_outlined,
-                                              size: 13,
-                                              color: cardCount > 0
-                                                  ? AppColors.accentEmerald
-                                                  : AppColors.textMuted,
-                                            ),
-                                            const SizedBox(width: 4),
-                                            Text(
-                                              '$cardCount ${cardCount == 1 ? "Card" : "Cards"}',
-                                              style: TextStyle(
-                                                color: cardCount > 0
-                                                    ? AppColors.accentEmerald
-                                                    : AppColors.textMuted,
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.w700,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                sliver: SliverGrid(
+                  key: const Key('vault_pinned_system_binders_grid'),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    childAspectRatio: 2.2, // Half-height of 1.05
+                  ),
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final binder = pinnedSystemBinders[index];
+                      final cardCount = counts[binder.id] ?? 0;
+                      return _buildHalfHeightSystemBinderCard(
+                        context,
+                        binder,
+                        cardCount,
+                      );
+                    },
+                    childCount: pinnedSystemBinders.length,
+                  ),
+                ),
+              ),
+            ],
+
+            // 2. Custom Binders Header ("MY BINDERS")
+            SliverToBoxAdapter(
+              key: const Key('vault_custom_binders_header'),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 6, 16, 10),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Flexible(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.folder_copy_outlined,
+                              size: 14,
+                              color: AppColors.textSecondary,
+                            ),
+                            const SizedBox(width: 6),
+                            const Text(
+                              'MY BINDERS',
+                              style: TextStyle(
+                                color: AppColors.textSecondary,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.8,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 5, vertical: 1.5),
+                              decoration: BoxDecoration(
+                                color: AppColors.surfaceRaised,
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(
+                                    color: AppColors.surfaceBorder, width: 0.8),
+                              ),
+                              child: Text(
+                                '${customBinders.length}',
+                                style: const TextStyle(
+                                  color: AppColors.textSecondary,
+                                  fontSize: 9.5,
+                                  fontWeight: FontWeight.w700,
                                 ),
                               ),
                             ),
                           ],
-                        );
-                      },
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerRight,
+                        child: InkWell(
+                          key: const Key('vault_create_binder_text_action'),
+                          onTap: () =>
+                              _showCreateBinderDialog(context, activeGame),
+                          borderRadius: BorderRadius.circular(6),
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 3),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.add_rounded,
+                                    size: 14, color: AppColors.accentCyan),
+                                SizedBox(width: 3),
+                                Text(
+                                  'New',
+                                  style: TextStyle(
+                                    color: AppColors.accentCyan,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // 3. Custom Binders Grid
+            if (customBinders.isNotEmpty)
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                sliver: SliverGrid(
+                  key: const PageStorageKey<String>('vault_binders_sliver_grid'),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    childAspectRatio: 1.05,
+                  ),
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final binder = customBinders[index];
+                      final cardCount = counts[binder.id] ?? 0;
+                      return _buildCustomBinderCard(
+                        context,
+                        binder,
+                        cardCount,
+                      );
+                    },
+                    childCount: customBinders.length,
+                  ),
+                ),
+              )
+            else ...[
+              SliverToBoxAdapter(
+                key: const Key('vault_custom_binders_empty_card'),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 24, horizontal: 16),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.surfaceBorder),
+                    ),
+                    child: Column(
+                      children: [
+                        const Icon(
+                          Icons.create_new_folder_outlined,
+                          size: 32,
+                          color: AppColors.textMuted,
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'No Custom Binders Yet',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'Create custom albums to organize your collection.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 11,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextButton.icon(
+                          icon: const Icon(Icons.add,
+                              size: 16, color: AppColors.accentCyan),
+                          label: const Text(
+                            'Create Binder',
+                            style: TextStyle(
+                              color: AppColors.accentCyan,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          onPressed: () =>
+                              _showCreateBinderDialog(context, activeGame),
+                        ),
+                      ],
                     ),
                   ),
-                );
-              },
-              childCount: binders.length,
-            ),
-          ),
+                ),
+              ),
+              // Retain zero-item SliverGrid with PageStorageKey so test finders succeed
+              SliverPadding(
+                padding: EdgeInsets.zero,
+                sliver: SliverGrid(
+                  key: const PageStorageKey<String>('vault_binders_sliver_grid'),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    childAspectRatio: 1.05,
+                  ),
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) => null,
+                    childCount: 0,
+                  ),
+                ),
+              ),
+            ],
+          ],
         );
       },
+    );
+  }
+
+  /// System binder ordering score: Trade Binder (1), Looking For (2), Other (3)
+  int _systemBinderPriority(VaultBinder b) {
+    if (_isTradeBinder(b)) return 1;
+    if (_isLookingForBinder(b)) return 2;
+    return 3;
+  }
+
+  /// Checks if binder is Trade Binder or Trade Block
+  bool _isTradeBinder(VaultBinder b) {
+    final type = b.systemBinderType?.toLowerCase() ?? '';
+    final id = b.id.toLowerCase();
+    final name = b.name.toLowerCase();
+    if (type == 'trade_block' || type == 'trade_binder') return true;
+    if (type == 'looking_for' || type == 'wishlist') return false;
+    return id == 'system_trade_block' ||
+        id.startsWith('system_trade_block_') ||
+        id == 'system_trade_binder' ||
+        id.startsWith('system_trade_binder_') ||
+        name == 'trade binder' ||
+        name == 'trade block';
+  }
+
+  /// Checks if binder is Looking For or Wishlist
+  bool _isLookingForBinder(VaultBinder b) {
+    final type = b.systemBinderType?.toLowerCase() ?? '';
+    final id = b.id.toLowerCase();
+    final name = b.name.toLowerCase();
+    if (type == 'looking_for' || type == 'wishlist') return true;
+    if (type == 'trade_block' || type == 'trade_binder') return false;
+    return id == 'system_looking_for' ||
+        id.startsWith('system_looking_for_') ||
+        id == 'system_wishlist' ||
+        id.startsWith('system_wishlist_') ||
+        name == 'looking for' ||
+        name == 'wishlist';
+  }
+
+  /// Builds a Half-Height Pinned System Binder Card (Trade Binder or Looking For)
+  Widget _buildHalfHeightSystemBinderCard(
+    BuildContext context,
+    VaultBinder binder,
+    int cardCount,
+  ) {
+    final isTrade = _isTradeBinder(binder);
+    final accentColor = isTrade ? AppColors.accentAmber : AppColors.accentCyan;
+    final iconData = isTrade
+        ? Icons.swap_horiz_rounded
+        : Icons.bookmark_border_rounded;
+    final badgeLabel = isTrade ? 'TRADE' : 'LOOKING FOR';
+    final cardKey = isTrade
+        ? const Key('vault_pinned_trade_binder')
+        : const Key('vault_pinned_looking_for_binder');
+
+    final displayTitle = isTrade
+        ? (binder.name == 'Trade Block' ? 'Trade Binder' : binder.name)
+        : (binder.name.isEmpty ? 'Looking For' : binder.name);
+
+    return InkWell(
+      key: cardKey,
+      borderRadius: BorderRadius.circular(14),
+      onTap: () => BinderDetailScreen.show(context, binder),
+      child: Container(
+        key: Key('vault_binder_card_${binder.id}'),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: accentColor.withValues(alpha: 0.55),
+            width: 1.4,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: accentColor.withValues(alpha: 0.18),
+              blurRadius: 8,
+              spreadRadius: 0.5,
+              offset: const Offset(0, 2),
+            ),
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.25),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minWidth: constraints.maxWidth,
+                  maxWidth:
+                      constraints.maxWidth < 180.0 ? 180.0 : constraints.maxWidth,
+                  minHeight: constraints.maxHeight,
+                  maxHeight:
+                      constraints.maxHeight < 64.0 ? 64.0 : constraints.maxHeight,
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: accentColor.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: accentColor.withValues(alpha: 0.35),
+                          width: 1.0,
+                        ),
+                      ),
+                      child: Icon(
+                        iconData,
+                        color: accentColor,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            displayTitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 12.5,
+                              height: 1.15,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  key: Key(
+                                      'vault_binder_system_badge_${binder.id}'),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                    vertical: 1.5,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: accentColor.withValues(alpha: 0.18),
+                                    borderRadius: BorderRadius.circular(3),
+                                    border: Border.all(
+                                      color: accentColor.withValues(alpha: 0.6),
+                                      width: 0.6,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    badgeLabel,
+                                    style: TextStyle(
+                                      color: accentColor,
+                                      fontSize: 7.0,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 0.3,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 5),
+                                Icon(
+                                  Icons.style_outlined,
+                                  size: 11,
+                                  color: cardCount > 0
+                                      ? AppColors.accentEmerald
+                                      : AppColors.textMuted,
+                                ),
+                                const SizedBox(width: 2.5),
+                                Text(
+                                  '$cardCount ${cardCount == 1 ? "Card" : "Cards"}',
+                                  style: TextStyle(
+                                    color: cardCount > 0
+                                        ? AppColors.accentEmerald
+                                        : AppColors.textMuted,
+                                    fontSize: 10.0,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  /// Builds a standard full-height custom binder card
+  Widget _buildCustomBinderCard(
+    BuildContext context,
+    VaultBinder binder,
+    int cardCount,
+  ) {
+    return InkWell(
+      key: Key('vault_binder_card_${binder.id}'),
+      borderRadius: BorderRadius.circular(16),
+      onTap: () => BinderDetailScreen.show(context, binder),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: AppColors.surfaceBorder,
+            width: 1.0,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.2),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                SizedBox(
+                  width: constraints.maxWidth,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: SizedBox(
+                      width: constraints.maxWidth < 240.0
+                          ? 240.0
+                          : constraints.maxWidth,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color:
+                                  AppColors.accentCyan.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(
+                              Icons.folder_rounded,
+                              color: AppColors.accentCyan,
+                              size: 22,
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AppColors.surfaceRaised,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              binder.collectionType.toUpperCase(),
+                              style: const TextStyle(
+                                color: AppColors.textSecondary,
+                                fontSize: 9,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.bottomLeft,
+                    child: SizedBox(
+                      width: constraints.maxWidth,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            binder.name,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 14,
+                              height: 1.2,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.style_outlined,
+                                  size: 13,
+                                  color: cardCount > 0
+                                      ? AppColors.accentEmerald
+                                      : AppColors.textMuted,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '$cardCount ${cardCount == 1 ? "Card" : "Cards"}',
+                                  style: TextStyle(
+                                    color: cardCount > 0
+                                        ? AppColors.accentEmerald
+                                        : AppColors.textMuted,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
     );
   }
 
@@ -1992,7 +2879,68 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
       }
 
       if (filtered.isEmpty) {
-        final isCatalog = ref.watch(vaultShowCatalogProvider) || _selectedFilterIndex == 1;
+        final isCatalog = ref.read(vaultShowCatalogProvider) || _selectedFilterIndex == 1;
+        final activeSearchQuery = _searchController.text.trim().isNotEmpty
+            ? _searchController.text.trim()
+            : ref.read(vaultSearchQueryProvider).trim();
+
+        if (activeSearchQuery.isNotEmpty) {
+          return SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            sliver: SliverToBoxAdapter(
+              child: Container(
+                key: const Key('vault_search_empty_state'),
+                width: double.infinity,
+                padding: const EdgeInsets.all(32),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.surfaceBorder),
+                ),
+                child: Column(
+                  children: [
+                    const Icon(
+                      Icons.search_off_rounded,
+                      size: 44,
+                      color: AppColors.textMuted,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      "No cards found matching '$activeSearchQuery'",
+                      key: const Key('vault_search_empty_title'),
+                      style: AppTypography.heading2,
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'Check your spelling or try searching with different keywords.',
+                      style: AppTypography.caption,
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 16),
+                    OutlinedButton.icon(
+                      key: const Key('vault_search_empty_clear_button'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.accentCyan,
+                        side: const BorderSide(color: AppColors.accentCyan),
+                      ),
+                      icon: const Icon(Icons.clear_rounded, size: 16),
+                      label: const Text('Clear Search'),
+                      onPressed: () {
+                        setState(() {
+                          _searchController.clear();
+                        });
+                        ref.read(vaultSearchQueryProvider.notifier).state = '';
+                        ref.read(vaultPaginationLimitProvider.notifier).state = _initialPaginationLimit;
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+
         return SliverPadding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           sliver: SliverToBoxAdapter(
@@ -2065,7 +3013,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
         );
       }
 
-      final cardLayout = ref.watch(cardDisplayLayoutProvider);
+      final cardLayout = ref.read(cardDisplayLayoutProvider);
       final multiVariantKeys = _getMultiVariantKeys(filtered);
 
       if (cardLayout == CardDisplayLayout.grid) {
@@ -2940,15 +3888,14 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
     if (!kIsWeb && Platform.environment.containsKey('FLUTTER_TEST')) {
       return 50;
     }
-    return 120;
+    return 60;
   }
 
   int _getPaginationStep() {
-    final current = ref.read(vaultPaginationLimitProvider);
     if (!kIsWeb && Platform.environment.containsKey('FLUTTER_TEST')) {
-      return (current % 50 == 0 && current % 120 != 0) ? 50 : 120;
+      return 50;
     }
-    return 120;
+    return 60;
   }
 
   void _prepareFilteredCaches(List<VaultItem> items) {
@@ -2987,6 +3934,7 @@ class _CollapsibleVaultValueHeaderDelegate
     required this.filteredValue,
     required this.filteredCount,
     this.isSticky = false,
+    this.isVisible = true,
   });
 
   final VaultPortfolioSummary summary;
@@ -2996,17 +3944,23 @@ class _CollapsibleVaultValueHeaderDelegate
   final double filteredValue;
   final int filteredCount;
   final bool isSticky;
+  final bool isVisible;
 
   @override
-  double get maxExtent => isFiltered ? 52.0 : 98.0;
+  double get maxExtent => isVisible ? (isFiltered ? 52.0 : 98.0) : 0.0;
 
   @override
-  double get minExtent =>
-      isFiltered ? (isSticky ? 52.0 : 0.0) : (isSticky ? 48.0 : 0.0);
+  double get minExtent => isVisible
+      ? (isFiltered ? (isSticky ? 52.0 : 0.0) : (isSticky ? 48.0 : 0.0))
+      : 0.0;
 
   @override
   Widget build(
       BuildContext context, double shrinkOffset, bool overlapsContent) {
+    if (!isVisible || (minExtent == 0.0 && maxExtent == 0.0)) {
+      return const SizedBox.shrink();
+    }
+
     final extent = maxExtent - minExtent;
     final progress = extent > 0 ? (shrinkOffset / extent).clamp(0.0, 1.0) : 0.0;
     final curvedProgress = Curves.easeOutCubic.transform(progress);
@@ -3023,9 +3977,12 @@ class _CollapsibleVaultValueHeaderDelegate
           alignment: Alignment.topCenter,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            child: isFiltered
-                ? _buildCompactFilteredRow(progress)
-                : _buildCollapsibleHeroCard(curvedProgress),
+            child: Container(
+              key: const Key('vault_value_header'),
+              child: isFiltered
+                  ? _buildCompactFilteredRow(progress)
+                  : _buildCollapsibleHeroCard(curvedProgress),
+            ),
           ),
         ),
       ),
@@ -3244,6 +4201,7 @@ class _CollapsibleVaultValueHeaderDelegate
         oldDelegate.isFiltered != isFiltered ||
         oldDelegate.filteredValue != filteredValue ||
         oldDelegate.filteredCount != filteredCount ||
-        oldDelegate.isSticky != isSticky;
+        oldDelegate.isSticky != isSticky ||
+        oldDelegate.isVisible != isVisible;
   }
 }

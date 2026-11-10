@@ -1,53 +1,100 @@
-# E2E Test Infra: Countr Decks 2-Tab Rework
+# TEST_INFRA: Countr Multi-Epic Production Overhaul (R1–R8)
 
-## Test Philosophy
-- Opaque-box, requirement-driven. Derives from ORIGINAL_REQUEST.md, not implementation internals.
-- Methodology: Category-Partition + Boundary Value Analysis (BVA) + Pairwise + Real-World Workload Testing.
+⏱️ [Time Spent on This Prompt: 0h 05m 12s | Started: 14:31:16 | Current: 14:36:28]
 
-## Feature Inventory & Test Mapping
-| # | Feature | Requirement Source | Tier 1 (Feature) | Tier 2 (Boundary) | Tier 3 (Cross-Feature) | Tier 4 (Scenario) |
-|---|---------|-------------------|:----------------:|:-----------------:|:---------------------:|:-----------------:|
-| F1 | Dual-Tab Top Navigation | R1 | 5 | 5 | ✓ | ✓ |
-| F2 | Independent Scroll & Filter Isolation | R1 | 5 | 5 | ✓ | ✓ |
-| F3 | "My Decks" Status Badges (Draft/Assembled) | R2 | 5 | 5 | ✓ | ✓ |
-| F4 | "My Decks" Multi-Tier Personal Search | R2 | 5 | 5 | ✓ | ✓ |
-| F5 | "My Decks" Quick Filter Pills | R2 | 5 | 5 | ✓ | ✓ |
-| F6 | 3-Dot Overflow Menu & "Share to Explore" | R2 | 5 | 5 | ✓ | ✓ |
-| F7 | Press-and-Hold Selection Mode & Footer | R2 | 5 | 5 | ✓ | ✓ |
-| F8 | Dedicated Explore SQLite Schema & Migration | R3, R5 | 5 | 5 | ✓ | ✓ |
-| F9 | Offline MTGJSON Precon & Starter Seeder | R3 | 5 | 5 | ✓ | ✓ |
-| F10 | Mock Community Decks Seeder | R3 | 5 | 5 | ✓ | ✓ |
-| F11 | Top-Level Explore Category Pills | R3 | 5 | 5 | ✓ | ✓ |
-| F12 | Explore 2-Column Grid Layout | R3 | 5 | 5 | ✓ | ✓ |
-| F13 | Dynamic Horizontal Carousels | R3 | 5 | 5 | ✓ | ✓ |
-| F14 | Dedicated Explore Filter Modal | R3 | 5 | 5 | ✓ | ✓ |
-| F15 | Embedded Search Bar & Sort Menu | R4 | 5 | 5 | ✓ | ✓ |
-| F16 | Multi-Level Contextual Search Headings | R4 | 5 | 5 | ✓ | ✓ |
-| F17 | Explore Deck Summary Card UI | R5 | 5 | 5 | ✓ | ✓ |
-| F18 | Persistent SQLite Voting System | R5 | 5 | 5 | ✓ | ✓ |
-| F19 | Read-Only Deck View Screen | R6 | 5 | 5 | ✓ | ✓ |
-| F20 | Clone Engine ("Add to My Decks") | R6 | 5 | 5 | ✓ | ✓ |
-| F21 | Zero Regressions across 17 Legacy Suites | Acceptance Criteria | 5 | 5 | ✓ | ✓ |
+## 1. Test Philosophy & Architecture
+- **Methodology**: Requirement-driven, opaque-box end-to-end testing derived strictly from `ORIGINAL_REQUEST.md` and `PROJECT.md § Feature Inventory`.
+- **Integrity**: Zero facade tests. Every test verifies actual logic, invariants, state transitions, and user-facing observable outputs.
+- **Independence**: All tests are fully isolated and self-contained with isolated in-memory SQLite fixtures (`NativeDatabase.memory()`) and deterministic test personas.
+- **Coverage Strategy**: Four-tier testing methodology:
+  - **Tier 1 (Feature Coverage)**: ≥5 comprehensive test cases per feature covering the happy paths and primary behaviors for all 30 features from `PROJECT.md`.
+  - **Tier 2 (Boundary & Corner Cases)**: ≥5 boundary, edge, stress, and adversarial cases per feature.
+  - **Tier 3 (Cross-Feature Combinations)**: Pairwise interactions across disparate architectural modules.
+  - **Tier 4 (Real-World Application Scenarios)**: Full multi-step end-to-end user workflows matching production user journeys.
 
-## Test Architecture
-- **In-Memory Drift Database**: `AppDatabase(NativeDatabase.memory())` with `driftRuntimeOptions.dontWarnAboutMultipleDatabases = true`.
-- **Test Runner Command**: `flutter test`
-- **Target Test Suites**:
-  1. `test/features/decks/decks_dual_tab_architecture_test.dart` (R1)
-  2. `test/features/decks/my_decks_search_and_sharing_test.dart` (R2)
-  3. `test/features/decks/explore_precon_seeder_test.dart` (R3 Data)
-  4. `test/features/decks/explore_feed_and_carousels_test.dart` (R3 UI)
-  5. `test/features/decks/explore_search_and_sort_test.dart` (R4)
-  6. `test/features/decks/explore_voting_persistence_test.dart` (R5)
-  7. `test/features/decks/explore_deck_clone_engine_test.dart` (R6)
-  8. `test/features/decks/explore_and_my_decks_e2e_journey_test.dart` (E2E Integration Journey)
+---
 
-## Real-World Application Scenarios (Tier 4)
-| # | Scenario | Features Exercised | Complexity |
-|---|----------|--------------------|------------|
-| 1 | Personal Deck Search & Filtering | F3, F4, F5 | Medium |
-| 2 | Share Personal Deck to Explore | F6, F7, F8, F11 | High |
-| 3 | Explore Discovery, Carousel Browsing & Sorting | F11, F12, F13, F14, F15, F16 | High |
-| 4 | Offline Precon Seeding, Voting & SQLite Persistence | F8, F9, F10, F17, F18 | High |
-| 5 | Explore Deck Read-Only Inspection & Clone to My Decks | F17, F19, F20, F1, F3 | Very High |
-| 6 | Full E2E User Journey (Browse -> Vote -> Clone -> Edit -> Share) | F1-F21 | Comprehensive |
+## 2. Feature Inventory & Coverage Matrix
+
+| # | Feature | Requirement | Milestone | Tier 1 Target | Tier 2 Target | Tier 3 Pairwise | Tier 4 Scenarios |
+|---|---------|-------------|-----------|:-------------:|:-------------:|:---------------:|:----------------:|
+| 1 | Database Schema v16 (Votes, Reactions, Comments, Wishlist) | R1–R3 | M1 | ≥5 | ≥5 | ✓ | ✓ |
+| 2 | Reactive Profile Sync in Feed & Comments | R3 | M1 | ≥5 | ≥5 | ✓ | ✓ |
+| 3 | Atomic Notification & Friendship Sync ("Accepted"/"Declined") | R6 | M1 | ≥5 | ≥5 | ✓ | ✓ |
+| 4 | Trade Lifecycle DAO Methods (Cancel, Counter, Status) | R7 | M1 | ≥5 | ≥5 | ✓ | ✓ |
+| 5 | Unsegregated Post Creation Workflow (Text-first, [+ Add Card], [+ Add Image]) | R1 | M2 | ≥5 | ≥5 | ✓ | ✓ |
+| 6 | Automatic Dynamic Post Transformation (Text, Single, Multi, Media) | R1 | M2 | ≥5 | ≥5 | ✓ | ✓ |
+| 7 | Card Details Share Sheet (`As Link` & `As Post`) | R1 | M2 | ≥5 | ≥5 | ✓ | ✓ |
+| 8 | Home Page Card Click Lightbox Overlay (`[See Details]` navigation) | R1 | M2 | ≥5 | ≥5 | ✓ | ✓ |
+| 9 | Icons-Only Post Interaction Bar (No text labels) | R2 | M3 | ≥5 | ≥5 | ✓ | ✓ |
+| 10 | Reddit-Style Upvote/Downvote Pill (`[ ↑ \| Net Score \| ↓ ]`) | R2 | M3 | ≥5 | ≥5 | ✓ | ✓ |
+| 11 | Emoji Reactions on Posts (5 MRU suggestions + full picker) | R2 | M3 | ≥5 | ≥5 | ✓ | ✓ |
+| 12 | Relocate Wishlist/Save to Post Header Menu (`'⋮'`) | R2 | M3 | ≥5 | ≥5 | ✓ | ✓ |
+| 13 | Command Center Saved Posts Dropdown (Chevron expand + count) | R2 | M3 | ≥5 | ≥5 | ✓ | ✓ |
+| 14 | Deep Nested Reply Threads (Arbitrary depth + thread guides + reply banner) | R3 | M3 | ≥5 | ≥5 | ✓ | ✓ |
+| 15 | True Total Comment Count (`SELECT COUNT(*)` all depths) | R3 | M3 | ≥5 | ≥5 | ✓ | ✓ |
+| 16 | Comment Emoji Reactions (5 MRU suggestion bar + reaction pills) | R3 | M3 | ≥5 | ≥5 | ✓ | ✓ |
+| 17 | Log Out Feature (Command Center & Settings, confirmation, signOut) | R4 | M4 | ≥5 | ≥5 | ✓ | ✓ |
+| 18 | Complete 3-Step Onboarding Workflow (Individual Discord CTA, Business Places+OTP, Guest merge) | R4 | M4 | ≥5 | ≥5 | ✓ | ✓ |
+| 19 | Unified Card Details Resolution (Identifier normalization, slug repair) | R5 | M5 | ≥5 | ≥5 | ✓ | ✓ |
+| 20 | Vault Singles Header Spacing Fix (0dp extent when value hidden, flush search) | R5 | M5 | ≥5 | ≥5 | ✓ | ✓ |
+| 21 | Vault Singles Live Search (SQLite match on name, type_line, oracle_text) | R5 | M5 | ≥5 | ≥5 | ✓ | ✓ |
+| 22 | Vault Collections Set Completion Ratio (Owned / Master Catalog Total) | R5 | M5 | ≥5 | ≥5 | ✓ | ✓ |
+| 23 | 3x3 Master Set View (Color with `x$qty` badge vs true grayscale dimmed) | R5 | M5 | ≥5 | ≥5 | ✓ | ✓ |
+| 24 | Wishlist Badge & Filter in Vault/Binders (`isWishlisted: true`) | R2, R5 | M5 | ≥5 | ≥5 | ✓ | ✓ |
+| 25 | Friends & Groups 2-Tab Restructure (Strictly 2 tabs, no Requests & Find) | R6 | M6 | ≥5 | ≥5 | ✓ | ✓ |
+| 26 | Friends Tab 3-Section Layout (Requests, Friends List, Sent Requests) | R6 | M6 | ≥5 | ≥5 | ✓ | ✓ |
+| 27 | Inbox Messages Draft Compose Button (Draft button + searchable user picker) | R7 | M6 | ≥5 | ≥5 | ✓ | ✓ |
+| 28 | Reactive Trade Proposal Status & Unpinning (Unpin on decline/cancel/counter) | R7 | M6 | ≥5 | ≥5 | ✓ | ✓ |
+| 29 | Trade Card Plain English Name Resolution (Join against cards table) | R7 | M6 | ≥5 | ≥5 | ✓ | ✓ |
+| 30 | Full Trade Negotiation Lifecycle (Cancel, Edit, Counter + Value Meter) | R7 | M6 | ≥5 | ≥5 | ✓ | ✓ |
+
+---
+
+## 3. Directory Layout & Test Suite Architecture
+
+```
+test/e2e_overhaul/
+├── e2e_overhaul_test_helpers.dart                  # Deterministic database, seed personas, contracts & widgets
+├── tier1_features_m1_m2_test.dart                  # Tier 1 (Features 1–8: Schema, Feeds, Share, Lightbox) [40 tests]
+├── tier1_features_m3_test.dart                     # Tier 1 (Features 9–16: Post UI, Voting, Comments Tree) [40 tests]
+├── tier1_features_m4_m5_test.dart                  # Tier 1 (Features 17–24: Auth, Onboarding, Vault, Master Set) [40 tests]
+├── tier1_features_m6_test.dart                     # Tier 1 (Features 25–30: Friends Hub, Messaging, Trades) [30 tests]
+├── tier2_boundaries_m1_m3_test.dart                # Tier 2 (Boundaries for Features 1–16) [80 tests]
+├── tier2_boundaries_m4_m6_test.dart                # Tier 2 (Boundaries for Features 17–30) [70 tests]
+├── tier3_cross_feature_combinations_test.dart      # Tier 3 (Pairwise cross-epic feature interactions) [20 tests]
+├── tier4_real_world_scenarios_test.dart            # Tier 4 (Full multi-step real-world user workflows R1–R8) [8 tests]
+└── e2e_overhaul_suite_test.dart                    # Master suite aggregating all tiers
+```
+
+---
+
+## 4. Coverage Thresholds
+- **Tier 1 (Feature Coverage)**: 150 test cases (30 features × 5 tests).
+- **Tier 2 (Boundary & Corner Cases)**: 150 test cases (30 features × 5 tests).
+- **Tier 3 (Cross-Feature Combinations)**: 20 test cases covering critical pairwise interactions.
+- **Tier 4 (Real-World Scenarios)**: 8 test cases verifying complete end-to-end production journeys.
+- **Total Suite Target**: **328 tests**, 100% pass rate, 0 static analysis errors.
+
+---
+
+## 5. Execution Commands
+```bash
+# Run all tests in the overhaul suite
+flutter test test/e2e_overhaul/
+
+# Run individual tiers
+flutter test test/e2e_overhaul/tier1_features_m1_m2_test.dart
+flutter test test/e2e_overhaul/tier1_features_m3_test.dart
+flutter test test/e2e_overhaul/tier1_features_m4_m5_test.dart
+flutter test test/e2e_overhaul/tier1_features_m6_test.dart
+flutter test test/e2e_overhaul/tier2_boundaries_m1_m3_test.dart
+flutter test test/e2e_overhaul/tier2_boundaries_m4_m6_test.dart
+flutter test test/e2e_overhaul/tier3_cross_feature_combinations_test.dart
+flutter test test/e2e_overhaul/tier4_real_world_scenarios_test.dart
+
+# Static Analysis
+flutter analyze test/e2e_overhaul/
+```
+
+⏱️ [Time Spent on This Prompt: 0h 05m 12s | Started: 14:31:16 | Current: 14:36:28]

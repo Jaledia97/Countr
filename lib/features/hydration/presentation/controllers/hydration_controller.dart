@@ -139,7 +139,7 @@ class HydrationController extends StateNotifier<HydrationState> {
         progress: 1.0,
         insertedCount: totalCards,
         statusMessage:
-            'Hydration complete! ${totalCards.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},')} MTG cards & official precons indexed.',
+            'Hydration complete! ${totalCards.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},')} MTG cards indexed & official precons indexed.',
       );
     } catch (e, stackTrace) {
       debugPrint('[HydrationController] Hydration failed: $e\n$stackTrace');

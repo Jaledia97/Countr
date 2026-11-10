@@ -10,6 +10,11 @@ import 'package:countr/features/vault/domain/models/vault_totals.dart';
 import 'package:countr/features/vault/domain/vault_variant_helper.dart';
 import 'package:countr/features/vault/presentation/providers/mtg_filter_state.dart';
 import 'package:countr/features/vault/domain/models/vault_set_collection.dart';
+import 'package:countr/core/cache/parsed_json_cache.dart';
+import 'package:countr/features/vault/data/daos/card_reputation_dao.dart';
+import 'package:countr/features/auth/presentation/providers/auth_providers.dart';
+import 'package:countr/features/profile/presentation/providers/profile_providers.dart';
+import 'package:countr/features/vault/domain/vault_pricing_helper.dart';
 
 /// Database singleton provider
 final appDatabaseProvider = Provider<AppDatabase>((ref) {
@@ -22,6 +27,18 @@ final appDatabaseProvider = Provider<AppDatabase>((ref) {
 final vaultDaoProvider = Provider<VaultDao>((ref) {
   final db = ref.watch(appDatabaseProvider);
   return db.vaultDao;
+});
+
+/// Card Reputation DAO provider
+final cardReputationDaoProvider = Provider<CardReputationDao>((ref) {
+  final db = ref.watch(appDatabaseProvider);
+  return db.cardReputationDao;
+});
+
+/// Reactive reputation summary provider for an individual card.
+final cardReputationProvider = StreamProvider.family<CardReputationSummary, String>((ref, cardId) {
+  final dao = ref.watch(cardReputationDaoProvider);
+  return dao.watchReputationScore(cardId);
 });
 
 /// Card display layout for the Vault cards view (List vs. ManaBox-style Grid/Tile)
@@ -38,7 +55,7 @@ final vaultPaginationLimitProvider = StateProvider<int>((ref) {
   if (!kIsWeb && Platform.environment.containsKey('FLUTTER_TEST')) {
     return 50;
   }
-  return 120;
+  return 60;
 });
 
 /// Tracks whether infinite scrolling is currently fetching more items in the background
@@ -52,15 +69,163 @@ final vaultShowCatalogProvider = StateProvider<bool>((ref) => false);
 /// Active polymorphic category filter for non-MTG card collections (e.g. 'Owned', 'All Cards', 'Graded Slabs', etc.)
 final vaultPolymorphicFilterProvider = StateProvider<String>((ref) => 'Owned');
 
+/// Controls visibility of the Estimated Vault Value header card.
+/// Defaults to true (shown). When false, the header collapses to 0.0dp extent.
+final vaultShowEstimatedValueProvider = StateProvider<bool>((ref) => true);
+
+/// Controls whether only wishlisted cards (isWishlisted == true) are displayed.
+/// Defaults to false.
+final vaultWishlistFilterProvider = StateProvider<bool>((ref) => false);
+
+/// Available sort options for Vault cards.
+enum VaultSortOption {
+  reputationHighest,
+  reputationLowest,
+  priceHighToLow,
+  priceLowToHigh,
+  nameAZ,
+  manaValueCmc,
+  releaseDate,
+}
+
+extension VaultSortOptionLabel on VaultSortOption {
+  String get label {
+    switch (this) {
+      case VaultSortOption.reputationHighest:
+        return 'Reputation (Highest Upvoted)';
+      case VaultSortOption.reputationLowest:
+        return 'Reputation (Lowest/Controversial)';
+      case VaultSortOption.priceHighToLow:
+        return 'Price: High-Low';
+      case VaultSortOption.priceLowToHigh:
+        return 'Price: Low-High';
+      case VaultSortOption.nameAZ:
+        return 'Name: A-Z';
+      case VaultSortOption.manaValueCmc:
+        return 'Mana Value (CMC)';
+      case VaultSortOption.releaseDate:
+        return 'Release Date';
+    }
+  }
+}
+
+/// Active sort option for Vault cards.
+final vaultSortOptionProvider = StateProvider<VaultSortOption>((ref) => VaultSortOption.releaseDate);
+
+int _extractReputationScore(VaultItem item) {
+  try {
+    final dyn = item as dynamic;
+    if (dyn.reputationScore != null) return (dyn.reputationScore as num).toInt();
+  } catch (_) {}
+  if (item.dynamicData.isNotEmpty) {
+    try {
+      final map = ParsedJsonCache.parse(item.dynamicData);
+      final score = map['reputation_score'] ?? map['score'];
+      if (score != null) return (score as num).toInt();
+    } catch (_) {}
+  }
+  return 0;
+}
+
+double _extractCmc(VaultItem item) {
+  if (item.dynamicData.isNotEmpty) {
+    try {
+      final map = ParsedJsonCache.parse(item.dynamicData);
+      final cmc = map['cmc'];
+      if (cmc != null) return (cmc as num).toDouble();
+    } catch (_) {}
+  }
+  return 0.0;
+}
+
+String _extractReleaseDate(VaultItem item) {
+  if (item.dynamicData.isNotEmpty) {
+    try {
+      final map = ParsedJsonCache.parse(item.dynamicData);
+      final rel = map['released_at'] ?? map['release_date'];
+      if (rel != null) return rel.toString();
+    } catch (_) {}
+  }
+  return '';
+}
+
+List<VaultItem> sortVaultItemsInMemory(
+  List<VaultItem> items,
+  VaultSortOption sortOption,
+) {
+  final list = List<VaultItem>.from(items);
+  switch (sortOption) {
+    case VaultSortOption.reputationHighest:
+      list.sort((a, b) {
+        final scoreA = _extractReputationScore(a);
+        final scoreB = _extractReputationScore(b);
+        final cmp = scoreB.compareTo(scoreA);
+        if (cmp != 0) return cmp;
+        return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+      });
+      break;
+    case VaultSortOption.reputationLowest:
+      list.sort((a, b) {
+        final scoreA = _extractReputationScore(a);
+        final scoreB = _extractReputationScore(b);
+        final cmp = scoreA.compareTo(scoreB);
+        if (cmp != 0) return cmp;
+        return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+      });
+      break;
+    case VaultSortOption.priceHighToLow:
+      list.sort((a, b) {
+        final cmp = b.currentMarketPrice.compareTo(a.currentMarketPrice);
+        if (cmp != 0) return cmp;
+        return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+      });
+      break;
+    case VaultSortOption.priceLowToHigh:
+      list.sort((a, b) {
+        final cmp = a.currentMarketPrice.compareTo(b.currentMarketPrice);
+        if (cmp != 0) return cmp;
+        return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+      });
+      break;
+    case VaultSortOption.nameAZ:
+      list.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+      break;
+    case VaultSortOption.manaValueCmc:
+      list.sort((a, b) {
+        final cmcA = _extractCmc(a);
+        final cmcB = _extractCmc(b);
+        final cmp = cmcA.compareTo(cmcB);
+        if (cmp != 0) return cmp;
+        return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+      });
+      break;
+    case VaultSortOption.releaseDate:
+      list.sort((a, b) {
+        final dateA = _extractReleaseDate(a);
+        final dateB = _extractReleaseDate(b);
+        final cmp = dateB.compareTo(dateA);
+        if (cmp != 0) return cmp;
+        final acqCmp = b.acquiredDate.compareTo(a.acquiredDate);
+        if (acqCmp != 0) return acqCmp;
+        return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+      });
+      break;
+  }
+  return list;
+}
+
 /// Reactive StreamProvider that queries VaultItems based on activeGameContextProvider,
-/// active search query, catalog mode, MTG filter state, and infinite-scroll pagination limit.
+/// active search query, catalog mode, MTG filter state, infinite-scroll pagination limit,
+/// and active VaultSortOption.
 /// Automatically re-emits when the user switches collection context, updates filters, or database mutates.
 final vaultItemsStreamProvider = StreamProvider<List<VaultItem>>((ref) {
   final activeGame = ref.watch(activeGameContextProvider);
   final dao = ref.watch(vaultDaoProvider);
   final showCatalog = ref.watch(vaultShowCatalogProvider);
+  final isWishlistOnly = ref.watch(vaultWishlistFilterProvider);
   final searchQuery = ref.watch(vaultSearchQueryProvider).trim();
   final paginationLimit = ref.watch(vaultPaginationLimitProvider);
+  final sortOption = ref.watch(vaultSortOptionProvider);
 
   // Only watch mtgFilterProvider when the active game context is Magic: The Gathering
   final isMtg = activeGame.toLowerCase().contains('magic') || activeGame.toLowerCase() == 'mtg';
@@ -75,13 +240,41 @@ final vaultItemsStreamProvider = StreamProvider<List<VaultItem>>((ref) {
   return dao.watchItemsByCollection(
     activeGame,
     onlyOwned: !showCatalog,
+    onlyWishlisted: isWishlistOnly,
     searchQuery: searchQuery.isNotEmpty ? searchQuery : null,
     mtgFilter: (mtgFilter != null && mtgFilter.isActive) ? mtgFilter : null,
+    sortOption: sortOption,
     limit: fetchLimit,
   ).map((items) {
     final consolidated = VaultVariantHelper.groupVaultItemsByVariant(items).items;
-    return consolidated.take(paginationLimit).toList();
+    final sorted = sortVaultItemsInMemory(consolidated, sortOption);
+    return sorted.take(paginationLimit).toList();
   });
+});
+
+/// Reactive StreamProvider delivering the true total database count (SELECT COUNT(*))
+/// of vault items matching activeGameContextProvider, catalog toggle (showCatalog),
+/// search query, and MTG filters.
+/// Completely independent of pagination limits (120 / 50).
+/// Automatically re-emits when items are inserted, deleted, modified, or filters change.
+final vaultFilteredItemCountProvider = StreamProvider<int>((ref) {
+  final activeGame = ref.watch(activeGameContextProvider);
+  final dao = ref.watch(vaultDaoProvider);
+  final showCatalog = ref.watch(vaultShowCatalogProvider);
+  final isWishlistOnly = ref.watch(vaultWishlistFilterProvider);
+  final searchQuery = ref.watch(vaultSearchQueryProvider).trim();
+
+  // Only watch mtgFilterProvider when the active game context is Magic: The Gathering
+  final isMtg = activeGame.toLowerCase().contains('magic') || activeGame.toLowerCase() == 'mtg';
+  final mtgFilter = isMtg ? ref.watch(mtgFilterProvider) : null;
+
+  return dao.watchFilteredItemCount(
+    activeGame,
+    onlyOwned: !showCatalog,
+    onlyWishlisted: isWishlistOnly,
+    searchQuery: searchQuery.isNotEmpty ? searchQuery : null,
+    mtgFilter: (mtgFilter != null && mtgFilter.isActive) ? mtgFilter : null,
+  );
 });
 
 /// Model holding calculated portfolio ledger financial summaries
@@ -112,11 +305,13 @@ final selectedVaultBinderIdProvider = StateProvider<String?>((ref) => null);
 final vaultTotalsProvider = StreamProvider<VaultTotals>((ref) {
   final activeGame = ref.watch(activeGameContextProvider);
   final binderId = ref.watch(selectedVaultBinderIdProvider);
+  final currentUserId = ref.watch(currentUserIdProvider);
   final dao = ref.watch(vaultDaoProvider);
 
   return dao.watchVaultTotals(
     collectionType: activeGame,
     binderId: binderId,
+    userId: currentUserId,
   );
 });
 
@@ -160,8 +355,16 @@ final vaultPortfolioSummaryProvider = Provider<VaultPortfolioSummary>((ref) {
       for (final item in items) {
         if (item.quantity <= 0) continue;
         if (item.primaryBinderId == 'INBOX') continue;
-        marketVal += (item.currentMarketPrice * item.quantity);
-        costBasis += (item.acquiredPrice * item.quantity);
+        if (item.primaryBinderId != null &&
+            (item.primaryBinderId!.startsWith('system_looking_for') ||
+                item.primaryBinderId == 'looking_for')) {
+          continue;
+        }
+        if (item.isTraded == true) continue;
+        final unitPrice = VaultPricingHelper.resolveEffectiveMarketPrice(item);
+        marketVal += (unitPrice * item.quantity);
+        costBasis +=
+            ((item.purchasePrice ?? item.acquiredPrice) * item.quantity);
         count += item.quantity;
         unique += 1;
       }
@@ -214,11 +417,23 @@ final inboxItemCountProvider = Provider<int>((ref) {
   );
 });
 
-/// Reactive StreamProvider for binders filtered by activeGameContextProvider
+/// Reactive StreamProvider for binders filtered by activeGameContextProvider,
+/// strictly scoped to the active user and their business account status.
 final bindersStreamProvider = StreamProvider<List<VaultBinder>>((ref) {
   final activeGame = ref.watch(activeGameContextProvider);
   final dao = ref.watch(vaultDaoProvider);
-  return dao.watchBindersByCollection(activeGame);
+  final userId = ref.watch(currentUserIdProvider);
+  final authUser = ref.watch(currentUserProvider);
+  final profile = ref.watch(currentUserProfileProvider);
+  final isBusiness = authUser.isBusiness ||
+      profile?.accountType == 'business' ||
+      (profile?.isVerifiedBusiness ?? false);
+
+  return dao.watchBindersByCollection(
+    activeGame,
+    userId: userId,
+    isBusiness: isBusiness,
+  );
 });
 
 /// Reactive StreamProvider for item counts per binder

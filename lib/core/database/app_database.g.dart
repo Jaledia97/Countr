@@ -49,6 +49,41 @@ class $VaultBindersTable extends VaultBinders
     type: DriftSqlType.dateTime,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _isSystemBinderMeta = const VerificationMeta(
+    'isSystemBinder',
+  );
+  @override
+  late final GeneratedColumn<bool> isSystemBinder = GeneratedColumn<bool>(
+    'is_system_binder',
+    aliasedName,
+    true,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_system_binder" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _systemBinderTypeMeta = const VerificationMeta(
+    'systemBinderType',
+  );
+  @override
+  late final GeneratedColumn<String> systemBinderType = GeneratedColumn<String>(
+    'system_binder_type',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+    'user_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _isDeletedMeta = const VerificationMeta(
     'isDeleted',
   );
@@ -75,14 +110,42 @@ class $VaultBindersTable extends VaultBinders
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _syncStatusMeta = const VerificationMeta(
+    'syncStatus',
+  );
+  @override
+  late final GeneratedColumn<String> syncStatus = GeneratedColumn<String>(
+    'sync_status',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('synced'),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
     name,
     collectionType,
     createdAt,
+    isSystemBinder,
+    systemBinderType,
+    userId,
     isDeleted,
     updatedAt,
+    deletedAt,
+    syncStatus,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -128,6 +191,30 @@ class $VaultBindersTable extends VaultBinders
     } else if (isInserting) {
       context.missing(_createdAtMeta);
     }
+    if (data.containsKey('is_system_binder')) {
+      context.handle(
+        _isSystemBinderMeta,
+        isSystemBinder.isAcceptableOrUnknown(
+          data['is_system_binder']!,
+          _isSystemBinderMeta,
+        ),
+      );
+    }
+    if (data.containsKey('system_binder_type')) {
+      context.handle(
+        _systemBinderTypeMeta,
+        systemBinderType.isAcceptableOrUnknown(
+          data['system_binder_type']!,
+          _systemBinderTypeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
+    }
     if (data.containsKey('is_deleted')) {
       context.handle(
         _isDeletedMeta,
@@ -138,6 +225,18 @@ class $VaultBindersTable extends VaultBinders
       context.handle(
         _updatedAtMeta,
         updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    if (data.containsKey('sync_status')) {
+      context.handle(
+        _syncStatusMeta,
+        syncStatus.isAcceptableOrUnknown(data['sync_status']!, _syncStatusMeta),
       );
     }
     return context;
@@ -165,6 +264,18 @@ class $VaultBindersTable extends VaultBinders
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
       )!,
+      isSystemBinder: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_system_binder'],
+      ),
+      systemBinderType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}system_binder_type'],
+      ),
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_id'],
+      ),
       isDeleted: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}is_deleted'],
@@ -172,6 +283,14 @@ class $VaultBindersTable extends VaultBinders
       updatedAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}updated_at'],
+      ),
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
+      syncStatus: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sync_status'],
       ),
     );
   }
@@ -187,15 +306,25 @@ class VaultBinder extends DataClass implements Insertable<VaultBinder> {
   final String name;
   final String collectionType;
   final DateTime createdAt;
+  final bool? isSystemBinder;
+  final String? systemBinderType;
+  final String? userId;
   final bool isDeleted;
   final DateTime? updatedAt;
+  final DateTime? deletedAt;
+  final String? syncStatus;
   const VaultBinder({
     required this.id,
     required this.name,
     required this.collectionType,
     required this.createdAt,
+    this.isSystemBinder,
+    this.systemBinderType,
+    this.userId,
     required this.isDeleted,
     this.updatedAt,
+    this.deletedAt,
+    this.syncStatus,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -204,9 +333,24 @@ class VaultBinder extends DataClass implements Insertable<VaultBinder> {
     map['name'] = Variable<String>(name);
     map['collection_type'] = Variable<String>(collectionType);
     map['created_at'] = Variable<DateTime>(createdAt);
+    if (!nullToAbsent || isSystemBinder != null) {
+      map['is_system_binder'] = Variable<bool>(isSystemBinder);
+    }
+    if (!nullToAbsent || systemBinderType != null) {
+      map['system_binder_type'] = Variable<String>(systemBinderType);
+    }
+    if (!nullToAbsent || userId != null) {
+      map['user_id'] = Variable<String>(userId);
+    }
     map['is_deleted'] = Variable<bool>(isDeleted);
     if (!nullToAbsent || updatedAt != null) {
       map['updated_at'] = Variable<DateTime>(updatedAt);
+    }
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
+    if (!nullToAbsent || syncStatus != null) {
+      map['sync_status'] = Variable<String>(syncStatus);
     }
     return map;
   }
@@ -217,10 +361,25 @@ class VaultBinder extends DataClass implements Insertable<VaultBinder> {
       name: Value(name),
       collectionType: Value(collectionType),
       createdAt: Value(createdAt),
+      isSystemBinder: isSystemBinder == null && nullToAbsent
+          ? const Value.absent()
+          : Value(isSystemBinder),
+      systemBinderType: systemBinderType == null && nullToAbsent
+          ? const Value.absent()
+          : Value(systemBinderType),
+      userId: userId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(userId),
       isDeleted: Value(isDeleted),
       updatedAt: updatedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(updatedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+      syncStatus: syncStatus == null && nullToAbsent
+          ? const Value.absent()
+          : Value(syncStatus),
     );
   }
 
@@ -234,8 +393,13 @@ class VaultBinder extends DataClass implements Insertable<VaultBinder> {
       name: serializer.fromJson<String>(json['name']),
       collectionType: serializer.fromJson<String>(json['collectionType']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      isSystemBinder: serializer.fromJson<bool?>(json['isSystemBinder']),
+      systemBinderType: serializer.fromJson<String?>(json['systemBinderType']),
+      userId: serializer.fromJson<String?>(json['userId']),
       isDeleted: serializer.fromJson<bool>(json['isDeleted']),
       updatedAt: serializer.fromJson<DateTime?>(json['updatedAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+      syncStatus: serializer.fromJson<String?>(json['syncStatus']),
     );
   }
   @override
@@ -246,8 +410,13 @@ class VaultBinder extends DataClass implements Insertable<VaultBinder> {
       'name': serializer.toJson<String>(name),
       'collectionType': serializer.toJson<String>(collectionType),
       'createdAt': serializer.toJson<DateTime>(createdAt),
+      'isSystemBinder': serializer.toJson<bool?>(isSystemBinder),
+      'systemBinderType': serializer.toJson<String?>(systemBinderType),
+      'userId': serializer.toJson<String?>(userId),
       'isDeleted': serializer.toJson<bool>(isDeleted),
       'updatedAt': serializer.toJson<DateTime?>(updatedAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+      'syncStatus': serializer.toJson<String?>(syncStatus),
     };
   }
 
@@ -256,15 +425,29 @@ class VaultBinder extends DataClass implements Insertable<VaultBinder> {
     String? name,
     String? collectionType,
     DateTime? createdAt,
+    Value<bool?> isSystemBinder = const Value.absent(),
+    Value<String?> systemBinderType = const Value.absent(),
+    Value<String?> userId = const Value.absent(),
     bool? isDeleted,
     Value<DateTime?> updatedAt = const Value.absent(),
+    Value<DateTime?> deletedAt = const Value.absent(),
+    Value<String?> syncStatus = const Value.absent(),
   }) => VaultBinder(
     id: id ?? this.id,
     name: name ?? this.name,
     collectionType: collectionType ?? this.collectionType,
     createdAt: createdAt ?? this.createdAt,
+    isSystemBinder: isSystemBinder.present
+        ? isSystemBinder.value
+        : this.isSystemBinder,
+    systemBinderType: systemBinderType.present
+        ? systemBinderType.value
+        : this.systemBinderType,
+    userId: userId.present ? userId.value : this.userId,
     isDeleted: isDeleted ?? this.isDeleted,
     updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+    syncStatus: syncStatus.present ? syncStatus.value : this.syncStatus,
   );
   VaultBinder copyWithCompanion(VaultBindersCompanion data) {
     return VaultBinder(
@@ -274,8 +457,19 @@ class VaultBinder extends DataClass implements Insertable<VaultBinder> {
           ? data.collectionType.value
           : this.collectionType,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      isSystemBinder: data.isSystemBinder.present
+          ? data.isSystemBinder.value
+          : this.isSystemBinder,
+      systemBinderType: data.systemBinderType.present
+          ? data.systemBinderType.value
+          : this.systemBinderType,
+      userId: data.userId.present ? data.userId.value : this.userId,
       isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+      syncStatus: data.syncStatus.present
+          ? data.syncStatus.value
+          : this.syncStatus,
     );
   }
 
@@ -286,15 +480,31 @@ class VaultBinder extends DataClass implements Insertable<VaultBinder> {
           ..write('name: $name, ')
           ..write('collectionType: $collectionType, ')
           ..write('createdAt: $createdAt, ')
+          ..write('isSystemBinder: $isSystemBinder, ')
+          ..write('systemBinderType: $systemBinderType, ')
+          ..write('userId: $userId, ')
           ..write('isDeleted: $isDeleted, ')
-          ..write('updatedAt: $updatedAt')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('syncStatus: $syncStatus')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, name, collectionType, createdAt, isDeleted, updatedAt);
+  int get hashCode => Object.hash(
+    id,
+    name,
+    collectionType,
+    createdAt,
+    isSystemBinder,
+    systemBinderType,
+    userId,
+    isDeleted,
+    updatedAt,
+    deletedAt,
+    syncStatus,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -303,8 +513,13 @@ class VaultBinder extends DataClass implements Insertable<VaultBinder> {
           other.name == this.name &&
           other.collectionType == this.collectionType &&
           other.createdAt == this.createdAt &&
+          other.isSystemBinder == this.isSystemBinder &&
+          other.systemBinderType == this.systemBinderType &&
+          other.userId == this.userId &&
           other.isDeleted == this.isDeleted &&
-          other.updatedAt == this.updatedAt);
+          other.updatedAt == this.updatedAt &&
+          other.deletedAt == this.deletedAt &&
+          other.syncStatus == this.syncStatus);
 }
 
 class VaultBindersCompanion extends UpdateCompanion<VaultBinder> {
@@ -312,16 +527,26 @@ class VaultBindersCompanion extends UpdateCompanion<VaultBinder> {
   final Value<String> name;
   final Value<String> collectionType;
   final Value<DateTime> createdAt;
+  final Value<bool?> isSystemBinder;
+  final Value<String?> systemBinderType;
+  final Value<String?> userId;
   final Value<bool> isDeleted;
   final Value<DateTime?> updatedAt;
+  final Value<DateTime?> deletedAt;
+  final Value<String?> syncStatus;
   final Value<int> rowid;
   const VaultBindersCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
     this.collectionType = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.isSystemBinder = const Value.absent(),
+    this.systemBinderType = const Value.absent(),
+    this.userId = const Value.absent(),
     this.isDeleted = const Value.absent(),
     this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.syncStatus = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   VaultBindersCompanion.insert({
@@ -329,8 +554,13 @@ class VaultBindersCompanion extends UpdateCompanion<VaultBinder> {
     required String name,
     required String collectionType,
     required DateTime createdAt,
+    this.isSystemBinder = const Value.absent(),
+    this.systemBinderType = const Value.absent(),
+    this.userId = const Value.absent(),
     this.isDeleted = const Value.absent(),
     this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.syncStatus = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        name = Value(name),
@@ -341,8 +571,13 @@ class VaultBindersCompanion extends UpdateCompanion<VaultBinder> {
     Expression<String>? name,
     Expression<String>? collectionType,
     Expression<DateTime>? createdAt,
+    Expression<bool>? isSystemBinder,
+    Expression<String>? systemBinderType,
+    Expression<String>? userId,
     Expression<bool>? isDeleted,
     Expression<DateTime>? updatedAt,
+    Expression<DateTime>? deletedAt,
+    Expression<String>? syncStatus,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -350,8 +585,13 @@ class VaultBindersCompanion extends UpdateCompanion<VaultBinder> {
       if (name != null) 'name': name,
       if (collectionType != null) 'collection_type': collectionType,
       if (createdAt != null) 'created_at': createdAt,
+      if (isSystemBinder != null) 'is_system_binder': isSystemBinder,
+      if (systemBinderType != null) 'system_binder_type': systemBinderType,
+      if (userId != null) 'user_id': userId,
       if (isDeleted != null) 'is_deleted': isDeleted,
       if (updatedAt != null) 'updated_at': updatedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (syncStatus != null) 'sync_status': syncStatus,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -361,8 +601,13 @@ class VaultBindersCompanion extends UpdateCompanion<VaultBinder> {
     Value<String>? name,
     Value<String>? collectionType,
     Value<DateTime>? createdAt,
+    Value<bool?>? isSystemBinder,
+    Value<String?>? systemBinderType,
+    Value<String?>? userId,
     Value<bool>? isDeleted,
     Value<DateTime?>? updatedAt,
+    Value<DateTime?>? deletedAt,
+    Value<String?>? syncStatus,
     Value<int>? rowid,
   }) {
     return VaultBindersCompanion(
@@ -370,8 +615,13 @@ class VaultBindersCompanion extends UpdateCompanion<VaultBinder> {
       name: name ?? this.name,
       collectionType: collectionType ?? this.collectionType,
       createdAt: createdAt ?? this.createdAt,
+      isSystemBinder: isSystemBinder ?? this.isSystemBinder,
+      systemBinderType: systemBinderType ?? this.systemBinderType,
+      userId: userId ?? this.userId,
       isDeleted: isDeleted ?? this.isDeleted,
       updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      syncStatus: syncStatus ?? this.syncStatus,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -391,11 +641,26 @@ class VaultBindersCompanion extends UpdateCompanion<VaultBinder> {
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
+    if (isSystemBinder.present) {
+      map['is_system_binder'] = Variable<bool>(isSystemBinder.value);
+    }
+    if (systemBinderType.present) {
+      map['system_binder_type'] = Variable<String>(systemBinderType.value);
+    }
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
+    }
     if (isDeleted.present) {
       map['is_deleted'] = Variable<bool>(isDeleted.value);
     }
     if (updatedAt.present) {
       map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
+    if (syncStatus.present) {
+      map['sync_status'] = Variable<String>(syncStatus.value);
     }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
@@ -410,8 +675,13 @@ class VaultBindersCompanion extends UpdateCompanion<VaultBinder> {
           ..write('name: $name, ')
           ..write('collectionType: $collectionType, ')
           ..write('createdAt: $createdAt, ')
+          ..write('isSystemBinder: $isSystemBinder, ')
+          ..write('systemBinderType: $systemBinderType, ')
+          ..write('userId: $userId, ')
           ..write('isDeleted: $isDeleted, ')
           ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('syncStatus: $syncStatus, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -715,6 +985,30 @@ class $VaultItemsTable extends VaultItems
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+    'user_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _isTradedMeta = const VerificationMeta(
+    'isTraded',
+  );
+  @override
+  late final GeneratedColumn<bool> isTraded = GeneratedColumn<bool>(
+    'is_traded',
+    aliasedName,
+    true,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_traded" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   static const VerificationMeta _isDeletedMeta = const VerificationMeta(
     'isDeleted',
   );
@@ -740,6 +1034,80 @@ class $VaultItemsTable extends VaultItems
     true,
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _syncStatusMeta = const VerificationMeta(
+    'syncStatus',
+  );
+  @override
+  late final GeneratedColumn<String> syncStatus = GeneratedColumn<String>(
+    'sync_status',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('synced'),
+  );
+  static const VerificationMeta _reputationScoreMeta = const VerificationMeta(
+    'reputationScore',
+  );
+  @override
+  late final GeneratedColumn<int> reputationScore = GeneratedColumn<int>(
+    'reputation_score',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _upvotesMeta = const VerificationMeta(
+    'upvotes',
+  );
+  @override
+  late final GeneratedColumn<int> upvotes = GeneratedColumn<int>(
+    'upvotes',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _downvotesMeta = const VerificationMeta(
+    'downvotes',
+  );
+  @override
+  late final GeneratedColumn<int> downvotes = GeneratedColumn<int>(
+    'downvotes',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _isWishlistedMeta = const VerificationMeta(
+    'isWishlisted',
+  );
+  @override
+  late final GeneratedColumn<bool> isWishlisted = GeneratedColumn<bool>(
+    'is_wishlisted',
+    aliasedName,
+    true,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_wishlisted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
   );
   @override
   List<GeneratedColumn> get $columns => [
@@ -768,8 +1136,16 @@ class $VaultItemsTable extends VaultItems
     currentMarketPrice,
     lastPriceUpdate,
     dynamicData,
+    userId,
+    isTraded,
     isDeleted,
     updatedAt,
+    deletedAt,
+    syncStatus,
+    reputationScore,
+    upvotes,
+    downvotes,
+    isWishlisted,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -988,6 +1364,18 @@ class $VaultItemsTable extends VaultItems
     } else if (isInserting) {
       context.missing(_dynamicDataMeta);
     }
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
+    }
+    if (data.containsKey('is_traded')) {
+      context.handle(
+        _isTradedMeta,
+        isTraded.isAcceptableOrUnknown(data['is_traded']!, _isTradedMeta),
+      );
+    }
     if (data.containsKey('is_deleted')) {
       context.handle(
         _isDeletedMeta,
@@ -998,6 +1386,48 @@ class $VaultItemsTable extends VaultItems
       context.handle(
         _updatedAtMeta,
         updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    if (data.containsKey('sync_status')) {
+      context.handle(
+        _syncStatusMeta,
+        syncStatus.isAcceptableOrUnknown(data['sync_status']!, _syncStatusMeta),
+      );
+    }
+    if (data.containsKey('reputation_score')) {
+      context.handle(
+        _reputationScoreMeta,
+        reputationScore.isAcceptableOrUnknown(
+          data['reputation_score']!,
+          _reputationScoreMeta,
+        ),
+      );
+    }
+    if (data.containsKey('upvotes')) {
+      context.handle(
+        _upvotesMeta,
+        upvotes.isAcceptableOrUnknown(data['upvotes']!, _upvotesMeta),
+      );
+    }
+    if (data.containsKey('downvotes')) {
+      context.handle(
+        _downvotesMeta,
+        downvotes.isAcceptableOrUnknown(data['downvotes']!, _downvotesMeta),
+      );
+    }
+    if (data.containsKey('is_wishlisted')) {
+      context.handle(
+        _isWishlistedMeta,
+        isWishlisted.isAcceptableOrUnknown(
+          data['is_wishlisted']!,
+          _isWishlistedMeta,
+        ),
       );
     }
     return context;
@@ -1109,6 +1539,14 @@ class $VaultItemsTable extends VaultItems
         DriftSqlType.string,
         data['${effectivePrefix}dynamic_data'],
       )!,
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_id'],
+      ),
+      isTraded: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_traded'],
+      ),
       isDeleted: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}is_deleted'],
@@ -1116,6 +1554,30 @@ class $VaultItemsTable extends VaultItems
       updatedAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}updated_at'],
+      ),
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
+      syncStatus: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sync_status'],
+      ),
+      reputationScore: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}reputation_score'],
+      ),
+      upvotes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}upvotes'],
+      ),
+      downvotes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}downvotes'],
+      ),
+      isWishlisted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_wishlisted'],
       ),
     );
   }
@@ -1152,8 +1614,16 @@ class VaultItem extends DataClass implements Insertable<VaultItem> {
   final double currentMarketPrice;
   final DateTime lastPriceUpdate;
   final String dynamicData;
+  final String? userId;
+  final bool? isTraded;
   final bool isDeleted;
   final DateTime? updatedAt;
+  final DateTime? deletedAt;
+  final String? syncStatus;
+  final int? reputationScore;
+  final int? upvotes;
+  final int? downvotes;
+  final bool? isWishlisted;
   const VaultItem({
     required this.id,
     required this.collectionType,
@@ -1180,8 +1650,16 @@ class VaultItem extends DataClass implements Insertable<VaultItem> {
     required this.currentMarketPrice,
     required this.lastPriceUpdate,
     required this.dynamicData,
+    this.userId,
+    this.isTraded,
     required this.isDeleted,
     this.updatedAt,
+    this.deletedAt,
+    this.syncStatus,
+    this.reputationScore,
+    this.upvotes,
+    this.downvotes,
+    this.isWishlisted,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1229,9 +1707,33 @@ class VaultItem extends DataClass implements Insertable<VaultItem> {
     map['current_market_price'] = Variable<double>(currentMarketPrice);
     map['last_price_update'] = Variable<DateTime>(lastPriceUpdate);
     map['dynamic_data'] = Variable<String>(dynamicData);
+    if (!nullToAbsent || userId != null) {
+      map['user_id'] = Variable<String>(userId);
+    }
+    if (!nullToAbsent || isTraded != null) {
+      map['is_traded'] = Variable<bool>(isTraded);
+    }
     map['is_deleted'] = Variable<bool>(isDeleted);
     if (!nullToAbsent || updatedAt != null) {
       map['updated_at'] = Variable<DateTime>(updatedAt);
+    }
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
+    if (!nullToAbsent || syncStatus != null) {
+      map['sync_status'] = Variable<String>(syncStatus);
+    }
+    if (!nullToAbsent || reputationScore != null) {
+      map['reputation_score'] = Variable<int>(reputationScore);
+    }
+    if (!nullToAbsent || upvotes != null) {
+      map['upvotes'] = Variable<int>(upvotes);
+    }
+    if (!nullToAbsent || downvotes != null) {
+      map['downvotes'] = Variable<int>(downvotes);
+    }
+    if (!nullToAbsent || isWishlisted != null) {
+      map['is_wishlisted'] = Variable<bool>(isWishlisted);
     }
     return map;
   }
@@ -1281,10 +1783,34 @@ class VaultItem extends DataClass implements Insertable<VaultItem> {
       currentMarketPrice: Value(currentMarketPrice),
       lastPriceUpdate: Value(lastPriceUpdate),
       dynamicData: Value(dynamicData),
+      userId: userId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(userId),
+      isTraded: isTraded == null && nullToAbsent
+          ? const Value.absent()
+          : Value(isTraded),
       isDeleted: Value(isDeleted),
       updatedAt: updatedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(updatedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+      syncStatus: syncStatus == null && nullToAbsent
+          ? const Value.absent()
+          : Value(syncStatus),
+      reputationScore: reputationScore == null && nullToAbsent
+          ? const Value.absent()
+          : Value(reputationScore),
+      upvotes: upvotes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(upvotes),
+      downvotes: downvotes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(downvotes),
+      isWishlisted: isWishlisted == null && nullToAbsent
+          ? const Value.absent()
+          : Value(isWishlisted),
     );
   }
 
@@ -1321,8 +1847,16 @@ class VaultItem extends DataClass implements Insertable<VaultItem> {
       ),
       lastPriceUpdate: serializer.fromJson<DateTime>(json['lastPriceUpdate']),
       dynamicData: serializer.fromJson<String>(json['dynamicData']),
+      userId: serializer.fromJson<String?>(json['userId']),
+      isTraded: serializer.fromJson<bool?>(json['isTraded']),
       isDeleted: serializer.fromJson<bool>(json['isDeleted']),
       updatedAt: serializer.fromJson<DateTime?>(json['updatedAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+      syncStatus: serializer.fromJson<String?>(json['syncStatus']),
+      reputationScore: serializer.fromJson<int?>(json['reputationScore']),
+      upvotes: serializer.fromJson<int?>(json['upvotes']),
+      downvotes: serializer.fromJson<int?>(json['downvotes']),
+      isWishlisted: serializer.fromJson<bool?>(json['isWishlisted']),
     );
   }
   @override
@@ -1354,8 +1888,16 @@ class VaultItem extends DataClass implements Insertable<VaultItem> {
       'currentMarketPrice': serializer.toJson<double>(currentMarketPrice),
       'lastPriceUpdate': serializer.toJson<DateTime>(lastPriceUpdate),
       'dynamicData': serializer.toJson<String>(dynamicData),
+      'userId': serializer.toJson<String?>(userId),
+      'isTraded': serializer.toJson<bool?>(isTraded),
       'isDeleted': serializer.toJson<bool>(isDeleted),
       'updatedAt': serializer.toJson<DateTime?>(updatedAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+      'syncStatus': serializer.toJson<String?>(syncStatus),
+      'reputationScore': serializer.toJson<int?>(reputationScore),
+      'upvotes': serializer.toJson<int?>(upvotes),
+      'downvotes': serializer.toJson<int?>(downvotes),
+      'isWishlisted': serializer.toJson<bool?>(isWishlisted),
     };
   }
 
@@ -1385,8 +1927,16 @@ class VaultItem extends DataClass implements Insertable<VaultItem> {
     double? currentMarketPrice,
     DateTime? lastPriceUpdate,
     String? dynamicData,
+    Value<String?> userId = const Value.absent(),
+    Value<bool?> isTraded = const Value.absent(),
     bool? isDeleted,
     Value<DateTime?> updatedAt = const Value.absent(),
+    Value<DateTime?> deletedAt = const Value.absent(),
+    Value<String?> syncStatus = const Value.absent(),
+    Value<int?> reputationScore = const Value.absent(),
+    Value<int?> upvotes = const Value.absent(),
+    Value<int?> downvotes = const Value.absent(),
+    Value<bool?> isWishlisted = const Value.absent(),
   }) => VaultItem(
     id: id ?? this.id,
     collectionType: collectionType ?? this.collectionType,
@@ -1421,8 +1971,18 @@ class VaultItem extends DataClass implements Insertable<VaultItem> {
     currentMarketPrice: currentMarketPrice ?? this.currentMarketPrice,
     lastPriceUpdate: lastPriceUpdate ?? this.lastPriceUpdate,
     dynamicData: dynamicData ?? this.dynamicData,
+    userId: userId.present ? userId.value : this.userId,
+    isTraded: isTraded.present ? isTraded.value : this.isTraded,
     isDeleted: isDeleted ?? this.isDeleted,
     updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+    syncStatus: syncStatus.present ? syncStatus.value : this.syncStatus,
+    reputationScore: reputationScore.present
+        ? reputationScore.value
+        : this.reputationScore,
+    upvotes: upvotes.present ? upvotes.value : this.upvotes,
+    downvotes: downvotes.present ? downvotes.value : this.downvotes,
+    isWishlisted: isWishlisted.present ? isWishlisted.value : this.isWishlisted,
   );
   VaultItem copyWithCompanion(VaultItemsCompanion data) {
     return VaultItem(
@@ -1483,8 +2043,22 @@ class VaultItem extends DataClass implements Insertable<VaultItem> {
       dynamicData: data.dynamicData.present
           ? data.dynamicData.value
           : this.dynamicData,
+      userId: data.userId.present ? data.userId.value : this.userId,
+      isTraded: data.isTraded.present ? data.isTraded.value : this.isTraded,
       isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+      syncStatus: data.syncStatus.present
+          ? data.syncStatus.value
+          : this.syncStatus,
+      reputationScore: data.reputationScore.present
+          ? data.reputationScore.value
+          : this.reputationScore,
+      upvotes: data.upvotes.present ? data.upvotes.value : this.upvotes,
+      downvotes: data.downvotes.present ? data.downvotes.value : this.downvotes,
+      isWishlisted: data.isWishlisted.present
+          ? data.isWishlisted.value
+          : this.isWishlisted,
     );
   }
 
@@ -1516,8 +2090,16 @@ class VaultItem extends DataClass implements Insertable<VaultItem> {
           ..write('currentMarketPrice: $currentMarketPrice, ')
           ..write('lastPriceUpdate: $lastPriceUpdate, ')
           ..write('dynamicData: $dynamicData, ')
+          ..write('userId: $userId, ')
+          ..write('isTraded: $isTraded, ')
           ..write('isDeleted: $isDeleted, ')
-          ..write('updatedAt: $updatedAt')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('syncStatus: $syncStatus, ')
+          ..write('reputationScore: $reputationScore, ')
+          ..write('upvotes: $upvotes, ')
+          ..write('downvotes: $downvotes, ')
+          ..write('isWishlisted: $isWishlisted')
           ..write(')'))
         .toString();
   }
@@ -1549,8 +2131,16 @@ class VaultItem extends DataClass implements Insertable<VaultItem> {
     currentMarketPrice,
     lastPriceUpdate,
     dynamicData,
+    userId,
+    isTraded,
     isDeleted,
     updatedAt,
+    deletedAt,
+    syncStatus,
+    reputationScore,
+    upvotes,
+    downvotes,
+    isWishlisted,
   ]);
   @override
   bool operator ==(Object other) =>
@@ -1581,8 +2171,16 @@ class VaultItem extends DataClass implements Insertable<VaultItem> {
           other.currentMarketPrice == this.currentMarketPrice &&
           other.lastPriceUpdate == this.lastPriceUpdate &&
           other.dynamicData == this.dynamicData &&
+          other.userId == this.userId &&
+          other.isTraded == this.isTraded &&
           other.isDeleted == this.isDeleted &&
-          other.updatedAt == this.updatedAt);
+          other.updatedAt == this.updatedAt &&
+          other.deletedAt == this.deletedAt &&
+          other.syncStatus == this.syncStatus &&
+          other.reputationScore == this.reputationScore &&
+          other.upvotes == this.upvotes &&
+          other.downvotes == this.downvotes &&
+          other.isWishlisted == this.isWishlisted);
 }
 
 class VaultItemsCompanion extends UpdateCompanion<VaultItem> {
@@ -1611,8 +2209,16 @@ class VaultItemsCompanion extends UpdateCompanion<VaultItem> {
   final Value<double> currentMarketPrice;
   final Value<DateTime> lastPriceUpdate;
   final Value<String> dynamicData;
+  final Value<String?> userId;
+  final Value<bool?> isTraded;
   final Value<bool> isDeleted;
   final Value<DateTime?> updatedAt;
+  final Value<DateTime?> deletedAt;
+  final Value<String?> syncStatus;
+  final Value<int?> reputationScore;
+  final Value<int?> upvotes;
+  final Value<int?> downvotes;
+  final Value<bool?> isWishlisted;
   final Value<int> rowid;
   const VaultItemsCompanion({
     this.id = const Value.absent(),
@@ -1640,8 +2246,16 @@ class VaultItemsCompanion extends UpdateCompanion<VaultItem> {
     this.currentMarketPrice = const Value.absent(),
     this.lastPriceUpdate = const Value.absent(),
     this.dynamicData = const Value.absent(),
+    this.userId = const Value.absent(),
+    this.isTraded = const Value.absent(),
     this.isDeleted = const Value.absent(),
     this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.syncStatus = const Value.absent(),
+    this.reputationScore = const Value.absent(),
+    this.upvotes = const Value.absent(),
+    this.downvotes = const Value.absent(),
+    this.isWishlisted = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   VaultItemsCompanion.insert({
@@ -1670,8 +2284,16 @@ class VaultItemsCompanion extends UpdateCompanion<VaultItem> {
     required double currentMarketPrice,
     required DateTime lastPriceUpdate,
     required String dynamicData,
+    this.userId = const Value.absent(),
+    this.isTraded = const Value.absent(),
     this.isDeleted = const Value.absent(),
     this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.syncStatus = const Value.absent(),
+    this.reputationScore = const Value.absent(),
+    this.upvotes = const Value.absent(),
+    this.downvotes = const Value.absent(),
+    this.isWishlisted = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        collectionType = Value(collectionType),
@@ -1710,8 +2332,16 @@ class VaultItemsCompanion extends UpdateCompanion<VaultItem> {
     Expression<double>? currentMarketPrice,
     Expression<DateTime>? lastPriceUpdate,
     Expression<String>? dynamicData,
+    Expression<String>? userId,
+    Expression<bool>? isTraded,
     Expression<bool>? isDeleted,
     Expression<DateTime>? updatedAt,
+    Expression<DateTime>? deletedAt,
+    Expression<String>? syncStatus,
+    Expression<int>? reputationScore,
+    Expression<int>? upvotes,
+    Expression<int>? downvotes,
+    Expression<bool>? isWishlisted,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1741,8 +2371,16 @@ class VaultItemsCompanion extends UpdateCompanion<VaultItem> {
         'current_market_price': currentMarketPrice,
       if (lastPriceUpdate != null) 'last_price_update': lastPriceUpdate,
       if (dynamicData != null) 'dynamic_data': dynamicData,
+      if (userId != null) 'user_id': userId,
+      if (isTraded != null) 'is_traded': isTraded,
       if (isDeleted != null) 'is_deleted': isDeleted,
       if (updatedAt != null) 'updated_at': updatedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (syncStatus != null) 'sync_status': syncStatus,
+      if (reputationScore != null) 'reputation_score': reputationScore,
+      if (upvotes != null) 'upvotes': upvotes,
+      if (downvotes != null) 'downvotes': downvotes,
+      if (isWishlisted != null) 'is_wishlisted': isWishlisted,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1773,8 +2411,16 @@ class VaultItemsCompanion extends UpdateCompanion<VaultItem> {
     Value<double>? currentMarketPrice,
     Value<DateTime>? lastPriceUpdate,
     Value<String>? dynamicData,
+    Value<String?>? userId,
+    Value<bool?>? isTraded,
     Value<bool>? isDeleted,
     Value<DateTime?>? updatedAt,
+    Value<DateTime?>? deletedAt,
+    Value<String?>? syncStatus,
+    Value<int?>? reputationScore,
+    Value<int?>? upvotes,
+    Value<int?>? downvotes,
+    Value<bool?>? isWishlisted,
     Value<int>? rowid,
   }) {
     return VaultItemsCompanion(
@@ -1803,8 +2449,16 @@ class VaultItemsCompanion extends UpdateCompanion<VaultItem> {
       currentMarketPrice: currentMarketPrice ?? this.currentMarketPrice,
       lastPriceUpdate: lastPriceUpdate ?? this.lastPriceUpdate,
       dynamicData: dynamicData ?? this.dynamicData,
+      userId: userId ?? this.userId,
+      isTraded: isTraded ?? this.isTraded,
       isDeleted: isDeleted ?? this.isDeleted,
       updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      syncStatus: syncStatus ?? this.syncStatus,
+      reputationScore: reputationScore ?? this.reputationScore,
+      upvotes: upvotes ?? this.upvotes,
+      downvotes: downvotes ?? this.downvotes,
+      isWishlisted: isWishlisted ?? this.isWishlisted,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1887,11 +2541,35 @@ class VaultItemsCompanion extends UpdateCompanion<VaultItem> {
     if (dynamicData.present) {
       map['dynamic_data'] = Variable<String>(dynamicData.value);
     }
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
+    }
+    if (isTraded.present) {
+      map['is_traded'] = Variable<bool>(isTraded.value);
+    }
     if (isDeleted.present) {
       map['is_deleted'] = Variable<bool>(isDeleted.value);
     }
     if (updatedAt.present) {
       map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
+    if (syncStatus.present) {
+      map['sync_status'] = Variable<String>(syncStatus.value);
+    }
+    if (reputationScore.present) {
+      map['reputation_score'] = Variable<int>(reputationScore.value);
+    }
+    if (upvotes.present) {
+      map['upvotes'] = Variable<int>(upvotes.value);
+    }
+    if (downvotes.present) {
+      map['downvotes'] = Variable<int>(downvotes.value);
+    }
+    if (isWishlisted.present) {
+      map['is_wishlisted'] = Variable<bool>(isWishlisted.value);
     }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
@@ -1927,8 +2605,16 @@ class VaultItemsCompanion extends UpdateCompanion<VaultItem> {
           ..write('currentMarketPrice: $currentMarketPrice, ')
           ..write('lastPriceUpdate: $lastPriceUpdate, ')
           ..write('dynamicData: $dynamicData, ')
+          ..write('userId: $userId, ')
+          ..write('isTraded: $isTraded, ')
           ..write('isDeleted: $isDeleted, ')
           ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('syncStatus: $syncStatus, ')
+          ..write('reputationScore: $reputationScore, ')
+          ..write('upvotes: $upvotes, ')
+          ..write('downvotes: $downvotes, ')
+          ..write('isWishlisted: $isWishlisted, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -2098,6 +2784,15 @@ class $DecksTable extends Decks with TableInfo<$DecksTable, Deck> {
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+    'user_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _isDeletedMeta = const VerificationMeta(
     'isDeleted',
   );
@@ -2123,6 +2818,29 @@ class $DecksTable extends Decks with TableInfo<$DecksTable, Deck> {
     true,
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _syncStatusMeta = const VerificationMeta(
+    'syncStatus',
+  );
+  @override
+  late final GeneratedColumn<String> syncStatus = GeneratedColumn<String>(
+    'sync_status',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('synced'),
   );
   static const VerificationMeta _isClonedMeta = const VerificationMeta(
     'isCloned',
@@ -2166,8 +2884,11 @@ class $DecksTable extends Decks with TableInfo<$DecksTable, Deck> {
     isRegistered,
     isCompetitive,
     isAssembled,
+    userId,
     isDeleted,
     updatedAt,
+    deletedAt,
+    syncStatus,
     isCloned,
     sourceExploreDeckId,
   ];
@@ -2290,6 +3011,12 @@ class $DecksTable extends Decks with TableInfo<$DecksTable, Deck> {
         ),
       );
     }
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
+    }
     if (data.containsKey('is_deleted')) {
       context.handle(
         _isDeletedMeta,
@@ -2300,6 +3027,18 @@ class $DecksTable extends Decks with TableInfo<$DecksTable, Deck> {
       context.handle(
         _updatedAtMeta,
         updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    if (data.containsKey('sync_status')) {
+      context.handle(
+        _syncStatusMeta,
+        syncStatus.isAcceptableOrUnknown(data['sync_status']!, _syncStatusMeta),
       );
     }
     if (data.containsKey('is_cloned')) {
@@ -2382,6 +3121,10 @@ class $DecksTable extends Decks with TableInfo<$DecksTable, Deck> {
         DriftSqlType.bool,
         data['${effectivePrefix}is_assembled'],
       )!,
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_id'],
+      ),
       isDeleted: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}is_deleted'],
@@ -2389,6 +3132,14 @@ class $DecksTable extends Decks with TableInfo<$DecksTable, Deck> {
       updatedAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}updated_at'],
+      ),
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
+      syncStatus: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sync_status'],
       ),
       isCloned: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
@@ -2422,8 +3173,11 @@ class Deck extends DataClass implements Insertable<Deck> {
   final bool isRegistered;
   final bool isCompetitive;
   final bool isAssembled;
+  final String? userId;
   final bool isDeleted;
   final DateTime? updatedAt;
+  final DateTime? deletedAt;
+  final String? syncStatus;
   final bool isCloned;
   final String? sourceExploreDeckId;
   const Deck({
@@ -2441,9 +3195,12 @@ class Deck extends DataClass implements Insertable<Deck> {
     required this.isRegistered,
     required this.isCompetitive,
     required this.isAssembled,
+    this.userId,
     required this.isDeleted,
     this.updatedAt,
-    this.isCloned = false,
+    this.deletedAt,
+    this.syncStatus,
+    required this.isCloned,
     this.sourceExploreDeckId,
   });
   @override
@@ -2469,9 +3226,18 @@ class Deck extends DataClass implements Insertable<Deck> {
     map['is_registered'] = Variable<bool>(isRegistered);
     map['is_competitive'] = Variable<bool>(isCompetitive);
     map['is_assembled'] = Variable<bool>(isAssembled);
+    if (!nullToAbsent || userId != null) {
+      map['user_id'] = Variable<String>(userId);
+    }
     map['is_deleted'] = Variable<bool>(isDeleted);
     if (!nullToAbsent || updatedAt != null) {
       map['updated_at'] = Variable<DateTime>(updatedAt);
+    }
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
+    if (!nullToAbsent || syncStatus != null) {
+      map['sync_status'] = Variable<String>(syncStatus);
     }
     map['is_cloned'] = Variable<bool>(isCloned);
     if (!nullToAbsent || sourceExploreDeckId != null) {
@@ -2502,10 +3268,19 @@ class Deck extends DataClass implements Insertable<Deck> {
       isRegistered: Value(isRegistered),
       isCompetitive: Value(isCompetitive),
       isAssembled: Value(isAssembled),
+      userId: userId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(userId),
       isDeleted: Value(isDeleted),
       updatedAt: updatedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(updatedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+      syncStatus: syncStatus == null && nullToAbsent
+          ? const Value.absent()
+          : Value(syncStatus),
       isCloned: Value(isCloned),
       sourceExploreDeckId: sourceExploreDeckId == null && nullToAbsent
           ? const Value.absent()
@@ -2533,8 +3308,11 @@ class Deck extends DataClass implements Insertable<Deck> {
       isRegistered: serializer.fromJson<bool>(json['isRegistered']),
       isCompetitive: serializer.fromJson<bool>(json['isCompetitive']),
       isAssembled: serializer.fromJson<bool>(json['isAssembled']),
+      userId: serializer.fromJson<String?>(json['userId']),
       isDeleted: serializer.fromJson<bool>(json['isDeleted']),
       updatedAt: serializer.fromJson<DateTime?>(json['updatedAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+      syncStatus: serializer.fromJson<String?>(json['syncStatus']),
       isCloned: serializer.fromJson<bool>(json['isCloned']),
       sourceExploreDeckId: serializer.fromJson<String?>(
         json['sourceExploreDeckId'],
@@ -2559,8 +3337,11 @@ class Deck extends DataClass implements Insertable<Deck> {
       'isRegistered': serializer.toJson<bool>(isRegistered),
       'isCompetitive': serializer.toJson<bool>(isCompetitive),
       'isAssembled': serializer.toJson<bool>(isAssembled),
+      'userId': serializer.toJson<String?>(userId),
       'isDeleted': serializer.toJson<bool>(isDeleted),
       'updatedAt': serializer.toJson<DateTime?>(updatedAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+      'syncStatus': serializer.toJson<String?>(syncStatus),
       'isCloned': serializer.toJson<bool>(isCloned),
       'sourceExploreDeckId': serializer.toJson<String?>(sourceExploreDeckId),
     };
@@ -2581,8 +3362,11 @@ class Deck extends DataClass implements Insertable<Deck> {
     bool? isRegistered,
     bool? isCompetitive,
     bool? isAssembled,
+    Value<String?> userId = const Value.absent(),
     bool? isDeleted,
     Value<DateTime?> updatedAt = const Value.absent(),
+    Value<DateTime?> deletedAt = const Value.absent(),
+    Value<String?> syncStatus = const Value.absent(),
     bool? isCloned,
     Value<String?> sourceExploreDeckId = const Value.absent(),
   }) => Deck(
@@ -2602,8 +3386,11 @@ class Deck extends DataClass implements Insertable<Deck> {
     isRegistered: isRegistered ?? this.isRegistered,
     isCompetitive: isCompetitive ?? this.isCompetitive,
     isAssembled: isAssembled ?? this.isAssembled,
+    userId: userId.present ? userId.value : this.userId,
     isDeleted: isDeleted ?? this.isDeleted,
     updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+    syncStatus: syncStatus.present ? syncStatus.value : this.syncStatus,
     isCloned: isCloned ?? this.isCloned,
     sourceExploreDeckId: sourceExploreDeckId.present
         ? sourceExploreDeckId.value
@@ -2637,8 +3424,13 @@ class Deck extends DataClass implements Insertable<Deck> {
       isAssembled: data.isAssembled.present
           ? data.isAssembled.value
           : this.isAssembled,
+      userId: data.userId.present ? data.userId.value : this.userId,
       isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+      syncStatus: data.syncStatus.present
+          ? data.syncStatus.value
+          : this.syncStatus,
       isCloned: data.isCloned.present ? data.isCloned.value : this.isCloned,
       sourceExploreDeckId: data.sourceExploreDeckId.present
           ? data.sourceExploreDeckId.value
@@ -2663,8 +3455,11 @@ class Deck extends DataClass implements Insertable<Deck> {
           ..write('isRegistered: $isRegistered, ')
           ..write('isCompetitive: $isCompetitive, ')
           ..write('isAssembled: $isAssembled, ')
+          ..write('userId: $userId, ')
           ..write('isDeleted: $isDeleted, ')
           ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('syncStatus: $syncStatus, ')
           ..write('isCloned: $isCloned, ')
           ..write('sourceExploreDeckId: $sourceExploreDeckId')
           ..write(')'))
@@ -2672,7 +3467,7 @@ class Deck extends DataClass implements Insertable<Deck> {
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     id,
     name,
     format,
@@ -2687,11 +3482,14 @@ class Deck extends DataClass implements Insertable<Deck> {
     isRegistered,
     isCompetitive,
     isAssembled,
+    userId,
     isDeleted,
     updatedAt,
+    deletedAt,
+    syncStatus,
     isCloned,
     sourceExploreDeckId,
-  );
+  ]);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -2710,8 +3508,11 @@ class Deck extends DataClass implements Insertable<Deck> {
           other.isRegistered == this.isRegistered &&
           other.isCompetitive == this.isCompetitive &&
           other.isAssembled == this.isAssembled &&
+          other.userId == this.userId &&
           other.isDeleted == this.isDeleted &&
           other.updatedAt == this.updatedAt &&
+          other.deletedAt == this.deletedAt &&
+          other.syncStatus == this.syncStatus &&
           other.isCloned == this.isCloned &&
           other.sourceExploreDeckId == this.sourceExploreDeckId);
 }
@@ -2731,8 +3532,11 @@ class DecksCompanion extends UpdateCompanion<Deck> {
   final Value<bool> isRegistered;
   final Value<bool> isCompetitive;
   final Value<bool> isAssembled;
+  final Value<String?> userId;
   final Value<bool> isDeleted;
   final Value<DateTime?> updatedAt;
+  final Value<DateTime?> deletedAt;
+  final Value<String?> syncStatus;
   final Value<bool> isCloned;
   final Value<String?> sourceExploreDeckId;
   final Value<int> rowid;
@@ -2751,8 +3555,11 @@ class DecksCompanion extends UpdateCompanion<Deck> {
     this.isRegistered = const Value.absent(),
     this.isCompetitive = const Value.absent(),
     this.isAssembled = const Value.absent(),
+    this.userId = const Value.absent(),
     this.isDeleted = const Value.absent(),
     this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.syncStatus = const Value.absent(),
     this.isCloned = const Value.absent(),
     this.sourceExploreDeckId = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -2772,8 +3579,11 @@ class DecksCompanion extends UpdateCompanion<Deck> {
     this.isRegistered = const Value.absent(),
     this.isCompetitive = const Value.absent(),
     this.isAssembled = const Value.absent(),
+    this.userId = const Value.absent(),
     this.isDeleted = const Value.absent(),
     this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.syncStatus = const Value.absent(),
     this.isCloned = const Value.absent(),
     this.sourceExploreDeckId = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -2796,8 +3606,11 @@ class DecksCompanion extends UpdateCompanion<Deck> {
     Expression<bool>? isRegistered,
     Expression<bool>? isCompetitive,
     Expression<bool>? isAssembled,
+    Expression<String>? userId,
     Expression<bool>? isDeleted,
     Expression<DateTime>? updatedAt,
+    Expression<DateTime>? deletedAt,
+    Expression<String>? syncStatus,
     Expression<bool>? isCloned,
     Expression<String>? sourceExploreDeckId,
     Expression<int>? rowid,
@@ -2817,8 +3630,11 @@ class DecksCompanion extends UpdateCompanion<Deck> {
       if (isRegistered != null) 'is_registered': isRegistered,
       if (isCompetitive != null) 'is_competitive': isCompetitive,
       if (isAssembled != null) 'is_assembled': isAssembled,
+      if (userId != null) 'user_id': userId,
       if (isDeleted != null) 'is_deleted': isDeleted,
       if (updatedAt != null) 'updated_at': updatedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (syncStatus != null) 'sync_status': syncStatus,
       if (isCloned != null) 'is_cloned': isCloned,
       if (sourceExploreDeckId != null)
         'source_explore_deck_id': sourceExploreDeckId,
@@ -2841,8 +3657,11 @@ class DecksCompanion extends UpdateCompanion<Deck> {
     Value<bool>? isRegistered,
     Value<bool>? isCompetitive,
     Value<bool>? isAssembled,
+    Value<String?>? userId,
     Value<bool>? isDeleted,
     Value<DateTime?>? updatedAt,
+    Value<DateTime?>? deletedAt,
+    Value<String?>? syncStatus,
     Value<bool>? isCloned,
     Value<String?>? sourceExploreDeckId,
     Value<int>? rowid,
@@ -2862,8 +3681,11 @@ class DecksCompanion extends UpdateCompanion<Deck> {
       isRegistered: isRegistered ?? this.isRegistered,
       isCompetitive: isCompetitive ?? this.isCompetitive,
       isAssembled: isAssembled ?? this.isAssembled,
+      userId: userId ?? this.userId,
       isDeleted: isDeleted ?? this.isDeleted,
       updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      syncStatus: syncStatus ?? this.syncStatus,
       isCloned: isCloned ?? this.isCloned,
       sourceExploreDeckId: sourceExploreDeckId ?? this.sourceExploreDeckId,
       rowid: rowid ?? this.rowid,
@@ -2915,11 +3737,20 @@ class DecksCompanion extends UpdateCompanion<Deck> {
     if (isAssembled.present) {
       map['is_assembled'] = Variable<bool>(isAssembled.value);
     }
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
+    }
     if (isDeleted.present) {
       map['is_deleted'] = Variable<bool>(isDeleted.value);
     }
     if (updatedAt.present) {
       map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
+    if (syncStatus.present) {
+      map['sync_status'] = Variable<String>(syncStatus.value);
     }
     if (isCloned.present) {
       map['is_cloned'] = Variable<bool>(isCloned.value);
@@ -2952,8 +3783,11 @@ class DecksCompanion extends UpdateCompanion<Deck> {
           ..write('isRegistered: $isRegistered, ')
           ..write('isCompetitive: $isCompetitive, ')
           ..write('isAssembled: $isAssembled, ')
+          ..write('userId: $userId, ')
           ..write('isDeleted: $isDeleted, ')
           ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('syncStatus: $syncStatus, ')
           ..write('isCloned: $isCloned, ')
           ..write('sourceExploreDeckId: $sourceExploreDeckId, ')
           ..write('rowid: $rowid')
@@ -3063,6 +3897,29 @@ class $DeckVersionsTable extends DeckVersions
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _syncStatusMeta = const VerificationMeta(
+    'syncStatus',
+  );
+  @override
+  late final GeneratedColumn<String> syncStatus = GeneratedColumn<String>(
+    'sync_status',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('synced'),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -3073,6 +3930,8 @@ class $DeckVersionsTable extends DeckVersions
     createdAt,
     isDeleted,
     updatedAt,
+    deletedAt,
+    syncStatus,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -3145,6 +4004,18 @@ class $DeckVersionsTable extends DeckVersions
         updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
       );
     }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    if (data.containsKey('sync_status')) {
+      context.handle(
+        _syncStatusMeta,
+        syncStatus.isAcceptableOrUnknown(data['sync_status']!, _syncStatusMeta),
+      );
+    }
     return context;
   }
 
@@ -3186,6 +4057,14 @@ class $DeckVersionsTable extends DeckVersions
         DriftSqlType.dateTime,
         data['${effectivePrefix}updated_at'],
       ),
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
+      syncStatus: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sync_status'],
+      ),
     );
   }
 
@@ -3204,6 +4083,8 @@ class DeckVersion extends DataClass implements Insertable<DeckVersion> {
   final DateTime createdAt;
   final bool isDeleted;
   final DateTime? updatedAt;
+  final DateTime? deletedAt;
+  final String? syncStatus;
   const DeckVersion({
     required this.id,
     required this.deckId,
@@ -3213,6 +4094,8 @@ class DeckVersion extends DataClass implements Insertable<DeckVersion> {
     required this.createdAt,
     required this.isDeleted,
     this.updatedAt,
+    this.deletedAt,
+    this.syncStatus,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -3228,6 +4111,12 @@ class DeckVersion extends DataClass implements Insertable<DeckVersion> {
     map['is_deleted'] = Variable<bool>(isDeleted);
     if (!nullToAbsent || updatedAt != null) {
       map['updated_at'] = Variable<DateTime>(updatedAt);
+    }
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
+    if (!nullToAbsent || syncStatus != null) {
+      map['sync_status'] = Variable<String>(syncStatus);
     }
     return map;
   }
@@ -3246,6 +4135,12 @@ class DeckVersion extends DataClass implements Insertable<DeckVersion> {
       updatedAt: updatedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(updatedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+      syncStatus: syncStatus == null && nullToAbsent
+          ? const Value.absent()
+          : Value(syncStatus),
     );
   }
 
@@ -3263,6 +4158,8 @@ class DeckVersion extends DataClass implements Insertable<DeckVersion> {
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       isDeleted: serializer.fromJson<bool>(json['isDeleted']),
       updatedAt: serializer.fromJson<DateTime?>(json['updatedAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+      syncStatus: serializer.fromJson<String?>(json['syncStatus']),
     );
   }
   @override
@@ -3277,6 +4174,8 @@ class DeckVersion extends DataClass implements Insertable<DeckVersion> {
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'isDeleted': serializer.toJson<bool>(isDeleted),
       'updatedAt': serializer.toJson<DateTime?>(updatedAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+      'syncStatus': serializer.toJson<String?>(syncStatus),
     };
   }
 
@@ -3289,6 +4188,8 @@ class DeckVersion extends DataClass implements Insertable<DeckVersion> {
     DateTime? createdAt,
     bool? isDeleted,
     Value<DateTime?> updatedAt = const Value.absent(),
+    Value<DateTime?> deletedAt = const Value.absent(),
+    Value<String?> syncStatus = const Value.absent(),
   }) => DeckVersion(
     id: id ?? this.id,
     deckId: deckId ?? this.deckId,
@@ -3298,6 +4199,8 @@ class DeckVersion extends DataClass implements Insertable<DeckVersion> {
     createdAt: createdAt ?? this.createdAt,
     isDeleted: isDeleted ?? this.isDeleted,
     updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+    syncStatus: syncStatus.present ? syncStatus.value : this.syncStatus,
   );
   DeckVersion copyWithCompanion(DeckVersionsCompanion data) {
     return DeckVersion(
@@ -3313,6 +4216,10 @@ class DeckVersion extends DataClass implements Insertable<DeckVersion> {
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+      syncStatus: data.syncStatus.present
+          ? data.syncStatus.value
+          : this.syncStatus,
     );
   }
 
@@ -3326,7 +4233,9 @@ class DeckVersion extends DataClass implements Insertable<DeckVersion> {
           ..write('isActive: $isActive, ')
           ..write('createdAt: $createdAt, ')
           ..write('isDeleted: $isDeleted, ')
-          ..write('updatedAt: $updatedAt')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('syncStatus: $syncStatus')
           ..write(')'))
         .toString();
   }
@@ -3341,6 +4250,8 @@ class DeckVersion extends DataClass implements Insertable<DeckVersion> {
     createdAt,
     isDeleted,
     updatedAt,
+    deletedAt,
+    syncStatus,
   );
   @override
   bool operator ==(Object other) =>
@@ -3353,7 +4264,9 @@ class DeckVersion extends DataClass implements Insertable<DeckVersion> {
           other.isActive == this.isActive &&
           other.createdAt == this.createdAt &&
           other.isDeleted == this.isDeleted &&
-          other.updatedAt == this.updatedAt);
+          other.updatedAt == this.updatedAt &&
+          other.deletedAt == this.deletedAt &&
+          other.syncStatus == this.syncStatus);
 }
 
 class DeckVersionsCompanion extends UpdateCompanion<DeckVersion> {
@@ -3365,6 +4278,8 @@ class DeckVersionsCompanion extends UpdateCompanion<DeckVersion> {
   final Value<DateTime> createdAt;
   final Value<bool> isDeleted;
   final Value<DateTime?> updatedAt;
+  final Value<DateTime?> deletedAt;
+  final Value<String?> syncStatus;
   final Value<int> rowid;
   const DeckVersionsCompanion({
     this.id = const Value.absent(),
@@ -3375,6 +4290,8 @@ class DeckVersionsCompanion extends UpdateCompanion<DeckVersion> {
     this.createdAt = const Value.absent(),
     this.isDeleted = const Value.absent(),
     this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.syncStatus = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   DeckVersionsCompanion.insert({
@@ -3386,6 +4303,8 @@ class DeckVersionsCompanion extends UpdateCompanion<DeckVersion> {
     required DateTime createdAt,
     this.isDeleted = const Value.absent(),
     this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.syncStatus = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        deckId = Value(deckId),
@@ -3400,6 +4319,8 @@ class DeckVersionsCompanion extends UpdateCompanion<DeckVersion> {
     Expression<DateTime>? createdAt,
     Expression<bool>? isDeleted,
     Expression<DateTime>? updatedAt,
+    Expression<DateTime>? deletedAt,
+    Expression<String>? syncStatus,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -3411,6 +4332,8 @@ class DeckVersionsCompanion extends UpdateCompanion<DeckVersion> {
       if (createdAt != null) 'created_at': createdAt,
       if (isDeleted != null) 'is_deleted': isDeleted,
       if (updatedAt != null) 'updated_at': updatedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (syncStatus != null) 'sync_status': syncStatus,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -3424,6 +4347,8 @@ class DeckVersionsCompanion extends UpdateCompanion<DeckVersion> {
     Value<DateTime>? createdAt,
     Value<bool>? isDeleted,
     Value<DateTime?>? updatedAt,
+    Value<DateTime?>? deletedAt,
+    Value<String?>? syncStatus,
     Value<int>? rowid,
   }) {
     return DeckVersionsCompanion(
@@ -3435,6 +4360,8 @@ class DeckVersionsCompanion extends UpdateCompanion<DeckVersion> {
       createdAt: createdAt ?? this.createdAt,
       isDeleted: isDeleted ?? this.isDeleted,
       updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      syncStatus: syncStatus ?? this.syncStatus,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -3466,6 +4393,12 @@ class DeckVersionsCompanion extends UpdateCompanion<DeckVersion> {
     if (updatedAt.present) {
       map['updated_at'] = Variable<DateTime>(updatedAt.value);
     }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
+    if (syncStatus.present) {
+      map['sync_status'] = Variable<String>(syncStatus.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -3483,6 +4416,8 @@ class DeckVersionsCompanion extends UpdateCompanion<DeckVersion> {
           ..write('createdAt: $createdAt, ')
           ..write('isDeleted: $isDeleted, ')
           ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('syncStatus: $syncStatus, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -3596,6 +4531,29 @@ class $DeckVersionItemsTable extends DeckVersionItems
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _syncStatusMeta = const VerificationMeta(
+    'syncStatus',
+  );
+  @override
+  late final GeneratedColumn<String> syncStatus = GeneratedColumn<String>(
+    'sync_status',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('synced'),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -3606,6 +4564,8 @@ class $DeckVersionItemsTable extends DeckVersionItems
     isProxy,
     isDeleted,
     updatedAt,
+    deletedAt,
+    syncStatus,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -3675,6 +4635,18 @@ class $DeckVersionItemsTable extends DeckVersionItems
         updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
       );
     }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    if (data.containsKey('sync_status')) {
+      context.handle(
+        _syncStatusMeta,
+        syncStatus.isAcceptableOrUnknown(data['sync_status']!, _syncStatusMeta),
+      );
+    }
     return context;
   }
 
@@ -3716,6 +4688,14 @@ class $DeckVersionItemsTable extends DeckVersionItems
         DriftSqlType.dateTime,
         data['${effectivePrefix}updated_at'],
       ),
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
+      syncStatus: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sync_status'],
+      ),
     );
   }
 
@@ -3734,6 +4714,8 @@ class DeckVersionItem extends DataClass implements Insertable<DeckVersionItem> {
   final bool isProxy;
   final bool isDeleted;
   final DateTime? updatedAt;
+  final DateTime? deletedAt;
+  final String? syncStatus;
   const DeckVersionItem({
     required this.id,
     required this.versionId,
@@ -3743,6 +4725,8 @@ class DeckVersionItem extends DataClass implements Insertable<DeckVersionItem> {
     required this.isProxy,
     required this.isDeleted,
     this.updatedAt,
+    this.deletedAt,
+    this.syncStatus,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -3756,6 +4740,12 @@ class DeckVersionItem extends DataClass implements Insertable<DeckVersionItem> {
     map['is_deleted'] = Variable<bool>(isDeleted);
     if (!nullToAbsent || updatedAt != null) {
       map['updated_at'] = Variable<DateTime>(updatedAt);
+    }
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
+    if (!nullToAbsent || syncStatus != null) {
+      map['sync_status'] = Variable<String>(syncStatus);
     }
     return map;
   }
@@ -3772,6 +4762,12 @@ class DeckVersionItem extends DataClass implements Insertable<DeckVersionItem> {
       updatedAt: updatedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(updatedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+      syncStatus: syncStatus == null && nullToAbsent
+          ? const Value.absent()
+          : Value(syncStatus),
     );
   }
 
@@ -3789,6 +4785,8 @@ class DeckVersionItem extends DataClass implements Insertable<DeckVersionItem> {
       isProxy: serializer.fromJson<bool>(json['isProxy']),
       isDeleted: serializer.fromJson<bool>(json['isDeleted']),
       updatedAt: serializer.fromJson<DateTime?>(json['updatedAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+      syncStatus: serializer.fromJson<String?>(json['syncStatus']),
     );
   }
   @override
@@ -3803,6 +4801,8 @@ class DeckVersionItem extends DataClass implements Insertable<DeckVersionItem> {
       'isProxy': serializer.toJson<bool>(isProxy),
       'isDeleted': serializer.toJson<bool>(isDeleted),
       'updatedAt': serializer.toJson<DateTime?>(updatedAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+      'syncStatus': serializer.toJson<String?>(syncStatus),
     };
   }
 
@@ -3815,6 +4815,8 @@ class DeckVersionItem extends DataClass implements Insertable<DeckVersionItem> {
     bool? isProxy,
     bool? isDeleted,
     Value<DateTime?> updatedAt = const Value.absent(),
+    Value<DateTime?> deletedAt = const Value.absent(),
+    Value<String?> syncStatus = const Value.absent(),
   }) => DeckVersionItem(
     id: id ?? this.id,
     versionId: versionId ?? this.versionId,
@@ -3824,6 +4826,8 @@ class DeckVersionItem extends DataClass implements Insertable<DeckVersionItem> {
     isProxy: isProxy ?? this.isProxy,
     isDeleted: isDeleted ?? this.isDeleted,
     updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+    syncStatus: syncStatus.present ? syncStatus.value : this.syncStatus,
   );
   DeckVersionItem copyWithCompanion(DeckVersionItemsCompanion data) {
     return DeckVersionItem(
@@ -3837,6 +4841,10 @@ class DeckVersionItem extends DataClass implements Insertable<DeckVersionItem> {
       isProxy: data.isProxy.present ? data.isProxy.value : this.isProxy,
       isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+      syncStatus: data.syncStatus.present
+          ? data.syncStatus.value
+          : this.syncStatus,
     );
   }
 
@@ -3850,7 +4858,9 @@ class DeckVersionItem extends DataClass implements Insertable<DeckVersionItem> {
           ..write('boardZone: $boardZone, ')
           ..write('isProxy: $isProxy, ')
           ..write('isDeleted: $isDeleted, ')
-          ..write('updatedAt: $updatedAt')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('syncStatus: $syncStatus')
           ..write(')'))
         .toString();
   }
@@ -3865,6 +4875,8 @@ class DeckVersionItem extends DataClass implements Insertable<DeckVersionItem> {
     isProxy,
     isDeleted,
     updatedAt,
+    deletedAt,
+    syncStatus,
   );
   @override
   bool operator ==(Object other) =>
@@ -3877,7 +4889,9 @@ class DeckVersionItem extends DataClass implements Insertable<DeckVersionItem> {
           other.boardZone == this.boardZone &&
           other.isProxy == this.isProxy &&
           other.isDeleted == this.isDeleted &&
-          other.updatedAt == this.updatedAt);
+          other.updatedAt == this.updatedAt &&
+          other.deletedAt == this.deletedAt &&
+          other.syncStatus == this.syncStatus);
 }
 
 class DeckVersionItemsCompanion extends UpdateCompanion<DeckVersionItem> {
@@ -3889,6 +4903,8 @@ class DeckVersionItemsCompanion extends UpdateCompanion<DeckVersionItem> {
   final Value<bool> isProxy;
   final Value<bool> isDeleted;
   final Value<DateTime?> updatedAt;
+  final Value<DateTime?> deletedAt;
+  final Value<String?> syncStatus;
   final Value<int> rowid;
   const DeckVersionItemsCompanion({
     this.id = const Value.absent(),
@@ -3899,6 +4915,8 @@ class DeckVersionItemsCompanion extends UpdateCompanion<DeckVersionItem> {
     this.isProxy = const Value.absent(),
     this.isDeleted = const Value.absent(),
     this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.syncStatus = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   DeckVersionItemsCompanion.insert({
@@ -3910,6 +4928,8 @@ class DeckVersionItemsCompanion extends UpdateCompanion<DeckVersionItem> {
     this.isProxy = const Value.absent(),
     this.isDeleted = const Value.absent(),
     this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.syncStatus = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        versionId = Value(versionId),
@@ -3924,6 +4944,8 @@ class DeckVersionItemsCompanion extends UpdateCompanion<DeckVersionItem> {
     Expression<bool>? isProxy,
     Expression<bool>? isDeleted,
     Expression<DateTime>? updatedAt,
+    Expression<DateTime>? deletedAt,
+    Expression<String>? syncStatus,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -3935,6 +4957,8 @@ class DeckVersionItemsCompanion extends UpdateCompanion<DeckVersionItem> {
       if (isProxy != null) 'is_proxy': isProxy,
       if (isDeleted != null) 'is_deleted': isDeleted,
       if (updatedAt != null) 'updated_at': updatedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (syncStatus != null) 'sync_status': syncStatus,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -3948,6 +4972,8 @@ class DeckVersionItemsCompanion extends UpdateCompanion<DeckVersionItem> {
     Value<bool>? isProxy,
     Value<bool>? isDeleted,
     Value<DateTime?>? updatedAt,
+    Value<DateTime?>? deletedAt,
+    Value<String?>? syncStatus,
     Value<int>? rowid,
   }) {
     return DeckVersionItemsCompanion(
@@ -3959,6 +4985,8 @@ class DeckVersionItemsCompanion extends UpdateCompanion<DeckVersionItem> {
       isProxy: isProxy ?? this.isProxy,
       isDeleted: isDeleted ?? this.isDeleted,
       updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      syncStatus: syncStatus ?? this.syncStatus,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -3990,6 +5018,12 @@ class DeckVersionItemsCompanion extends UpdateCompanion<DeckVersionItem> {
     if (updatedAt.present) {
       map['updated_at'] = Variable<DateTime>(updatedAt.value);
     }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
+    if (syncStatus.present) {
+      map['sync_status'] = Variable<String>(syncStatus.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -4007,6 +5041,8 @@ class DeckVersionItemsCompanion extends UpdateCompanion<DeckVersionItem> {
           ..write('isProxy: $isProxy, ')
           ..write('isDeleted: $isDeleted, ')
           ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('syncStatus: $syncStatus, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -4109,6 +5145,29 @@ class $DeckMatchupsTable extends DeckMatchups
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _syncStatusMeta = const VerificationMeta(
+    'syncStatus',
+  );
+  @override
+  late final GeneratedColumn<String> syncStatus = GeneratedColumn<String>(
+    'sync_status',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('synced'),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -4119,6 +5178,8 @@ class $DeckMatchupsTable extends DeckMatchups
     swapOutItemIds,
     isDeleted,
     updatedAt,
+    deletedAt,
+    syncStatus,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -4192,6 +5253,18 @@ class $DeckMatchupsTable extends DeckMatchups
         updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
       );
     }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    if (data.containsKey('sync_status')) {
+      context.handle(
+        _syncStatusMeta,
+        syncStatus.isAcceptableOrUnknown(data['sync_status']!, _syncStatusMeta),
+      );
+    }
     return context;
   }
 
@@ -4233,6 +5306,14 @@ class $DeckMatchupsTable extends DeckMatchups
         DriftSqlType.dateTime,
         data['${effectivePrefix}updated_at'],
       ),
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
+      syncStatus: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sync_status'],
+      ),
     );
   }
 
@@ -4251,6 +5332,8 @@ class DeckMatchup extends DataClass implements Insertable<DeckMatchup> {
   final String? swapOutItemIds;
   final bool isDeleted;
   final DateTime? updatedAt;
+  final DateTime? deletedAt;
+  final String? syncStatus;
   const DeckMatchup({
     required this.id,
     required this.deckId,
@@ -4260,6 +5343,8 @@ class DeckMatchup extends DataClass implements Insertable<DeckMatchup> {
     this.swapOutItemIds,
     required this.isDeleted,
     this.updatedAt,
+    this.deletedAt,
+    this.syncStatus,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -4279,6 +5364,12 @@ class DeckMatchup extends DataClass implements Insertable<DeckMatchup> {
     map['is_deleted'] = Variable<bool>(isDeleted);
     if (!nullToAbsent || updatedAt != null) {
       map['updated_at'] = Variable<DateTime>(updatedAt);
+    }
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
+    if (!nullToAbsent || syncStatus != null) {
+      map['sync_status'] = Variable<String>(syncStatus);
     }
     return map;
   }
@@ -4301,6 +5392,12 @@ class DeckMatchup extends DataClass implements Insertable<DeckMatchup> {
       updatedAt: updatedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(updatedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+      syncStatus: syncStatus == null && nullToAbsent
+          ? const Value.absent()
+          : Value(syncStatus),
     );
   }
 
@@ -4318,6 +5415,8 @@ class DeckMatchup extends DataClass implements Insertable<DeckMatchup> {
       swapOutItemIds: serializer.fromJson<String?>(json['swapOutItemIds']),
       isDeleted: serializer.fromJson<bool>(json['isDeleted']),
       updatedAt: serializer.fromJson<DateTime?>(json['updatedAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+      syncStatus: serializer.fromJson<String?>(json['syncStatus']),
     );
   }
   @override
@@ -4332,6 +5431,8 @@ class DeckMatchup extends DataClass implements Insertable<DeckMatchup> {
       'swapOutItemIds': serializer.toJson<String?>(swapOutItemIds),
       'isDeleted': serializer.toJson<bool>(isDeleted),
       'updatedAt': serializer.toJson<DateTime?>(updatedAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+      'syncStatus': serializer.toJson<String?>(syncStatus),
     };
   }
 
@@ -4344,6 +5445,8 @@ class DeckMatchup extends DataClass implements Insertable<DeckMatchup> {
     Value<String?> swapOutItemIds = const Value.absent(),
     bool? isDeleted,
     Value<DateTime?> updatedAt = const Value.absent(),
+    Value<DateTime?> deletedAt = const Value.absent(),
+    Value<String?> syncStatus = const Value.absent(),
   }) => DeckMatchup(
     id: id ?? this.id,
     deckId: deckId ?? this.deckId,
@@ -4357,6 +5460,8 @@ class DeckMatchup extends DataClass implements Insertable<DeckMatchup> {
         : this.swapOutItemIds,
     isDeleted: isDeleted ?? this.isDeleted,
     updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+    syncStatus: syncStatus.present ? syncStatus.value : this.syncStatus,
   );
   DeckMatchup copyWithCompanion(DeckMatchupsCompanion data) {
     return DeckMatchup(
@@ -4374,6 +5479,10 @@ class DeckMatchup extends DataClass implements Insertable<DeckMatchup> {
           : this.swapOutItemIds,
       isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+      syncStatus: data.syncStatus.present
+          ? data.syncStatus.value
+          : this.syncStatus,
     );
   }
 
@@ -4387,7 +5496,9 @@ class DeckMatchup extends DataClass implements Insertable<DeckMatchup> {
           ..write('swapInItemIds: $swapInItemIds, ')
           ..write('swapOutItemIds: $swapOutItemIds, ')
           ..write('isDeleted: $isDeleted, ')
-          ..write('updatedAt: $updatedAt')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('syncStatus: $syncStatus')
           ..write(')'))
         .toString();
   }
@@ -4402,6 +5513,8 @@ class DeckMatchup extends DataClass implements Insertable<DeckMatchup> {
     swapOutItemIds,
     isDeleted,
     updatedAt,
+    deletedAt,
+    syncStatus,
   );
   @override
   bool operator ==(Object other) =>
@@ -4414,7 +5527,9 @@ class DeckMatchup extends DataClass implements Insertable<DeckMatchup> {
           other.swapInItemIds == this.swapInItemIds &&
           other.swapOutItemIds == this.swapOutItemIds &&
           other.isDeleted == this.isDeleted &&
-          other.updatedAt == this.updatedAt);
+          other.updatedAt == this.updatedAt &&
+          other.deletedAt == this.deletedAt &&
+          other.syncStatus == this.syncStatus);
 }
 
 class DeckMatchupsCompanion extends UpdateCompanion<DeckMatchup> {
@@ -4426,6 +5541,8 @@ class DeckMatchupsCompanion extends UpdateCompanion<DeckMatchup> {
   final Value<String?> swapOutItemIds;
   final Value<bool> isDeleted;
   final Value<DateTime?> updatedAt;
+  final Value<DateTime?> deletedAt;
+  final Value<String?> syncStatus;
   final Value<int> rowid;
   const DeckMatchupsCompanion({
     this.id = const Value.absent(),
@@ -4436,6 +5553,8 @@ class DeckMatchupsCompanion extends UpdateCompanion<DeckMatchup> {
     this.swapOutItemIds = const Value.absent(),
     this.isDeleted = const Value.absent(),
     this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.syncStatus = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   DeckMatchupsCompanion.insert({
@@ -4447,6 +5566,8 @@ class DeckMatchupsCompanion extends UpdateCompanion<DeckMatchup> {
     this.swapOutItemIds = const Value.absent(),
     this.isDeleted = const Value.absent(),
     this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.syncStatus = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        deckId = Value(deckId),
@@ -4460,6 +5581,8 @@ class DeckMatchupsCompanion extends UpdateCompanion<DeckMatchup> {
     Expression<String>? swapOutItemIds,
     Expression<bool>? isDeleted,
     Expression<DateTime>? updatedAt,
+    Expression<DateTime>? deletedAt,
+    Expression<String>? syncStatus,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -4471,6 +5594,8 @@ class DeckMatchupsCompanion extends UpdateCompanion<DeckMatchup> {
       if (swapOutItemIds != null) 'swap_out_item_ids': swapOutItemIds,
       if (isDeleted != null) 'is_deleted': isDeleted,
       if (updatedAt != null) 'updated_at': updatedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (syncStatus != null) 'sync_status': syncStatus,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -4484,6 +5609,8 @@ class DeckMatchupsCompanion extends UpdateCompanion<DeckMatchup> {
     Value<String?>? swapOutItemIds,
     Value<bool>? isDeleted,
     Value<DateTime?>? updatedAt,
+    Value<DateTime?>? deletedAt,
+    Value<String?>? syncStatus,
     Value<int>? rowid,
   }) {
     return DeckMatchupsCompanion(
@@ -4495,6 +5622,8 @@ class DeckMatchupsCompanion extends UpdateCompanion<DeckMatchup> {
       swapOutItemIds: swapOutItemIds ?? this.swapOutItemIds,
       isDeleted: isDeleted ?? this.isDeleted,
       updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      syncStatus: syncStatus ?? this.syncStatus,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -4526,6 +5655,12 @@ class DeckMatchupsCompanion extends UpdateCompanion<DeckMatchup> {
     if (updatedAt.present) {
       map['updated_at'] = Variable<DateTime>(updatedAt.value);
     }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
+    if (syncStatus.present) {
+      map['sync_status'] = Variable<String>(syncStatus.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -4543,6 +5678,8 @@ class DeckMatchupsCompanion extends UpdateCompanion<DeckMatchup> {
           ..write('swapOutItemIds: $swapOutItemIds, ')
           ..write('isDeleted: $isDeleted, ')
           ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('syncStatus: $syncStatus, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -4624,6 +5761,29 @@ class $DeckSynergiesTable extends DeckSynergies
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _syncStatusMeta = const VerificationMeta(
+    'syncStatus',
+  );
+  @override
+  late final GeneratedColumn<String> syncStatus = GeneratedColumn<String>(
+    'sync_status',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('synced'),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -4632,6 +5792,8 @@ class $DeckSynergiesTable extends DeckSynergies
     vaultItemIds,
     isDeleted,
     updatedAt,
+    deletedAt,
+    syncStatus,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -4692,6 +5854,18 @@ class $DeckSynergiesTable extends DeckSynergies
         updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
       );
     }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    if (data.containsKey('sync_status')) {
+      context.handle(
+        _syncStatusMeta,
+        syncStatus.isAcceptableOrUnknown(data['sync_status']!, _syncStatusMeta),
+      );
+    }
     return context;
   }
 
@@ -4725,6 +5899,14 @@ class $DeckSynergiesTable extends DeckSynergies
         DriftSqlType.dateTime,
         data['${effectivePrefix}updated_at'],
       ),
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
+      syncStatus: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sync_status'],
+      ),
     );
   }
 
@@ -4741,6 +5923,8 @@ class DeckSynergy extends DataClass implements Insertable<DeckSynergy> {
   final String vaultItemIds;
   final bool isDeleted;
   final DateTime? updatedAt;
+  final DateTime? deletedAt;
+  final String? syncStatus;
   const DeckSynergy({
     required this.id,
     required this.deckId,
@@ -4748,6 +5932,8 @@ class DeckSynergy extends DataClass implements Insertable<DeckSynergy> {
     required this.vaultItemIds,
     required this.isDeleted,
     this.updatedAt,
+    this.deletedAt,
+    this.syncStatus,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -4759,6 +5945,12 @@ class DeckSynergy extends DataClass implements Insertable<DeckSynergy> {
     map['is_deleted'] = Variable<bool>(isDeleted);
     if (!nullToAbsent || updatedAt != null) {
       map['updated_at'] = Variable<DateTime>(updatedAt);
+    }
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
+    if (!nullToAbsent || syncStatus != null) {
+      map['sync_status'] = Variable<String>(syncStatus);
     }
     return map;
   }
@@ -4773,6 +5965,12 @@ class DeckSynergy extends DataClass implements Insertable<DeckSynergy> {
       updatedAt: updatedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(updatedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+      syncStatus: syncStatus == null && nullToAbsent
+          ? const Value.absent()
+          : Value(syncStatus),
     );
   }
 
@@ -4788,6 +5986,8 @@ class DeckSynergy extends DataClass implements Insertable<DeckSynergy> {
       vaultItemIds: serializer.fromJson<String>(json['vaultItemIds']),
       isDeleted: serializer.fromJson<bool>(json['isDeleted']),
       updatedAt: serializer.fromJson<DateTime?>(json['updatedAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+      syncStatus: serializer.fromJson<String?>(json['syncStatus']),
     );
   }
   @override
@@ -4800,6 +6000,8 @@ class DeckSynergy extends DataClass implements Insertable<DeckSynergy> {
       'vaultItemIds': serializer.toJson<String>(vaultItemIds),
       'isDeleted': serializer.toJson<bool>(isDeleted),
       'updatedAt': serializer.toJson<DateTime?>(updatedAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+      'syncStatus': serializer.toJson<String?>(syncStatus),
     };
   }
 
@@ -4810,6 +6012,8 @@ class DeckSynergy extends DataClass implements Insertable<DeckSynergy> {
     String? vaultItemIds,
     bool? isDeleted,
     Value<DateTime?> updatedAt = const Value.absent(),
+    Value<DateTime?> deletedAt = const Value.absent(),
+    Value<String?> syncStatus = const Value.absent(),
   }) => DeckSynergy(
     id: id ?? this.id,
     deckId: deckId ?? this.deckId,
@@ -4817,6 +6021,8 @@ class DeckSynergy extends DataClass implements Insertable<DeckSynergy> {
     vaultItemIds: vaultItemIds ?? this.vaultItemIds,
     isDeleted: isDeleted ?? this.isDeleted,
     updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+    syncStatus: syncStatus.present ? syncStatus.value : this.syncStatus,
   );
   DeckSynergy copyWithCompanion(DeckSynergiesCompanion data) {
     return DeckSynergy(
@@ -4830,6 +6036,10 @@ class DeckSynergy extends DataClass implements Insertable<DeckSynergy> {
           : this.vaultItemIds,
       isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+      syncStatus: data.syncStatus.present
+          ? data.syncStatus.value
+          : this.syncStatus,
     );
   }
 
@@ -4841,14 +6051,24 @@ class DeckSynergy extends DataClass implements Insertable<DeckSynergy> {
           ..write('synergyName: $synergyName, ')
           ..write('vaultItemIds: $vaultItemIds, ')
           ..write('isDeleted: $isDeleted, ')
-          ..write('updatedAt: $updatedAt')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('syncStatus: $syncStatus')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, deckId, synergyName, vaultItemIds, isDeleted, updatedAt);
+  int get hashCode => Object.hash(
+    id,
+    deckId,
+    synergyName,
+    vaultItemIds,
+    isDeleted,
+    updatedAt,
+    deletedAt,
+    syncStatus,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -4858,7 +6078,9 @@ class DeckSynergy extends DataClass implements Insertable<DeckSynergy> {
           other.synergyName == this.synergyName &&
           other.vaultItemIds == this.vaultItemIds &&
           other.isDeleted == this.isDeleted &&
-          other.updatedAt == this.updatedAt);
+          other.updatedAt == this.updatedAt &&
+          other.deletedAt == this.deletedAt &&
+          other.syncStatus == this.syncStatus);
 }
 
 class DeckSynergiesCompanion extends UpdateCompanion<DeckSynergy> {
@@ -4868,6 +6090,8 @@ class DeckSynergiesCompanion extends UpdateCompanion<DeckSynergy> {
   final Value<String> vaultItemIds;
   final Value<bool> isDeleted;
   final Value<DateTime?> updatedAt;
+  final Value<DateTime?> deletedAt;
+  final Value<String?> syncStatus;
   final Value<int> rowid;
   const DeckSynergiesCompanion({
     this.id = const Value.absent(),
@@ -4876,6 +6100,8 @@ class DeckSynergiesCompanion extends UpdateCompanion<DeckSynergy> {
     this.vaultItemIds = const Value.absent(),
     this.isDeleted = const Value.absent(),
     this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.syncStatus = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   DeckSynergiesCompanion.insert({
@@ -4885,6 +6111,8 @@ class DeckSynergiesCompanion extends UpdateCompanion<DeckSynergy> {
     required String vaultItemIds,
     this.isDeleted = const Value.absent(),
     this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.syncStatus = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        deckId = Value(deckId),
@@ -4897,6 +6125,8 @@ class DeckSynergiesCompanion extends UpdateCompanion<DeckSynergy> {
     Expression<String>? vaultItemIds,
     Expression<bool>? isDeleted,
     Expression<DateTime>? updatedAt,
+    Expression<DateTime>? deletedAt,
+    Expression<String>? syncStatus,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -4906,6 +6136,8 @@ class DeckSynergiesCompanion extends UpdateCompanion<DeckSynergy> {
       if (vaultItemIds != null) 'vault_item_ids': vaultItemIds,
       if (isDeleted != null) 'is_deleted': isDeleted,
       if (updatedAt != null) 'updated_at': updatedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (syncStatus != null) 'sync_status': syncStatus,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -4917,6 +6149,8 @@ class DeckSynergiesCompanion extends UpdateCompanion<DeckSynergy> {
     Value<String>? vaultItemIds,
     Value<bool>? isDeleted,
     Value<DateTime?>? updatedAt,
+    Value<DateTime?>? deletedAt,
+    Value<String?>? syncStatus,
     Value<int>? rowid,
   }) {
     return DeckSynergiesCompanion(
@@ -4926,6 +6160,8 @@ class DeckSynergiesCompanion extends UpdateCompanion<DeckSynergy> {
       vaultItemIds: vaultItemIds ?? this.vaultItemIds,
       isDeleted: isDeleted ?? this.isDeleted,
       updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      syncStatus: syncStatus ?? this.syncStatus,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -4951,6 +6187,12 @@ class DeckSynergiesCompanion extends UpdateCompanion<DeckSynergy> {
     if (updatedAt.present) {
       map['updated_at'] = Variable<DateTime>(updatedAt.value);
     }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
+    if (syncStatus.present) {
+      map['sync_status'] = Variable<String>(syncStatus.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -4966,6 +6208,8 @@ class DeckSynergiesCompanion extends UpdateCompanion<DeckSynergy> {
           ..write('vaultItemIds: $vaultItemIds, ')
           ..write('isDeleted: $isDeleted, ')
           ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('syncStatus: $syncStatus, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -8582,6 +9826,17 @@ class $ExploreDecksTable extends ExploreDecks
     requiredDuringInsert: false,
     defaultValue: const Constant('Wizards of the Coast'),
   );
+  static const VerificationMeta _authorIdMeta = const VerificationMeta(
+    'authorId',
+  );
+  @override
+  late final GeneratedColumn<String> authorId = GeneratedColumn<String>(
+    'author_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _descriptionMeta = const VerificationMeta(
     'description',
   );
@@ -8784,6 +10039,7 @@ class $ExploreDecksTable extends ExploreDecks
     tcgDomain,
     sourceType,
     creatorName,
+    authorId,
     description,
     commanderName,
     commanderImageUrl,
@@ -8854,6 +10110,12 @@ class $ExploreDecksTable extends ExploreDecks
           data['creator_name']!,
           _creatorNameMeta,
         ),
+      );
+    }
+    if (data.containsKey('author_id')) {
+      context.handle(
+        _authorIdMeta,
+        authorId.isAcceptableOrUnknown(data['author_id']!, _authorIdMeta),
       );
     }
     if (data.containsKey('description')) {
@@ -9020,6 +10282,10 @@ class $ExploreDecksTable extends ExploreDecks
         DriftSqlType.string,
         data['${effectivePrefix}creator_name'],
       )!,
+      authorId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}author_id'],
+      ),
       description: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}description'],
@@ -9116,6 +10382,9 @@ class ExploreDeck extends DataClass implements Insertable<ExploreDeck> {
   /// Creator username or publisher (e.g. 'Wizards of the Coast', '@SpicyBrewMaster', '@EDH_Rec_Fanatic', '@DraftGuru')
   final String creatorName;
 
+  /// Author profile ID for user-shared decks (linked to user_profiles table)
+  final String? authorId;
+
   /// Deck description, primer summary, or strategy notes
   final String? description;
 
@@ -9173,6 +10442,7 @@ class ExploreDeck extends DataClass implements Insertable<ExploreDeck> {
     required this.tcgDomain,
     required this.sourceType,
     required this.creatorName,
+    this.authorId,
     this.description,
     this.commanderName,
     this.commanderImageUrl,
@@ -9200,6 +10470,9 @@ class ExploreDeck extends DataClass implements Insertable<ExploreDeck> {
     map['tcg_domain'] = Variable<String>(tcgDomain);
     map['source_type'] = Variable<String>(sourceType);
     map['creator_name'] = Variable<String>(creatorName);
+    if (!nullToAbsent || authorId != null) {
+      map['author_id'] = Variable<String>(authorId);
+    }
     if (!nullToAbsent || description != null) {
       map['description'] = Variable<String>(description);
     }
@@ -9246,6 +10519,9 @@ class ExploreDeck extends DataClass implements Insertable<ExploreDeck> {
       tcgDomain: Value(tcgDomain),
       sourceType: Value(sourceType),
       creatorName: Value(creatorName),
+      authorId: authorId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(authorId),
       description: description == null && nullToAbsent
           ? const Value.absent()
           : Value(description),
@@ -9294,6 +10570,7 @@ class ExploreDeck extends DataClass implements Insertable<ExploreDeck> {
       tcgDomain: serializer.fromJson<String>(json['tcgDomain']),
       sourceType: serializer.fromJson<String>(json['sourceType']),
       creatorName: serializer.fromJson<String>(json['creatorName']),
+      authorId: serializer.fromJson<String?>(json['authorId']),
       description: serializer.fromJson<String?>(json['description']),
       commanderName: serializer.fromJson<String?>(json['commanderName']),
       commanderImageUrl: serializer.fromJson<String?>(
@@ -9325,6 +10602,7 @@ class ExploreDeck extends DataClass implements Insertable<ExploreDeck> {
       'tcgDomain': serializer.toJson<String>(tcgDomain),
       'sourceType': serializer.toJson<String>(sourceType),
       'creatorName': serializer.toJson<String>(creatorName),
+      'authorId': serializer.toJson<String?>(authorId),
       'description': serializer.toJson<String?>(description),
       'commanderName': serializer.toJson<String?>(commanderName),
       'commanderImageUrl': serializer.toJson<String?>(commanderImageUrl),
@@ -9352,6 +10630,7 @@ class ExploreDeck extends DataClass implements Insertable<ExploreDeck> {
     String? tcgDomain,
     String? sourceType,
     String? creatorName,
+    Value<String?> authorId = const Value.absent(),
     Value<String?> description = const Value.absent(),
     Value<String?> commanderName = const Value.absent(),
     Value<String?> commanderImageUrl = const Value.absent(),
@@ -9376,6 +10655,7 @@ class ExploreDeck extends DataClass implements Insertable<ExploreDeck> {
     tcgDomain: tcgDomain ?? this.tcgDomain,
     sourceType: sourceType ?? this.sourceType,
     creatorName: creatorName ?? this.creatorName,
+    authorId: authorId.present ? authorId.value : this.authorId,
     description: description.present ? description.value : this.description,
     commanderName: commanderName.present
         ? commanderName.value
@@ -9414,6 +10694,7 @@ class ExploreDeck extends DataClass implements Insertable<ExploreDeck> {
       creatorName: data.creatorName.present
           ? data.creatorName.value
           : this.creatorName,
+      authorId: data.authorId.present ? data.authorId.value : this.authorId,
       description: data.description.present
           ? data.description.value
           : this.description,
@@ -9461,6 +10742,7 @@ class ExploreDeck extends DataClass implements Insertable<ExploreDeck> {
           ..write('tcgDomain: $tcgDomain, ')
           ..write('sourceType: $sourceType, ')
           ..write('creatorName: $creatorName, ')
+          ..write('authorId: $authorId, ')
           ..write('description: $description, ')
           ..write('commanderName: $commanderName, ')
           ..write('commanderImageUrl: $commanderImageUrl, ')
@@ -9490,6 +10772,7 @@ class ExploreDeck extends DataClass implements Insertable<ExploreDeck> {
     tcgDomain,
     sourceType,
     creatorName,
+    authorId,
     description,
     commanderName,
     commanderImageUrl,
@@ -9518,6 +10801,7 @@ class ExploreDeck extends DataClass implements Insertable<ExploreDeck> {
           other.tcgDomain == this.tcgDomain &&
           other.sourceType == this.sourceType &&
           other.creatorName == this.creatorName &&
+          other.authorId == this.authorId &&
           other.description == this.description &&
           other.commanderName == this.commanderName &&
           other.commanderImageUrl == this.commanderImageUrl &&
@@ -9544,6 +10828,7 @@ class ExploreDecksCompanion extends UpdateCompanion<ExploreDeck> {
   final Value<String> tcgDomain;
   final Value<String> sourceType;
   final Value<String> creatorName;
+  final Value<String?> authorId;
   final Value<String?> description;
   final Value<String?> commanderName;
   final Value<String?> commanderImageUrl;
@@ -9569,6 +10854,7 @@ class ExploreDecksCompanion extends UpdateCompanion<ExploreDeck> {
     this.tcgDomain = const Value.absent(),
     this.sourceType = const Value.absent(),
     this.creatorName = const Value.absent(),
+    this.authorId = const Value.absent(),
     this.description = const Value.absent(),
     this.commanderName = const Value.absent(),
     this.commanderImageUrl = const Value.absent(),
@@ -9595,6 +10881,7 @@ class ExploreDecksCompanion extends UpdateCompanion<ExploreDeck> {
     this.tcgDomain = const Value.absent(),
     this.sourceType = const Value.absent(),
     this.creatorName = const Value.absent(),
+    this.authorId = const Value.absent(),
     this.description = const Value.absent(),
     this.commanderName = const Value.absent(),
     this.commanderImageUrl = const Value.absent(),
@@ -9624,6 +10911,7 @@ class ExploreDecksCompanion extends UpdateCompanion<ExploreDeck> {
     Expression<String>? tcgDomain,
     Expression<String>? sourceType,
     Expression<String>? creatorName,
+    Expression<String>? authorId,
     Expression<String>? description,
     Expression<String>? commanderName,
     Expression<String>? commanderImageUrl,
@@ -9650,6 +10938,7 @@ class ExploreDecksCompanion extends UpdateCompanion<ExploreDeck> {
       if (tcgDomain != null) 'tcg_domain': tcgDomain,
       if (sourceType != null) 'source_type': sourceType,
       if (creatorName != null) 'creator_name': creatorName,
+      if (authorId != null) 'author_id': authorId,
       if (description != null) 'description': description,
       if (commanderName != null) 'commander_name': commanderName,
       if (commanderImageUrl != null) 'commander_image_url': commanderImageUrl,
@@ -9678,6 +10967,7 @@ class ExploreDecksCompanion extends UpdateCompanion<ExploreDeck> {
     Value<String>? tcgDomain,
     Value<String>? sourceType,
     Value<String>? creatorName,
+    Value<String?>? authorId,
     Value<String?>? description,
     Value<String?>? commanderName,
     Value<String?>? commanderImageUrl,
@@ -9704,6 +10994,7 @@ class ExploreDecksCompanion extends UpdateCompanion<ExploreDeck> {
       tcgDomain: tcgDomain ?? this.tcgDomain,
       sourceType: sourceType ?? this.sourceType,
       creatorName: creatorName ?? this.creatorName,
+      authorId: authorId ?? this.authorId,
       description: description ?? this.description,
       commanderName: commanderName ?? this.commanderName,
       commanderImageUrl: commanderImageUrl ?? this.commanderImageUrl,
@@ -9745,6 +11036,9 @@ class ExploreDecksCompanion extends UpdateCompanion<ExploreDeck> {
     }
     if (creatorName.present) {
       map['creator_name'] = Variable<String>(creatorName.value);
+    }
+    if (authorId.present) {
+      map['author_id'] = Variable<String>(authorId.value);
     }
     if (description.present) {
       map['description'] = Variable<String>(description.value);
@@ -9812,6 +11106,7 @@ class ExploreDecksCompanion extends UpdateCompanion<ExploreDeck> {
           ..write('tcgDomain: $tcgDomain, ')
           ..write('sourceType: $sourceType, ')
           ..write('creatorName: $creatorName, ')
+          ..write('authorId: $authorId, ')
           ..write('description: $description, ')
           ..write('commanderName: $commanderName, ')
           ..write('commanderImageUrl: $commanderImageUrl, ')
@@ -10897,6 +12192,44 @@ class $ExploreDeckVotesTable extends ExploreDeckVotes
     type: DriftSqlType.dateTime,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _isDeletedMeta = const VerificationMeta(
+    'isDeleted',
+  );
+  @override
+  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
+    'is_deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _syncStatusMeta = const VerificationMeta(
+    'syncStatus',
+  );
+  @override
+  late final GeneratedColumn<String> syncStatus = GeneratedColumn<String>(
+    'sync_status',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('synced'),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -10904,6 +12237,9 @@ class $ExploreDeckVotesTable extends ExploreDeckVotes
     userId,
     vote,
     updatedAt,
+    isDeleted,
+    deletedAt,
+    syncStatus,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -10953,6 +12289,24 @@ class $ExploreDeckVotesTable extends ExploreDeckVotes
     } else if (isInserting) {
       context.missing(_updatedAtMeta);
     }
+    if (data.containsKey('is_deleted')) {
+      context.handle(
+        _isDeletedMeta,
+        isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
+      );
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    if (data.containsKey('sync_status')) {
+      context.handle(
+        _syncStatusMeta,
+        syncStatus.isAcceptableOrUnknown(data['sync_status']!, _syncStatusMeta),
+      );
+    }
     return context;
   }
 
@@ -10986,6 +12340,18 @@ class $ExploreDeckVotesTable extends ExploreDeckVotes
         DriftSqlType.dateTime,
         data['${effectivePrefix}updated_at'],
       )!,
+      isDeleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_deleted'],
+      )!,
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
+      syncStatus: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sync_status'],
+      ),
     );
   }
 
@@ -11010,12 +12376,20 @@ class ExploreDeckVote extends DataClass implements Insertable<ExploreDeckVote> {
 
   /// Timestamp when vote was recorded or updated
   final DateTime updatedAt;
+
+  /// Soft Delete & Outbox Sync (v12 / Epic 5)
+  final bool isDeleted;
+  final DateTime? deletedAt;
+  final String? syncStatus;
   const ExploreDeckVote({
     required this.id,
     required this.exploreDeckId,
     required this.userId,
     required this.vote,
     required this.updatedAt,
+    required this.isDeleted,
+    this.deletedAt,
+    this.syncStatus,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -11025,6 +12399,13 @@ class ExploreDeckVote extends DataClass implements Insertable<ExploreDeckVote> {
     map['user_id'] = Variable<String>(userId);
     map['vote'] = Variable<int>(vote);
     map['updated_at'] = Variable<DateTime>(updatedAt);
+    map['is_deleted'] = Variable<bool>(isDeleted);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
+    if (!nullToAbsent || syncStatus != null) {
+      map['sync_status'] = Variable<String>(syncStatus);
+    }
     return map;
   }
 
@@ -11035,6 +12416,13 @@ class ExploreDeckVote extends DataClass implements Insertable<ExploreDeckVote> {
       userId: Value(userId),
       vote: Value(vote),
       updatedAt: Value(updatedAt),
+      isDeleted: Value(isDeleted),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+      syncStatus: syncStatus == null && nullToAbsent
+          ? const Value.absent()
+          : Value(syncStatus),
     );
   }
 
@@ -11049,6 +12437,9 @@ class ExploreDeckVote extends DataClass implements Insertable<ExploreDeckVote> {
       userId: serializer.fromJson<String>(json['userId']),
       vote: serializer.fromJson<int>(json['vote']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+      syncStatus: serializer.fromJson<String?>(json['syncStatus']),
     );
   }
   @override
@@ -11060,6 +12451,9 @@ class ExploreDeckVote extends DataClass implements Insertable<ExploreDeckVote> {
       'userId': serializer.toJson<String>(userId),
       'vote': serializer.toJson<int>(vote),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'isDeleted': serializer.toJson<bool>(isDeleted),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+      'syncStatus': serializer.toJson<String?>(syncStatus),
     };
   }
 
@@ -11069,12 +12463,18 @@ class ExploreDeckVote extends DataClass implements Insertable<ExploreDeckVote> {
     String? userId,
     int? vote,
     DateTime? updatedAt,
+    bool? isDeleted,
+    Value<DateTime?> deletedAt = const Value.absent(),
+    Value<String?> syncStatus = const Value.absent(),
   }) => ExploreDeckVote(
     id: id ?? this.id,
     exploreDeckId: exploreDeckId ?? this.exploreDeckId,
     userId: userId ?? this.userId,
     vote: vote ?? this.vote,
     updatedAt: updatedAt ?? this.updatedAt,
+    isDeleted: isDeleted ?? this.isDeleted,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+    syncStatus: syncStatus.present ? syncStatus.value : this.syncStatus,
   );
   ExploreDeckVote copyWithCompanion(ExploreDeckVotesCompanion data) {
     return ExploreDeckVote(
@@ -11085,6 +12485,11 @@ class ExploreDeckVote extends DataClass implements Insertable<ExploreDeckVote> {
       userId: data.userId.present ? data.userId.value : this.userId,
       vote: data.vote.present ? data.vote.value : this.vote,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+      syncStatus: data.syncStatus.present
+          ? data.syncStatus.value
+          : this.syncStatus,
     );
   }
 
@@ -11095,13 +12500,25 @@ class ExploreDeckVote extends DataClass implements Insertable<ExploreDeckVote> {
           ..write('exploreDeckId: $exploreDeckId, ')
           ..write('userId: $userId, ')
           ..write('vote: $vote, ')
-          ..write('updatedAt: $updatedAt')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('syncStatus: $syncStatus')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, exploreDeckId, userId, vote, updatedAt);
+  int get hashCode => Object.hash(
+    id,
+    exploreDeckId,
+    userId,
+    vote,
+    updatedAt,
+    isDeleted,
+    deletedAt,
+    syncStatus,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -11110,7 +12527,10 @@ class ExploreDeckVote extends DataClass implements Insertable<ExploreDeckVote> {
           other.exploreDeckId == this.exploreDeckId &&
           other.userId == this.userId &&
           other.vote == this.vote &&
-          other.updatedAt == this.updatedAt);
+          other.updatedAt == this.updatedAt &&
+          other.isDeleted == this.isDeleted &&
+          other.deletedAt == this.deletedAt &&
+          other.syncStatus == this.syncStatus);
 }
 
 class ExploreDeckVotesCompanion extends UpdateCompanion<ExploreDeckVote> {
@@ -11119,6 +12539,9 @@ class ExploreDeckVotesCompanion extends UpdateCompanion<ExploreDeckVote> {
   final Value<String> userId;
   final Value<int> vote;
   final Value<DateTime> updatedAt;
+  final Value<bool> isDeleted;
+  final Value<DateTime?> deletedAt;
+  final Value<String?> syncStatus;
   final Value<int> rowid;
   const ExploreDeckVotesCompanion({
     this.id = const Value.absent(),
@@ -11126,6 +12549,9 @@ class ExploreDeckVotesCompanion extends UpdateCompanion<ExploreDeckVote> {
     this.userId = const Value.absent(),
     this.vote = const Value.absent(),
     this.updatedAt = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.syncStatus = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   ExploreDeckVotesCompanion.insert({
@@ -11134,6 +12560,9 @@ class ExploreDeckVotesCompanion extends UpdateCompanion<ExploreDeckVote> {
     this.userId = const Value.absent(),
     this.vote = const Value.absent(),
     required DateTime updatedAt,
+    this.isDeleted = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.syncStatus = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        exploreDeckId = Value(exploreDeckId),
@@ -11144,6 +12573,9 @@ class ExploreDeckVotesCompanion extends UpdateCompanion<ExploreDeckVote> {
     Expression<String>? userId,
     Expression<int>? vote,
     Expression<DateTime>? updatedAt,
+    Expression<bool>? isDeleted,
+    Expression<DateTime>? deletedAt,
+    Expression<String>? syncStatus,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -11152,6 +12584,9 @@ class ExploreDeckVotesCompanion extends UpdateCompanion<ExploreDeckVote> {
       if (userId != null) 'user_id': userId,
       if (vote != null) 'vote': vote,
       if (updatedAt != null) 'updated_at': updatedAt,
+      if (isDeleted != null) 'is_deleted': isDeleted,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (syncStatus != null) 'sync_status': syncStatus,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -11162,6 +12597,9 @@ class ExploreDeckVotesCompanion extends UpdateCompanion<ExploreDeckVote> {
     Value<String>? userId,
     Value<int>? vote,
     Value<DateTime>? updatedAt,
+    Value<bool>? isDeleted,
+    Value<DateTime?>? deletedAt,
+    Value<String?>? syncStatus,
     Value<int>? rowid,
   }) {
     return ExploreDeckVotesCompanion(
@@ -11170,6 +12608,9 @@ class ExploreDeckVotesCompanion extends UpdateCompanion<ExploreDeckVote> {
       userId: userId ?? this.userId,
       vote: vote ?? this.vote,
       updatedAt: updatedAt ?? this.updatedAt,
+      isDeleted: isDeleted ?? this.isDeleted,
+      deletedAt: deletedAt ?? this.deletedAt,
+      syncStatus: syncStatus ?? this.syncStatus,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -11192,6 +12633,15 @@ class ExploreDeckVotesCompanion extends UpdateCompanion<ExploreDeckVote> {
     if (updatedAt.present) {
       map['updated_at'] = Variable<DateTime>(updatedAt.value);
     }
+    if (isDeleted.present) {
+      map['is_deleted'] = Variable<bool>(isDeleted.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
+    if (syncStatus.present) {
+      map['sync_status'] = Variable<String>(syncStatus.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -11206,6 +12656,10815 @@ class ExploreDeckVotesCompanion extends UpdateCompanion<ExploreDeckVote> {
           ..write('userId: $userId, ')
           ..write('vote: $vote, ')
           ..write('updatedAt: $updatedAt, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('syncStatus: $syncStatus, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $UserProfilesTable extends UserProfiles
+    with TableInfo<$UserProfilesTable, UserProfile> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $UserProfilesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _usernameMeta = const VerificationMeta(
+    'username',
+  );
+  @override
+  late final GeneratedColumn<String> username = GeneratedColumn<String>(
+    'username',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _displayNameMeta = const VerificationMeta(
+    'displayName',
+  );
+  @override
+  late final GeneratedColumn<String> displayName = GeneratedColumn<String>(
+    'display_name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _bioMeta = const VerificationMeta('bio');
+  @override
+  late final GeneratedColumn<String> bio = GeneratedColumn<String>(
+    'bio',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _avatarUrlMeta = const VerificationMeta(
+    'avatarUrl',
+  );
+  @override
+  late final GeneratedColumn<String> avatarUrl = GeneratedColumn<String>(
+    'avatar_url',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _bannerUrlMeta = const VerificationMeta(
+    'bannerUrl',
+  );
+  @override
+  late final GeneratedColumn<String> bannerUrl = GeneratedColumn<String>(
+    'banner_url',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _accountTypeMeta = const VerificationMeta(
+    'accountType',
+  );
+  @override
+  late final GeneratedColumn<String> accountType = GeneratedColumn<String>(
+    'account_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('individual'),
+  );
+  static const VerificationMeta _isVerifiedBusinessMeta =
+      const VerificationMeta('isVerifiedBusiness');
+  @override
+  late final GeneratedColumn<bool> isVerifiedBusiness = GeneratedColumn<bool>(
+    'is_verified_business',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_verified_business" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _storeAddressMeta = const VerificationMeta(
+    'storeAddress',
+  );
+  @override
+  late final GeneratedColumn<String> storeAddress = GeneratedColumn<String>(
+    'store_address',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _storePhoneMeta = const VerificationMeta(
+    'storePhone',
+  );
+  @override
+  late final GeneratedColumn<String> storePhone = GeneratedColumn<String>(
+    'store_phone',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _storeWebsiteMeta = const VerificationMeta(
+    'storeWebsite',
+  );
+  @override
+  late final GeneratedColumn<String> storeWebsite = GeneratedColumn<String>(
+    'store_website',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _friendCountMeta = const VerificationMeta(
+    'friendCount',
+  );
+  @override
+  late final GeneratedColumn<int> friendCount = GeneratedColumn<int>(
+    'friend_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _repCountMeta = const VerificationMeta(
+    'repCount',
+  );
+  @override
+  late final GeneratedColumn<int> repCount = GeneratedColumn<int>(
+    'rep_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _tierMeta = const VerificationMeta('tier');
+  @override
+  late final GeneratedColumn<String> tier = GeneratedColumn<String>(
+    'tier',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('free'),
+  );
+  static const VerificationMeta _syncStatusMeta = const VerificationMeta(
+    'syncStatus',
+  );
+  @override
+  late final GeneratedColumn<String> syncStatus = GeneratedColumn<String>(
+    'sync_status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('synced'),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _isDeletedMeta = const VerificationMeta(
+    'isDeleted',
+  );
+  @override
+  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
+    'is_deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _collectionVisibilityMeta =
+      const VerificationMeta('collectionVisibility');
+  @override
+  late final GeneratedColumn<String> collectionVisibility =
+      GeneratedColumn<String>(
+        'collection_visibility',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant('public'),
+      );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    username,
+    displayName,
+    bio,
+    avatarUrl,
+    bannerUrl,
+    accountType,
+    isVerifiedBusiness,
+    storeAddress,
+    storePhone,
+    storeWebsite,
+    friendCount,
+    repCount,
+    tier,
+    syncStatus,
+    createdAt,
+    updatedAt,
+    deletedAt,
+    isDeleted,
+    collectionVisibility,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'user_profiles';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<UserProfile> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('username')) {
+      context.handle(
+        _usernameMeta,
+        username.isAcceptableOrUnknown(data['username']!, _usernameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_usernameMeta);
+    }
+    if (data.containsKey('display_name')) {
+      context.handle(
+        _displayNameMeta,
+        displayName.isAcceptableOrUnknown(
+          data['display_name']!,
+          _displayNameMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_displayNameMeta);
+    }
+    if (data.containsKey('bio')) {
+      context.handle(
+        _bioMeta,
+        bio.isAcceptableOrUnknown(data['bio']!, _bioMeta),
+      );
+    }
+    if (data.containsKey('avatar_url')) {
+      context.handle(
+        _avatarUrlMeta,
+        avatarUrl.isAcceptableOrUnknown(data['avatar_url']!, _avatarUrlMeta),
+      );
+    }
+    if (data.containsKey('banner_url')) {
+      context.handle(
+        _bannerUrlMeta,
+        bannerUrl.isAcceptableOrUnknown(data['banner_url']!, _bannerUrlMeta),
+      );
+    }
+    if (data.containsKey('account_type')) {
+      context.handle(
+        _accountTypeMeta,
+        accountType.isAcceptableOrUnknown(
+          data['account_type']!,
+          _accountTypeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('is_verified_business')) {
+      context.handle(
+        _isVerifiedBusinessMeta,
+        isVerifiedBusiness.isAcceptableOrUnknown(
+          data['is_verified_business']!,
+          _isVerifiedBusinessMeta,
+        ),
+      );
+    }
+    if (data.containsKey('store_address')) {
+      context.handle(
+        _storeAddressMeta,
+        storeAddress.isAcceptableOrUnknown(
+          data['store_address']!,
+          _storeAddressMeta,
+        ),
+      );
+    }
+    if (data.containsKey('store_phone')) {
+      context.handle(
+        _storePhoneMeta,
+        storePhone.isAcceptableOrUnknown(data['store_phone']!, _storePhoneMeta),
+      );
+    }
+    if (data.containsKey('store_website')) {
+      context.handle(
+        _storeWebsiteMeta,
+        storeWebsite.isAcceptableOrUnknown(
+          data['store_website']!,
+          _storeWebsiteMeta,
+        ),
+      );
+    }
+    if (data.containsKey('friend_count')) {
+      context.handle(
+        _friendCountMeta,
+        friendCount.isAcceptableOrUnknown(
+          data['friend_count']!,
+          _friendCountMeta,
+        ),
+      );
+    }
+    if (data.containsKey('rep_count')) {
+      context.handle(
+        _repCountMeta,
+        repCount.isAcceptableOrUnknown(data['rep_count']!, _repCountMeta),
+      );
+    }
+    if (data.containsKey('tier')) {
+      context.handle(
+        _tierMeta,
+        tier.isAcceptableOrUnknown(data['tier']!, _tierMeta),
+      );
+    }
+    if (data.containsKey('sync_status')) {
+      context.handle(
+        _syncStatusMeta,
+        syncStatus.isAcceptableOrUnknown(data['sync_status']!, _syncStatusMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    if (data.containsKey('is_deleted')) {
+      context.handle(
+        _isDeletedMeta,
+        isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
+      );
+    }
+    if (data.containsKey('collection_visibility')) {
+      context.handle(
+        _collectionVisibilityMeta,
+        collectionVisibility.isAcceptableOrUnknown(
+          data['collection_visibility']!,
+          _collectionVisibilityMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  UserProfile map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return UserProfile(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      username: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}username'],
+      )!,
+      displayName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}display_name'],
+      )!,
+      bio: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}bio'],
+      ),
+      avatarUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}avatar_url'],
+      ),
+      bannerUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}banner_url'],
+      ),
+      accountType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}account_type'],
+      )!,
+      isVerifiedBusiness: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_verified_business'],
+      )!,
+      storeAddress: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}store_address'],
+      ),
+      storePhone: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}store_phone'],
+      ),
+      storeWebsite: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}store_website'],
+      ),
+      friendCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}friend_count'],
+      )!,
+      repCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}rep_count'],
+      )!,
+      tier: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}tier'],
+      )!,
+      syncStatus: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sync_status'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      ),
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
+      isDeleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_deleted'],
+      )!,
+      collectionVisibility: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}collection_visibility'],
+      )!,
+    );
+  }
+
+  @override
+  $UserProfilesTable createAlias(String alias) {
+    return $UserProfilesTable(attachedDatabase, alias);
+  }
+}
+
+class UserProfile extends DataClass implements Insertable<UserProfile> {
+  /// Unique identifier (e.g. 'user-edh-rec-fanatic', 'store-tbs-comics', 'user-current-me')
+  final String id;
+
+  /// Unique handle (e.g. '@EDH_Rec_Fanatic' or 'EDH_Rec_Fanatic')
+  final String username;
+
+  /// Display name shown across feed, profile, and search
+  final String displayName;
+
+  /// Biography or store tagline
+  final String? bio;
+
+  /// URL to circular avatar picture
+  final String? avatarUrl;
+
+  /// URL to profile cover banner
+  final String? bannerUrl;
+
+  /// 'individual' or 'business'
+  final String accountType;
+
+  /// True if verified Local Game Store or business entity
+  final bool isVerifiedBusiness;
+
+  /// Physical street address, city, state, zip for LGS
+  final String? storeAddress;
+
+  /// Contact phone number for store
+  final String? storePhone;
+
+  /// Store website domain
+  final String? storeWebsite;
+
+  /// Total friends count
+  final int friendCount;
+
+  /// Community reputation score / vouches
+  final int repCount;
+
+  /// Account tier: 'guest', 'free', 'pro', 'business'
+  final String tier;
+
+  /// Sync status: 'synced', 'pending_create', 'pending_update', 'pending_delete'
+  final String syncStatus;
+
+  /// Creation timestamp
+  final DateTime createdAt;
+
+  /// Last modification timestamp
+  final DateTime? updatedAt;
+
+  /// Soft delete tombstone timestamp
+  final DateTime? deletedAt;
+
+  /// Soft delete flag
+  final bool isDeleted;
+
+  /// Collection visibility in trade builder and discovery:
+  /// 'public' -> Other users can browse full collection and trade binder
+  /// 'private' -> Other users are restricted strictly to Trade Binder
+  final String collectionVisibility;
+  const UserProfile({
+    required this.id,
+    required this.username,
+    required this.displayName,
+    this.bio,
+    this.avatarUrl,
+    this.bannerUrl,
+    required this.accountType,
+    required this.isVerifiedBusiness,
+    this.storeAddress,
+    this.storePhone,
+    this.storeWebsite,
+    required this.friendCount,
+    required this.repCount,
+    required this.tier,
+    required this.syncStatus,
+    required this.createdAt,
+    this.updatedAt,
+    this.deletedAt,
+    required this.isDeleted,
+    required this.collectionVisibility,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['username'] = Variable<String>(username);
+    map['display_name'] = Variable<String>(displayName);
+    if (!nullToAbsent || bio != null) {
+      map['bio'] = Variable<String>(bio);
+    }
+    if (!nullToAbsent || avatarUrl != null) {
+      map['avatar_url'] = Variable<String>(avatarUrl);
+    }
+    if (!nullToAbsent || bannerUrl != null) {
+      map['banner_url'] = Variable<String>(bannerUrl);
+    }
+    map['account_type'] = Variable<String>(accountType);
+    map['is_verified_business'] = Variable<bool>(isVerifiedBusiness);
+    if (!nullToAbsent || storeAddress != null) {
+      map['store_address'] = Variable<String>(storeAddress);
+    }
+    if (!nullToAbsent || storePhone != null) {
+      map['store_phone'] = Variable<String>(storePhone);
+    }
+    if (!nullToAbsent || storeWebsite != null) {
+      map['store_website'] = Variable<String>(storeWebsite);
+    }
+    map['friend_count'] = Variable<int>(friendCount);
+    map['rep_count'] = Variable<int>(repCount);
+    map['tier'] = Variable<String>(tier);
+    map['sync_status'] = Variable<String>(syncStatus);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    if (!nullToAbsent || updatedAt != null) {
+      map['updated_at'] = Variable<DateTime>(updatedAt);
+    }
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
+    map['is_deleted'] = Variable<bool>(isDeleted);
+    map['collection_visibility'] = Variable<String>(collectionVisibility);
+    return map;
+  }
+
+  UserProfilesCompanion toCompanion(bool nullToAbsent) {
+    return UserProfilesCompanion(
+      id: Value(id),
+      username: Value(username),
+      displayName: Value(displayName),
+      bio: bio == null && nullToAbsent ? const Value.absent() : Value(bio),
+      avatarUrl: avatarUrl == null && nullToAbsent
+          ? const Value.absent()
+          : Value(avatarUrl),
+      bannerUrl: bannerUrl == null && nullToAbsent
+          ? const Value.absent()
+          : Value(bannerUrl),
+      accountType: Value(accountType),
+      isVerifiedBusiness: Value(isVerifiedBusiness),
+      storeAddress: storeAddress == null && nullToAbsent
+          ? const Value.absent()
+          : Value(storeAddress),
+      storePhone: storePhone == null && nullToAbsent
+          ? const Value.absent()
+          : Value(storePhone),
+      storeWebsite: storeWebsite == null && nullToAbsent
+          ? const Value.absent()
+          : Value(storeWebsite),
+      friendCount: Value(friendCount),
+      repCount: Value(repCount),
+      tier: Value(tier),
+      syncStatus: Value(syncStatus),
+      createdAt: Value(createdAt),
+      updatedAt: updatedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(updatedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+      isDeleted: Value(isDeleted),
+      collectionVisibility: Value(collectionVisibility),
+    );
+  }
+
+  factory UserProfile.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return UserProfile(
+      id: serializer.fromJson<String>(json['id']),
+      username: serializer.fromJson<String>(json['username']),
+      displayName: serializer.fromJson<String>(json['displayName']),
+      bio: serializer.fromJson<String?>(json['bio']),
+      avatarUrl: serializer.fromJson<String?>(json['avatarUrl']),
+      bannerUrl: serializer.fromJson<String?>(json['bannerUrl']),
+      accountType: serializer.fromJson<String>(json['accountType']),
+      isVerifiedBusiness: serializer.fromJson<bool>(json['isVerifiedBusiness']),
+      storeAddress: serializer.fromJson<String?>(json['storeAddress']),
+      storePhone: serializer.fromJson<String?>(json['storePhone']),
+      storeWebsite: serializer.fromJson<String?>(json['storeWebsite']),
+      friendCount: serializer.fromJson<int>(json['friendCount']),
+      repCount: serializer.fromJson<int>(json['repCount']),
+      tier: serializer.fromJson<String>(json['tier']),
+      syncStatus: serializer.fromJson<String>(json['syncStatus']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime?>(json['updatedAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+      collectionVisibility: serializer.fromJson<String>(
+        json['collectionVisibility'],
+      ),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'username': serializer.toJson<String>(username),
+      'displayName': serializer.toJson<String>(displayName),
+      'bio': serializer.toJson<String?>(bio),
+      'avatarUrl': serializer.toJson<String?>(avatarUrl),
+      'bannerUrl': serializer.toJson<String?>(bannerUrl),
+      'accountType': serializer.toJson<String>(accountType),
+      'isVerifiedBusiness': serializer.toJson<bool>(isVerifiedBusiness),
+      'storeAddress': serializer.toJson<String?>(storeAddress),
+      'storePhone': serializer.toJson<String?>(storePhone),
+      'storeWebsite': serializer.toJson<String?>(storeWebsite),
+      'friendCount': serializer.toJson<int>(friendCount),
+      'repCount': serializer.toJson<int>(repCount),
+      'tier': serializer.toJson<String>(tier),
+      'syncStatus': serializer.toJson<String>(syncStatus),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime?>(updatedAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+      'isDeleted': serializer.toJson<bool>(isDeleted),
+      'collectionVisibility': serializer.toJson<String>(collectionVisibility),
+    };
+  }
+
+  UserProfile copyWith({
+    String? id,
+    String? username,
+    String? displayName,
+    Value<String?> bio = const Value.absent(),
+    Value<String?> avatarUrl = const Value.absent(),
+    Value<String?> bannerUrl = const Value.absent(),
+    String? accountType,
+    bool? isVerifiedBusiness,
+    Value<String?> storeAddress = const Value.absent(),
+    Value<String?> storePhone = const Value.absent(),
+    Value<String?> storeWebsite = const Value.absent(),
+    int? friendCount,
+    int? repCount,
+    String? tier,
+    String? syncStatus,
+    DateTime? createdAt,
+    Value<DateTime?> updatedAt = const Value.absent(),
+    Value<DateTime?> deletedAt = const Value.absent(),
+    bool? isDeleted,
+    String? collectionVisibility,
+  }) => UserProfile(
+    id: id ?? this.id,
+    username: username ?? this.username,
+    displayName: displayName ?? this.displayName,
+    bio: bio.present ? bio.value : this.bio,
+    avatarUrl: avatarUrl.present ? avatarUrl.value : this.avatarUrl,
+    bannerUrl: bannerUrl.present ? bannerUrl.value : this.bannerUrl,
+    accountType: accountType ?? this.accountType,
+    isVerifiedBusiness: isVerifiedBusiness ?? this.isVerifiedBusiness,
+    storeAddress: storeAddress.present ? storeAddress.value : this.storeAddress,
+    storePhone: storePhone.present ? storePhone.value : this.storePhone,
+    storeWebsite: storeWebsite.present ? storeWebsite.value : this.storeWebsite,
+    friendCount: friendCount ?? this.friendCount,
+    repCount: repCount ?? this.repCount,
+    tier: tier ?? this.tier,
+    syncStatus: syncStatus ?? this.syncStatus,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+    isDeleted: isDeleted ?? this.isDeleted,
+    collectionVisibility: collectionVisibility ?? this.collectionVisibility,
+  );
+  UserProfile copyWithCompanion(UserProfilesCompanion data) {
+    return UserProfile(
+      id: data.id.present ? data.id.value : this.id,
+      username: data.username.present ? data.username.value : this.username,
+      displayName: data.displayName.present
+          ? data.displayName.value
+          : this.displayName,
+      bio: data.bio.present ? data.bio.value : this.bio,
+      avatarUrl: data.avatarUrl.present ? data.avatarUrl.value : this.avatarUrl,
+      bannerUrl: data.bannerUrl.present ? data.bannerUrl.value : this.bannerUrl,
+      accountType: data.accountType.present
+          ? data.accountType.value
+          : this.accountType,
+      isVerifiedBusiness: data.isVerifiedBusiness.present
+          ? data.isVerifiedBusiness.value
+          : this.isVerifiedBusiness,
+      storeAddress: data.storeAddress.present
+          ? data.storeAddress.value
+          : this.storeAddress,
+      storePhone: data.storePhone.present
+          ? data.storePhone.value
+          : this.storePhone,
+      storeWebsite: data.storeWebsite.present
+          ? data.storeWebsite.value
+          : this.storeWebsite,
+      friendCount: data.friendCount.present
+          ? data.friendCount.value
+          : this.friendCount,
+      repCount: data.repCount.present ? data.repCount.value : this.repCount,
+      tier: data.tier.present ? data.tier.value : this.tier,
+      syncStatus: data.syncStatus.present
+          ? data.syncStatus.value
+          : this.syncStatus,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+      collectionVisibility: data.collectionVisibility.present
+          ? data.collectionVisibility.value
+          : this.collectionVisibility,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('UserProfile(')
+          ..write('id: $id, ')
+          ..write('username: $username, ')
+          ..write('displayName: $displayName, ')
+          ..write('bio: $bio, ')
+          ..write('avatarUrl: $avatarUrl, ')
+          ..write('bannerUrl: $bannerUrl, ')
+          ..write('accountType: $accountType, ')
+          ..write('isVerifiedBusiness: $isVerifiedBusiness, ')
+          ..write('storeAddress: $storeAddress, ')
+          ..write('storePhone: $storePhone, ')
+          ..write('storeWebsite: $storeWebsite, ')
+          ..write('friendCount: $friendCount, ')
+          ..write('repCount: $repCount, ')
+          ..write('tier: $tier, ')
+          ..write('syncStatus: $syncStatus, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('collectionVisibility: $collectionVisibility')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    username,
+    displayName,
+    bio,
+    avatarUrl,
+    bannerUrl,
+    accountType,
+    isVerifiedBusiness,
+    storeAddress,
+    storePhone,
+    storeWebsite,
+    friendCount,
+    repCount,
+    tier,
+    syncStatus,
+    createdAt,
+    updatedAt,
+    deletedAt,
+    isDeleted,
+    collectionVisibility,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is UserProfile &&
+          other.id == this.id &&
+          other.username == this.username &&
+          other.displayName == this.displayName &&
+          other.bio == this.bio &&
+          other.avatarUrl == this.avatarUrl &&
+          other.bannerUrl == this.bannerUrl &&
+          other.accountType == this.accountType &&
+          other.isVerifiedBusiness == this.isVerifiedBusiness &&
+          other.storeAddress == this.storeAddress &&
+          other.storePhone == this.storePhone &&
+          other.storeWebsite == this.storeWebsite &&
+          other.friendCount == this.friendCount &&
+          other.repCount == this.repCount &&
+          other.tier == this.tier &&
+          other.syncStatus == this.syncStatus &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt &&
+          other.deletedAt == this.deletedAt &&
+          other.isDeleted == this.isDeleted &&
+          other.collectionVisibility == this.collectionVisibility);
+}
+
+class UserProfilesCompanion extends UpdateCompanion<UserProfile> {
+  final Value<String> id;
+  final Value<String> username;
+  final Value<String> displayName;
+  final Value<String?> bio;
+  final Value<String?> avatarUrl;
+  final Value<String?> bannerUrl;
+  final Value<String> accountType;
+  final Value<bool> isVerifiedBusiness;
+  final Value<String?> storeAddress;
+  final Value<String?> storePhone;
+  final Value<String?> storeWebsite;
+  final Value<int> friendCount;
+  final Value<int> repCount;
+  final Value<String> tier;
+  final Value<String> syncStatus;
+  final Value<DateTime> createdAt;
+  final Value<DateTime?> updatedAt;
+  final Value<DateTime?> deletedAt;
+  final Value<bool> isDeleted;
+  final Value<String> collectionVisibility;
+  final Value<int> rowid;
+  const UserProfilesCompanion({
+    this.id = const Value.absent(),
+    this.username = const Value.absent(),
+    this.displayName = const Value.absent(),
+    this.bio = const Value.absent(),
+    this.avatarUrl = const Value.absent(),
+    this.bannerUrl = const Value.absent(),
+    this.accountType = const Value.absent(),
+    this.isVerifiedBusiness = const Value.absent(),
+    this.storeAddress = const Value.absent(),
+    this.storePhone = const Value.absent(),
+    this.storeWebsite = const Value.absent(),
+    this.friendCount = const Value.absent(),
+    this.repCount = const Value.absent(),
+    this.tier = const Value.absent(),
+    this.syncStatus = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.collectionVisibility = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  UserProfilesCompanion.insert({
+    required String id,
+    required String username,
+    required String displayName,
+    this.bio = const Value.absent(),
+    this.avatarUrl = const Value.absent(),
+    this.bannerUrl = const Value.absent(),
+    this.accountType = const Value.absent(),
+    this.isVerifiedBusiness = const Value.absent(),
+    this.storeAddress = const Value.absent(),
+    this.storePhone = const Value.absent(),
+    this.storeWebsite = const Value.absent(),
+    this.friendCount = const Value.absent(),
+    this.repCount = const Value.absent(),
+    this.tier = const Value.absent(),
+    this.syncStatus = const Value.absent(),
+    required DateTime createdAt,
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.collectionVisibility = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       username = Value(username),
+       displayName = Value(displayName),
+       createdAt = Value(createdAt);
+  static Insertable<UserProfile> custom({
+    Expression<String>? id,
+    Expression<String>? username,
+    Expression<String>? displayName,
+    Expression<String>? bio,
+    Expression<String>? avatarUrl,
+    Expression<String>? bannerUrl,
+    Expression<String>? accountType,
+    Expression<bool>? isVerifiedBusiness,
+    Expression<String>? storeAddress,
+    Expression<String>? storePhone,
+    Expression<String>? storeWebsite,
+    Expression<int>? friendCount,
+    Expression<int>? repCount,
+    Expression<String>? tier,
+    Expression<String>? syncStatus,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<DateTime>? deletedAt,
+    Expression<bool>? isDeleted,
+    Expression<String>? collectionVisibility,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (username != null) 'username': username,
+      if (displayName != null) 'display_name': displayName,
+      if (bio != null) 'bio': bio,
+      if (avatarUrl != null) 'avatar_url': avatarUrl,
+      if (bannerUrl != null) 'banner_url': bannerUrl,
+      if (accountType != null) 'account_type': accountType,
+      if (isVerifiedBusiness != null)
+        'is_verified_business': isVerifiedBusiness,
+      if (storeAddress != null) 'store_address': storeAddress,
+      if (storePhone != null) 'store_phone': storePhone,
+      if (storeWebsite != null) 'store_website': storeWebsite,
+      if (friendCount != null) 'friend_count': friendCount,
+      if (repCount != null) 'rep_count': repCount,
+      if (tier != null) 'tier': tier,
+      if (syncStatus != null) 'sync_status': syncStatus,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (isDeleted != null) 'is_deleted': isDeleted,
+      if (collectionVisibility != null)
+        'collection_visibility': collectionVisibility,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  UserProfilesCompanion copyWith({
+    Value<String>? id,
+    Value<String>? username,
+    Value<String>? displayName,
+    Value<String?>? bio,
+    Value<String?>? avatarUrl,
+    Value<String?>? bannerUrl,
+    Value<String>? accountType,
+    Value<bool>? isVerifiedBusiness,
+    Value<String?>? storeAddress,
+    Value<String?>? storePhone,
+    Value<String?>? storeWebsite,
+    Value<int>? friendCount,
+    Value<int>? repCount,
+    Value<String>? tier,
+    Value<String>? syncStatus,
+    Value<DateTime>? createdAt,
+    Value<DateTime?>? updatedAt,
+    Value<DateTime?>? deletedAt,
+    Value<bool>? isDeleted,
+    Value<String>? collectionVisibility,
+    Value<int>? rowid,
+  }) {
+    return UserProfilesCompanion(
+      id: id ?? this.id,
+      username: username ?? this.username,
+      displayName: displayName ?? this.displayName,
+      bio: bio ?? this.bio,
+      avatarUrl: avatarUrl ?? this.avatarUrl,
+      bannerUrl: bannerUrl ?? this.bannerUrl,
+      accountType: accountType ?? this.accountType,
+      isVerifiedBusiness: isVerifiedBusiness ?? this.isVerifiedBusiness,
+      storeAddress: storeAddress ?? this.storeAddress,
+      storePhone: storePhone ?? this.storePhone,
+      storeWebsite: storeWebsite ?? this.storeWebsite,
+      friendCount: friendCount ?? this.friendCount,
+      repCount: repCount ?? this.repCount,
+      tier: tier ?? this.tier,
+      syncStatus: syncStatus ?? this.syncStatus,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      isDeleted: isDeleted ?? this.isDeleted,
+      collectionVisibility: collectionVisibility ?? this.collectionVisibility,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (username.present) {
+      map['username'] = Variable<String>(username.value);
+    }
+    if (displayName.present) {
+      map['display_name'] = Variable<String>(displayName.value);
+    }
+    if (bio.present) {
+      map['bio'] = Variable<String>(bio.value);
+    }
+    if (avatarUrl.present) {
+      map['avatar_url'] = Variable<String>(avatarUrl.value);
+    }
+    if (bannerUrl.present) {
+      map['banner_url'] = Variable<String>(bannerUrl.value);
+    }
+    if (accountType.present) {
+      map['account_type'] = Variable<String>(accountType.value);
+    }
+    if (isVerifiedBusiness.present) {
+      map['is_verified_business'] = Variable<bool>(isVerifiedBusiness.value);
+    }
+    if (storeAddress.present) {
+      map['store_address'] = Variable<String>(storeAddress.value);
+    }
+    if (storePhone.present) {
+      map['store_phone'] = Variable<String>(storePhone.value);
+    }
+    if (storeWebsite.present) {
+      map['store_website'] = Variable<String>(storeWebsite.value);
+    }
+    if (friendCount.present) {
+      map['friend_count'] = Variable<int>(friendCount.value);
+    }
+    if (repCount.present) {
+      map['rep_count'] = Variable<int>(repCount.value);
+    }
+    if (tier.present) {
+      map['tier'] = Variable<String>(tier.value);
+    }
+    if (syncStatus.present) {
+      map['sync_status'] = Variable<String>(syncStatus.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
+    if (isDeleted.present) {
+      map['is_deleted'] = Variable<bool>(isDeleted.value);
+    }
+    if (collectionVisibility.present) {
+      map['collection_visibility'] = Variable<String>(
+        collectionVisibility.value,
+      );
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('UserProfilesCompanion(')
+          ..write('id: $id, ')
+          ..write('username: $username, ')
+          ..write('displayName: $displayName, ')
+          ..write('bio: $bio, ')
+          ..write('avatarUrl: $avatarUrl, ')
+          ..write('bannerUrl: $bannerUrl, ')
+          ..write('accountType: $accountType, ')
+          ..write('isVerifiedBusiness: $isVerifiedBusiness, ')
+          ..write('storeAddress: $storeAddress, ')
+          ..write('storePhone: $storePhone, ')
+          ..write('storeWebsite: $storeWebsite, ')
+          ..write('friendCount: $friendCount, ')
+          ..write('repCount: $repCount, ')
+          ..write('tier: $tier, ')
+          ..write('syncStatus: $syncStatus, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('collectionVisibility: $collectionVisibility, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $FeedPostsTable extends FeedPosts
+    with TableInfo<$FeedPostsTable, FeedPostRecord> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $FeedPostsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _authorIdMeta = const VerificationMeta(
+    'authorId',
+  );
+  @override
+  late final GeneratedColumn<String> authorId = GeneratedColumn<String>(
+    'author_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _authorUsernameMeta = const VerificationMeta(
+    'authorUsername',
+  );
+  @override
+  late final GeneratedColumn<String> authorUsername = GeneratedColumn<String>(
+    'author_username',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _authorDisplayNameMeta = const VerificationMeta(
+    'authorDisplayName',
+  );
+  @override
+  late final GeneratedColumn<String> authorDisplayName =
+      GeneratedColumn<String>(
+        'author_display_name',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+      );
+  static const VerificationMeta _authorAvatarUrlMeta = const VerificationMeta(
+    'authorAvatarUrl',
+  );
+  @override
+  late final GeneratedColumn<String> authorAvatarUrl = GeneratedColumn<String>(
+    'author_avatar_url',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _sharedByUserIdMeta = const VerificationMeta(
+    'sharedByUserId',
+  );
+  @override
+  late final GeneratedColumn<String> sharedByUserId = GeneratedColumn<String>(
+    'shared_by_user_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _typeMeta = const VerificationMeta('type');
+  @override
+  late final GeneratedColumn<String> type = GeneratedColumn<String>(
+    'type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _textContentMeta = const VerificationMeta(
+    'textContent',
+  );
+  @override
+  late final GeneratedColumn<String> textContent = GeneratedColumn<String>(
+    'text_content',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _locationTagMeta = const VerificationMeta(
+    'locationTag',
+  );
+  @override
+  late final GeneratedColumn<String> locationTag = GeneratedColumn<String>(
+    'location_tag',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _cardIdMeta = const VerificationMeta('cardId');
+  @override
+  late final GeneratedColumn<String> cardId = GeneratedColumn<String>(
+    'card_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _cardTitleMeta = const VerificationMeta(
+    'cardTitle',
+  );
+  @override
+  late final GeneratedColumn<String> cardTitle = GeneratedColumn<String>(
+    'card_title',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _cardSubtitleMeta = const VerificationMeta(
+    'cardSubtitle',
+  );
+  @override
+  late final GeneratedColumn<String> cardSubtitle = GeneratedColumn<String>(
+    'card_subtitle',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _cardRarityMeta = const VerificationMeta(
+    'cardRarity',
+  );
+  @override
+  late final GeneratedColumn<String> cardRarity = GeneratedColumn<String>(
+    'card_rarity',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _estimatedValueMeta = const VerificationMeta(
+    'estimatedValue',
+  );
+  @override
+  late final GeneratedColumn<double> estimatedValue = GeneratedColumn<double>(
+    'estimated_value',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _cardImageUrlMeta = const VerificationMeta(
+    'cardImageUrl',
+  );
+  @override
+  late final GeneratedColumn<String> cardImageUrl = GeneratedColumn<String>(
+    'card_image_url',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _pullImagesJsonMeta = const VerificationMeta(
+    'pullImagesJson',
+  );
+  @override
+  late final GeneratedColumn<String> pullImagesJson = GeneratedColumn<String>(
+    'pull_images_json',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _pullCardIdsJsonMeta = const VerificationMeta(
+    'pullCardIdsJson',
+  );
+  @override
+  late final GeneratedColumn<String> pullCardIdsJson = GeneratedColumn<String>(
+    'pull_card_ids_json',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _likeCountMeta = const VerificationMeta(
+    'likeCount',
+  );
+  @override
+  late final GeneratedColumn<int> likeCount = GeneratedColumn<int>(
+    'like_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _commentCountMeta = const VerificationMeta(
+    'commentCount',
+  );
+  @override
+  late final GeneratedColumn<int> commentCount = GeneratedColumn<int>(
+    'comment_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _isDeletedMeta = const VerificationMeta(
+    'isDeleted',
+  );
+  @override
+  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
+    'is_deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _syncStatusMeta = const VerificationMeta(
+    'syncStatus',
+  );
+  @override
+  late final GeneratedColumn<String> syncStatus = GeneratedColumn<String>(
+    'sync_status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('synced'),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    authorId,
+    authorUsername,
+    authorDisplayName,
+    authorAvatarUrl,
+    sharedByUserId,
+    type,
+    textContent,
+    locationTag,
+    cardId,
+    cardTitle,
+    cardSubtitle,
+    cardRarity,
+    estimatedValue,
+    cardImageUrl,
+    pullImagesJson,
+    pullCardIdsJson,
+    likeCount,
+    commentCount,
+    createdAt,
+    updatedAt,
+    deletedAt,
+    isDeleted,
+    syncStatus,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'feed_posts';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<FeedPostRecord> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('author_id')) {
+      context.handle(
+        _authorIdMeta,
+        authorId.isAcceptableOrUnknown(data['author_id']!, _authorIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_authorIdMeta);
+    }
+    if (data.containsKey('author_username')) {
+      context.handle(
+        _authorUsernameMeta,
+        authorUsername.isAcceptableOrUnknown(
+          data['author_username']!,
+          _authorUsernameMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_authorUsernameMeta);
+    }
+    if (data.containsKey('author_display_name')) {
+      context.handle(
+        _authorDisplayNameMeta,
+        authorDisplayName.isAcceptableOrUnknown(
+          data['author_display_name']!,
+          _authorDisplayNameMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_authorDisplayNameMeta);
+    }
+    if (data.containsKey('author_avatar_url')) {
+      context.handle(
+        _authorAvatarUrlMeta,
+        authorAvatarUrl.isAcceptableOrUnknown(
+          data['author_avatar_url']!,
+          _authorAvatarUrlMeta,
+        ),
+      );
+    }
+    if (data.containsKey('shared_by_user_id')) {
+      context.handle(
+        _sharedByUserIdMeta,
+        sharedByUserId.isAcceptableOrUnknown(
+          data['shared_by_user_id']!,
+          _sharedByUserIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('type')) {
+      context.handle(
+        _typeMeta,
+        type.isAcceptableOrUnknown(data['type']!, _typeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_typeMeta);
+    }
+    if (data.containsKey('text_content')) {
+      context.handle(
+        _textContentMeta,
+        textContent.isAcceptableOrUnknown(
+          data['text_content']!,
+          _textContentMeta,
+        ),
+      );
+    }
+    if (data.containsKey('location_tag')) {
+      context.handle(
+        _locationTagMeta,
+        locationTag.isAcceptableOrUnknown(
+          data['location_tag']!,
+          _locationTagMeta,
+        ),
+      );
+    }
+    if (data.containsKey('card_id')) {
+      context.handle(
+        _cardIdMeta,
+        cardId.isAcceptableOrUnknown(data['card_id']!, _cardIdMeta),
+      );
+    }
+    if (data.containsKey('card_title')) {
+      context.handle(
+        _cardTitleMeta,
+        cardTitle.isAcceptableOrUnknown(data['card_title']!, _cardTitleMeta),
+      );
+    }
+    if (data.containsKey('card_subtitle')) {
+      context.handle(
+        _cardSubtitleMeta,
+        cardSubtitle.isAcceptableOrUnknown(
+          data['card_subtitle']!,
+          _cardSubtitleMeta,
+        ),
+      );
+    }
+    if (data.containsKey('card_rarity')) {
+      context.handle(
+        _cardRarityMeta,
+        cardRarity.isAcceptableOrUnknown(data['card_rarity']!, _cardRarityMeta),
+      );
+    }
+    if (data.containsKey('estimated_value')) {
+      context.handle(
+        _estimatedValueMeta,
+        estimatedValue.isAcceptableOrUnknown(
+          data['estimated_value']!,
+          _estimatedValueMeta,
+        ),
+      );
+    }
+    if (data.containsKey('card_image_url')) {
+      context.handle(
+        _cardImageUrlMeta,
+        cardImageUrl.isAcceptableOrUnknown(
+          data['card_image_url']!,
+          _cardImageUrlMeta,
+        ),
+      );
+    }
+    if (data.containsKey('pull_images_json')) {
+      context.handle(
+        _pullImagesJsonMeta,
+        pullImagesJson.isAcceptableOrUnknown(
+          data['pull_images_json']!,
+          _pullImagesJsonMeta,
+        ),
+      );
+    }
+    if (data.containsKey('pull_card_ids_json')) {
+      context.handle(
+        _pullCardIdsJsonMeta,
+        pullCardIdsJson.isAcceptableOrUnknown(
+          data['pull_card_ids_json']!,
+          _pullCardIdsJsonMeta,
+        ),
+      );
+    }
+    if (data.containsKey('like_count')) {
+      context.handle(
+        _likeCountMeta,
+        likeCount.isAcceptableOrUnknown(data['like_count']!, _likeCountMeta),
+      );
+    }
+    if (data.containsKey('comment_count')) {
+      context.handle(
+        _commentCountMeta,
+        commentCount.isAcceptableOrUnknown(
+          data['comment_count']!,
+          _commentCountMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    if (data.containsKey('is_deleted')) {
+      context.handle(
+        _isDeletedMeta,
+        isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
+      );
+    }
+    if (data.containsKey('sync_status')) {
+      context.handle(
+        _syncStatusMeta,
+        syncStatus.isAcceptableOrUnknown(data['sync_status']!, _syncStatusMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  FeedPostRecord map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return FeedPostRecord(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      authorId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}author_id'],
+      )!,
+      authorUsername: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}author_username'],
+      )!,
+      authorDisplayName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}author_display_name'],
+      )!,
+      authorAvatarUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}author_avatar_url'],
+      ),
+      sharedByUserId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}shared_by_user_id'],
+      ),
+      type: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}type'],
+      )!,
+      textContent: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}text_content'],
+      ),
+      locationTag: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}location_tag'],
+      ),
+      cardId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}card_id'],
+      ),
+      cardTitle: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}card_title'],
+      ),
+      cardSubtitle: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}card_subtitle'],
+      ),
+      cardRarity: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}card_rarity'],
+      ),
+      estimatedValue: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}estimated_value'],
+      ),
+      cardImageUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}card_image_url'],
+      ),
+      pullImagesJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}pull_images_json'],
+      ),
+      pullCardIdsJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}pull_card_ids_json'],
+      ),
+      likeCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}like_count'],
+      )!,
+      commentCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}comment_count'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
+      isDeleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_deleted'],
+      )!,
+      syncStatus: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sync_status'],
+      )!,
+    );
+  }
+
+  @override
+  $FeedPostsTable createAlias(String alias) {
+    return $FeedPostsTable(attachedDatabase, alias);
+  }
+}
+
+class FeedPostRecord extends DataClass implements Insertable<FeedPostRecord> {
+  final String id;
+  final String authorId;
+  final String authorUsername;
+  final String authorDisplayName;
+  final String? authorAvatarUrl;
+  final String? sharedByUserId;
+  final String type;
+  final String? textContent;
+  final String? locationTag;
+  final String? cardId;
+  final String? cardTitle;
+  final String? cardSubtitle;
+  final String? cardRarity;
+  final double? estimatedValue;
+  final String? cardImageUrl;
+  final String? pullImagesJson;
+  final String? pullCardIdsJson;
+  final int likeCount;
+  final int commentCount;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final DateTime? deletedAt;
+  final bool isDeleted;
+  final String syncStatus;
+  const FeedPostRecord({
+    required this.id,
+    required this.authorId,
+    required this.authorUsername,
+    required this.authorDisplayName,
+    this.authorAvatarUrl,
+    this.sharedByUserId,
+    required this.type,
+    this.textContent,
+    this.locationTag,
+    this.cardId,
+    this.cardTitle,
+    this.cardSubtitle,
+    this.cardRarity,
+    this.estimatedValue,
+    this.cardImageUrl,
+    this.pullImagesJson,
+    this.pullCardIdsJson,
+    required this.likeCount,
+    required this.commentCount,
+    required this.createdAt,
+    required this.updatedAt,
+    this.deletedAt,
+    required this.isDeleted,
+    required this.syncStatus,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['author_id'] = Variable<String>(authorId);
+    map['author_username'] = Variable<String>(authorUsername);
+    map['author_display_name'] = Variable<String>(authorDisplayName);
+    if (!nullToAbsent || authorAvatarUrl != null) {
+      map['author_avatar_url'] = Variable<String>(authorAvatarUrl);
+    }
+    if (!nullToAbsent || sharedByUserId != null) {
+      map['shared_by_user_id'] = Variable<String>(sharedByUserId);
+    }
+    map['type'] = Variable<String>(type);
+    if (!nullToAbsent || textContent != null) {
+      map['text_content'] = Variable<String>(textContent);
+    }
+    if (!nullToAbsent || locationTag != null) {
+      map['location_tag'] = Variable<String>(locationTag);
+    }
+    if (!nullToAbsent || cardId != null) {
+      map['card_id'] = Variable<String>(cardId);
+    }
+    if (!nullToAbsent || cardTitle != null) {
+      map['card_title'] = Variable<String>(cardTitle);
+    }
+    if (!nullToAbsent || cardSubtitle != null) {
+      map['card_subtitle'] = Variable<String>(cardSubtitle);
+    }
+    if (!nullToAbsent || cardRarity != null) {
+      map['card_rarity'] = Variable<String>(cardRarity);
+    }
+    if (!nullToAbsent || estimatedValue != null) {
+      map['estimated_value'] = Variable<double>(estimatedValue);
+    }
+    if (!nullToAbsent || cardImageUrl != null) {
+      map['card_image_url'] = Variable<String>(cardImageUrl);
+    }
+    if (!nullToAbsent || pullImagesJson != null) {
+      map['pull_images_json'] = Variable<String>(pullImagesJson);
+    }
+    if (!nullToAbsent || pullCardIdsJson != null) {
+      map['pull_card_ids_json'] = Variable<String>(pullCardIdsJson);
+    }
+    map['like_count'] = Variable<int>(likeCount);
+    map['comment_count'] = Variable<int>(commentCount);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
+    map['is_deleted'] = Variable<bool>(isDeleted);
+    map['sync_status'] = Variable<String>(syncStatus);
+    return map;
+  }
+
+  FeedPostsCompanion toCompanion(bool nullToAbsent) {
+    return FeedPostsCompanion(
+      id: Value(id),
+      authorId: Value(authorId),
+      authorUsername: Value(authorUsername),
+      authorDisplayName: Value(authorDisplayName),
+      authorAvatarUrl: authorAvatarUrl == null && nullToAbsent
+          ? const Value.absent()
+          : Value(authorAvatarUrl),
+      sharedByUserId: sharedByUserId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(sharedByUserId),
+      type: Value(type),
+      textContent: textContent == null && nullToAbsent
+          ? const Value.absent()
+          : Value(textContent),
+      locationTag: locationTag == null && nullToAbsent
+          ? const Value.absent()
+          : Value(locationTag),
+      cardId: cardId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(cardId),
+      cardTitle: cardTitle == null && nullToAbsent
+          ? const Value.absent()
+          : Value(cardTitle),
+      cardSubtitle: cardSubtitle == null && nullToAbsent
+          ? const Value.absent()
+          : Value(cardSubtitle),
+      cardRarity: cardRarity == null && nullToAbsent
+          ? const Value.absent()
+          : Value(cardRarity),
+      estimatedValue: estimatedValue == null && nullToAbsent
+          ? const Value.absent()
+          : Value(estimatedValue),
+      cardImageUrl: cardImageUrl == null && nullToAbsent
+          ? const Value.absent()
+          : Value(cardImageUrl),
+      pullImagesJson: pullImagesJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pullImagesJson),
+      pullCardIdsJson: pullCardIdsJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pullCardIdsJson),
+      likeCount: Value(likeCount),
+      commentCount: Value(commentCount),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+      isDeleted: Value(isDeleted),
+      syncStatus: Value(syncStatus),
+    );
+  }
+
+  factory FeedPostRecord.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return FeedPostRecord(
+      id: serializer.fromJson<String>(json['id']),
+      authorId: serializer.fromJson<String>(json['authorId']),
+      authorUsername: serializer.fromJson<String>(json['authorUsername']),
+      authorDisplayName: serializer.fromJson<String>(json['authorDisplayName']),
+      authorAvatarUrl: serializer.fromJson<String?>(json['authorAvatarUrl']),
+      sharedByUserId: serializer.fromJson<String?>(json['sharedByUserId']),
+      type: serializer.fromJson<String>(json['type']),
+      textContent: serializer.fromJson<String?>(json['textContent']),
+      locationTag: serializer.fromJson<String?>(json['locationTag']),
+      cardId: serializer.fromJson<String?>(json['cardId']),
+      cardTitle: serializer.fromJson<String?>(json['cardTitle']),
+      cardSubtitle: serializer.fromJson<String?>(json['cardSubtitle']),
+      cardRarity: serializer.fromJson<String?>(json['cardRarity']),
+      estimatedValue: serializer.fromJson<double?>(json['estimatedValue']),
+      cardImageUrl: serializer.fromJson<String?>(json['cardImageUrl']),
+      pullImagesJson: serializer.fromJson<String?>(json['pullImagesJson']),
+      pullCardIdsJson: serializer.fromJson<String?>(json['pullCardIdsJson']),
+      likeCount: serializer.fromJson<int>(json['likeCount']),
+      commentCount: serializer.fromJson<int>(json['commentCount']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+      syncStatus: serializer.fromJson<String>(json['syncStatus']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'authorId': serializer.toJson<String>(authorId),
+      'authorUsername': serializer.toJson<String>(authorUsername),
+      'authorDisplayName': serializer.toJson<String>(authorDisplayName),
+      'authorAvatarUrl': serializer.toJson<String?>(authorAvatarUrl),
+      'sharedByUserId': serializer.toJson<String?>(sharedByUserId),
+      'type': serializer.toJson<String>(type),
+      'textContent': serializer.toJson<String?>(textContent),
+      'locationTag': serializer.toJson<String?>(locationTag),
+      'cardId': serializer.toJson<String?>(cardId),
+      'cardTitle': serializer.toJson<String?>(cardTitle),
+      'cardSubtitle': serializer.toJson<String?>(cardSubtitle),
+      'cardRarity': serializer.toJson<String?>(cardRarity),
+      'estimatedValue': serializer.toJson<double?>(estimatedValue),
+      'cardImageUrl': serializer.toJson<String?>(cardImageUrl),
+      'pullImagesJson': serializer.toJson<String?>(pullImagesJson),
+      'pullCardIdsJson': serializer.toJson<String?>(pullCardIdsJson),
+      'likeCount': serializer.toJson<int>(likeCount),
+      'commentCount': serializer.toJson<int>(commentCount),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+      'isDeleted': serializer.toJson<bool>(isDeleted),
+      'syncStatus': serializer.toJson<String>(syncStatus),
+    };
+  }
+
+  FeedPostRecord copyWith({
+    String? id,
+    String? authorId,
+    String? authorUsername,
+    String? authorDisplayName,
+    Value<String?> authorAvatarUrl = const Value.absent(),
+    Value<String?> sharedByUserId = const Value.absent(),
+    String? type,
+    Value<String?> textContent = const Value.absent(),
+    Value<String?> locationTag = const Value.absent(),
+    Value<String?> cardId = const Value.absent(),
+    Value<String?> cardTitle = const Value.absent(),
+    Value<String?> cardSubtitle = const Value.absent(),
+    Value<String?> cardRarity = const Value.absent(),
+    Value<double?> estimatedValue = const Value.absent(),
+    Value<String?> cardImageUrl = const Value.absent(),
+    Value<String?> pullImagesJson = const Value.absent(),
+    Value<String?> pullCardIdsJson = const Value.absent(),
+    int? likeCount,
+    int? commentCount,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    Value<DateTime?> deletedAt = const Value.absent(),
+    bool? isDeleted,
+    String? syncStatus,
+  }) => FeedPostRecord(
+    id: id ?? this.id,
+    authorId: authorId ?? this.authorId,
+    authorUsername: authorUsername ?? this.authorUsername,
+    authorDisplayName: authorDisplayName ?? this.authorDisplayName,
+    authorAvatarUrl: authorAvatarUrl.present
+        ? authorAvatarUrl.value
+        : this.authorAvatarUrl,
+    sharedByUserId: sharedByUserId.present
+        ? sharedByUserId.value
+        : this.sharedByUserId,
+    type: type ?? this.type,
+    textContent: textContent.present ? textContent.value : this.textContent,
+    locationTag: locationTag.present ? locationTag.value : this.locationTag,
+    cardId: cardId.present ? cardId.value : this.cardId,
+    cardTitle: cardTitle.present ? cardTitle.value : this.cardTitle,
+    cardSubtitle: cardSubtitle.present ? cardSubtitle.value : this.cardSubtitle,
+    cardRarity: cardRarity.present ? cardRarity.value : this.cardRarity,
+    estimatedValue: estimatedValue.present
+        ? estimatedValue.value
+        : this.estimatedValue,
+    cardImageUrl: cardImageUrl.present ? cardImageUrl.value : this.cardImageUrl,
+    pullImagesJson: pullImagesJson.present
+        ? pullImagesJson.value
+        : this.pullImagesJson,
+    pullCardIdsJson: pullCardIdsJson.present
+        ? pullCardIdsJson.value
+        : this.pullCardIdsJson,
+    likeCount: likeCount ?? this.likeCount,
+    commentCount: commentCount ?? this.commentCount,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+    isDeleted: isDeleted ?? this.isDeleted,
+    syncStatus: syncStatus ?? this.syncStatus,
+  );
+  FeedPostRecord copyWithCompanion(FeedPostsCompanion data) {
+    return FeedPostRecord(
+      id: data.id.present ? data.id.value : this.id,
+      authorId: data.authorId.present ? data.authorId.value : this.authorId,
+      authorUsername: data.authorUsername.present
+          ? data.authorUsername.value
+          : this.authorUsername,
+      authorDisplayName: data.authorDisplayName.present
+          ? data.authorDisplayName.value
+          : this.authorDisplayName,
+      authorAvatarUrl: data.authorAvatarUrl.present
+          ? data.authorAvatarUrl.value
+          : this.authorAvatarUrl,
+      sharedByUserId: data.sharedByUserId.present
+          ? data.sharedByUserId.value
+          : this.sharedByUserId,
+      type: data.type.present ? data.type.value : this.type,
+      textContent: data.textContent.present
+          ? data.textContent.value
+          : this.textContent,
+      locationTag: data.locationTag.present
+          ? data.locationTag.value
+          : this.locationTag,
+      cardId: data.cardId.present ? data.cardId.value : this.cardId,
+      cardTitle: data.cardTitle.present ? data.cardTitle.value : this.cardTitle,
+      cardSubtitle: data.cardSubtitle.present
+          ? data.cardSubtitle.value
+          : this.cardSubtitle,
+      cardRarity: data.cardRarity.present
+          ? data.cardRarity.value
+          : this.cardRarity,
+      estimatedValue: data.estimatedValue.present
+          ? data.estimatedValue.value
+          : this.estimatedValue,
+      cardImageUrl: data.cardImageUrl.present
+          ? data.cardImageUrl.value
+          : this.cardImageUrl,
+      pullImagesJson: data.pullImagesJson.present
+          ? data.pullImagesJson.value
+          : this.pullImagesJson,
+      pullCardIdsJson: data.pullCardIdsJson.present
+          ? data.pullCardIdsJson.value
+          : this.pullCardIdsJson,
+      likeCount: data.likeCount.present ? data.likeCount.value : this.likeCount,
+      commentCount: data.commentCount.present
+          ? data.commentCount.value
+          : this.commentCount,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+      syncStatus: data.syncStatus.present
+          ? data.syncStatus.value
+          : this.syncStatus,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FeedPostRecord(')
+          ..write('id: $id, ')
+          ..write('authorId: $authorId, ')
+          ..write('authorUsername: $authorUsername, ')
+          ..write('authorDisplayName: $authorDisplayName, ')
+          ..write('authorAvatarUrl: $authorAvatarUrl, ')
+          ..write('sharedByUserId: $sharedByUserId, ')
+          ..write('type: $type, ')
+          ..write('textContent: $textContent, ')
+          ..write('locationTag: $locationTag, ')
+          ..write('cardId: $cardId, ')
+          ..write('cardTitle: $cardTitle, ')
+          ..write('cardSubtitle: $cardSubtitle, ')
+          ..write('cardRarity: $cardRarity, ')
+          ..write('estimatedValue: $estimatedValue, ')
+          ..write('cardImageUrl: $cardImageUrl, ')
+          ..write('pullImagesJson: $pullImagesJson, ')
+          ..write('pullCardIdsJson: $pullCardIdsJson, ')
+          ..write('likeCount: $likeCount, ')
+          ..write('commentCount: $commentCount, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('syncStatus: $syncStatus')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hashAll([
+    id,
+    authorId,
+    authorUsername,
+    authorDisplayName,
+    authorAvatarUrl,
+    sharedByUserId,
+    type,
+    textContent,
+    locationTag,
+    cardId,
+    cardTitle,
+    cardSubtitle,
+    cardRarity,
+    estimatedValue,
+    cardImageUrl,
+    pullImagesJson,
+    pullCardIdsJson,
+    likeCount,
+    commentCount,
+    createdAt,
+    updatedAt,
+    deletedAt,
+    isDeleted,
+    syncStatus,
+  ]);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is FeedPostRecord &&
+          other.id == this.id &&
+          other.authorId == this.authorId &&
+          other.authorUsername == this.authorUsername &&
+          other.authorDisplayName == this.authorDisplayName &&
+          other.authorAvatarUrl == this.authorAvatarUrl &&
+          other.sharedByUserId == this.sharedByUserId &&
+          other.type == this.type &&
+          other.textContent == this.textContent &&
+          other.locationTag == this.locationTag &&
+          other.cardId == this.cardId &&
+          other.cardTitle == this.cardTitle &&
+          other.cardSubtitle == this.cardSubtitle &&
+          other.cardRarity == this.cardRarity &&
+          other.estimatedValue == this.estimatedValue &&
+          other.cardImageUrl == this.cardImageUrl &&
+          other.pullImagesJson == this.pullImagesJson &&
+          other.pullCardIdsJson == this.pullCardIdsJson &&
+          other.likeCount == this.likeCount &&
+          other.commentCount == this.commentCount &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt &&
+          other.deletedAt == this.deletedAt &&
+          other.isDeleted == this.isDeleted &&
+          other.syncStatus == this.syncStatus);
+}
+
+class FeedPostsCompanion extends UpdateCompanion<FeedPostRecord> {
+  final Value<String> id;
+  final Value<String> authorId;
+  final Value<String> authorUsername;
+  final Value<String> authorDisplayName;
+  final Value<String?> authorAvatarUrl;
+  final Value<String?> sharedByUserId;
+  final Value<String> type;
+  final Value<String?> textContent;
+  final Value<String?> locationTag;
+  final Value<String?> cardId;
+  final Value<String?> cardTitle;
+  final Value<String?> cardSubtitle;
+  final Value<String?> cardRarity;
+  final Value<double?> estimatedValue;
+  final Value<String?> cardImageUrl;
+  final Value<String?> pullImagesJson;
+  final Value<String?> pullCardIdsJson;
+  final Value<int> likeCount;
+  final Value<int> commentCount;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<DateTime?> deletedAt;
+  final Value<bool> isDeleted;
+  final Value<String> syncStatus;
+  final Value<int> rowid;
+  const FeedPostsCompanion({
+    this.id = const Value.absent(),
+    this.authorId = const Value.absent(),
+    this.authorUsername = const Value.absent(),
+    this.authorDisplayName = const Value.absent(),
+    this.authorAvatarUrl = const Value.absent(),
+    this.sharedByUserId = const Value.absent(),
+    this.type = const Value.absent(),
+    this.textContent = const Value.absent(),
+    this.locationTag = const Value.absent(),
+    this.cardId = const Value.absent(),
+    this.cardTitle = const Value.absent(),
+    this.cardSubtitle = const Value.absent(),
+    this.cardRarity = const Value.absent(),
+    this.estimatedValue = const Value.absent(),
+    this.cardImageUrl = const Value.absent(),
+    this.pullImagesJson = const Value.absent(),
+    this.pullCardIdsJson = const Value.absent(),
+    this.likeCount = const Value.absent(),
+    this.commentCount = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.syncStatus = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  FeedPostsCompanion.insert({
+    required String id,
+    required String authorId,
+    required String authorUsername,
+    required String authorDisplayName,
+    this.authorAvatarUrl = const Value.absent(),
+    this.sharedByUserId = const Value.absent(),
+    required String type,
+    this.textContent = const Value.absent(),
+    this.locationTag = const Value.absent(),
+    this.cardId = const Value.absent(),
+    this.cardTitle = const Value.absent(),
+    this.cardSubtitle = const Value.absent(),
+    this.cardRarity = const Value.absent(),
+    this.estimatedValue = const Value.absent(),
+    this.cardImageUrl = const Value.absent(),
+    this.pullImagesJson = const Value.absent(),
+    this.pullCardIdsJson = const Value.absent(),
+    this.likeCount = const Value.absent(),
+    this.commentCount = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.syncStatus = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       authorId = Value(authorId),
+       authorUsername = Value(authorUsername),
+       authorDisplayName = Value(authorDisplayName),
+       type = Value(type);
+  static Insertable<FeedPostRecord> custom({
+    Expression<String>? id,
+    Expression<String>? authorId,
+    Expression<String>? authorUsername,
+    Expression<String>? authorDisplayName,
+    Expression<String>? authorAvatarUrl,
+    Expression<String>? sharedByUserId,
+    Expression<String>? type,
+    Expression<String>? textContent,
+    Expression<String>? locationTag,
+    Expression<String>? cardId,
+    Expression<String>? cardTitle,
+    Expression<String>? cardSubtitle,
+    Expression<String>? cardRarity,
+    Expression<double>? estimatedValue,
+    Expression<String>? cardImageUrl,
+    Expression<String>? pullImagesJson,
+    Expression<String>? pullCardIdsJson,
+    Expression<int>? likeCount,
+    Expression<int>? commentCount,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<DateTime>? deletedAt,
+    Expression<bool>? isDeleted,
+    Expression<String>? syncStatus,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (authorId != null) 'author_id': authorId,
+      if (authorUsername != null) 'author_username': authorUsername,
+      if (authorDisplayName != null) 'author_display_name': authorDisplayName,
+      if (authorAvatarUrl != null) 'author_avatar_url': authorAvatarUrl,
+      if (sharedByUserId != null) 'shared_by_user_id': sharedByUserId,
+      if (type != null) 'type': type,
+      if (textContent != null) 'text_content': textContent,
+      if (locationTag != null) 'location_tag': locationTag,
+      if (cardId != null) 'card_id': cardId,
+      if (cardTitle != null) 'card_title': cardTitle,
+      if (cardSubtitle != null) 'card_subtitle': cardSubtitle,
+      if (cardRarity != null) 'card_rarity': cardRarity,
+      if (estimatedValue != null) 'estimated_value': estimatedValue,
+      if (cardImageUrl != null) 'card_image_url': cardImageUrl,
+      if (pullImagesJson != null) 'pull_images_json': pullImagesJson,
+      if (pullCardIdsJson != null) 'pull_card_ids_json': pullCardIdsJson,
+      if (likeCount != null) 'like_count': likeCount,
+      if (commentCount != null) 'comment_count': commentCount,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (isDeleted != null) 'is_deleted': isDeleted,
+      if (syncStatus != null) 'sync_status': syncStatus,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  FeedPostsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? authorId,
+    Value<String>? authorUsername,
+    Value<String>? authorDisplayName,
+    Value<String?>? authorAvatarUrl,
+    Value<String?>? sharedByUserId,
+    Value<String>? type,
+    Value<String?>? textContent,
+    Value<String?>? locationTag,
+    Value<String?>? cardId,
+    Value<String?>? cardTitle,
+    Value<String?>? cardSubtitle,
+    Value<String?>? cardRarity,
+    Value<double?>? estimatedValue,
+    Value<String?>? cardImageUrl,
+    Value<String?>? pullImagesJson,
+    Value<String?>? pullCardIdsJson,
+    Value<int>? likeCount,
+    Value<int>? commentCount,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+    Value<DateTime?>? deletedAt,
+    Value<bool>? isDeleted,
+    Value<String>? syncStatus,
+    Value<int>? rowid,
+  }) {
+    return FeedPostsCompanion(
+      id: id ?? this.id,
+      authorId: authorId ?? this.authorId,
+      authorUsername: authorUsername ?? this.authorUsername,
+      authorDisplayName: authorDisplayName ?? this.authorDisplayName,
+      authorAvatarUrl: authorAvatarUrl ?? this.authorAvatarUrl,
+      sharedByUserId: sharedByUserId ?? this.sharedByUserId,
+      type: type ?? this.type,
+      textContent: textContent ?? this.textContent,
+      locationTag: locationTag ?? this.locationTag,
+      cardId: cardId ?? this.cardId,
+      cardTitle: cardTitle ?? this.cardTitle,
+      cardSubtitle: cardSubtitle ?? this.cardSubtitle,
+      cardRarity: cardRarity ?? this.cardRarity,
+      estimatedValue: estimatedValue ?? this.estimatedValue,
+      cardImageUrl: cardImageUrl ?? this.cardImageUrl,
+      pullImagesJson: pullImagesJson ?? this.pullImagesJson,
+      pullCardIdsJson: pullCardIdsJson ?? this.pullCardIdsJson,
+      likeCount: likeCount ?? this.likeCount,
+      commentCount: commentCount ?? this.commentCount,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      isDeleted: isDeleted ?? this.isDeleted,
+      syncStatus: syncStatus ?? this.syncStatus,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (authorId.present) {
+      map['author_id'] = Variable<String>(authorId.value);
+    }
+    if (authorUsername.present) {
+      map['author_username'] = Variable<String>(authorUsername.value);
+    }
+    if (authorDisplayName.present) {
+      map['author_display_name'] = Variable<String>(authorDisplayName.value);
+    }
+    if (authorAvatarUrl.present) {
+      map['author_avatar_url'] = Variable<String>(authorAvatarUrl.value);
+    }
+    if (sharedByUserId.present) {
+      map['shared_by_user_id'] = Variable<String>(sharedByUserId.value);
+    }
+    if (type.present) {
+      map['type'] = Variable<String>(type.value);
+    }
+    if (textContent.present) {
+      map['text_content'] = Variable<String>(textContent.value);
+    }
+    if (locationTag.present) {
+      map['location_tag'] = Variable<String>(locationTag.value);
+    }
+    if (cardId.present) {
+      map['card_id'] = Variable<String>(cardId.value);
+    }
+    if (cardTitle.present) {
+      map['card_title'] = Variable<String>(cardTitle.value);
+    }
+    if (cardSubtitle.present) {
+      map['card_subtitle'] = Variable<String>(cardSubtitle.value);
+    }
+    if (cardRarity.present) {
+      map['card_rarity'] = Variable<String>(cardRarity.value);
+    }
+    if (estimatedValue.present) {
+      map['estimated_value'] = Variable<double>(estimatedValue.value);
+    }
+    if (cardImageUrl.present) {
+      map['card_image_url'] = Variable<String>(cardImageUrl.value);
+    }
+    if (pullImagesJson.present) {
+      map['pull_images_json'] = Variable<String>(pullImagesJson.value);
+    }
+    if (pullCardIdsJson.present) {
+      map['pull_card_ids_json'] = Variable<String>(pullCardIdsJson.value);
+    }
+    if (likeCount.present) {
+      map['like_count'] = Variable<int>(likeCount.value);
+    }
+    if (commentCount.present) {
+      map['comment_count'] = Variable<int>(commentCount.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
+    if (isDeleted.present) {
+      map['is_deleted'] = Variable<bool>(isDeleted.value);
+    }
+    if (syncStatus.present) {
+      map['sync_status'] = Variable<String>(syncStatus.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FeedPostsCompanion(')
+          ..write('id: $id, ')
+          ..write('authorId: $authorId, ')
+          ..write('authorUsername: $authorUsername, ')
+          ..write('authorDisplayName: $authorDisplayName, ')
+          ..write('authorAvatarUrl: $authorAvatarUrl, ')
+          ..write('sharedByUserId: $sharedByUserId, ')
+          ..write('type: $type, ')
+          ..write('textContent: $textContent, ')
+          ..write('locationTag: $locationTag, ')
+          ..write('cardId: $cardId, ')
+          ..write('cardTitle: $cardTitle, ')
+          ..write('cardSubtitle: $cardSubtitle, ')
+          ..write('cardRarity: $cardRarity, ')
+          ..write('estimatedValue: $estimatedValue, ')
+          ..write('cardImageUrl: $cardImageUrl, ')
+          ..write('pullImagesJson: $pullImagesJson, ')
+          ..write('pullCardIdsJson: $pullCardIdsJson, ')
+          ..write('likeCount: $likeCount, ')
+          ..write('commentCount: $commentCount, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('syncStatus: $syncStatus, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $PostLikesTable extends PostLikes
+    with TableInfo<$PostLikesTable, PostLikeRecord> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PostLikesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _postIdMeta = const VerificationMeta('postId');
+  @override
+  late final GeneratedColumn<String> postId = GeneratedColumn<String>(
+    'post_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+    'user_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _isLikedMeta = const VerificationMeta(
+    'isLiked',
+  );
+  @override
+  late final GeneratedColumn<bool> isLiked = GeneratedColumn<bool>(
+    'is_liked',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_liked" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _isDeletedMeta = const VerificationMeta(
+    'isDeleted',
+  );
+  @override
+  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
+    'is_deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _syncStatusMeta = const VerificationMeta(
+    'syncStatus',
+  );
+  @override
+  late final GeneratedColumn<String> syncStatus = GeneratedColumn<String>(
+    'sync_status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('synced'),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    postId,
+    userId,
+    isLiked,
+    createdAt,
+    updatedAt,
+    deletedAt,
+    isDeleted,
+    syncStatus,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'post_likes';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PostLikeRecord> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('post_id')) {
+      context.handle(
+        _postIdMeta,
+        postId.isAcceptableOrUnknown(data['post_id']!, _postIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_postIdMeta);
+    }
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_userIdMeta);
+    }
+    if (data.containsKey('is_liked')) {
+      context.handle(
+        _isLikedMeta,
+        isLiked.isAcceptableOrUnknown(data['is_liked']!, _isLikedMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    if (data.containsKey('is_deleted')) {
+      context.handle(
+        _isDeletedMeta,
+        isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
+      );
+    }
+    if (data.containsKey('sync_status')) {
+      context.handle(
+        _syncStatusMeta,
+        syncStatus.isAcceptableOrUnknown(data['sync_status']!, _syncStatusMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  List<Set<GeneratedColumn>> get uniqueKeys => [
+    {postId, userId},
+  ];
+  @override
+  PostLikeRecord map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PostLikeRecord(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      postId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}post_id'],
+      )!,
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_id'],
+      )!,
+      isLiked: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_liked'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
+      isDeleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_deleted'],
+      )!,
+      syncStatus: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sync_status'],
+      )!,
+    );
+  }
+
+  @override
+  $PostLikesTable createAlias(String alias) {
+    return $PostLikesTable(attachedDatabase, alias);
+  }
+}
+
+class PostLikeRecord extends DataClass implements Insertable<PostLikeRecord> {
+  final String id;
+  final String postId;
+  final String userId;
+  final bool isLiked;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final DateTime? deletedAt;
+  final bool isDeleted;
+  final String syncStatus;
+  const PostLikeRecord({
+    required this.id,
+    required this.postId,
+    required this.userId,
+    required this.isLiked,
+    required this.createdAt,
+    required this.updatedAt,
+    this.deletedAt,
+    required this.isDeleted,
+    required this.syncStatus,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['post_id'] = Variable<String>(postId);
+    map['user_id'] = Variable<String>(userId);
+    map['is_liked'] = Variable<bool>(isLiked);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
+    map['is_deleted'] = Variable<bool>(isDeleted);
+    map['sync_status'] = Variable<String>(syncStatus);
+    return map;
+  }
+
+  PostLikesCompanion toCompanion(bool nullToAbsent) {
+    return PostLikesCompanion(
+      id: Value(id),
+      postId: Value(postId),
+      userId: Value(userId),
+      isLiked: Value(isLiked),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+      isDeleted: Value(isDeleted),
+      syncStatus: Value(syncStatus),
+    );
+  }
+
+  factory PostLikeRecord.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PostLikeRecord(
+      id: serializer.fromJson<String>(json['id']),
+      postId: serializer.fromJson<String>(json['postId']),
+      userId: serializer.fromJson<String>(json['userId']),
+      isLiked: serializer.fromJson<bool>(json['isLiked']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+      syncStatus: serializer.fromJson<String>(json['syncStatus']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'postId': serializer.toJson<String>(postId),
+      'userId': serializer.toJson<String>(userId),
+      'isLiked': serializer.toJson<bool>(isLiked),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+      'isDeleted': serializer.toJson<bool>(isDeleted),
+      'syncStatus': serializer.toJson<String>(syncStatus),
+    };
+  }
+
+  PostLikeRecord copyWith({
+    String? id,
+    String? postId,
+    String? userId,
+    bool? isLiked,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    Value<DateTime?> deletedAt = const Value.absent(),
+    bool? isDeleted,
+    String? syncStatus,
+  }) => PostLikeRecord(
+    id: id ?? this.id,
+    postId: postId ?? this.postId,
+    userId: userId ?? this.userId,
+    isLiked: isLiked ?? this.isLiked,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+    isDeleted: isDeleted ?? this.isDeleted,
+    syncStatus: syncStatus ?? this.syncStatus,
+  );
+  PostLikeRecord copyWithCompanion(PostLikesCompanion data) {
+    return PostLikeRecord(
+      id: data.id.present ? data.id.value : this.id,
+      postId: data.postId.present ? data.postId.value : this.postId,
+      userId: data.userId.present ? data.userId.value : this.userId,
+      isLiked: data.isLiked.present ? data.isLiked.value : this.isLiked,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+      syncStatus: data.syncStatus.present
+          ? data.syncStatus.value
+          : this.syncStatus,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PostLikeRecord(')
+          ..write('id: $id, ')
+          ..write('postId: $postId, ')
+          ..write('userId: $userId, ')
+          ..write('isLiked: $isLiked, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('syncStatus: $syncStatus')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    postId,
+    userId,
+    isLiked,
+    createdAt,
+    updatedAt,
+    deletedAt,
+    isDeleted,
+    syncStatus,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PostLikeRecord &&
+          other.id == this.id &&
+          other.postId == this.postId &&
+          other.userId == this.userId &&
+          other.isLiked == this.isLiked &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt &&
+          other.deletedAt == this.deletedAt &&
+          other.isDeleted == this.isDeleted &&
+          other.syncStatus == this.syncStatus);
+}
+
+class PostLikesCompanion extends UpdateCompanion<PostLikeRecord> {
+  final Value<String> id;
+  final Value<String> postId;
+  final Value<String> userId;
+  final Value<bool> isLiked;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<DateTime?> deletedAt;
+  final Value<bool> isDeleted;
+  final Value<String> syncStatus;
+  final Value<int> rowid;
+  const PostLikesCompanion({
+    this.id = const Value.absent(),
+    this.postId = const Value.absent(),
+    this.userId = const Value.absent(),
+    this.isLiked = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.syncStatus = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  PostLikesCompanion.insert({
+    required String id,
+    required String postId,
+    required String userId,
+    this.isLiked = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.syncStatus = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       postId = Value(postId),
+       userId = Value(userId);
+  static Insertable<PostLikeRecord> custom({
+    Expression<String>? id,
+    Expression<String>? postId,
+    Expression<String>? userId,
+    Expression<bool>? isLiked,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<DateTime>? deletedAt,
+    Expression<bool>? isDeleted,
+    Expression<String>? syncStatus,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (postId != null) 'post_id': postId,
+      if (userId != null) 'user_id': userId,
+      if (isLiked != null) 'is_liked': isLiked,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (isDeleted != null) 'is_deleted': isDeleted,
+      if (syncStatus != null) 'sync_status': syncStatus,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  PostLikesCompanion copyWith({
+    Value<String>? id,
+    Value<String>? postId,
+    Value<String>? userId,
+    Value<bool>? isLiked,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+    Value<DateTime?>? deletedAt,
+    Value<bool>? isDeleted,
+    Value<String>? syncStatus,
+    Value<int>? rowid,
+  }) {
+    return PostLikesCompanion(
+      id: id ?? this.id,
+      postId: postId ?? this.postId,
+      userId: userId ?? this.userId,
+      isLiked: isLiked ?? this.isLiked,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      isDeleted: isDeleted ?? this.isDeleted,
+      syncStatus: syncStatus ?? this.syncStatus,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (postId.present) {
+      map['post_id'] = Variable<String>(postId.value);
+    }
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
+    }
+    if (isLiked.present) {
+      map['is_liked'] = Variable<bool>(isLiked.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
+    if (isDeleted.present) {
+      map['is_deleted'] = Variable<bool>(isDeleted.value);
+    }
+    if (syncStatus.present) {
+      map['sync_status'] = Variable<String>(syncStatus.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PostLikesCompanion(')
+          ..write('id: $id, ')
+          ..write('postId: $postId, ')
+          ..write('userId: $userId, ')
+          ..write('isLiked: $isLiked, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('syncStatus: $syncStatus, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $PostCommentsTable extends PostComments
+    with TableInfo<$PostCommentsTable, PostCommentRecord> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PostCommentsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _postIdMeta = const VerificationMeta('postId');
+  @override
+  late final GeneratedColumn<String> postId = GeneratedColumn<String>(
+    'post_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _authorIdMeta = const VerificationMeta(
+    'authorId',
+  );
+  @override
+  late final GeneratedColumn<String> authorId = GeneratedColumn<String>(
+    'author_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _authorUsernameMeta = const VerificationMeta(
+    'authorUsername',
+  );
+  @override
+  late final GeneratedColumn<String> authorUsername = GeneratedColumn<String>(
+    'author_username',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _authorDisplayNameMeta = const VerificationMeta(
+    'authorDisplayName',
+  );
+  @override
+  late final GeneratedColumn<String> authorDisplayName =
+      GeneratedColumn<String>(
+        'author_display_name',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+      );
+  static const VerificationMeta _authorAvatarUrlMeta = const VerificationMeta(
+    'authorAvatarUrl',
+  );
+  @override
+  late final GeneratedColumn<String> authorAvatarUrl = GeneratedColumn<String>(
+    'author_avatar_url',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _contentMeta = const VerificationMeta(
+    'content',
+  );
+  @override
+  late final GeneratedColumn<String> content = GeneratedColumn<String>(
+    'content',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _parentCommentIdMeta = const VerificationMeta(
+    'parentCommentId',
+  );
+  @override
+  late final GeneratedColumn<String> parentCommentId = GeneratedColumn<String>(
+    'parent_comment_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _isDeletedMeta = const VerificationMeta(
+    'isDeleted',
+  );
+  @override
+  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
+    'is_deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _syncStatusMeta = const VerificationMeta(
+    'syncStatus',
+  );
+  @override
+  late final GeneratedColumn<String> syncStatus = GeneratedColumn<String>(
+    'sync_status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('synced'),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    postId,
+    authorId,
+    authorUsername,
+    authorDisplayName,
+    authorAvatarUrl,
+    content,
+    parentCommentId,
+    createdAt,
+    updatedAt,
+    deletedAt,
+    isDeleted,
+    syncStatus,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'post_comments';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PostCommentRecord> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('post_id')) {
+      context.handle(
+        _postIdMeta,
+        postId.isAcceptableOrUnknown(data['post_id']!, _postIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_postIdMeta);
+    }
+    if (data.containsKey('author_id')) {
+      context.handle(
+        _authorIdMeta,
+        authorId.isAcceptableOrUnknown(data['author_id']!, _authorIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_authorIdMeta);
+    }
+    if (data.containsKey('author_username')) {
+      context.handle(
+        _authorUsernameMeta,
+        authorUsername.isAcceptableOrUnknown(
+          data['author_username']!,
+          _authorUsernameMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_authorUsernameMeta);
+    }
+    if (data.containsKey('author_display_name')) {
+      context.handle(
+        _authorDisplayNameMeta,
+        authorDisplayName.isAcceptableOrUnknown(
+          data['author_display_name']!,
+          _authorDisplayNameMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_authorDisplayNameMeta);
+    }
+    if (data.containsKey('author_avatar_url')) {
+      context.handle(
+        _authorAvatarUrlMeta,
+        authorAvatarUrl.isAcceptableOrUnknown(
+          data['author_avatar_url']!,
+          _authorAvatarUrlMeta,
+        ),
+      );
+    }
+    if (data.containsKey('content')) {
+      context.handle(
+        _contentMeta,
+        content.isAcceptableOrUnknown(data['content']!, _contentMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_contentMeta);
+    }
+    if (data.containsKey('parent_comment_id')) {
+      context.handle(
+        _parentCommentIdMeta,
+        parentCommentId.isAcceptableOrUnknown(
+          data['parent_comment_id']!,
+          _parentCommentIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    if (data.containsKey('is_deleted')) {
+      context.handle(
+        _isDeletedMeta,
+        isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
+      );
+    }
+    if (data.containsKey('sync_status')) {
+      context.handle(
+        _syncStatusMeta,
+        syncStatus.isAcceptableOrUnknown(data['sync_status']!, _syncStatusMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  PostCommentRecord map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PostCommentRecord(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      postId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}post_id'],
+      )!,
+      authorId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}author_id'],
+      )!,
+      authorUsername: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}author_username'],
+      )!,
+      authorDisplayName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}author_display_name'],
+      )!,
+      authorAvatarUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}author_avatar_url'],
+      ),
+      content: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}content'],
+      )!,
+      parentCommentId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}parent_comment_id'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
+      isDeleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_deleted'],
+      )!,
+      syncStatus: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sync_status'],
+      )!,
+    );
+  }
+
+  @override
+  $PostCommentsTable createAlias(String alias) {
+    return $PostCommentsTable(attachedDatabase, alias);
+  }
+}
+
+class PostCommentRecord extends DataClass
+    implements Insertable<PostCommentRecord> {
+  final String id;
+  final String postId;
+  final String authorId;
+  final String authorUsername;
+  final String authorDisplayName;
+  final String? authorAvatarUrl;
+  final String content;
+  final String? parentCommentId;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final DateTime? deletedAt;
+  final bool isDeleted;
+  final String syncStatus;
+  const PostCommentRecord({
+    required this.id,
+    required this.postId,
+    required this.authorId,
+    required this.authorUsername,
+    required this.authorDisplayName,
+    this.authorAvatarUrl,
+    required this.content,
+    this.parentCommentId,
+    required this.createdAt,
+    required this.updatedAt,
+    this.deletedAt,
+    required this.isDeleted,
+    required this.syncStatus,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['post_id'] = Variable<String>(postId);
+    map['author_id'] = Variable<String>(authorId);
+    map['author_username'] = Variable<String>(authorUsername);
+    map['author_display_name'] = Variable<String>(authorDisplayName);
+    if (!nullToAbsent || authorAvatarUrl != null) {
+      map['author_avatar_url'] = Variable<String>(authorAvatarUrl);
+    }
+    map['content'] = Variable<String>(content);
+    if (!nullToAbsent || parentCommentId != null) {
+      map['parent_comment_id'] = Variable<String>(parentCommentId);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
+    map['is_deleted'] = Variable<bool>(isDeleted);
+    map['sync_status'] = Variable<String>(syncStatus);
+    return map;
+  }
+
+  PostCommentsCompanion toCompanion(bool nullToAbsent) {
+    return PostCommentsCompanion(
+      id: Value(id),
+      postId: Value(postId),
+      authorId: Value(authorId),
+      authorUsername: Value(authorUsername),
+      authorDisplayName: Value(authorDisplayName),
+      authorAvatarUrl: authorAvatarUrl == null && nullToAbsent
+          ? const Value.absent()
+          : Value(authorAvatarUrl),
+      content: Value(content),
+      parentCommentId: parentCommentId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(parentCommentId),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+      isDeleted: Value(isDeleted),
+      syncStatus: Value(syncStatus),
+    );
+  }
+
+  factory PostCommentRecord.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PostCommentRecord(
+      id: serializer.fromJson<String>(json['id']),
+      postId: serializer.fromJson<String>(json['postId']),
+      authorId: serializer.fromJson<String>(json['authorId']),
+      authorUsername: serializer.fromJson<String>(json['authorUsername']),
+      authorDisplayName: serializer.fromJson<String>(json['authorDisplayName']),
+      authorAvatarUrl: serializer.fromJson<String?>(json['authorAvatarUrl']),
+      content: serializer.fromJson<String>(json['content']),
+      parentCommentId: serializer.fromJson<String?>(json['parentCommentId']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+      syncStatus: serializer.fromJson<String>(json['syncStatus']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'postId': serializer.toJson<String>(postId),
+      'authorId': serializer.toJson<String>(authorId),
+      'authorUsername': serializer.toJson<String>(authorUsername),
+      'authorDisplayName': serializer.toJson<String>(authorDisplayName),
+      'authorAvatarUrl': serializer.toJson<String?>(authorAvatarUrl),
+      'content': serializer.toJson<String>(content),
+      'parentCommentId': serializer.toJson<String?>(parentCommentId),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+      'isDeleted': serializer.toJson<bool>(isDeleted),
+      'syncStatus': serializer.toJson<String>(syncStatus),
+    };
+  }
+
+  PostCommentRecord copyWith({
+    String? id,
+    String? postId,
+    String? authorId,
+    String? authorUsername,
+    String? authorDisplayName,
+    Value<String?> authorAvatarUrl = const Value.absent(),
+    String? content,
+    Value<String?> parentCommentId = const Value.absent(),
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    Value<DateTime?> deletedAt = const Value.absent(),
+    bool? isDeleted,
+    String? syncStatus,
+  }) => PostCommentRecord(
+    id: id ?? this.id,
+    postId: postId ?? this.postId,
+    authorId: authorId ?? this.authorId,
+    authorUsername: authorUsername ?? this.authorUsername,
+    authorDisplayName: authorDisplayName ?? this.authorDisplayName,
+    authorAvatarUrl: authorAvatarUrl.present
+        ? authorAvatarUrl.value
+        : this.authorAvatarUrl,
+    content: content ?? this.content,
+    parentCommentId: parentCommentId.present
+        ? parentCommentId.value
+        : this.parentCommentId,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+    isDeleted: isDeleted ?? this.isDeleted,
+    syncStatus: syncStatus ?? this.syncStatus,
+  );
+  PostCommentRecord copyWithCompanion(PostCommentsCompanion data) {
+    return PostCommentRecord(
+      id: data.id.present ? data.id.value : this.id,
+      postId: data.postId.present ? data.postId.value : this.postId,
+      authorId: data.authorId.present ? data.authorId.value : this.authorId,
+      authorUsername: data.authorUsername.present
+          ? data.authorUsername.value
+          : this.authorUsername,
+      authorDisplayName: data.authorDisplayName.present
+          ? data.authorDisplayName.value
+          : this.authorDisplayName,
+      authorAvatarUrl: data.authorAvatarUrl.present
+          ? data.authorAvatarUrl.value
+          : this.authorAvatarUrl,
+      content: data.content.present ? data.content.value : this.content,
+      parentCommentId: data.parentCommentId.present
+          ? data.parentCommentId.value
+          : this.parentCommentId,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+      syncStatus: data.syncStatus.present
+          ? data.syncStatus.value
+          : this.syncStatus,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PostCommentRecord(')
+          ..write('id: $id, ')
+          ..write('postId: $postId, ')
+          ..write('authorId: $authorId, ')
+          ..write('authorUsername: $authorUsername, ')
+          ..write('authorDisplayName: $authorDisplayName, ')
+          ..write('authorAvatarUrl: $authorAvatarUrl, ')
+          ..write('content: $content, ')
+          ..write('parentCommentId: $parentCommentId, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('syncStatus: $syncStatus')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    postId,
+    authorId,
+    authorUsername,
+    authorDisplayName,
+    authorAvatarUrl,
+    content,
+    parentCommentId,
+    createdAt,
+    updatedAt,
+    deletedAt,
+    isDeleted,
+    syncStatus,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PostCommentRecord &&
+          other.id == this.id &&
+          other.postId == this.postId &&
+          other.authorId == this.authorId &&
+          other.authorUsername == this.authorUsername &&
+          other.authorDisplayName == this.authorDisplayName &&
+          other.authorAvatarUrl == this.authorAvatarUrl &&
+          other.content == this.content &&
+          other.parentCommentId == this.parentCommentId &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt &&
+          other.deletedAt == this.deletedAt &&
+          other.isDeleted == this.isDeleted &&
+          other.syncStatus == this.syncStatus);
+}
+
+class PostCommentsCompanion extends UpdateCompanion<PostCommentRecord> {
+  final Value<String> id;
+  final Value<String> postId;
+  final Value<String> authorId;
+  final Value<String> authorUsername;
+  final Value<String> authorDisplayName;
+  final Value<String?> authorAvatarUrl;
+  final Value<String> content;
+  final Value<String?> parentCommentId;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<DateTime?> deletedAt;
+  final Value<bool> isDeleted;
+  final Value<String> syncStatus;
+  final Value<int> rowid;
+  const PostCommentsCompanion({
+    this.id = const Value.absent(),
+    this.postId = const Value.absent(),
+    this.authorId = const Value.absent(),
+    this.authorUsername = const Value.absent(),
+    this.authorDisplayName = const Value.absent(),
+    this.authorAvatarUrl = const Value.absent(),
+    this.content = const Value.absent(),
+    this.parentCommentId = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.syncStatus = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  PostCommentsCompanion.insert({
+    required String id,
+    required String postId,
+    required String authorId,
+    required String authorUsername,
+    required String authorDisplayName,
+    this.authorAvatarUrl = const Value.absent(),
+    required String content,
+    this.parentCommentId = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.syncStatus = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       postId = Value(postId),
+       authorId = Value(authorId),
+       authorUsername = Value(authorUsername),
+       authorDisplayName = Value(authorDisplayName),
+       content = Value(content);
+  static Insertable<PostCommentRecord> custom({
+    Expression<String>? id,
+    Expression<String>? postId,
+    Expression<String>? authorId,
+    Expression<String>? authorUsername,
+    Expression<String>? authorDisplayName,
+    Expression<String>? authorAvatarUrl,
+    Expression<String>? content,
+    Expression<String>? parentCommentId,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<DateTime>? deletedAt,
+    Expression<bool>? isDeleted,
+    Expression<String>? syncStatus,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (postId != null) 'post_id': postId,
+      if (authorId != null) 'author_id': authorId,
+      if (authorUsername != null) 'author_username': authorUsername,
+      if (authorDisplayName != null) 'author_display_name': authorDisplayName,
+      if (authorAvatarUrl != null) 'author_avatar_url': authorAvatarUrl,
+      if (content != null) 'content': content,
+      if (parentCommentId != null) 'parent_comment_id': parentCommentId,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (isDeleted != null) 'is_deleted': isDeleted,
+      if (syncStatus != null) 'sync_status': syncStatus,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  PostCommentsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? postId,
+    Value<String>? authorId,
+    Value<String>? authorUsername,
+    Value<String>? authorDisplayName,
+    Value<String?>? authorAvatarUrl,
+    Value<String>? content,
+    Value<String?>? parentCommentId,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+    Value<DateTime?>? deletedAt,
+    Value<bool>? isDeleted,
+    Value<String>? syncStatus,
+    Value<int>? rowid,
+  }) {
+    return PostCommentsCompanion(
+      id: id ?? this.id,
+      postId: postId ?? this.postId,
+      authorId: authorId ?? this.authorId,
+      authorUsername: authorUsername ?? this.authorUsername,
+      authorDisplayName: authorDisplayName ?? this.authorDisplayName,
+      authorAvatarUrl: authorAvatarUrl ?? this.authorAvatarUrl,
+      content: content ?? this.content,
+      parentCommentId: parentCommentId ?? this.parentCommentId,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      isDeleted: isDeleted ?? this.isDeleted,
+      syncStatus: syncStatus ?? this.syncStatus,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (postId.present) {
+      map['post_id'] = Variable<String>(postId.value);
+    }
+    if (authorId.present) {
+      map['author_id'] = Variable<String>(authorId.value);
+    }
+    if (authorUsername.present) {
+      map['author_username'] = Variable<String>(authorUsername.value);
+    }
+    if (authorDisplayName.present) {
+      map['author_display_name'] = Variable<String>(authorDisplayName.value);
+    }
+    if (authorAvatarUrl.present) {
+      map['author_avatar_url'] = Variable<String>(authorAvatarUrl.value);
+    }
+    if (content.present) {
+      map['content'] = Variable<String>(content.value);
+    }
+    if (parentCommentId.present) {
+      map['parent_comment_id'] = Variable<String>(parentCommentId.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
+    if (isDeleted.present) {
+      map['is_deleted'] = Variable<bool>(isDeleted.value);
+    }
+    if (syncStatus.present) {
+      map['sync_status'] = Variable<String>(syncStatus.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PostCommentsCompanion(')
+          ..write('id: $id, ')
+          ..write('postId: $postId, ')
+          ..write('authorId: $authorId, ')
+          ..write('authorUsername: $authorUsername, ')
+          ..write('authorDisplayName: $authorDisplayName, ')
+          ..write('authorAvatarUrl: $authorAvatarUrl, ')
+          ..write('content: $content, ')
+          ..write('parentCommentId: $parentCommentId, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('syncStatus: $syncStatus, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $FriendshipsTable extends Friendships
+    with TableInfo<$FriendshipsTable, FriendshipRecord> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $FriendshipsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+    'user_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _friendIdMeta = const VerificationMeta(
+    'friendId',
+  );
+  @override
+  late final GeneratedColumn<String> friendId = GeneratedColumn<String>(
+    'friend_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('pending'),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _isDeletedMeta = const VerificationMeta(
+    'isDeleted',
+  );
+  @override
+  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
+    'is_deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _syncStatusMeta = const VerificationMeta(
+    'syncStatus',
+  );
+  @override
+  late final GeneratedColumn<String> syncStatus = GeneratedColumn<String>(
+    'sync_status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('synced'),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    userId,
+    friendId,
+    status,
+    createdAt,
+    updatedAt,
+    deletedAt,
+    isDeleted,
+    syncStatus,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'friendships';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<FriendshipRecord> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_userIdMeta);
+    }
+    if (data.containsKey('friend_id')) {
+      context.handle(
+        _friendIdMeta,
+        friendId.isAcceptableOrUnknown(data['friend_id']!, _friendIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_friendIdMeta);
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    if (data.containsKey('is_deleted')) {
+      context.handle(
+        _isDeletedMeta,
+        isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
+      );
+    }
+    if (data.containsKey('sync_status')) {
+      context.handle(
+        _syncStatusMeta,
+        syncStatus.isAcceptableOrUnknown(data['sync_status']!, _syncStatusMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  FriendshipRecord map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return FriendshipRecord(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_id'],
+      )!,
+      friendId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}friend_id'],
+      )!,
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      ),
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
+      isDeleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_deleted'],
+      )!,
+      syncStatus: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sync_status'],
+      )!,
+    );
+  }
+
+  @override
+  $FriendshipsTable createAlias(String alias) {
+    return $FriendshipsTable(attachedDatabase, alias);
+  }
+}
+
+class FriendshipRecord extends DataClass
+    implements Insertable<FriendshipRecord> {
+  final String id;
+  final String userId;
+  final String friendId;
+  final String status;
+  final DateTime createdAt;
+  final DateTime? updatedAt;
+  final DateTime? deletedAt;
+  final bool isDeleted;
+  final String syncStatus;
+  const FriendshipRecord({
+    required this.id,
+    required this.userId,
+    required this.friendId,
+    required this.status,
+    required this.createdAt,
+    this.updatedAt,
+    this.deletedAt,
+    required this.isDeleted,
+    required this.syncStatus,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['user_id'] = Variable<String>(userId);
+    map['friend_id'] = Variable<String>(friendId);
+    map['status'] = Variable<String>(status);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    if (!nullToAbsent || updatedAt != null) {
+      map['updated_at'] = Variable<DateTime>(updatedAt);
+    }
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
+    map['is_deleted'] = Variable<bool>(isDeleted);
+    map['sync_status'] = Variable<String>(syncStatus);
+    return map;
+  }
+
+  FriendshipsCompanion toCompanion(bool nullToAbsent) {
+    return FriendshipsCompanion(
+      id: Value(id),
+      userId: Value(userId),
+      friendId: Value(friendId),
+      status: Value(status),
+      createdAt: Value(createdAt),
+      updatedAt: updatedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(updatedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+      isDeleted: Value(isDeleted),
+      syncStatus: Value(syncStatus),
+    );
+  }
+
+  factory FriendshipRecord.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return FriendshipRecord(
+      id: serializer.fromJson<String>(json['id']),
+      userId: serializer.fromJson<String>(json['userId']),
+      friendId: serializer.fromJson<String>(json['friendId']),
+      status: serializer.fromJson<String>(json['status']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime?>(json['updatedAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+      syncStatus: serializer.fromJson<String>(json['syncStatus']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'userId': serializer.toJson<String>(userId),
+      'friendId': serializer.toJson<String>(friendId),
+      'status': serializer.toJson<String>(status),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime?>(updatedAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+      'isDeleted': serializer.toJson<bool>(isDeleted),
+      'syncStatus': serializer.toJson<String>(syncStatus),
+    };
+  }
+
+  FriendshipRecord copyWith({
+    String? id,
+    String? userId,
+    String? friendId,
+    String? status,
+    DateTime? createdAt,
+    Value<DateTime?> updatedAt = const Value.absent(),
+    Value<DateTime?> deletedAt = const Value.absent(),
+    bool? isDeleted,
+    String? syncStatus,
+  }) => FriendshipRecord(
+    id: id ?? this.id,
+    userId: userId ?? this.userId,
+    friendId: friendId ?? this.friendId,
+    status: status ?? this.status,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+    isDeleted: isDeleted ?? this.isDeleted,
+    syncStatus: syncStatus ?? this.syncStatus,
+  );
+  FriendshipRecord copyWithCompanion(FriendshipsCompanion data) {
+    return FriendshipRecord(
+      id: data.id.present ? data.id.value : this.id,
+      userId: data.userId.present ? data.userId.value : this.userId,
+      friendId: data.friendId.present ? data.friendId.value : this.friendId,
+      status: data.status.present ? data.status.value : this.status,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+      syncStatus: data.syncStatus.present
+          ? data.syncStatus.value
+          : this.syncStatus,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FriendshipRecord(')
+          ..write('id: $id, ')
+          ..write('userId: $userId, ')
+          ..write('friendId: $friendId, ')
+          ..write('status: $status, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('syncStatus: $syncStatus')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    userId,
+    friendId,
+    status,
+    createdAt,
+    updatedAt,
+    deletedAt,
+    isDeleted,
+    syncStatus,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is FriendshipRecord &&
+          other.id == this.id &&
+          other.userId == this.userId &&
+          other.friendId == this.friendId &&
+          other.status == this.status &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt &&
+          other.deletedAt == this.deletedAt &&
+          other.isDeleted == this.isDeleted &&
+          other.syncStatus == this.syncStatus);
+}
+
+class FriendshipsCompanion extends UpdateCompanion<FriendshipRecord> {
+  final Value<String> id;
+  final Value<String> userId;
+  final Value<String> friendId;
+  final Value<String> status;
+  final Value<DateTime> createdAt;
+  final Value<DateTime?> updatedAt;
+  final Value<DateTime?> deletedAt;
+  final Value<bool> isDeleted;
+  final Value<String> syncStatus;
+  final Value<int> rowid;
+  const FriendshipsCompanion({
+    this.id = const Value.absent(),
+    this.userId = const Value.absent(),
+    this.friendId = const Value.absent(),
+    this.status = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.syncStatus = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  FriendshipsCompanion.insert({
+    required String id,
+    required String userId,
+    required String friendId,
+    this.status = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.syncStatus = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       userId = Value(userId),
+       friendId = Value(friendId);
+  static Insertable<FriendshipRecord> custom({
+    Expression<String>? id,
+    Expression<String>? userId,
+    Expression<String>? friendId,
+    Expression<String>? status,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<DateTime>? deletedAt,
+    Expression<bool>? isDeleted,
+    Expression<String>? syncStatus,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (userId != null) 'user_id': userId,
+      if (friendId != null) 'friend_id': friendId,
+      if (status != null) 'status': status,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (isDeleted != null) 'is_deleted': isDeleted,
+      if (syncStatus != null) 'sync_status': syncStatus,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  FriendshipsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? userId,
+    Value<String>? friendId,
+    Value<String>? status,
+    Value<DateTime>? createdAt,
+    Value<DateTime?>? updatedAt,
+    Value<DateTime?>? deletedAt,
+    Value<bool>? isDeleted,
+    Value<String>? syncStatus,
+    Value<int>? rowid,
+  }) {
+    return FriendshipsCompanion(
+      id: id ?? this.id,
+      userId: userId ?? this.userId,
+      friendId: friendId ?? this.friendId,
+      status: status ?? this.status,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      isDeleted: isDeleted ?? this.isDeleted,
+      syncStatus: syncStatus ?? this.syncStatus,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
+    }
+    if (friendId.present) {
+      map['friend_id'] = Variable<String>(friendId.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
+    if (isDeleted.present) {
+      map['is_deleted'] = Variable<bool>(isDeleted.value);
+    }
+    if (syncStatus.present) {
+      map['sync_status'] = Variable<String>(syncStatus.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FriendshipsCompanion(')
+          ..write('id: $id, ')
+          ..write('userId: $userId, ')
+          ..write('friendId: $friendId, ')
+          ..write('status: $status, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('syncStatus: $syncStatus, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $NotificationsTable extends Notifications
+    with TableInfo<$NotificationsTable, NotificationRecord> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $NotificationsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+    'user_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _actorIdMeta = const VerificationMeta(
+    'actorId',
+  );
+  @override
+  late final GeneratedColumn<String> actorId = GeneratedColumn<String>(
+    'actor_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _actorUsernameMeta = const VerificationMeta(
+    'actorUsername',
+  );
+  @override
+  late final GeneratedColumn<String> actorUsername = GeneratedColumn<String>(
+    'actor_username',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _actorDisplayNameMeta = const VerificationMeta(
+    'actorDisplayName',
+  );
+  @override
+  late final GeneratedColumn<String> actorDisplayName = GeneratedColumn<String>(
+    'actor_display_name',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _actorAvatarUrlMeta = const VerificationMeta(
+    'actorAvatarUrl',
+  );
+  @override
+  late final GeneratedColumn<String> actorAvatarUrl = GeneratedColumn<String>(
+    'actor_avatar_url',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _typeMeta = const VerificationMeta('type');
+  @override
+  late final GeneratedColumn<String> type = GeneratedColumn<String>(
+    'type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _titleMeta = const VerificationMeta('title');
+  @override
+  late final GeneratedColumn<String> title = GeneratedColumn<String>(
+    'title',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _bodyMeta = const VerificationMeta('body');
+  @override
+  late final GeneratedColumn<String> body = GeneratedColumn<String>(
+    'body',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _targetEntityIdMeta = const VerificationMeta(
+    'targetEntityId',
+  );
+  @override
+  late final GeneratedColumn<String> targetEntityId = GeneratedColumn<String>(
+    'target_entity_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _targetEntityTypeMeta = const VerificationMeta(
+    'targetEntityType',
+  );
+  @override
+  late final GeneratedColumn<String> targetEntityType = GeneratedColumn<String>(
+    'target_entity_type',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('unread'),
+  );
+  static const VerificationMeta _isReadMeta = const VerificationMeta('isRead');
+  @override
+  late final GeneratedColumn<bool> isRead = GeneratedColumn<bool>(
+    'is_read',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_read" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _isActionedMeta = const VerificationMeta(
+    'isActioned',
+  );
+  @override
+  late final GeneratedColumn<bool> isActioned = GeneratedColumn<bool>(
+    'is_actioned',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_actioned" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _isDeletedMeta = const VerificationMeta(
+    'isDeleted',
+  );
+  @override
+  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
+    'is_deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _syncStatusMeta = const VerificationMeta(
+    'syncStatus',
+  );
+  @override
+  late final GeneratedColumn<String> syncStatus = GeneratedColumn<String>(
+    'sync_status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('synced'),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    userId,
+    actorId,
+    actorUsername,
+    actorDisplayName,
+    actorAvatarUrl,
+    type,
+    title,
+    body,
+    targetEntityId,
+    targetEntityType,
+    status,
+    isRead,
+    isActioned,
+    createdAt,
+    updatedAt,
+    deletedAt,
+    isDeleted,
+    syncStatus,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'notifications';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<NotificationRecord> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_userIdMeta);
+    }
+    if (data.containsKey('actor_id')) {
+      context.handle(
+        _actorIdMeta,
+        actorId.isAcceptableOrUnknown(data['actor_id']!, _actorIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_actorIdMeta);
+    }
+    if (data.containsKey('actor_username')) {
+      context.handle(
+        _actorUsernameMeta,
+        actorUsername.isAcceptableOrUnknown(
+          data['actor_username']!,
+          _actorUsernameMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_actorUsernameMeta);
+    }
+    if (data.containsKey('actor_display_name')) {
+      context.handle(
+        _actorDisplayNameMeta,
+        actorDisplayName.isAcceptableOrUnknown(
+          data['actor_display_name']!,
+          _actorDisplayNameMeta,
+        ),
+      );
+    }
+    if (data.containsKey('actor_avatar_url')) {
+      context.handle(
+        _actorAvatarUrlMeta,
+        actorAvatarUrl.isAcceptableOrUnknown(
+          data['actor_avatar_url']!,
+          _actorAvatarUrlMeta,
+        ),
+      );
+    }
+    if (data.containsKey('type')) {
+      context.handle(
+        _typeMeta,
+        type.isAcceptableOrUnknown(data['type']!, _typeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_typeMeta);
+    }
+    if (data.containsKey('title')) {
+      context.handle(
+        _titleMeta,
+        title.isAcceptableOrUnknown(data['title']!, _titleMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_titleMeta);
+    }
+    if (data.containsKey('body')) {
+      context.handle(
+        _bodyMeta,
+        body.isAcceptableOrUnknown(data['body']!, _bodyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_bodyMeta);
+    }
+    if (data.containsKey('target_entity_id')) {
+      context.handle(
+        _targetEntityIdMeta,
+        targetEntityId.isAcceptableOrUnknown(
+          data['target_entity_id']!,
+          _targetEntityIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('target_entity_type')) {
+      context.handle(
+        _targetEntityTypeMeta,
+        targetEntityType.isAcceptableOrUnknown(
+          data['target_entity_type']!,
+          _targetEntityTypeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    }
+    if (data.containsKey('is_read')) {
+      context.handle(
+        _isReadMeta,
+        isRead.isAcceptableOrUnknown(data['is_read']!, _isReadMeta),
+      );
+    }
+    if (data.containsKey('is_actioned')) {
+      context.handle(
+        _isActionedMeta,
+        isActioned.isAcceptableOrUnknown(data['is_actioned']!, _isActionedMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    if (data.containsKey('is_deleted')) {
+      context.handle(
+        _isDeletedMeta,
+        isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
+      );
+    }
+    if (data.containsKey('sync_status')) {
+      context.handle(
+        _syncStatusMeta,
+        syncStatus.isAcceptableOrUnknown(data['sync_status']!, _syncStatusMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  NotificationRecord map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return NotificationRecord(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_id'],
+      )!,
+      actorId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}actor_id'],
+      )!,
+      actorUsername: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}actor_username'],
+      )!,
+      actorDisplayName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}actor_display_name'],
+      ),
+      actorAvatarUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}actor_avatar_url'],
+      ),
+      type: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}type'],
+      )!,
+      title: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}title'],
+      )!,
+      body: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}body'],
+      )!,
+      targetEntityId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}target_entity_id'],
+      ),
+      targetEntityType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}target_entity_type'],
+      ),
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      isRead: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_read'],
+      )!,
+      isActioned: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_actioned'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      ),
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
+      isDeleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_deleted'],
+      )!,
+      syncStatus: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sync_status'],
+      )!,
+    );
+  }
+
+  @override
+  $NotificationsTable createAlias(String alias) {
+    return $NotificationsTable(attachedDatabase, alias);
+  }
+}
+
+class NotificationRecord extends DataClass
+    implements Insertable<NotificationRecord> {
+  final String id;
+  final String userId;
+  final String actorId;
+  final String actorUsername;
+  final String? actorDisplayName;
+  final String? actorAvatarUrl;
+  final String type;
+  final String title;
+  final String body;
+  final String? targetEntityId;
+  final String? targetEntityType;
+  final String status;
+  final bool isRead;
+  final bool isActioned;
+  final DateTime createdAt;
+  final DateTime? updatedAt;
+  final DateTime? deletedAt;
+  final bool isDeleted;
+  final String syncStatus;
+  const NotificationRecord({
+    required this.id,
+    required this.userId,
+    required this.actorId,
+    required this.actorUsername,
+    this.actorDisplayName,
+    this.actorAvatarUrl,
+    required this.type,
+    required this.title,
+    required this.body,
+    this.targetEntityId,
+    this.targetEntityType,
+    required this.status,
+    required this.isRead,
+    required this.isActioned,
+    required this.createdAt,
+    this.updatedAt,
+    this.deletedAt,
+    required this.isDeleted,
+    required this.syncStatus,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['user_id'] = Variable<String>(userId);
+    map['actor_id'] = Variable<String>(actorId);
+    map['actor_username'] = Variable<String>(actorUsername);
+    if (!nullToAbsent || actorDisplayName != null) {
+      map['actor_display_name'] = Variable<String>(actorDisplayName);
+    }
+    if (!nullToAbsent || actorAvatarUrl != null) {
+      map['actor_avatar_url'] = Variable<String>(actorAvatarUrl);
+    }
+    map['type'] = Variable<String>(type);
+    map['title'] = Variable<String>(title);
+    map['body'] = Variable<String>(body);
+    if (!nullToAbsent || targetEntityId != null) {
+      map['target_entity_id'] = Variable<String>(targetEntityId);
+    }
+    if (!nullToAbsent || targetEntityType != null) {
+      map['target_entity_type'] = Variable<String>(targetEntityType);
+    }
+    map['status'] = Variable<String>(status);
+    map['is_read'] = Variable<bool>(isRead);
+    map['is_actioned'] = Variable<bool>(isActioned);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    if (!nullToAbsent || updatedAt != null) {
+      map['updated_at'] = Variable<DateTime>(updatedAt);
+    }
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
+    map['is_deleted'] = Variable<bool>(isDeleted);
+    map['sync_status'] = Variable<String>(syncStatus);
+    return map;
+  }
+
+  NotificationsCompanion toCompanion(bool nullToAbsent) {
+    return NotificationsCompanion(
+      id: Value(id),
+      userId: Value(userId),
+      actorId: Value(actorId),
+      actorUsername: Value(actorUsername),
+      actorDisplayName: actorDisplayName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(actorDisplayName),
+      actorAvatarUrl: actorAvatarUrl == null && nullToAbsent
+          ? const Value.absent()
+          : Value(actorAvatarUrl),
+      type: Value(type),
+      title: Value(title),
+      body: Value(body),
+      targetEntityId: targetEntityId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(targetEntityId),
+      targetEntityType: targetEntityType == null && nullToAbsent
+          ? const Value.absent()
+          : Value(targetEntityType),
+      status: Value(status),
+      isRead: Value(isRead),
+      isActioned: Value(isActioned),
+      createdAt: Value(createdAt),
+      updatedAt: updatedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(updatedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+      isDeleted: Value(isDeleted),
+      syncStatus: Value(syncStatus),
+    );
+  }
+
+  factory NotificationRecord.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return NotificationRecord(
+      id: serializer.fromJson<String>(json['id']),
+      userId: serializer.fromJson<String>(json['userId']),
+      actorId: serializer.fromJson<String>(json['actorId']),
+      actorUsername: serializer.fromJson<String>(json['actorUsername']),
+      actorDisplayName: serializer.fromJson<String?>(json['actorDisplayName']),
+      actorAvatarUrl: serializer.fromJson<String?>(json['actorAvatarUrl']),
+      type: serializer.fromJson<String>(json['type']),
+      title: serializer.fromJson<String>(json['title']),
+      body: serializer.fromJson<String>(json['body']),
+      targetEntityId: serializer.fromJson<String?>(json['targetEntityId']),
+      targetEntityType: serializer.fromJson<String?>(json['targetEntityType']),
+      status: serializer.fromJson<String>(json['status']),
+      isRead: serializer.fromJson<bool>(json['isRead']),
+      isActioned: serializer.fromJson<bool>(json['isActioned']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime?>(json['updatedAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+      syncStatus: serializer.fromJson<String>(json['syncStatus']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'userId': serializer.toJson<String>(userId),
+      'actorId': serializer.toJson<String>(actorId),
+      'actorUsername': serializer.toJson<String>(actorUsername),
+      'actorDisplayName': serializer.toJson<String?>(actorDisplayName),
+      'actorAvatarUrl': serializer.toJson<String?>(actorAvatarUrl),
+      'type': serializer.toJson<String>(type),
+      'title': serializer.toJson<String>(title),
+      'body': serializer.toJson<String>(body),
+      'targetEntityId': serializer.toJson<String?>(targetEntityId),
+      'targetEntityType': serializer.toJson<String?>(targetEntityType),
+      'status': serializer.toJson<String>(status),
+      'isRead': serializer.toJson<bool>(isRead),
+      'isActioned': serializer.toJson<bool>(isActioned),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime?>(updatedAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+      'isDeleted': serializer.toJson<bool>(isDeleted),
+      'syncStatus': serializer.toJson<String>(syncStatus),
+    };
+  }
+
+  NotificationRecord copyWith({
+    String? id,
+    String? userId,
+    String? actorId,
+    String? actorUsername,
+    Value<String?> actorDisplayName = const Value.absent(),
+    Value<String?> actorAvatarUrl = const Value.absent(),
+    String? type,
+    String? title,
+    String? body,
+    Value<String?> targetEntityId = const Value.absent(),
+    Value<String?> targetEntityType = const Value.absent(),
+    String? status,
+    bool? isRead,
+    bool? isActioned,
+    DateTime? createdAt,
+    Value<DateTime?> updatedAt = const Value.absent(),
+    Value<DateTime?> deletedAt = const Value.absent(),
+    bool? isDeleted,
+    String? syncStatus,
+  }) => NotificationRecord(
+    id: id ?? this.id,
+    userId: userId ?? this.userId,
+    actorId: actorId ?? this.actorId,
+    actorUsername: actorUsername ?? this.actorUsername,
+    actorDisplayName: actorDisplayName.present
+        ? actorDisplayName.value
+        : this.actorDisplayName,
+    actorAvatarUrl: actorAvatarUrl.present
+        ? actorAvatarUrl.value
+        : this.actorAvatarUrl,
+    type: type ?? this.type,
+    title: title ?? this.title,
+    body: body ?? this.body,
+    targetEntityId: targetEntityId.present
+        ? targetEntityId.value
+        : this.targetEntityId,
+    targetEntityType: targetEntityType.present
+        ? targetEntityType.value
+        : this.targetEntityType,
+    status: status ?? this.status,
+    isRead: isRead ?? this.isRead,
+    isActioned: isActioned ?? this.isActioned,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+    isDeleted: isDeleted ?? this.isDeleted,
+    syncStatus: syncStatus ?? this.syncStatus,
+  );
+  NotificationRecord copyWithCompanion(NotificationsCompanion data) {
+    return NotificationRecord(
+      id: data.id.present ? data.id.value : this.id,
+      userId: data.userId.present ? data.userId.value : this.userId,
+      actorId: data.actorId.present ? data.actorId.value : this.actorId,
+      actorUsername: data.actorUsername.present
+          ? data.actorUsername.value
+          : this.actorUsername,
+      actorDisplayName: data.actorDisplayName.present
+          ? data.actorDisplayName.value
+          : this.actorDisplayName,
+      actorAvatarUrl: data.actorAvatarUrl.present
+          ? data.actorAvatarUrl.value
+          : this.actorAvatarUrl,
+      type: data.type.present ? data.type.value : this.type,
+      title: data.title.present ? data.title.value : this.title,
+      body: data.body.present ? data.body.value : this.body,
+      targetEntityId: data.targetEntityId.present
+          ? data.targetEntityId.value
+          : this.targetEntityId,
+      targetEntityType: data.targetEntityType.present
+          ? data.targetEntityType.value
+          : this.targetEntityType,
+      status: data.status.present ? data.status.value : this.status,
+      isRead: data.isRead.present ? data.isRead.value : this.isRead,
+      isActioned: data.isActioned.present
+          ? data.isActioned.value
+          : this.isActioned,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+      syncStatus: data.syncStatus.present
+          ? data.syncStatus.value
+          : this.syncStatus,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('NotificationRecord(')
+          ..write('id: $id, ')
+          ..write('userId: $userId, ')
+          ..write('actorId: $actorId, ')
+          ..write('actorUsername: $actorUsername, ')
+          ..write('actorDisplayName: $actorDisplayName, ')
+          ..write('actorAvatarUrl: $actorAvatarUrl, ')
+          ..write('type: $type, ')
+          ..write('title: $title, ')
+          ..write('body: $body, ')
+          ..write('targetEntityId: $targetEntityId, ')
+          ..write('targetEntityType: $targetEntityType, ')
+          ..write('status: $status, ')
+          ..write('isRead: $isRead, ')
+          ..write('isActioned: $isActioned, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('syncStatus: $syncStatus')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    userId,
+    actorId,
+    actorUsername,
+    actorDisplayName,
+    actorAvatarUrl,
+    type,
+    title,
+    body,
+    targetEntityId,
+    targetEntityType,
+    status,
+    isRead,
+    isActioned,
+    createdAt,
+    updatedAt,
+    deletedAt,
+    isDeleted,
+    syncStatus,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is NotificationRecord &&
+          other.id == this.id &&
+          other.userId == this.userId &&
+          other.actorId == this.actorId &&
+          other.actorUsername == this.actorUsername &&
+          other.actorDisplayName == this.actorDisplayName &&
+          other.actorAvatarUrl == this.actorAvatarUrl &&
+          other.type == this.type &&
+          other.title == this.title &&
+          other.body == this.body &&
+          other.targetEntityId == this.targetEntityId &&
+          other.targetEntityType == this.targetEntityType &&
+          other.status == this.status &&
+          other.isRead == this.isRead &&
+          other.isActioned == this.isActioned &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt &&
+          other.deletedAt == this.deletedAt &&
+          other.isDeleted == this.isDeleted &&
+          other.syncStatus == this.syncStatus);
+}
+
+class NotificationsCompanion extends UpdateCompanion<NotificationRecord> {
+  final Value<String> id;
+  final Value<String> userId;
+  final Value<String> actorId;
+  final Value<String> actorUsername;
+  final Value<String?> actorDisplayName;
+  final Value<String?> actorAvatarUrl;
+  final Value<String> type;
+  final Value<String> title;
+  final Value<String> body;
+  final Value<String?> targetEntityId;
+  final Value<String?> targetEntityType;
+  final Value<String> status;
+  final Value<bool> isRead;
+  final Value<bool> isActioned;
+  final Value<DateTime> createdAt;
+  final Value<DateTime?> updatedAt;
+  final Value<DateTime?> deletedAt;
+  final Value<bool> isDeleted;
+  final Value<String> syncStatus;
+  final Value<int> rowid;
+  const NotificationsCompanion({
+    this.id = const Value.absent(),
+    this.userId = const Value.absent(),
+    this.actorId = const Value.absent(),
+    this.actorUsername = const Value.absent(),
+    this.actorDisplayName = const Value.absent(),
+    this.actorAvatarUrl = const Value.absent(),
+    this.type = const Value.absent(),
+    this.title = const Value.absent(),
+    this.body = const Value.absent(),
+    this.targetEntityId = const Value.absent(),
+    this.targetEntityType = const Value.absent(),
+    this.status = const Value.absent(),
+    this.isRead = const Value.absent(),
+    this.isActioned = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.syncStatus = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  NotificationsCompanion.insert({
+    required String id,
+    required String userId,
+    required String actorId,
+    required String actorUsername,
+    this.actorDisplayName = const Value.absent(),
+    this.actorAvatarUrl = const Value.absent(),
+    required String type,
+    required String title,
+    required String body,
+    this.targetEntityId = const Value.absent(),
+    this.targetEntityType = const Value.absent(),
+    this.status = const Value.absent(),
+    this.isRead = const Value.absent(),
+    this.isActioned = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.syncStatus = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       userId = Value(userId),
+       actorId = Value(actorId),
+       actorUsername = Value(actorUsername),
+       type = Value(type),
+       title = Value(title),
+       body = Value(body);
+  static Insertable<NotificationRecord> custom({
+    Expression<String>? id,
+    Expression<String>? userId,
+    Expression<String>? actorId,
+    Expression<String>? actorUsername,
+    Expression<String>? actorDisplayName,
+    Expression<String>? actorAvatarUrl,
+    Expression<String>? type,
+    Expression<String>? title,
+    Expression<String>? body,
+    Expression<String>? targetEntityId,
+    Expression<String>? targetEntityType,
+    Expression<String>? status,
+    Expression<bool>? isRead,
+    Expression<bool>? isActioned,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<DateTime>? deletedAt,
+    Expression<bool>? isDeleted,
+    Expression<String>? syncStatus,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (userId != null) 'user_id': userId,
+      if (actorId != null) 'actor_id': actorId,
+      if (actorUsername != null) 'actor_username': actorUsername,
+      if (actorDisplayName != null) 'actor_display_name': actorDisplayName,
+      if (actorAvatarUrl != null) 'actor_avatar_url': actorAvatarUrl,
+      if (type != null) 'type': type,
+      if (title != null) 'title': title,
+      if (body != null) 'body': body,
+      if (targetEntityId != null) 'target_entity_id': targetEntityId,
+      if (targetEntityType != null) 'target_entity_type': targetEntityType,
+      if (status != null) 'status': status,
+      if (isRead != null) 'is_read': isRead,
+      if (isActioned != null) 'is_actioned': isActioned,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (isDeleted != null) 'is_deleted': isDeleted,
+      if (syncStatus != null) 'sync_status': syncStatus,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  NotificationsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? userId,
+    Value<String>? actorId,
+    Value<String>? actorUsername,
+    Value<String?>? actorDisplayName,
+    Value<String?>? actorAvatarUrl,
+    Value<String>? type,
+    Value<String>? title,
+    Value<String>? body,
+    Value<String?>? targetEntityId,
+    Value<String?>? targetEntityType,
+    Value<String>? status,
+    Value<bool>? isRead,
+    Value<bool>? isActioned,
+    Value<DateTime>? createdAt,
+    Value<DateTime?>? updatedAt,
+    Value<DateTime?>? deletedAt,
+    Value<bool>? isDeleted,
+    Value<String>? syncStatus,
+    Value<int>? rowid,
+  }) {
+    return NotificationsCompanion(
+      id: id ?? this.id,
+      userId: userId ?? this.userId,
+      actorId: actorId ?? this.actorId,
+      actorUsername: actorUsername ?? this.actorUsername,
+      actorDisplayName: actorDisplayName ?? this.actorDisplayName,
+      actorAvatarUrl: actorAvatarUrl ?? this.actorAvatarUrl,
+      type: type ?? this.type,
+      title: title ?? this.title,
+      body: body ?? this.body,
+      targetEntityId: targetEntityId ?? this.targetEntityId,
+      targetEntityType: targetEntityType ?? this.targetEntityType,
+      status: status ?? this.status,
+      isRead: isRead ?? this.isRead,
+      isActioned: isActioned ?? this.isActioned,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      isDeleted: isDeleted ?? this.isDeleted,
+      syncStatus: syncStatus ?? this.syncStatus,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
+    }
+    if (actorId.present) {
+      map['actor_id'] = Variable<String>(actorId.value);
+    }
+    if (actorUsername.present) {
+      map['actor_username'] = Variable<String>(actorUsername.value);
+    }
+    if (actorDisplayName.present) {
+      map['actor_display_name'] = Variable<String>(actorDisplayName.value);
+    }
+    if (actorAvatarUrl.present) {
+      map['actor_avatar_url'] = Variable<String>(actorAvatarUrl.value);
+    }
+    if (type.present) {
+      map['type'] = Variable<String>(type.value);
+    }
+    if (title.present) {
+      map['title'] = Variable<String>(title.value);
+    }
+    if (body.present) {
+      map['body'] = Variable<String>(body.value);
+    }
+    if (targetEntityId.present) {
+      map['target_entity_id'] = Variable<String>(targetEntityId.value);
+    }
+    if (targetEntityType.present) {
+      map['target_entity_type'] = Variable<String>(targetEntityType.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (isRead.present) {
+      map['is_read'] = Variable<bool>(isRead.value);
+    }
+    if (isActioned.present) {
+      map['is_actioned'] = Variable<bool>(isActioned.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
+    if (isDeleted.present) {
+      map['is_deleted'] = Variable<bool>(isDeleted.value);
+    }
+    if (syncStatus.present) {
+      map['sync_status'] = Variable<String>(syncStatus.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('NotificationsCompanion(')
+          ..write('id: $id, ')
+          ..write('userId: $userId, ')
+          ..write('actorId: $actorId, ')
+          ..write('actorUsername: $actorUsername, ')
+          ..write('actorDisplayName: $actorDisplayName, ')
+          ..write('actorAvatarUrl: $actorAvatarUrl, ')
+          ..write('type: $type, ')
+          ..write('title: $title, ')
+          ..write('body: $body, ')
+          ..write('targetEntityId: $targetEntityId, ')
+          ..write('targetEntityType: $targetEntityType, ')
+          ..write('status: $status, ')
+          ..write('isRead: $isRead, ')
+          ..write('isActioned: $isActioned, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('syncStatus: $syncStatus, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $MessagesTable extends Messages
+    with TableInfo<$MessagesTable, MessageRecord> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $MessagesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _conversationIdMeta = const VerificationMeta(
+    'conversationId',
+  );
+  @override
+  late final GeneratedColumn<String> conversationId = GeneratedColumn<String>(
+    'conversation_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _senderIdMeta = const VerificationMeta(
+    'senderId',
+  );
+  @override
+  late final GeneratedColumn<String> senderId = GeneratedColumn<String>(
+    'sender_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _recipientIdMeta = const VerificationMeta(
+    'recipientId',
+  );
+  @override
+  late final GeneratedColumn<String> recipientId = GeneratedColumn<String>(
+    'recipient_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _messageTextMeta = const VerificationMeta(
+    'messageText',
+  );
+  @override
+  late final GeneratedColumn<String> messageText = GeneratedColumn<String>(
+    'message_text',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _attachmentTypeMeta = const VerificationMeta(
+    'attachmentType',
+  );
+  @override
+  late final GeneratedColumn<String> attachmentType = GeneratedColumn<String>(
+    'attachment_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('none'),
+  );
+  static const VerificationMeta _attachmentCardIdMeta = const VerificationMeta(
+    'attachmentCardId',
+  );
+  @override
+  late final GeneratedColumn<String> attachmentCardId = GeneratedColumn<String>(
+    'attachment_card_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _attachmentCardJsonMeta =
+      const VerificationMeta('attachmentCardJson');
+  @override
+  late final GeneratedColumn<String> attachmentCardJson =
+      GeneratedColumn<String>(
+        'attachment_card_json',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _attachmentTradeProposalIdMeta =
+      const VerificationMeta('attachmentTradeProposalId');
+  @override
+  late final GeneratedColumn<String> attachmentTradeProposalId =
+      GeneratedColumn<String>(
+        'attachment_trade_proposal_id',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _isReadMeta = const VerificationMeta('isRead');
+  @override
+  late final GeneratedColumn<bool> isRead = GeneratedColumn<bool>(
+    'is_read',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_read" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _isDeletedMeta = const VerificationMeta(
+    'isDeleted',
+  );
+  @override
+  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
+    'is_deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _syncStatusMeta = const VerificationMeta(
+    'syncStatus',
+  );
+  @override
+  late final GeneratedColumn<String> syncStatus = GeneratedColumn<String>(
+    'sync_status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('synced'),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    conversationId,
+    senderId,
+    recipientId,
+    messageText,
+    attachmentType,
+    attachmentCardId,
+    attachmentCardJson,
+    attachmentTradeProposalId,
+    isRead,
+    createdAt,
+    updatedAt,
+    deletedAt,
+    isDeleted,
+    syncStatus,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'messages';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<MessageRecord> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('conversation_id')) {
+      context.handle(
+        _conversationIdMeta,
+        conversationId.isAcceptableOrUnknown(
+          data['conversation_id']!,
+          _conversationIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_conversationIdMeta);
+    }
+    if (data.containsKey('sender_id')) {
+      context.handle(
+        _senderIdMeta,
+        senderId.isAcceptableOrUnknown(data['sender_id']!, _senderIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_senderIdMeta);
+    }
+    if (data.containsKey('recipient_id')) {
+      context.handle(
+        _recipientIdMeta,
+        recipientId.isAcceptableOrUnknown(
+          data['recipient_id']!,
+          _recipientIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_recipientIdMeta);
+    }
+    if (data.containsKey('message_text')) {
+      context.handle(
+        _messageTextMeta,
+        messageText.isAcceptableOrUnknown(
+          data['message_text']!,
+          _messageTextMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_messageTextMeta);
+    }
+    if (data.containsKey('attachment_type')) {
+      context.handle(
+        _attachmentTypeMeta,
+        attachmentType.isAcceptableOrUnknown(
+          data['attachment_type']!,
+          _attachmentTypeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('attachment_card_id')) {
+      context.handle(
+        _attachmentCardIdMeta,
+        attachmentCardId.isAcceptableOrUnknown(
+          data['attachment_card_id']!,
+          _attachmentCardIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('attachment_card_json')) {
+      context.handle(
+        _attachmentCardJsonMeta,
+        attachmentCardJson.isAcceptableOrUnknown(
+          data['attachment_card_json']!,
+          _attachmentCardJsonMeta,
+        ),
+      );
+    }
+    if (data.containsKey('attachment_trade_proposal_id')) {
+      context.handle(
+        _attachmentTradeProposalIdMeta,
+        attachmentTradeProposalId.isAcceptableOrUnknown(
+          data['attachment_trade_proposal_id']!,
+          _attachmentTradeProposalIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('is_read')) {
+      context.handle(
+        _isReadMeta,
+        isRead.isAcceptableOrUnknown(data['is_read']!, _isReadMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    if (data.containsKey('is_deleted')) {
+      context.handle(
+        _isDeletedMeta,
+        isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
+      );
+    }
+    if (data.containsKey('sync_status')) {
+      context.handle(
+        _syncStatusMeta,
+        syncStatus.isAcceptableOrUnknown(data['sync_status']!, _syncStatusMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  MessageRecord map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return MessageRecord(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      conversationId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}conversation_id'],
+      )!,
+      senderId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sender_id'],
+      )!,
+      recipientId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}recipient_id'],
+      )!,
+      messageText: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}message_text'],
+      )!,
+      attachmentType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}attachment_type'],
+      )!,
+      attachmentCardId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}attachment_card_id'],
+      ),
+      attachmentCardJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}attachment_card_json'],
+      ),
+      attachmentTradeProposalId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}attachment_trade_proposal_id'],
+      ),
+      isRead: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_read'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      ),
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
+      isDeleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_deleted'],
+      )!,
+      syncStatus: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sync_status'],
+      )!,
+    );
+  }
+
+  @override
+  $MessagesTable createAlias(String alias) {
+    return $MessagesTable(attachedDatabase, alias);
+  }
+}
+
+class MessageRecord extends DataClass implements Insertable<MessageRecord> {
+  final String id;
+  final String conversationId;
+  final String senderId;
+  final String recipientId;
+  final String messageText;
+  final String attachmentType;
+  final String? attachmentCardId;
+  final String? attachmentCardJson;
+  final String? attachmentTradeProposalId;
+  final bool isRead;
+  final DateTime createdAt;
+  final DateTime? updatedAt;
+  final DateTime? deletedAt;
+  final bool isDeleted;
+  final String syncStatus;
+  const MessageRecord({
+    required this.id,
+    required this.conversationId,
+    required this.senderId,
+    required this.recipientId,
+    required this.messageText,
+    required this.attachmentType,
+    this.attachmentCardId,
+    this.attachmentCardJson,
+    this.attachmentTradeProposalId,
+    required this.isRead,
+    required this.createdAt,
+    this.updatedAt,
+    this.deletedAt,
+    required this.isDeleted,
+    required this.syncStatus,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['conversation_id'] = Variable<String>(conversationId);
+    map['sender_id'] = Variable<String>(senderId);
+    map['recipient_id'] = Variable<String>(recipientId);
+    map['message_text'] = Variable<String>(messageText);
+    map['attachment_type'] = Variable<String>(attachmentType);
+    if (!nullToAbsent || attachmentCardId != null) {
+      map['attachment_card_id'] = Variable<String>(attachmentCardId);
+    }
+    if (!nullToAbsent || attachmentCardJson != null) {
+      map['attachment_card_json'] = Variable<String>(attachmentCardJson);
+    }
+    if (!nullToAbsent || attachmentTradeProposalId != null) {
+      map['attachment_trade_proposal_id'] = Variable<String>(
+        attachmentTradeProposalId,
+      );
+    }
+    map['is_read'] = Variable<bool>(isRead);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    if (!nullToAbsent || updatedAt != null) {
+      map['updated_at'] = Variable<DateTime>(updatedAt);
+    }
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
+    map['is_deleted'] = Variable<bool>(isDeleted);
+    map['sync_status'] = Variable<String>(syncStatus);
+    return map;
+  }
+
+  MessagesCompanion toCompanion(bool nullToAbsent) {
+    return MessagesCompanion(
+      id: Value(id),
+      conversationId: Value(conversationId),
+      senderId: Value(senderId),
+      recipientId: Value(recipientId),
+      messageText: Value(messageText),
+      attachmentType: Value(attachmentType),
+      attachmentCardId: attachmentCardId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(attachmentCardId),
+      attachmentCardJson: attachmentCardJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(attachmentCardJson),
+      attachmentTradeProposalId:
+          attachmentTradeProposalId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(attachmentTradeProposalId),
+      isRead: Value(isRead),
+      createdAt: Value(createdAt),
+      updatedAt: updatedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(updatedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+      isDeleted: Value(isDeleted),
+      syncStatus: Value(syncStatus),
+    );
+  }
+
+  factory MessageRecord.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return MessageRecord(
+      id: serializer.fromJson<String>(json['id']),
+      conversationId: serializer.fromJson<String>(json['conversationId']),
+      senderId: serializer.fromJson<String>(json['senderId']),
+      recipientId: serializer.fromJson<String>(json['recipientId']),
+      messageText: serializer.fromJson<String>(json['messageText']),
+      attachmentType: serializer.fromJson<String>(json['attachmentType']),
+      attachmentCardId: serializer.fromJson<String?>(json['attachmentCardId']),
+      attachmentCardJson: serializer.fromJson<String?>(
+        json['attachmentCardJson'],
+      ),
+      attachmentTradeProposalId: serializer.fromJson<String?>(
+        json['attachmentTradeProposalId'],
+      ),
+      isRead: serializer.fromJson<bool>(json['isRead']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime?>(json['updatedAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+      syncStatus: serializer.fromJson<String>(json['syncStatus']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'conversationId': serializer.toJson<String>(conversationId),
+      'senderId': serializer.toJson<String>(senderId),
+      'recipientId': serializer.toJson<String>(recipientId),
+      'messageText': serializer.toJson<String>(messageText),
+      'attachmentType': serializer.toJson<String>(attachmentType),
+      'attachmentCardId': serializer.toJson<String?>(attachmentCardId),
+      'attachmentCardJson': serializer.toJson<String?>(attachmentCardJson),
+      'attachmentTradeProposalId': serializer.toJson<String?>(
+        attachmentTradeProposalId,
+      ),
+      'isRead': serializer.toJson<bool>(isRead),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime?>(updatedAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+      'isDeleted': serializer.toJson<bool>(isDeleted),
+      'syncStatus': serializer.toJson<String>(syncStatus),
+    };
+  }
+
+  MessageRecord copyWith({
+    String? id,
+    String? conversationId,
+    String? senderId,
+    String? recipientId,
+    String? messageText,
+    String? attachmentType,
+    Value<String?> attachmentCardId = const Value.absent(),
+    Value<String?> attachmentCardJson = const Value.absent(),
+    Value<String?> attachmentTradeProposalId = const Value.absent(),
+    bool? isRead,
+    DateTime? createdAt,
+    Value<DateTime?> updatedAt = const Value.absent(),
+    Value<DateTime?> deletedAt = const Value.absent(),
+    bool? isDeleted,
+    String? syncStatus,
+  }) => MessageRecord(
+    id: id ?? this.id,
+    conversationId: conversationId ?? this.conversationId,
+    senderId: senderId ?? this.senderId,
+    recipientId: recipientId ?? this.recipientId,
+    messageText: messageText ?? this.messageText,
+    attachmentType: attachmentType ?? this.attachmentType,
+    attachmentCardId: attachmentCardId.present
+        ? attachmentCardId.value
+        : this.attachmentCardId,
+    attachmentCardJson: attachmentCardJson.present
+        ? attachmentCardJson.value
+        : this.attachmentCardJson,
+    attachmentTradeProposalId: attachmentTradeProposalId.present
+        ? attachmentTradeProposalId.value
+        : this.attachmentTradeProposalId,
+    isRead: isRead ?? this.isRead,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+    isDeleted: isDeleted ?? this.isDeleted,
+    syncStatus: syncStatus ?? this.syncStatus,
+  );
+  MessageRecord copyWithCompanion(MessagesCompanion data) {
+    return MessageRecord(
+      id: data.id.present ? data.id.value : this.id,
+      conversationId: data.conversationId.present
+          ? data.conversationId.value
+          : this.conversationId,
+      senderId: data.senderId.present ? data.senderId.value : this.senderId,
+      recipientId: data.recipientId.present
+          ? data.recipientId.value
+          : this.recipientId,
+      messageText: data.messageText.present
+          ? data.messageText.value
+          : this.messageText,
+      attachmentType: data.attachmentType.present
+          ? data.attachmentType.value
+          : this.attachmentType,
+      attachmentCardId: data.attachmentCardId.present
+          ? data.attachmentCardId.value
+          : this.attachmentCardId,
+      attachmentCardJson: data.attachmentCardJson.present
+          ? data.attachmentCardJson.value
+          : this.attachmentCardJson,
+      attachmentTradeProposalId: data.attachmentTradeProposalId.present
+          ? data.attachmentTradeProposalId.value
+          : this.attachmentTradeProposalId,
+      isRead: data.isRead.present ? data.isRead.value : this.isRead,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+      syncStatus: data.syncStatus.present
+          ? data.syncStatus.value
+          : this.syncStatus,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('MessageRecord(')
+          ..write('id: $id, ')
+          ..write('conversationId: $conversationId, ')
+          ..write('senderId: $senderId, ')
+          ..write('recipientId: $recipientId, ')
+          ..write('messageText: $messageText, ')
+          ..write('attachmentType: $attachmentType, ')
+          ..write('attachmentCardId: $attachmentCardId, ')
+          ..write('attachmentCardJson: $attachmentCardJson, ')
+          ..write('attachmentTradeProposalId: $attachmentTradeProposalId, ')
+          ..write('isRead: $isRead, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('syncStatus: $syncStatus')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    conversationId,
+    senderId,
+    recipientId,
+    messageText,
+    attachmentType,
+    attachmentCardId,
+    attachmentCardJson,
+    attachmentTradeProposalId,
+    isRead,
+    createdAt,
+    updatedAt,
+    deletedAt,
+    isDeleted,
+    syncStatus,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is MessageRecord &&
+          other.id == this.id &&
+          other.conversationId == this.conversationId &&
+          other.senderId == this.senderId &&
+          other.recipientId == this.recipientId &&
+          other.messageText == this.messageText &&
+          other.attachmentType == this.attachmentType &&
+          other.attachmentCardId == this.attachmentCardId &&
+          other.attachmentCardJson == this.attachmentCardJson &&
+          other.attachmentTradeProposalId == this.attachmentTradeProposalId &&
+          other.isRead == this.isRead &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt &&
+          other.deletedAt == this.deletedAt &&
+          other.isDeleted == this.isDeleted &&
+          other.syncStatus == this.syncStatus);
+}
+
+class MessagesCompanion extends UpdateCompanion<MessageRecord> {
+  final Value<String> id;
+  final Value<String> conversationId;
+  final Value<String> senderId;
+  final Value<String> recipientId;
+  final Value<String> messageText;
+  final Value<String> attachmentType;
+  final Value<String?> attachmentCardId;
+  final Value<String?> attachmentCardJson;
+  final Value<String?> attachmentTradeProposalId;
+  final Value<bool> isRead;
+  final Value<DateTime> createdAt;
+  final Value<DateTime?> updatedAt;
+  final Value<DateTime?> deletedAt;
+  final Value<bool> isDeleted;
+  final Value<String> syncStatus;
+  final Value<int> rowid;
+  const MessagesCompanion({
+    this.id = const Value.absent(),
+    this.conversationId = const Value.absent(),
+    this.senderId = const Value.absent(),
+    this.recipientId = const Value.absent(),
+    this.messageText = const Value.absent(),
+    this.attachmentType = const Value.absent(),
+    this.attachmentCardId = const Value.absent(),
+    this.attachmentCardJson = const Value.absent(),
+    this.attachmentTradeProposalId = const Value.absent(),
+    this.isRead = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.syncStatus = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  MessagesCompanion.insert({
+    required String id,
+    required String conversationId,
+    required String senderId,
+    required String recipientId,
+    required String messageText,
+    this.attachmentType = const Value.absent(),
+    this.attachmentCardId = const Value.absent(),
+    this.attachmentCardJson = const Value.absent(),
+    this.attachmentTradeProposalId = const Value.absent(),
+    this.isRead = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.syncStatus = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       conversationId = Value(conversationId),
+       senderId = Value(senderId),
+       recipientId = Value(recipientId),
+       messageText = Value(messageText);
+  static Insertable<MessageRecord> custom({
+    Expression<String>? id,
+    Expression<String>? conversationId,
+    Expression<String>? senderId,
+    Expression<String>? recipientId,
+    Expression<String>? messageText,
+    Expression<String>? attachmentType,
+    Expression<String>? attachmentCardId,
+    Expression<String>? attachmentCardJson,
+    Expression<String>? attachmentTradeProposalId,
+    Expression<bool>? isRead,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<DateTime>? deletedAt,
+    Expression<bool>? isDeleted,
+    Expression<String>? syncStatus,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (conversationId != null) 'conversation_id': conversationId,
+      if (senderId != null) 'sender_id': senderId,
+      if (recipientId != null) 'recipient_id': recipientId,
+      if (messageText != null) 'message_text': messageText,
+      if (attachmentType != null) 'attachment_type': attachmentType,
+      if (attachmentCardId != null) 'attachment_card_id': attachmentCardId,
+      if (attachmentCardJson != null)
+        'attachment_card_json': attachmentCardJson,
+      if (attachmentTradeProposalId != null)
+        'attachment_trade_proposal_id': attachmentTradeProposalId,
+      if (isRead != null) 'is_read': isRead,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (isDeleted != null) 'is_deleted': isDeleted,
+      if (syncStatus != null) 'sync_status': syncStatus,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  MessagesCompanion copyWith({
+    Value<String>? id,
+    Value<String>? conversationId,
+    Value<String>? senderId,
+    Value<String>? recipientId,
+    Value<String>? messageText,
+    Value<String>? attachmentType,
+    Value<String?>? attachmentCardId,
+    Value<String?>? attachmentCardJson,
+    Value<String?>? attachmentTradeProposalId,
+    Value<bool>? isRead,
+    Value<DateTime>? createdAt,
+    Value<DateTime?>? updatedAt,
+    Value<DateTime?>? deletedAt,
+    Value<bool>? isDeleted,
+    Value<String>? syncStatus,
+    Value<int>? rowid,
+  }) {
+    return MessagesCompanion(
+      id: id ?? this.id,
+      conversationId: conversationId ?? this.conversationId,
+      senderId: senderId ?? this.senderId,
+      recipientId: recipientId ?? this.recipientId,
+      messageText: messageText ?? this.messageText,
+      attachmentType: attachmentType ?? this.attachmentType,
+      attachmentCardId: attachmentCardId ?? this.attachmentCardId,
+      attachmentCardJson: attachmentCardJson ?? this.attachmentCardJson,
+      attachmentTradeProposalId:
+          attachmentTradeProposalId ?? this.attachmentTradeProposalId,
+      isRead: isRead ?? this.isRead,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      isDeleted: isDeleted ?? this.isDeleted,
+      syncStatus: syncStatus ?? this.syncStatus,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (conversationId.present) {
+      map['conversation_id'] = Variable<String>(conversationId.value);
+    }
+    if (senderId.present) {
+      map['sender_id'] = Variable<String>(senderId.value);
+    }
+    if (recipientId.present) {
+      map['recipient_id'] = Variable<String>(recipientId.value);
+    }
+    if (messageText.present) {
+      map['message_text'] = Variable<String>(messageText.value);
+    }
+    if (attachmentType.present) {
+      map['attachment_type'] = Variable<String>(attachmentType.value);
+    }
+    if (attachmentCardId.present) {
+      map['attachment_card_id'] = Variable<String>(attachmentCardId.value);
+    }
+    if (attachmentCardJson.present) {
+      map['attachment_card_json'] = Variable<String>(attachmentCardJson.value);
+    }
+    if (attachmentTradeProposalId.present) {
+      map['attachment_trade_proposal_id'] = Variable<String>(
+        attachmentTradeProposalId.value,
+      );
+    }
+    if (isRead.present) {
+      map['is_read'] = Variable<bool>(isRead.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
+    if (isDeleted.present) {
+      map['is_deleted'] = Variable<bool>(isDeleted.value);
+    }
+    if (syncStatus.present) {
+      map['sync_status'] = Variable<String>(syncStatus.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('MessagesCompanion(')
+          ..write('id: $id, ')
+          ..write('conversationId: $conversationId, ')
+          ..write('senderId: $senderId, ')
+          ..write('recipientId: $recipientId, ')
+          ..write('messageText: $messageText, ')
+          ..write('attachmentType: $attachmentType, ')
+          ..write('attachmentCardId: $attachmentCardId, ')
+          ..write('attachmentCardJson: $attachmentCardJson, ')
+          ..write('attachmentTradeProposalId: $attachmentTradeProposalId, ')
+          ..write('isRead: $isRead, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('syncStatus: $syncStatus, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $TradeProposalsTable extends TradeProposals
+    with TableInfo<$TradeProposalsTable, TradeProposalRecord> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $TradeProposalsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _proposerIdMeta = const VerificationMeta(
+    'proposerId',
+  );
+  @override
+  late final GeneratedColumn<String> proposerId = GeneratedColumn<String>(
+    'proposer_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _receiverIdMeta = const VerificationMeta(
+    'receiverId',
+  );
+  @override
+  late final GeneratedColumn<String> receiverId = GeneratedColumn<String>(
+    'receiver_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _thirdParticipantIdMeta =
+      const VerificationMeta('thirdParticipantId');
+  @override
+  late final GeneratedColumn<String> thirdParticipantId =
+      GeneratedColumn<String>(
+        'third_participant_id',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _isThreeWayMeta = const VerificationMeta(
+    'isThreeWay',
+  );
+  @override
+  late final GeneratedColumn<bool> isThreeWay = GeneratedColumn<bool>(
+    'is_three_way',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_three_way" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _cardTransfersJsonMeta = const VerificationMeta(
+    'cardTransfersJson',
+  );
+  @override
+  late final GeneratedColumn<String> cardTransfersJson =
+      GeneratedColumn<String>(
+        'card_transfers_json',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _fairnessSummaryJsonMeta =
+      const VerificationMeta('fairnessSummaryJson');
+  @override
+  late final GeneratedColumn<String> fairnessSummaryJson =
+      GeneratedColumn<String>(
+        'fairness_summary_json',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _offeredCardIdsJsonMeta =
+      const VerificationMeta('offeredCardIdsJson');
+  @override
+  late final GeneratedColumn<String> offeredCardIdsJson =
+      GeneratedColumn<String>(
+        'offered_card_ids_json',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+      );
+  static const VerificationMeta _requestedCardIdsJsonMeta =
+      const VerificationMeta('requestedCardIdsJson');
+  @override
+  late final GeneratedColumn<String> requestedCardIdsJson =
+      GeneratedColumn<String>(
+        'requested_card_ids_json',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+      );
+  static const VerificationMeta _offeredCardsSnapshotJsonMeta =
+      const VerificationMeta('offeredCardsSnapshotJson');
+  @override
+  late final GeneratedColumn<String> offeredCardsSnapshotJson =
+      GeneratedColumn<String>(
+        'offered_cards_snapshot_json',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _requestedCardsSnapshotJsonMeta =
+      const VerificationMeta('requestedCardsSnapshotJson');
+  @override
+  late final GeneratedColumn<String> requestedCardsSnapshotJson =
+      GeneratedColumn<String>(
+        'requested_cards_snapshot_json',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _proposerCashDeltaMeta = const VerificationMeta(
+    'proposerCashDelta',
+  );
+  @override
+  late final GeneratedColumn<double> proposerCashDelta =
+      GeneratedColumn<double>(
+        'proposer_cash_delta',
+        aliasedName,
+        false,
+        type: DriftSqlType.double,
+        requiredDuringInsert: false,
+        defaultValue: const Constant(0.0),
+      );
+  static const VerificationMeta _offeredTotalValueMeta = const VerificationMeta(
+    'offeredTotalValue',
+  );
+  @override
+  late final GeneratedColumn<double> offeredTotalValue =
+      GeneratedColumn<double>(
+        'offered_total_value',
+        aliasedName,
+        false,
+        type: DriftSqlType.double,
+        requiredDuringInsert: false,
+        defaultValue: const Constant(0.0),
+      );
+  static const VerificationMeta _requestedTotalValueMeta =
+      const VerificationMeta('requestedTotalValue');
+  @override
+  late final GeneratedColumn<double> requestedTotalValue =
+      GeneratedColumn<double>(
+        'requested_total_value',
+        aliasedName,
+        false,
+        type: DriftSqlType.double,
+        requiredDuringInsert: false,
+        defaultValue: const Constant(0.0),
+      );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('pending'),
+  );
+  static const VerificationMeta _noteMeta = const VerificationMeta('note');
+  @override
+  late final GeneratedColumn<String> note = GeneratedColumn<String>(
+    'note',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _isTransferredMeta = const VerificationMeta(
+    'isTransferred',
+  );
+  @override
+  late final GeneratedColumn<bool> isTransferred = GeneratedColumn<bool>(
+    'is_transferred',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_transferred" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _isDeletedMeta = const VerificationMeta(
+    'isDeleted',
+  );
+  @override
+  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
+    'is_deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _syncStatusMeta = const VerificationMeta(
+    'syncStatus',
+  );
+  @override
+  late final GeneratedColumn<String> syncStatus = GeneratedColumn<String>(
+    'sync_status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('synced'),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    proposerId,
+    receiverId,
+    thirdParticipantId,
+    isThreeWay,
+    cardTransfersJson,
+    fairnessSummaryJson,
+    offeredCardIdsJson,
+    requestedCardIdsJson,
+    offeredCardsSnapshotJson,
+    requestedCardsSnapshotJson,
+    proposerCashDelta,
+    offeredTotalValue,
+    requestedTotalValue,
+    status,
+    note,
+    isTransferred,
+    createdAt,
+    updatedAt,
+    deletedAt,
+    isDeleted,
+    syncStatus,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'trade_proposals';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<TradeProposalRecord> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('proposer_id')) {
+      context.handle(
+        _proposerIdMeta,
+        proposerId.isAcceptableOrUnknown(data['proposer_id']!, _proposerIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_proposerIdMeta);
+    }
+    if (data.containsKey('receiver_id')) {
+      context.handle(
+        _receiverIdMeta,
+        receiverId.isAcceptableOrUnknown(data['receiver_id']!, _receiverIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_receiverIdMeta);
+    }
+    if (data.containsKey('third_participant_id')) {
+      context.handle(
+        _thirdParticipantIdMeta,
+        thirdParticipantId.isAcceptableOrUnknown(
+          data['third_participant_id']!,
+          _thirdParticipantIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('is_three_way')) {
+      context.handle(
+        _isThreeWayMeta,
+        isThreeWay.isAcceptableOrUnknown(
+          data['is_three_way']!,
+          _isThreeWayMeta,
+        ),
+      );
+    }
+    if (data.containsKey('card_transfers_json')) {
+      context.handle(
+        _cardTransfersJsonMeta,
+        cardTransfersJson.isAcceptableOrUnknown(
+          data['card_transfers_json']!,
+          _cardTransfersJsonMeta,
+        ),
+      );
+    }
+    if (data.containsKey('fairness_summary_json')) {
+      context.handle(
+        _fairnessSummaryJsonMeta,
+        fairnessSummaryJson.isAcceptableOrUnknown(
+          data['fairness_summary_json']!,
+          _fairnessSummaryJsonMeta,
+        ),
+      );
+    }
+    if (data.containsKey('offered_card_ids_json')) {
+      context.handle(
+        _offeredCardIdsJsonMeta,
+        offeredCardIdsJson.isAcceptableOrUnknown(
+          data['offered_card_ids_json']!,
+          _offeredCardIdsJsonMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_offeredCardIdsJsonMeta);
+    }
+    if (data.containsKey('requested_card_ids_json')) {
+      context.handle(
+        _requestedCardIdsJsonMeta,
+        requestedCardIdsJson.isAcceptableOrUnknown(
+          data['requested_card_ids_json']!,
+          _requestedCardIdsJsonMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_requestedCardIdsJsonMeta);
+    }
+    if (data.containsKey('offered_cards_snapshot_json')) {
+      context.handle(
+        _offeredCardsSnapshotJsonMeta,
+        offeredCardsSnapshotJson.isAcceptableOrUnknown(
+          data['offered_cards_snapshot_json']!,
+          _offeredCardsSnapshotJsonMeta,
+        ),
+      );
+    }
+    if (data.containsKey('requested_cards_snapshot_json')) {
+      context.handle(
+        _requestedCardsSnapshotJsonMeta,
+        requestedCardsSnapshotJson.isAcceptableOrUnknown(
+          data['requested_cards_snapshot_json']!,
+          _requestedCardsSnapshotJsonMeta,
+        ),
+      );
+    }
+    if (data.containsKey('proposer_cash_delta')) {
+      context.handle(
+        _proposerCashDeltaMeta,
+        proposerCashDelta.isAcceptableOrUnknown(
+          data['proposer_cash_delta']!,
+          _proposerCashDeltaMeta,
+        ),
+      );
+    }
+    if (data.containsKey('offered_total_value')) {
+      context.handle(
+        _offeredTotalValueMeta,
+        offeredTotalValue.isAcceptableOrUnknown(
+          data['offered_total_value']!,
+          _offeredTotalValueMeta,
+        ),
+      );
+    }
+    if (data.containsKey('requested_total_value')) {
+      context.handle(
+        _requestedTotalValueMeta,
+        requestedTotalValue.isAcceptableOrUnknown(
+          data['requested_total_value']!,
+          _requestedTotalValueMeta,
+        ),
+      );
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    }
+    if (data.containsKey('note')) {
+      context.handle(
+        _noteMeta,
+        note.isAcceptableOrUnknown(data['note']!, _noteMeta),
+      );
+    }
+    if (data.containsKey('is_transferred')) {
+      context.handle(
+        _isTransferredMeta,
+        isTransferred.isAcceptableOrUnknown(
+          data['is_transferred']!,
+          _isTransferredMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    if (data.containsKey('is_deleted')) {
+      context.handle(
+        _isDeletedMeta,
+        isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
+      );
+    }
+    if (data.containsKey('sync_status')) {
+      context.handle(
+        _syncStatusMeta,
+        syncStatus.isAcceptableOrUnknown(data['sync_status']!, _syncStatusMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  TradeProposalRecord map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return TradeProposalRecord(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      proposerId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}proposer_id'],
+      )!,
+      receiverId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}receiver_id'],
+      )!,
+      thirdParticipantId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}third_participant_id'],
+      ),
+      isThreeWay: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_three_way'],
+      )!,
+      cardTransfersJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}card_transfers_json'],
+      ),
+      fairnessSummaryJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}fairness_summary_json'],
+      ),
+      offeredCardIdsJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}offered_card_ids_json'],
+      )!,
+      requestedCardIdsJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}requested_card_ids_json'],
+      )!,
+      offeredCardsSnapshotJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}offered_cards_snapshot_json'],
+      ),
+      requestedCardsSnapshotJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}requested_cards_snapshot_json'],
+      ),
+      proposerCashDelta: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}proposer_cash_delta'],
+      )!,
+      offeredTotalValue: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}offered_total_value'],
+      )!,
+      requestedTotalValue: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}requested_total_value'],
+      )!,
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      note: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}note'],
+      ),
+      isTransferred: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_transferred'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      ),
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
+      isDeleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_deleted'],
+      )!,
+      syncStatus: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sync_status'],
+      )!,
+    );
+  }
+
+  @override
+  $TradeProposalsTable createAlias(String alias) {
+    return $TradeProposalsTable(attachedDatabase, alias);
+  }
+}
+
+class TradeProposalRecord extends DataClass
+    implements Insertable<TradeProposalRecord> {
+  final String id;
+  final String proposerId;
+  final String receiverId;
+  final String? thirdParticipantId;
+  final bool isThreeWay;
+  final String? cardTransfersJson;
+  final String? fairnessSummaryJson;
+  final String offeredCardIdsJson;
+  final String requestedCardIdsJson;
+  final String? offeredCardsSnapshotJson;
+  final String? requestedCardsSnapshotJson;
+  final double proposerCashDelta;
+  final double offeredTotalValue;
+  final double requestedTotalValue;
+  final String status;
+  final String? note;
+  final bool isTransferred;
+  final DateTime createdAt;
+  final DateTime? updatedAt;
+  final DateTime? deletedAt;
+  final bool isDeleted;
+  final String syncStatus;
+  const TradeProposalRecord({
+    required this.id,
+    required this.proposerId,
+    required this.receiverId,
+    this.thirdParticipantId,
+    required this.isThreeWay,
+    this.cardTransfersJson,
+    this.fairnessSummaryJson,
+    required this.offeredCardIdsJson,
+    required this.requestedCardIdsJson,
+    this.offeredCardsSnapshotJson,
+    this.requestedCardsSnapshotJson,
+    required this.proposerCashDelta,
+    required this.offeredTotalValue,
+    required this.requestedTotalValue,
+    required this.status,
+    this.note,
+    required this.isTransferred,
+    required this.createdAt,
+    this.updatedAt,
+    this.deletedAt,
+    required this.isDeleted,
+    required this.syncStatus,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['proposer_id'] = Variable<String>(proposerId);
+    map['receiver_id'] = Variable<String>(receiverId);
+    if (!nullToAbsent || thirdParticipantId != null) {
+      map['third_participant_id'] = Variable<String>(thirdParticipantId);
+    }
+    map['is_three_way'] = Variable<bool>(isThreeWay);
+    if (!nullToAbsent || cardTransfersJson != null) {
+      map['card_transfers_json'] = Variable<String>(cardTransfersJson);
+    }
+    if (!nullToAbsent || fairnessSummaryJson != null) {
+      map['fairness_summary_json'] = Variable<String>(fairnessSummaryJson);
+    }
+    map['offered_card_ids_json'] = Variable<String>(offeredCardIdsJson);
+    map['requested_card_ids_json'] = Variable<String>(requestedCardIdsJson);
+    if (!nullToAbsent || offeredCardsSnapshotJson != null) {
+      map['offered_cards_snapshot_json'] = Variable<String>(
+        offeredCardsSnapshotJson,
+      );
+    }
+    if (!nullToAbsent || requestedCardsSnapshotJson != null) {
+      map['requested_cards_snapshot_json'] = Variable<String>(
+        requestedCardsSnapshotJson,
+      );
+    }
+    map['proposer_cash_delta'] = Variable<double>(proposerCashDelta);
+    map['offered_total_value'] = Variable<double>(offeredTotalValue);
+    map['requested_total_value'] = Variable<double>(requestedTotalValue);
+    map['status'] = Variable<String>(status);
+    if (!nullToAbsent || note != null) {
+      map['note'] = Variable<String>(note);
+    }
+    map['is_transferred'] = Variable<bool>(isTransferred);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    if (!nullToAbsent || updatedAt != null) {
+      map['updated_at'] = Variable<DateTime>(updatedAt);
+    }
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
+    map['is_deleted'] = Variable<bool>(isDeleted);
+    map['sync_status'] = Variable<String>(syncStatus);
+    return map;
+  }
+
+  TradeProposalsCompanion toCompanion(bool nullToAbsent) {
+    return TradeProposalsCompanion(
+      id: Value(id),
+      proposerId: Value(proposerId),
+      receiverId: Value(receiverId),
+      thirdParticipantId: thirdParticipantId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(thirdParticipantId),
+      isThreeWay: Value(isThreeWay),
+      cardTransfersJson: cardTransfersJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(cardTransfersJson),
+      fairnessSummaryJson: fairnessSummaryJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(fairnessSummaryJson),
+      offeredCardIdsJson: Value(offeredCardIdsJson),
+      requestedCardIdsJson: Value(requestedCardIdsJson),
+      offeredCardsSnapshotJson: offeredCardsSnapshotJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(offeredCardsSnapshotJson),
+      requestedCardsSnapshotJson:
+          requestedCardsSnapshotJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(requestedCardsSnapshotJson),
+      proposerCashDelta: Value(proposerCashDelta),
+      offeredTotalValue: Value(offeredTotalValue),
+      requestedTotalValue: Value(requestedTotalValue),
+      status: Value(status),
+      note: note == null && nullToAbsent ? const Value.absent() : Value(note),
+      isTransferred: Value(isTransferred),
+      createdAt: Value(createdAt),
+      updatedAt: updatedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(updatedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+      isDeleted: Value(isDeleted),
+      syncStatus: Value(syncStatus),
+    );
+  }
+
+  factory TradeProposalRecord.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return TradeProposalRecord(
+      id: serializer.fromJson<String>(json['id']),
+      proposerId: serializer.fromJson<String>(json['proposerId']),
+      receiverId: serializer.fromJson<String>(json['receiverId']),
+      thirdParticipantId: serializer.fromJson<String?>(
+        json['thirdParticipantId'],
+      ),
+      isThreeWay: serializer.fromJson<bool>(json['isThreeWay']),
+      cardTransfersJson: serializer.fromJson<String?>(
+        json['cardTransfersJson'],
+      ),
+      fairnessSummaryJson: serializer.fromJson<String?>(
+        json['fairnessSummaryJson'],
+      ),
+      offeredCardIdsJson: serializer.fromJson<String>(
+        json['offeredCardIdsJson'],
+      ),
+      requestedCardIdsJson: serializer.fromJson<String>(
+        json['requestedCardIdsJson'],
+      ),
+      offeredCardsSnapshotJson: serializer.fromJson<String?>(
+        json['offeredCardsSnapshotJson'],
+      ),
+      requestedCardsSnapshotJson: serializer.fromJson<String?>(
+        json['requestedCardsSnapshotJson'],
+      ),
+      proposerCashDelta: serializer.fromJson<double>(json['proposerCashDelta']),
+      offeredTotalValue: serializer.fromJson<double>(json['offeredTotalValue']),
+      requestedTotalValue: serializer.fromJson<double>(
+        json['requestedTotalValue'],
+      ),
+      status: serializer.fromJson<String>(json['status']),
+      note: serializer.fromJson<String?>(json['note']),
+      isTransferred: serializer.fromJson<bool>(json['isTransferred']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime?>(json['updatedAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+      syncStatus: serializer.fromJson<String>(json['syncStatus']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'proposerId': serializer.toJson<String>(proposerId),
+      'receiverId': serializer.toJson<String>(receiverId),
+      'thirdParticipantId': serializer.toJson<String?>(thirdParticipantId),
+      'isThreeWay': serializer.toJson<bool>(isThreeWay),
+      'cardTransfersJson': serializer.toJson<String?>(cardTransfersJson),
+      'fairnessSummaryJson': serializer.toJson<String?>(fairnessSummaryJson),
+      'offeredCardIdsJson': serializer.toJson<String>(offeredCardIdsJson),
+      'requestedCardIdsJson': serializer.toJson<String>(requestedCardIdsJson),
+      'offeredCardsSnapshotJson': serializer.toJson<String?>(
+        offeredCardsSnapshotJson,
+      ),
+      'requestedCardsSnapshotJson': serializer.toJson<String?>(
+        requestedCardsSnapshotJson,
+      ),
+      'proposerCashDelta': serializer.toJson<double>(proposerCashDelta),
+      'offeredTotalValue': serializer.toJson<double>(offeredTotalValue),
+      'requestedTotalValue': serializer.toJson<double>(requestedTotalValue),
+      'status': serializer.toJson<String>(status),
+      'note': serializer.toJson<String?>(note),
+      'isTransferred': serializer.toJson<bool>(isTransferred),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime?>(updatedAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+      'isDeleted': serializer.toJson<bool>(isDeleted),
+      'syncStatus': serializer.toJson<String>(syncStatus),
+    };
+  }
+
+  TradeProposalRecord copyWith({
+    String? id,
+    String? proposerId,
+    String? receiverId,
+    Value<String?> thirdParticipantId = const Value.absent(),
+    bool? isThreeWay,
+    Value<String?> cardTransfersJson = const Value.absent(),
+    Value<String?> fairnessSummaryJson = const Value.absent(),
+    String? offeredCardIdsJson,
+    String? requestedCardIdsJson,
+    Value<String?> offeredCardsSnapshotJson = const Value.absent(),
+    Value<String?> requestedCardsSnapshotJson = const Value.absent(),
+    double? proposerCashDelta,
+    double? offeredTotalValue,
+    double? requestedTotalValue,
+    String? status,
+    Value<String?> note = const Value.absent(),
+    bool? isTransferred,
+    DateTime? createdAt,
+    Value<DateTime?> updatedAt = const Value.absent(),
+    Value<DateTime?> deletedAt = const Value.absent(),
+    bool? isDeleted,
+    String? syncStatus,
+  }) => TradeProposalRecord(
+    id: id ?? this.id,
+    proposerId: proposerId ?? this.proposerId,
+    receiverId: receiverId ?? this.receiverId,
+    thirdParticipantId: thirdParticipantId.present
+        ? thirdParticipantId.value
+        : this.thirdParticipantId,
+    isThreeWay: isThreeWay ?? this.isThreeWay,
+    cardTransfersJson: cardTransfersJson.present
+        ? cardTransfersJson.value
+        : this.cardTransfersJson,
+    fairnessSummaryJson: fairnessSummaryJson.present
+        ? fairnessSummaryJson.value
+        : this.fairnessSummaryJson,
+    offeredCardIdsJson: offeredCardIdsJson ?? this.offeredCardIdsJson,
+    requestedCardIdsJson: requestedCardIdsJson ?? this.requestedCardIdsJson,
+    offeredCardsSnapshotJson: offeredCardsSnapshotJson.present
+        ? offeredCardsSnapshotJson.value
+        : this.offeredCardsSnapshotJson,
+    requestedCardsSnapshotJson: requestedCardsSnapshotJson.present
+        ? requestedCardsSnapshotJson.value
+        : this.requestedCardsSnapshotJson,
+    proposerCashDelta: proposerCashDelta ?? this.proposerCashDelta,
+    offeredTotalValue: offeredTotalValue ?? this.offeredTotalValue,
+    requestedTotalValue: requestedTotalValue ?? this.requestedTotalValue,
+    status: status ?? this.status,
+    note: note.present ? note.value : this.note,
+    isTransferred: isTransferred ?? this.isTransferred,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+    isDeleted: isDeleted ?? this.isDeleted,
+    syncStatus: syncStatus ?? this.syncStatus,
+  );
+  TradeProposalRecord copyWithCompanion(TradeProposalsCompanion data) {
+    return TradeProposalRecord(
+      id: data.id.present ? data.id.value : this.id,
+      proposerId: data.proposerId.present
+          ? data.proposerId.value
+          : this.proposerId,
+      receiverId: data.receiverId.present
+          ? data.receiverId.value
+          : this.receiverId,
+      thirdParticipantId: data.thirdParticipantId.present
+          ? data.thirdParticipantId.value
+          : this.thirdParticipantId,
+      isThreeWay: data.isThreeWay.present
+          ? data.isThreeWay.value
+          : this.isThreeWay,
+      cardTransfersJson: data.cardTransfersJson.present
+          ? data.cardTransfersJson.value
+          : this.cardTransfersJson,
+      fairnessSummaryJson: data.fairnessSummaryJson.present
+          ? data.fairnessSummaryJson.value
+          : this.fairnessSummaryJson,
+      offeredCardIdsJson: data.offeredCardIdsJson.present
+          ? data.offeredCardIdsJson.value
+          : this.offeredCardIdsJson,
+      requestedCardIdsJson: data.requestedCardIdsJson.present
+          ? data.requestedCardIdsJson.value
+          : this.requestedCardIdsJson,
+      offeredCardsSnapshotJson: data.offeredCardsSnapshotJson.present
+          ? data.offeredCardsSnapshotJson.value
+          : this.offeredCardsSnapshotJson,
+      requestedCardsSnapshotJson: data.requestedCardsSnapshotJson.present
+          ? data.requestedCardsSnapshotJson.value
+          : this.requestedCardsSnapshotJson,
+      proposerCashDelta: data.proposerCashDelta.present
+          ? data.proposerCashDelta.value
+          : this.proposerCashDelta,
+      offeredTotalValue: data.offeredTotalValue.present
+          ? data.offeredTotalValue.value
+          : this.offeredTotalValue,
+      requestedTotalValue: data.requestedTotalValue.present
+          ? data.requestedTotalValue.value
+          : this.requestedTotalValue,
+      status: data.status.present ? data.status.value : this.status,
+      note: data.note.present ? data.note.value : this.note,
+      isTransferred: data.isTransferred.present
+          ? data.isTransferred.value
+          : this.isTransferred,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+      syncStatus: data.syncStatus.present
+          ? data.syncStatus.value
+          : this.syncStatus,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('TradeProposalRecord(')
+          ..write('id: $id, ')
+          ..write('proposerId: $proposerId, ')
+          ..write('receiverId: $receiverId, ')
+          ..write('thirdParticipantId: $thirdParticipantId, ')
+          ..write('isThreeWay: $isThreeWay, ')
+          ..write('cardTransfersJson: $cardTransfersJson, ')
+          ..write('fairnessSummaryJson: $fairnessSummaryJson, ')
+          ..write('offeredCardIdsJson: $offeredCardIdsJson, ')
+          ..write('requestedCardIdsJson: $requestedCardIdsJson, ')
+          ..write('offeredCardsSnapshotJson: $offeredCardsSnapshotJson, ')
+          ..write('requestedCardsSnapshotJson: $requestedCardsSnapshotJson, ')
+          ..write('proposerCashDelta: $proposerCashDelta, ')
+          ..write('offeredTotalValue: $offeredTotalValue, ')
+          ..write('requestedTotalValue: $requestedTotalValue, ')
+          ..write('status: $status, ')
+          ..write('note: $note, ')
+          ..write('isTransferred: $isTransferred, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('syncStatus: $syncStatus')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hashAll([
+    id,
+    proposerId,
+    receiverId,
+    thirdParticipantId,
+    isThreeWay,
+    cardTransfersJson,
+    fairnessSummaryJson,
+    offeredCardIdsJson,
+    requestedCardIdsJson,
+    offeredCardsSnapshotJson,
+    requestedCardsSnapshotJson,
+    proposerCashDelta,
+    offeredTotalValue,
+    requestedTotalValue,
+    status,
+    note,
+    isTransferred,
+    createdAt,
+    updatedAt,
+    deletedAt,
+    isDeleted,
+    syncStatus,
+  ]);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is TradeProposalRecord &&
+          other.id == this.id &&
+          other.proposerId == this.proposerId &&
+          other.receiverId == this.receiverId &&
+          other.thirdParticipantId == this.thirdParticipantId &&
+          other.isThreeWay == this.isThreeWay &&
+          other.cardTransfersJson == this.cardTransfersJson &&
+          other.fairnessSummaryJson == this.fairnessSummaryJson &&
+          other.offeredCardIdsJson == this.offeredCardIdsJson &&
+          other.requestedCardIdsJson == this.requestedCardIdsJson &&
+          other.offeredCardsSnapshotJson == this.offeredCardsSnapshotJson &&
+          other.requestedCardsSnapshotJson == this.requestedCardsSnapshotJson &&
+          other.proposerCashDelta == this.proposerCashDelta &&
+          other.offeredTotalValue == this.offeredTotalValue &&
+          other.requestedTotalValue == this.requestedTotalValue &&
+          other.status == this.status &&
+          other.note == this.note &&
+          other.isTransferred == this.isTransferred &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt &&
+          other.deletedAt == this.deletedAt &&
+          other.isDeleted == this.isDeleted &&
+          other.syncStatus == this.syncStatus);
+}
+
+class TradeProposalsCompanion extends UpdateCompanion<TradeProposalRecord> {
+  final Value<String> id;
+  final Value<String> proposerId;
+  final Value<String> receiverId;
+  final Value<String?> thirdParticipantId;
+  final Value<bool> isThreeWay;
+  final Value<String?> cardTransfersJson;
+  final Value<String?> fairnessSummaryJson;
+  final Value<String> offeredCardIdsJson;
+  final Value<String> requestedCardIdsJson;
+  final Value<String?> offeredCardsSnapshotJson;
+  final Value<String?> requestedCardsSnapshotJson;
+  final Value<double> proposerCashDelta;
+  final Value<double> offeredTotalValue;
+  final Value<double> requestedTotalValue;
+  final Value<String> status;
+  final Value<String?> note;
+  final Value<bool> isTransferred;
+  final Value<DateTime> createdAt;
+  final Value<DateTime?> updatedAt;
+  final Value<DateTime?> deletedAt;
+  final Value<bool> isDeleted;
+  final Value<String> syncStatus;
+  final Value<int> rowid;
+  const TradeProposalsCompanion({
+    this.id = const Value.absent(),
+    this.proposerId = const Value.absent(),
+    this.receiverId = const Value.absent(),
+    this.thirdParticipantId = const Value.absent(),
+    this.isThreeWay = const Value.absent(),
+    this.cardTransfersJson = const Value.absent(),
+    this.fairnessSummaryJson = const Value.absent(),
+    this.offeredCardIdsJson = const Value.absent(),
+    this.requestedCardIdsJson = const Value.absent(),
+    this.offeredCardsSnapshotJson = const Value.absent(),
+    this.requestedCardsSnapshotJson = const Value.absent(),
+    this.proposerCashDelta = const Value.absent(),
+    this.offeredTotalValue = const Value.absent(),
+    this.requestedTotalValue = const Value.absent(),
+    this.status = const Value.absent(),
+    this.note = const Value.absent(),
+    this.isTransferred = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.syncStatus = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  TradeProposalsCompanion.insert({
+    required String id,
+    required String proposerId,
+    required String receiverId,
+    this.thirdParticipantId = const Value.absent(),
+    this.isThreeWay = const Value.absent(),
+    this.cardTransfersJson = const Value.absent(),
+    this.fairnessSummaryJson = const Value.absent(),
+    required String offeredCardIdsJson,
+    required String requestedCardIdsJson,
+    this.offeredCardsSnapshotJson = const Value.absent(),
+    this.requestedCardsSnapshotJson = const Value.absent(),
+    this.proposerCashDelta = const Value.absent(),
+    this.offeredTotalValue = const Value.absent(),
+    this.requestedTotalValue = const Value.absent(),
+    this.status = const Value.absent(),
+    this.note = const Value.absent(),
+    this.isTransferred = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.syncStatus = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       proposerId = Value(proposerId),
+       receiverId = Value(receiverId),
+       offeredCardIdsJson = Value(offeredCardIdsJson),
+       requestedCardIdsJson = Value(requestedCardIdsJson);
+  static Insertable<TradeProposalRecord> custom({
+    Expression<String>? id,
+    Expression<String>? proposerId,
+    Expression<String>? receiverId,
+    Expression<String>? thirdParticipantId,
+    Expression<bool>? isThreeWay,
+    Expression<String>? cardTransfersJson,
+    Expression<String>? fairnessSummaryJson,
+    Expression<String>? offeredCardIdsJson,
+    Expression<String>? requestedCardIdsJson,
+    Expression<String>? offeredCardsSnapshotJson,
+    Expression<String>? requestedCardsSnapshotJson,
+    Expression<double>? proposerCashDelta,
+    Expression<double>? offeredTotalValue,
+    Expression<double>? requestedTotalValue,
+    Expression<String>? status,
+    Expression<String>? note,
+    Expression<bool>? isTransferred,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<DateTime>? deletedAt,
+    Expression<bool>? isDeleted,
+    Expression<String>? syncStatus,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (proposerId != null) 'proposer_id': proposerId,
+      if (receiverId != null) 'receiver_id': receiverId,
+      if (thirdParticipantId != null)
+        'third_participant_id': thirdParticipantId,
+      if (isThreeWay != null) 'is_three_way': isThreeWay,
+      if (cardTransfersJson != null) 'card_transfers_json': cardTransfersJson,
+      if (fairnessSummaryJson != null)
+        'fairness_summary_json': fairnessSummaryJson,
+      if (offeredCardIdsJson != null)
+        'offered_card_ids_json': offeredCardIdsJson,
+      if (requestedCardIdsJson != null)
+        'requested_card_ids_json': requestedCardIdsJson,
+      if (offeredCardsSnapshotJson != null)
+        'offered_cards_snapshot_json': offeredCardsSnapshotJson,
+      if (requestedCardsSnapshotJson != null)
+        'requested_cards_snapshot_json': requestedCardsSnapshotJson,
+      if (proposerCashDelta != null) 'proposer_cash_delta': proposerCashDelta,
+      if (offeredTotalValue != null) 'offered_total_value': offeredTotalValue,
+      if (requestedTotalValue != null)
+        'requested_total_value': requestedTotalValue,
+      if (status != null) 'status': status,
+      if (note != null) 'note': note,
+      if (isTransferred != null) 'is_transferred': isTransferred,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (isDeleted != null) 'is_deleted': isDeleted,
+      if (syncStatus != null) 'sync_status': syncStatus,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  TradeProposalsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? proposerId,
+    Value<String>? receiverId,
+    Value<String?>? thirdParticipantId,
+    Value<bool>? isThreeWay,
+    Value<String?>? cardTransfersJson,
+    Value<String?>? fairnessSummaryJson,
+    Value<String>? offeredCardIdsJson,
+    Value<String>? requestedCardIdsJson,
+    Value<String?>? offeredCardsSnapshotJson,
+    Value<String?>? requestedCardsSnapshotJson,
+    Value<double>? proposerCashDelta,
+    Value<double>? offeredTotalValue,
+    Value<double>? requestedTotalValue,
+    Value<String>? status,
+    Value<String?>? note,
+    Value<bool>? isTransferred,
+    Value<DateTime>? createdAt,
+    Value<DateTime?>? updatedAt,
+    Value<DateTime?>? deletedAt,
+    Value<bool>? isDeleted,
+    Value<String>? syncStatus,
+    Value<int>? rowid,
+  }) {
+    return TradeProposalsCompanion(
+      id: id ?? this.id,
+      proposerId: proposerId ?? this.proposerId,
+      receiverId: receiverId ?? this.receiverId,
+      thirdParticipantId: thirdParticipantId ?? this.thirdParticipantId,
+      isThreeWay: isThreeWay ?? this.isThreeWay,
+      cardTransfersJson: cardTransfersJson ?? this.cardTransfersJson,
+      fairnessSummaryJson: fairnessSummaryJson ?? this.fairnessSummaryJson,
+      offeredCardIdsJson: offeredCardIdsJson ?? this.offeredCardIdsJson,
+      requestedCardIdsJson: requestedCardIdsJson ?? this.requestedCardIdsJson,
+      offeredCardsSnapshotJson:
+          offeredCardsSnapshotJson ?? this.offeredCardsSnapshotJson,
+      requestedCardsSnapshotJson:
+          requestedCardsSnapshotJson ?? this.requestedCardsSnapshotJson,
+      proposerCashDelta: proposerCashDelta ?? this.proposerCashDelta,
+      offeredTotalValue: offeredTotalValue ?? this.offeredTotalValue,
+      requestedTotalValue: requestedTotalValue ?? this.requestedTotalValue,
+      status: status ?? this.status,
+      note: note ?? this.note,
+      isTransferred: isTransferred ?? this.isTransferred,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      isDeleted: isDeleted ?? this.isDeleted,
+      syncStatus: syncStatus ?? this.syncStatus,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (proposerId.present) {
+      map['proposer_id'] = Variable<String>(proposerId.value);
+    }
+    if (receiverId.present) {
+      map['receiver_id'] = Variable<String>(receiverId.value);
+    }
+    if (thirdParticipantId.present) {
+      map['third_participant_id'] = Variable<String>(thirdParticipantId.value);
+    }
+    if (isThreeWay.present) {
+      map['is_three_way'] = Variable<bool>(isThreeWay.value);
+    }
+    if (cardTransfersJson.present) {
+      map['card_transfers_json'] = Variable<String>(cardTransfersJson.value);
+    }
+    if (fairnessSummaryJson.present) {
+      map['fairness_summary_json'] = Variable<String>(
+        fairnessSummaryJson.value,
+      );
+    }
+    if (offeredCardIdsJson.present) {
+      map['offered_card_ids_json'] = Variable<String>(offeredCardIdsJson.value);
+    }
+    if (requestedCardIdsJson.present) {
+      map['requested_card_ids_json'] = Variable<String>(
+        requestedCardIdsJson.value,
+      );
+    }
+    if (offeredCardsSnapshotJson.present) {
+      map['offered_cards_snapshot_json'] = Variable<String>(
+        offeredCardsSnapshotJson.value,
+      );
+    }
+    if (requestedCardsSnapshotJson.present) {
+      map['requested_cards_snapshot_json'] = Variable<String>(
+        requestedCardsSnapshotJson.value,
+      );
+    }
+    if (proposerCashDelta.present) {
+      map['proposer_cash_delta'] = Variable<double>(proposerCashDelta.value);
+    }
+    if (offeredTotalValue.present) {
+      map['offered_total_value'] = Variable<double>(offeredTotalValue.value);
+    }
+    if (requestedTotalValue.present) {
+      map['requested_total_value'] = Variable<double>(
+        requestedTotalValue.value,
+      );
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (note.present) {
+      map['note'] = Variable<String>(note.value);
+    }
+    if (isTransferred.present) {
+      map['is_transferred'] = Variable<bool>(isTransferred.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
+    if (isDeleted.present) {
+      map['is_deleted'] = Variable<bool>(isDeleted.value);
+    }
+    if (syncStatus.present) {
+      map['sync_status'] = Variable<String>(syncStatus.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('TradeProposalsCompanion(')
+          ..write('id: $id, ')
+          ..write('proposerId: $proposerId, ')
+          ..write('receiverId: $receiverId, ')
+          ..write('thirdParticipantId: $thirdParticipantId, ')
+          ..write('isThreeWay: $isThreeWay, ')
+          ..write('cardTransfersJson: $cardTransfersJson, ')
+          ..write('fairnessSummaryJson: $fairnessSummaryJson, ')
+          ..write('offeredCardIdsJson: $offeredCardIdsJson, ')
+          ..write('requestedCardIdsJson: $requestedCardIdsJson, ')
+          ..write('offeredCardsSnapshotJson: $offeredCardsSnapshotJson, ')
+          ..write('requestedCardsSnapshotJson: $requestedCardsSnapshotJson, ')
+          ..write('proposerCashDelta: $proposerCashDelta, ')
+          ..write('offeredTotalValue: $offeredTotalValue, ')
+          ..write('requestedTotalValue: $requestedTotalValue, ')
+          ..write('status: $status, ')
+          ..write('note: $note, ')
+          ..write('isTransferred: $isTransferred, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('syncStatus: $syncStatus, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $UserFollowsTable extends UserFollows
+    with TableInfo<$UserFollowsTable, UserFollow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $UserFollowsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _followerIdMeta = const VerificationMeta(
+    'followerId',
+  );
+  @override
+  late final GeneratedColumn<String> followerId = GeneratedColumn<String>(
+    'follower_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _targetUserIdMeta = const VerificationMeta(
+    'targetUserId',
+  );
+  @override
+  late final GeneratedColumn<String> targetUserId = GeneratedColumn<String>(
+    'target_user_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _isDeletedMeta = const VerificationMeta(
+    'isDeleted',
+  );
+  @override
+  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
+    'is_deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _syncStatusMeta = const VerificationMeta(
+    'syncStatus',
+  );
+  @override
+  late final GeneratedColumn<String> syncStatus = GeneratedColumn<String>(
+    'sync_status',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('synced'),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    followerId,
+    targetUserId,
+    createdAt,
+    isDeleted,
+    deletedAt,
+    syncStatus,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'user_follows';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<UserFollow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('follower_id')) {
+      context.handle(
+        _followerIdMeta,
+        followerId.isAcceptableOrUnknown(data['follower_id']!, _followerIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_followerIdMeta);
+    }
+    if (data.containsKey('target_user_id')) {
+      context.handle(
+        _targetUserIdMeta,
+        targetUserId.isAcceptableOrUnknown(
+          data['target_user_id']!,
+          _targetUserIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_targetUserIdMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    if (data.containsKey('is_deleted')) {
+      context.handle(
+        _isDeletedMeta,
+        isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
+      );
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    if (data.containsKey('sync_status')) {
+      context.handle(
+        _syncStatusMeta,
+        syncStatus.isAcceptableOrUnknown(data['sync_status']!, _syncStatusMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  List<Set<GeneratedColumn>> get uniqueKeys => [
+    {followerId, targetUserId},
+  ];
+  @override
+  UserFollow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return UserFollow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      followerId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}follower_id'],
+      )!,
+      targetUserId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}target_user_id'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      isDeleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_deleted'],
+      )!,
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
+      syncStatus: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sync_status'],
+      ),
+    );
+  }
+
+  @override
+  $UserFollowsTable createAlias(String alias) {
+    return $UserFollowsTable(attachedDatabase, alias);
+  }
+}
+
+class UserFollow extends DataClass implements Insertable<UserFollow> {
+  final String id;
+  final String followerId;
+  final String targetUserId;
+  final DateTime createdAt;
+  final bool isDeleted;
+  final DateTime? deletedAt;
+  final String? syncStatus;
+  const UserFollow({
+    required this.id,
+    required this.followerId,
+    required this.targetUserId,
+    required this.createdAt,
+    required this.isDeleted,
+    this.deletedAt,
+    this.syncStatus,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['follower_id'] = Variable<String>(followerId);
+    map['target_user_id'] = Variable<String>(targetUserId);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['is_deleted'] = Variable<bool>(isDeleted);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
+    if (!nullToAbsent || syncStatus != null) {
+      map['sync_status'] = Variable<String>(syncStatus);
+    }
+    return map;
+  }
+
+  UserFollowsCompanion toCompanion(bool nullToAbsent) {
+    return UserFollowsCompanion(
+      id: Value(id),
+      followerId: Value(followerId),
+      targetUserId: Value(targetUserId),
+      createdAt: Value(createdAt),
+      isDeleted: Value(isDeleted),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+      syncStatus: syncStatus == null && nullToAbsent
+          ? const Value.absent()
+          : Value(syncStatus),
+    );
+  }
+
+  factory UserFollow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return UserFollow(
+      id: serializer.fromJson<String>(json['id']),
+      followerId: serializer.fromJson<String>(json['followerId']),
+      targetUserId: serializer.fromJson<String>(json['targetUserId']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+      syncStatus: serializer.fromJson<String?>(json['syncStatus']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'followerId': serializer.toJson<String>(followerId),
+      'targetUserId': serializer.toJson<String>(targetUserId),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'isDeleted': serializer.toJson<bool>(isDeleted),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+      'syncStatus': serializer.toJson<String?>(syncStatus),
+    };
+  }
+
+  UserFollow copyWith({
+    String? id,
+    String? followerId,
+    String? targetUserId,
+    DateTime? createdAt,
+    bool? isDeleted,
+    Value<DateTime?> deletedAt = const Value.absent(),
+    Value<String?> syncStatus = const Value.absent(),
+  }) => UserFollow(
+    id: id ?? this.id,
+    followerId: followerId ?? this.followerId,
+    targetUserId: targetUserId ?? this.targetUserId,
+    createdAt: createdAt ?? this.createdAt,
+    isDeleted: isDeleted ?? this.isDeleted,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+    syncStatus: syncStatus.present ? syncStatus.value : this.syncStatus,
+  );
+  UserFollow copyWithCompanion(UserFollowsCompanion data) {
+    return UserFollow(
+      id: data.id.present ? data.id.value : this.id,
+      followerId: data.followerId.present
+          ? data.followerId.value
+          : this.followerId,
+      targetUserId: data.targetUserId.present
+          ? data.targetUserId.value
+          : this.targetUserId,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+      syncStatus: data.syncStatus.present
+          ? data.syncStatus.value
+          : this.syncStatus,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('UserFollow(')
+          ..write('id: $id, ')
+          ..write('followerId: $followerId, ')
+          ..write('targetUserId: $targetUserId, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('syncStatus: $syncStatus')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    followerId,
+    targetUserId,
+    createdAt,
+    isDeleted,
+    deletedAt,
+    syncStatus,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is UserFollow &&
+          other.id == this.id &&
+          other.followerId == this.followerId &&
+          other.targetUserId == this.targetUserId &&
+          other.createdAt == this.createdAt &&
+          other.isDeleted == this.isDeleted &&
+          other.deletedAt == this.deletedAt &&
+          other.syncStatus == this.syncStatus);
+}
+
+class UserFollowsCompanion extends UpdateCompanion<UserFollow> {
+  final Value<String> id;
+  final Value<String> followerId;
+  final Value<String> targetUserId;
+  final Value<DateTime> createdAt;
+  final Value<bool> isDeleted;
+  final Value<DateTime?> deletedAt;
+  final Value<String?> syncStatus;
+  final Value<int> rowid;
+  const UserFollowsCompanion({
+    this.id = const Value.absent(),
+    this.followerId = const Value.absent(),
+    this.targetUserId = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.syncStatus = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  UserFollowsCompanion.insert({
+    required String id,
+    required String followerId,
+    required String targetUserId,
+    this.createdAt = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.syncStatus = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       followerId = Value(followerId),
+       targetUserId = Value(targetUserId);
+  static Insertable<UserFollow> custom({
+    Expression<String>? id,
+    Expression<String>? followerId,
+    Expression<String>? targetUserId,
+    Expression<DateTime>? createdAt,
+    Expression<bool>? isDeleted,
+    Expression<DateTime>? deletedAt,
+    Expression<String>? syncStatus,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (followerId != null) 'follower_id': followerId,
+      if (targetUserId != null) 'target_user_id': targetUserId,
+      if (createdAt != null) 'created_at': createdAt,
+      if (isDeleted != null) 'is_deleted': isDeleted,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (syncStatus != null) 'sync_status': syncStatus,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  UserFollowsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? followerId,
+    Value<String>? targetUserId,
+    Value<DateTime>? createdAt,
+    Value<bool>? isDeleted,
+    Value<DateTime?>? deletedAt,
+    Value<String?>? syncStatus,
+    Value<int>? rowid,
+  }) {
+    return UserFollowsCompanion(
+      id: id ?? this.id,
+      followerId: followerId ?? this.followerId,
+      targetUserId: targetUserId ?? this.targetUserId,
+      createdAt: createdAt ?? this.createdAt,
+      isDeleted: isDeleted ?? this.isDeleted,
+      deletedAt: deletedAt ?? this.deletedAt,
+      syncStatus: syncStatus ?? this.syncStatus,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (followerId.present) {
+      map['follower_id'] = Variable<String>(followerId.value);
+    }
+    if (targetUserId.present) {
+      map['target_user_id'] = Variable<String>(targetUserId.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (isDeleted.present) {
+      map['is_deleted'] = Variable<bool>(isDeleted.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
+    if (syncStatus.present) {
+      map['sync_status'] = Variable<String>(syncStatus.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('UserFollowsCompanion(')
+          ..write('id: $id, ')
+          ..write('followerId: $followerId, ')
+          ..write('targetUserId: $targetUserId, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('syncStatus: $syncStatus, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $CardReputationVotesTable extends CardReputationVotes
+    with TableInfo<$CardReputationVotesTable, CardReputationVote> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $CardReputationVotesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _cardIdMeta = const VerificationMeta('cardId');
+  @override
+  late final GeneratedColumn<String> cardId = GeneratedColumn<String>(
+    'card_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+    'user_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('local_user'),
+  );
+  static const VerificationMeta _voteMeta = const VerificationMeta('vote');
+  @override
+  late final GeneratedColumn<int> vote = GeneratedColumn<int>(
+    'vote',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _isDeletedMeta = const VerificationMeta(
+    'isDeleted',
+  );
+  @override
+  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
+    'is_deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _syncStatusMeta = const VerificationMeta(
+    'syncStatus',
+  );
+  @override
+  late final GeneratedColumn<String> syncStatus = GeneratedColumn<String>(
+    'sync_status',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('synced'),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    cardId,
+    userId,
+    vote,
+    updatedAt,
+    isDeleted,
+    deletedAt,
+    syncStatus,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'card_reputation_votes';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<CardReputationVote> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('card_id')) {
+      context.handle(
+        _cardIdMeta,
+        cardId.isAcceptableOrUnknown(data['card_id']!, _cardIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_cardIdMeta);
+    }
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
+    }
+    if (data.containsKey('vote')) {
+      context.handle(
+        _voteMeta,
+        vote.isAcceptableOrUnknown(data['vote']!, _voteMeta),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    if (data.containsKey('is_deleted')) {
+      context.handle(
+        _isDeletedMeta,
+        isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
+      );
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    if (data.containsKey('sync_status')) {
+      context.handle(
+        _syncStatusMeta,
+        syncStatus.isAcceptableOrUnknown(data['sync_status']!, _syncStatusMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  List<Set<GeneratedColumn>> get uniqueKeys => [
+    {cardId, userId},
+  ];
+  @override
+  CardReputationVote map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return CardReputationVote(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      cardId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}card_id'],
+      )!,
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_id'],
+      )!,
+      vote: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}vote'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+      isDeleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_deleted'],
+      )!,
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
+      syncStatus: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sync_status'],
+      ),
+    );
+  }
+
+  @override
+  $CardReputationVotesTable createAlias(String alias) {
+    return $CardReputationVotesTable(attachedDatabase, alias);
+  }
+}
+
+class CardReputationVote extends DataClass
+    implements Insertable<CardReputationVote> {
+  /// Unique identifier: '${cardId}_${userId}'
+  final String id;
+
+  /// Identifier of the card (VaultItem.id, scryfall_id, or oracle_id)
+  final String cardId;
+
+  /// User identifier ('local_user' for offline device persistence)
+  final String userId;
+
+  /// Vote value: 1 = Upvote, -1 = Downvote, 0 = Neutral / Removed
+  final int vote;
+
+  /// Timestamp when vote was recorded or updated
+  final DateTime updatedAt;
+
+  /// Soft Delete & Outbox Sync (v12 / Epic 5)
+  final bool isDeleted;
+  final DateTime? deletedAt;
+  final String? syncStatus;
+  const CardReputationVote({
+    required this.id,
+    required this.cardId,
+    required this.userId,
+    required this.vote,
+    required this.updatedAt,
+    required this.isDeleted,
+    this.deletedAt,
+    this.syncStatus,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['card_id'] = Variable<String>(cardId);
+    map['user_id'] = Variable<String>(userId);
+    map['vote'] = Variable<int>(vote);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    map['is_deleted'] = Variable<bool>(isDeleted);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
+    if (!nullToAbsent || syncStatus != null) {
+      map['sync_status'] = Variable<String>(syncStatus);
+    }
+    return map;
+  }
+
+  CardReputationVotesCompanion toCompanion(bool nullToAbsent) {
+    return CardReputationVotesCompanion(
+      id: Value(id),
+      cardId: Value(cardId),
+      userId: Value(userId),
+      vote: Value(vote),
+      updatedAt: Value(updatedAt),
+      isDeleted: Value(isDeleted),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+      syncStatus: syncStatus == null && nullToAbsent
+          ? const Value.absent()
+          : Value(syncStatus),
+    );
+  }
+
+  factory CardReputationVote.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return CardReputationVote(
+      id: serializer.fromJson<String>(json['id']),
+      cardId: serializer.fromJson<String>(json['cardId']),
+      userId: serializer.fromJson<String>(json['userId']),
+      vote: serializer.fromJson<int>(json['vote']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+      syncStatus: serializer.fromJson<String?>(json['syncStatus']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'cardId': serializer.toJson<String>(cardId),
+      'userId': serializer.toJson<String>(userId),
+      'vote': serializer.toJson<int>(vote),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'isDeleted': serializer.toJson<bool>(isDeleted),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+      'syncStatus': serializer.toJson<String?>(syncStatus),
+    };
+  }
+
+  CardReputationVote copyWith({
+    String? id,
+    String? cardId,
+    String? userId,
+    int? vote,
+    DateTime? updatedAt,
+    bool? isDeleted,
+    Value<DateTime?> deletedAt = const Value.absent(),
+    Value<String?> syncStatus = const Value.absent(),
+  }) => CardReputationVote(
+    id: id ?? this.id,
+    cardId: cardId ?? this.cardId,
+    userId: userId ?? this.userId,
+    vote: vote ?? this.vote,
+    updatedAt: updatedAt ?? this.updatedAt,
+    isDeleted: isDeleted ?? this.isDeleted,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+    syncStatus: syncStatus.present ? syncStatus.value : this.syncStatus,
+  );
+  CardReputationVote copyWithCompanion(CardReputationVotesCompanion data) {
+    return CardReputationVote(
+      id: data.id.present ? data.id.value : this.id,
+      cardId: data.cardId.present ? data.cardId.value : this.cardId,
+      userId: data.userId.present ? data.userId.value : this.userId,
+      vote: data.vote.present ? data.vote.value : this.vote,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+      syncStatus: data.syncStatus.present
+          ? data.syncStatus.value
+          : this.syncStatus,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CardReputationVote(')
+          ..write('id: $id, ')
+          ..write('cardId: $cardId, ')
+          ..write('userId: $userId, ')
+          ..write('vote: $vote, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('syncStatus: $syncStatus')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    cardId,
+    userId,
+    vote,
+    updatedAt,
+    isDeleted,
+    deletedAt,
+    syncStatus,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is CardReputationVote &&
+          other.id == this.id &&
+          other.cardId == this.cardId &&
+          other.userId == this.userId &&
+          other.vote == this.vote &&
+          other.updatedAt == this.updatedAt &&
+          other.isDeleted == this.isDeleted &&
+          other.deletedAt == this.deletedAt &&
+          other.syncStatus == this.syncStatus);
+}
+
+class CardReputationVotesCompanion extends UpdateCompanion<CardReputationVote> {
+  final Value<String> id;
+  final Value<String> cardId;
+  final Value<String> userId;
+  final Value<int> vote;
+  final Value<DateTime> updatedAt;
+  final Value<bool> isDeleted;
+  final Value<DateTime?> deletedAt;
+  final Value<String?> syncStatus;
+  final Value<int> rowid;
+  const CardReputationVotesCompanion({
+    this.id = const Value.absent(),
+    this.cardId = const Value.absent(),
+    this.userId = const Value.absent(),
+    this.vote = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.syncStatus = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  CardReputationVotesCompanion.insert({
+    required String id,
+    required String cardId,
+    this.userId = const Value.absent(),
+    this.vote = const Value.absent(),
+    required DateTime updatedAt,
+    this.isDeleted = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.syncStatus = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       cardId = Value(cardId),
+       updatedAt = Value(updatedAt);
+  static Insertable<CardReputationVote> custom({
+    Expression<String>? id,
+    Expression<String>? cardId,
+    Expression<String>? userId,
+    Expression<int>? vote,
+    Expression<DateTime>? updatedAt,
+    Expression<bool>? isDeleted,
+    Expression<DateTime>? deletedAt,
+    Expression<String>? syncStatus,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (cardId != null) 'card_id': cardId,
+      if (userId != null) 'user_id': userId,
+      if (vote != null) 'vote': vote,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (isDeleted != null) 'is_deleted': isDeleted,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (syncStatus != null) 'sync_status': syncStatus,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  CardReputationVotesCompanion copyWith({
+    Value<String>? id,
+    Value<String>? cardId,
+    Value<String>? userId,
+    Value<int>? vote,
+    Value<DateTime>? updatedAt,
+    Value<bool>? isDeleted,
+    Value<DateTime?>? deletedAt,
+    Value<String?>? syncStatus,
+    Value<int>? rowid,
+  }) {
+    return CardReputationVotesCompanion(
+      id: id ?? this.id,
+      cardId: cardId ?? this.cardId,
+      userId: userId ?? this.userId,
+      vote: vote ?? this.vote,
+      updatedAt: updatedAt ?? this.updatedAt,
+      isDeleted: isDeleted ?? this.isDeleted,
+      deletedAt: deletedAt ?? this.deletedAt,
+      syncStatus: syncStatus ?? this.syncStatus,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (cardId.present) {
+      map['card_id'] = Variable<String>(cardId.value);
+    }
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
+    }
+    if (vote.present) {
+      map['vote'] = Variable<int>(vote.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (isDeleted.present) {
+      map['is_deleted'] = Variable<bool>(isDeleted.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
+    if (syncStatus.present) {
+      map['sync_status'] = Variable<String>(syncStatus.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CardReputationVotesCompanion(')
+          ..write('id: $id, ')
+          ..write('cardId: $cardId, ')
+          ..write('userId: $userId, ')
+          ..write('vote: $vote, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('syncStatus: $syncStatus, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $PostVotesTable extends PostVotes
+    with TableInfo<$PostVotesTable, PostVoteRecord> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PostVotesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _postIdMeta = const VerificationMeta('postId');
+  @override
+  late final GeneratedColumn<String> postId = GeneratedColumn<String>(
+    'post_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+    'user_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _voteMeta = const VerificationMeta('vote');
+  @override
+  late final GeneratedColumn<int> vote = GeneratedColumn<int>(
+    'vote',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _isDeletedMeta = const VerificationMeta(
+    'isDeleted',
+  );
+  @override
+  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
+    'is_deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _syncStatusMeta = const VerificationMeta(
+    'syncStatus',
+  );
+  @override
+  late final GeneratedColumn<String> syncStatus = GeneratedColumn<String>(
+    'sync_status',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('synced'),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    postId,
+    userId,
+    vote,
+    createdAt,
+    updatedAt,
+    isDeleted,
+    deletedAt,
+    syncStatus,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'post_votes';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PostVoteRecord> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('post_id')) {
+      context.handle(
+        _postIdMeta,
+        postId.isAcceptableOrUnknown(data['post_id']!, _postIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_postIdMeta);
+    }
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_userIdMeta);
+    }
+    if (data.containsKey('vote')) {
+      context.handle(
+        _voteMeta,
+        vote.isAcceptableOrUnknown(data['vote']!, _voteMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
+    if (data.containsKey('is_deleted')) {
+      context.handle(
+        _isDeletedMeta,
+        isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
+      );
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    if (data.containsKey('sync_status')) {
+      context.handle(
+        _syncStatusMeta,
+        syncStatus.isAcceptableOrUnknown(data['sync_status']!, _syncStatusMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  List<Set<GeneratedColumn>> get uniqueKeys => [
+    {postId, userId},
+  ];
+  @override
+  PostVoteRecord map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PostVoteRecord(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      postId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}post_id'],
+      )!,
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_id'],
+      )!,
+      vote: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}vote'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+      isDeleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_deleted'],
+      )!,
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
+      syncStatus: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sync_status'],
+      ),
+    );
+  }
+
+  @override
+  $PostVotesTable createAlias(String alias) {
+    return $PostVotesTable(attachedDatabase, alias);
+  }
+}
+
+class PostVoteRecord extends DataClass implements Insertable<PostVoteRecord> {
+  /// Unique identifier: 'vote_${postId}_${userId}'
+  final String id;
+
+  /// Target post identifier
+  final String postId;
+
+  /// User identifier ('local_user' for offline device persistence or auth user ID)
+  final String userId;
+
+  /// Vote value: 1 = Upvote, -1 = Downvote, 0 = Neutral / Removed
+  final int vote;
+
+  /// Timestamp when vote was recorded or updated
+  final DateTime createdAt;
+
+  /// Timestamp when vote was recorded or updated
+  final DateTime updatedAt;
+
+  /// Soft delete flag for synchronization
+  final bool isDeleted;
+
+  /// Soft delete timestamp
+  final DateTime? deletedAt;
+
+  /// Sync engine tracking state ('synced', 'pending', etc.)
+  final String? syncStatus;
+  const PostVoteRecord({
+    required this.id,
+    required this.postId,
+    required this.userId,
+    required this.vote,
+    required this.createdAt,
+    required this.updatedAt,
+    required this.isDeleted,
+    this.deletedAt,
+    this.syncStatus,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['post_id'] = Variable<String>(postId);
+    map['user_id'] = Variable<String>(userId);
+    map['vote'] = Variable<int>(vote);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    map['is_deleted'] = Variable<bool>(isDeleted);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
+    if (!nullToAbsent || syncStatus != null) {
+      map['sync_status'] = Variable<String>(syncStatus);
+    }
+    return map;
+  }
+
+  PostVotesCompanion toCompanion(bool nullToAbsent) {
+    return PostVotesCompanion(
+      id: Value(id),
+      postId: Value(postId),
+      userId: Value(userId),
+      vote: Value(vote),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+      isDeleted: Value(isDeleted),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+      syncStatus: syncStatus == null && nullToAbsent
+          ? const Value.absent()
+          : Value(syncStatus),
+    );
+  }
+
+  factory PostVoteRecord.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PostVoteRecord(
+      id: serializer.fromJson<String>(json['id']),
+      postId: serializer.fromJson<String>(json['postId']),
+      userId: serializer.fromJson<String>(json['userId']),
+      vote: serializer.fromJson<int>(json['vote']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+      syncStatus: serializer.fromJson<String?>(json['syncStatus']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'postId': serializer.toJson<String>(postId),
+      'userId': serializer.toJson<String>(userId),
+      'vote': serializer.toJson<int>(vote),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'isDeleted': serializer.toJson<bool>(isDeleted),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+      'syncStatus': serializer.toJson<String?>(syncStatus),
+    };
+  }
+
+  PostVoteRecord copyWith({
+    String? id,
+    String? postId,
+    String? userId,
+    int? vote,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    bool? isDeleted,
+    Value<DateTime?> deletedAt = const Value.absent(),
+    Value<String?> syncStatus = const Value.absent(),
+  }) => PostVoteRecord(
+    id: id ?? this.id,
+    postId: postId ?? this.postId,
+    userId: userId ?? this.userId,
+    vote: vote ?? this.vote,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+    isDeleted: isDeleted ?? this.isDeleted,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+    syncStatus: syncStatus.present ? syncStatus.value : this.syncStatus,
+  );
+  PostVoteRecord copyWithCompanion(PostVotesCompanion data) {
+    return PostVoteRecord(
+      id: data.id.present ? data.id.value : this.id,
+      postId: data.postId.present ? data.postId.value : this.postId,
+      userId: data.userId.present ? data.userId.value : this.userId,
+      vote: data.vote.present ? data.vote.value : this.vote,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+      syncStatus: data.syncStatus.present
+          ? data.syncStatus.value
+          : this.syncStatus,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PostVoteRecord(')
+          ..write('id: $id, ')
+          ..write('postId: $postId, ')
+          ..write('userId: $userId, ')
+          ..write('vote: $vote, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('syncStatus: $syncStatus')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    postId,
+    userId,
+    vote,
+    createdAt,
+    updatedAt,
+    isDeleted,
+    deletedAt,
+    syncStatus,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PostVoteRecord &&
+          other.id == this.id &&
+          other.postId == this.postId &&
+          other.userId == this.userId &&
+          other.vote == this.vote &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt &&
+          other.isDeleted == this.isDeleted &&
+          other.deletedAt == this.deletedAt &&
+          other.syncStatus == this.syncStatus);
+}
+
+class PostVotesCompanion extends UpdateCompanion<PostVoteRecord> {
+  final Value<String> id;
+  final Value<String> postId;
+  final Value<String> userId;
+  final Value<int> vote;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<bool> isDeleted;
+  final Value<DateTime?> deletedAt;
+  final Value<String?> syncStatus;
+  final Value<int> rowid;
+  const PostVotesCompanion({
+    this.id = const Value.absent(),
+    this.postId = const Value.absent(),
+    this.userId = const Value.absent(),
+    this.vote = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.syncStatus = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  PostVotesCompanion.insert({
+    required String id,
+    required String postId,
+    required String userId,
+    this.vote = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.syncStatus = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       postId = Value(postId),
+       userId = Value(userId);
+  static Insertable<PostVoteRecord> custom({
+    Expression<String>? id,
+    Expression<String>? postId,
+    Expression<String>? userId,
+    Expression<int>? vote,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<bool>? isDeleted,
+    Expression<DateTime>? deletedAt,
+    Expression<String>? syncStatus,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (postId != null) 'post_id': postId,
+      if (userId != null) 'user_id': userId,
+      if (vote != null) 'vote': vote,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (isDeleted != null) 'is_deleted': isDeleted,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (syncStatus != null) 'sync_status': syncStatus,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  PostVotesCompanion copyWith({
+    Value<String>? id,
+    Value<String>? postId,
+    Value<String>? userId,
+    Value<int>? vote,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+    Value<bool>? isDeleted,
+    Value<DateTime?>? deletedAt,
+    Value<String?>? syncStatus,
+    Value<int>? rowid,
+  }) {
+    return PostVotesCompanion(
+      id: id ?? this.id,
+      postId: postId ?? this.postId,
+      userId: userId ?? this.userId,
+      vote: vote ?? this.vote,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      isDeleted: isDeleted ?? this.isDeleted,
+      deletedAt: deletedAt ?? this.deletedAt,
+      syncStatus: syncStatus ?? this.syncStatus,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (postId.present) {
+      map['post_id'] = Variable<String>(postId.value);
+    }
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
+    }
+    if (vote.present) {
+      map['vote'] = Variable<int>(vote.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (isDeleted.present) {
+      map['is_deleted'] = Variable<bool>(isDeleted.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
+    if (syncStatus.present) {
+      map['sync_status'] = Variable<String>(syncStatus.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PostVotesCompanion(')
+          ..write('id: $id, ')
+          ..write('postId: $postId, ')
+          ..write('userId: $userId, ')
+          ..write('vote: $vote, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('syncStatus: $syncStatus, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $PostReactionsTable extends PostReactions
+    with TableInfo<$PostReactionsTable, PostReactionRecord> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PostReactionsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _postIdMeta = const VerificationMeta('postId');
+  @override
+  late final GeneratedColumn<String> postId = GeneratedColumn<String>(
+    'post_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+    'user_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _emojiMeta = const VerificationMeta('emoji');
+  @override
+  late final GeneratedColumn<String> emoji = GeneratedColumn<String>(
+    'emoji',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _isDeletedMeta = const VerificationMeta(
+    'isDeleted',
+  );
+  @override
+  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
+    'is_deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _syncStatusMeta = const VerificationMeta(
+    'syncStatus',
+  );
+  @override
+  late final GeneratedColumn<String> syncStatus = GeneratedColumn<String>(
+    'sync_status',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('synced'),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    postId,
+    userId,
+    emoji,
+    createdAt,
+    isDeleted,
+    deletedAt,
+    syncStatus,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'post_reactions';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PostReactionRecord> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('post_id')) {
+      context.handle(
+        _postIdMeta,
+        postId.isAcceptableOrUnknown(data['post_id']!, _postIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_postIdMeta);
+    }
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_userIdMeta);
+    }
+    if (data.containsKey('emoji')) {
+      context.handle(
+        _emojiMeta,
+        emoji.isAcceptableOrUnknown(data['emoji']!, _emojiMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_emojiMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    if (data.containsKey('is_deleted')) {
+      context.handle(
+        _isDeletedMeta,
+        isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
+      );
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    if (data.containsKey('sync_status')) {
+      context.handle(
+        _syncStatusMeta,
+        syncStatus.isAcceptableOrUnknown(data['sync_status']!, _syncStatusMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  List<Set<GeneratedColumn>> get uniqueKeys => [
+    {postId, userId, emoji},
+  ];
+  @override
+  PostReactionRecord map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PostReactionRecord(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      postId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}post_id'],
+      )!,
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_id'],
+      )!,
+      emoji: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}emoji'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      isDeleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_deleted'],
+      )!,
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
+      syncStatus: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sync_status'],
+      ),
+    );
+  }
+
+  @override
+  $PostReactionsTable createAlias(String alias) {
+    return $PostReactionsTable(attachedDatabase, alias);
+  }
+}
+
+class PostReactionRecord extends DataClass
+    implements Insertable<PostReactionRecord> {
+  /// Unique identifier: 'react_${postId}_${userId}_${emoji}'
+  final String id;
+
+  /// Target post identifier
+  final String postId;
+
+  /// User identifier ('local_user' for offline device persistence or auth user ID)
+  final String userId;
+
+  /// The reacted emoji symbol string (e.g. '🔥', '❤️', '😂', '🤯', '💎')
+  final String emoji;
+
+  /// Timestamp when reaction was added
+  final DateTime createdAt;
+
+  /// Soft delete flag for toggling reaction off / synchronization
+  final bool isDeleted;
+
+  /// Soft delete timestamp
+  final DateTime? deletedAt;
+
+  /// Sync engine tracking state ('synced', 'pending', etc.)
+  final String? syncStatus;
+  const PostReactionRecord({
+    required this.id,
+    required this.postId,
+    required this.userId,
+    required this.emoji,
+    required this.createdAt,
+    required this.isDeleted,
+    this.deletedAt,
+    this.syncStatus,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['post_id'] = Variable<String>(postId);
+    map['user_id'] = Variable<String>(userId);
+    map['emoji'] = Variable<String>(emoji);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['is_deleted'] = Variable<bool>(isDeleted);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
+    if (!nullToAbsent || syncStatus != null) {
+      map['sync_status'] = Variable<String>(syncStatus);
+    }
+    return map;
+  }
+
+  PostReactionsCompanion toCompanion(bool nullToAbsent) {
+    return PostReactionsCompanion(
+      id: Value(id),
+      postId: Value(postId),
+      userId: Value(userId),
+      emoji: Value(emoji),
+      createdAt: Value(createdAt),
+      isDeleted: Value(isDeleted),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+      syncStatus: syncStatus == null && nullToAbsent
+          ? const Value.absent()
+          : Value(syncStatus),
+    );
+  }
+
+  factory PostReactionRecord.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PostReactionRecord(
+      id: serializer.fromJson<String>(json['id']),
+      postId: serializer.fromJson<String>(json['postId']),
+      userId: serializer.fromJson<String>(json['userId']),
+      emoji: serializer.fromJson<String>(json['emoji']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+      syncStatus: serializer.fromJson<String?>(json['syncStatus']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'postId': serializer.toJson<String>(postId),
+      'userId': serializer.toJson<String>(userId),
+      'emoji': serializer.toJson<String>(emoji),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'isDeleted': serializer.toJson<bool>(isDeleted),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+      'syncStatus': serializer.toJson<String?>(syncStatus),
+    };
+  }
+
+  PostReactionRecord copyWith({
+    String? id,
+    String? postId,
+    String? userId,
+    String? emoji,
+    DateTime? createdAt,
+    bool? isDeleted,
+    Value<DateTime?> deletedAt = const Value.absent(),
+    Value<String?> syncStatus = const Value.absent(),
+  }) => PostReactionRecord(
+    id: id ?? this.id,
+    postId: postId ?? this.postId,
+    userId: userId ?? this.userId,
+    emoji: emoji ?? this.emoji,
+    createdAt: createdAt ?? this.createdAt,
+    isDeleted: isDeleted ?? this.isDeleted,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+    syncStatus: syncStatus.present ? syncStatus.value : this.syncStatus,
+  );
+  PostReactionRecord copyWithCompanion(PostReactionsCompanion data) {
+    return PostReactionRecord(
+      id: data.id.present ? data.id.value : this.id,
+      postId: data.postId.present ? data.postId.value : this.postId,
+      userId: data.userId.present ? data.userId.value : this.userId,
+      emoji: data.emoji.present ? data.emoji.value : this.emoji,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+      syncStatus: data.syncStatus.present
+          ? data.syncStatus.value
+          : this.syncStatus,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PostReactionRecord(')
+          ..write('id: $id, ')
+          ..write('postId: $postId, ')
+          ..write('userId: $userId, ')
+          ..write('emoji: $emoji, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('syncStatus: $syncStatus')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    postId,
+    userId,
+    emoji,
+    createdAt,
+    isDeleted,
+    deletedAt,
+    syncStatus,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PostReactionRecord &&
+          other.id == this.id &&
+          other.postId == this.postId &&
+          other.userId == this.userId &&
+          other.emoji == this.emoji &&
+          other.createdAt == this.createdAt &&
+          other.isDeleted == this.isDeleted &&
+          other.deletedAt == this.deletedAt &&
+          other.syncStatus == this.syncStatus);
+}
+
+class PostReactionsCompanion extends UpdateCompanion<PostReactionRecord> {
+  final Value<String> id;
+  final Value<String> postId;
+  final Value<String> userId;
+  final Value<String> emoji;
+  final Value<DateTime> createdAt;
+  final Value<bool> isDeleted;
+  final Value<DateTime?> deletedAt;
+  final Value<String?> syncStatus;
+  final Value<int> rowid;
+  const PostReactionsCompanion({
+    this.id = const Value.absent(),
+    this.postId = const Value.absent(),
+    this.userId = const Value.absent(),
+    this.emoji = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.syncStatus = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  PostReactionsCompanion.insert({
+    required String id,
+    required String postId,
+    required String userId,
+    required String emoji,
+    this.createdAt = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.syncStatus = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       postId = Value(postId),
+       userId = Value(userId),
+       emoji = Value(emoji);
+  static Insertable<PostReactionRecord> custom({
+    Expression<String>? id,
+    Expression<String>? postId,
+    Expression<String>? userId,
+    Expression<String>? emoji,
+    Expression<DateTime>? createdAt,
+    Expression<bool>? isDeleted,
+    Expression<DateTime>? deletedAt,
+    Expression<String>? syncStatus,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (postId != null) 'post_id': postId,
+      if (userId != null) 'user_id': userId,
+      if (emoji != null) 'emoji': emoji,
+      if (createdAt != null) 'created_at': createdAt,
+      if (isDeleted != null) 'is_deleted': isDeleted,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (syncStatus != null) 'sync_status': syncStatus,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  PostReactionsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? postId,
+    Value<String>? userId,
+    Value<String>? emoji,
+    Value<DateTime>? createdAt,
+    Value<bool>? isDeleted,
+    Value<DateTime?>? deletedAt,
+    Value<String?>? syncStatus,
+    Value<int>? rowid,
+  }) {
+    return PostReactionsCompanion(
+      id: id ?? this.id,
+      postId: postId ?? this.postId,
+      userId: userId ?? this.userId,
+      emoji: emoji ?? this.emoji,
+      createdAt: createdAt ?? this.createdAt,
+      isDeleted: isDeleted ?? this.isDeleted,
+      deletedAt: deletedAt ?? this.deletedAt,
+      syncStatus: syncStatus ?? this.syncStatus,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (postId.present) {
+      map['post_id'] = Variable<String>(postId.value);
+    }
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
+    }
+    if (emoji.present) {
+      map['emoji'] = Variable<String>(emoji.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (isDeleted.present) {
+      map['is_deleted'] = Variable<bool>(isDeleted.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
+    if (syncStatus.present) {
+      map['sync_status'] = Variable<String>(syncStatus.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PostReactionsCompanion(')
+          ..write('id: $id, ')
+          ..write('postId: $postId, ')
+          ..write('userId: $userId, ')
+          ..write('emoji: $emoji, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('syncStatus: $syncStatus, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $CommentReactionsTable extends CommentReactions
+    with TableInfo<$CommentReactionsTable, CommentReactionRecord> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $CommentReactionsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _commentIdMeta = const VerificationMeta(
+    'commentId',
+  );
+  @override
+  late final GeneratedColumn<String> commentId = GeneratedColumn<String>(
+    'comment_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+    'user_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _emojiMeta = const VerificationMeta('emoji');
+  @override
+  late final GeneratedColumn<String> emoji = GeneratedColumn<String>(
+    'emoji',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _isDeletedMeta = const VerificationMeta(
+    'isDeleted',
+  );
+  @override
+  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
+    'is_deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _syncStatusMeta = const VerificationMeta(
+    'syncStatus',
+  );
+  @override
+  late final GeneratedColumn<String> syncStatus = GeneratedColumn<String>(
+    'sync_status',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('synced'),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    commentId,
+    userId,
+    emoji,
+    createdAt,
+    isDeleted,
+    deletedAt,
+    syncStatus,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'comment_reactions';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<CommentReactionRecord> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('comment_id')) {
+      context.handle(
+        _commentIdMeta,
+        commentId.isAcceptableOrUnknown(data['comment_id']!, _commentIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_commentIdMeta);
+    }
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_userIdMeta);
+    }
+    if (data.containsKey('emoji')) {
+      context.handle(
+        _emojiMeta,
+        emoji.isAcceptableOrUnknown(data['emoji']!, _emojiMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_emojiMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    if (data.containsKey('is_deleted')) {
+      context.handle(
+        _isDeletedMeta,
+        isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
+      );
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    if (data.containsKey('sync_status')) {
+      context.handle(
+        _syncStatusMeta,
+        syncStatus.isAcceptableOrUnknown(data['sync_status']!, _syncStatusMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  List<Set<GeneratedColumn>> get uniqueKeys => [
+    {commentId, userId, emoji},
+  ];
+  @override
+  CommentReactionRecord map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return CommentReactionRecord(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      commentId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}comment_id'],
+      )!,
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_id'],
+      )!,
+      emoji: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}emoji'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      isDeleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_deleted'],
+      )!,
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
+      syncStatus: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sync_status'],
+      ),
+    );
+  }
+
+  @override
+  $CommentReactionsTable createAlias(String alias) {
+    return $CommentReactionsTable(attachedDatabase, alias);
+  }
+}
+
+class CommentReactionRecord extends DataClass
+    implements Insertable<CommentReactionRecord> {
+  /// Unique identifier: 'react_${commentId}_${userId}_${emoji}'
+  final String id;
+
+  /// Target comment identifier
+  final String commentId;
+
+  /// User identifier ('local_user' for offline device persistence or auth user ID)
+  final String userId;
+
+  /// The reacted emoji symbol string (e.g. '🔥', '❤️', '😂', '🤯', '💎')
+  final String emoji;
+
+  /// Timestamp when reaction was added
+  final DateTime createdAt;
+
+  /// Soft delete flag for toggling reaction off / synchronization
+  final bool isDeleted;
+
+  /// Soft delete timestamp
+  final DateTime? deletedAt;
+
+  /// Sync engine tracking state ('synced', 'pending', etc.)
+  final String? syncStatus;
+  const CommentReactionRecord({
+    required this.id,
+    required this.commentId,
+    required this.userId,
+    required this.emoji,
+    required this.createdAt,
+    required this.isDeleted,
+    this.deletedAt,
+    this.syncStatus,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['comment_id'] = Variable<String>(commentId);
+    map['user_id'] = Variable<String>(userId);
+    map['emoji'] = Variable<String>(emoji);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['is_deleted'] = Variable<bool>(isDeleted);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
+    if (!nullToAbsent || syncStatus != null) {
+      map['sync_status'] = Variable<String>(syncStatus);
+    }
+    return map;
+  }
+
+  CommentReactionsCompanion toCompanion(bool nullToAbsent) {
+    return CommentReactionsCompanion(
+      id: Value(id),
+      commentId: Value(commentId),
+      userId: Value(userId),
+      emoji: Value(emoji),
+      createdAt: Value(createdAt),
+      isDeleted: Value(isDeleted),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+      syncStatus: syncStatus == null && nullToAbsent
+          ? const Value.absent()
+          : Value(syncStatus),
+    );
+  }
+
+  factory CommentReactionRecord.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return CommentReactionRecord(
+      id: serializer.fromJson<String>(json['id']),
+      commentId: serializer.fromJson<String>(json['commentId']),
+      userId: serializer.fromJson<String>(json['userId']),
+      emoji: serializer.fromJson<String>(json['emoji']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+      syncStatus: serializer.fromJson<String?>(json['syncStatus']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'commentId': serializer.toJson<String>(commentId),
+      'userId': serializer.toJson<String>(userId),
+      'emoji': serializer.toJson<String>(emoji),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'isDeleted': serializer.toJson<bool>(isDeleted),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+      'syncStatus': serializer.toJson<String?>(syncStatus),
+    };
+  }
+
+  CommentReactionRecord copyWith({
+    String? id,
+    String? commentId,
+    String? userId,
+    String? emoji,
+    DateTime? createdAt,
+    bool? isDeleted,
+    Value<DateTime?> deletedAt = const Value.absent(),
+    Value<String?> syncStatus = const Value.absent(),
+  }) => CommentReactionRecord(
+    id: id ?? this.id,
+    commentId: commentId ?? this.commentId,
+    userId: userId ?? this.userId,
+    emoji: emoji ?? this.emoji,
+    createdAt: createdAt ?? this.createdAt,
+    isDeleted: isDeleted ?? this.isDeleted,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+    syncStatus: syncStatus.present ? syncStatus.value : this.syncStatus,
+  );
+  CommentReactionRecord copyWithCompanion(CommentReactionsCompanion data) {
+    return CommentReactionRecord(
+      id: data.id.present ? data.id.value : this.id,
+      commentId: data.commentId.present ? data.commentId.value : this.commentId,
+      userId: data.userId.present ? data.userId.value : this.userId,
+      emoji: data.emoji.present ? data.emoji.value : this.emoji,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+      syncStatus: data.syncStatus.present
+          ? data.syncStatus.value
+          : this.syncStatus,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CommentReactionRecord(')
+          ..write('id: $id, ')
+          ..write('commentId: $commentId, ')
+          ..write('userId: $userId, ')
+          ..write('emoji: $emoji, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('syncStatus: $syncStatus')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    commentId,
+    userId,
+    emoji,
+    createdAt,
+    isDeleted,
+    deletedAt,
+    syncStatus,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is CommentReactionRecord &&
+          other.id == this.id &&
+          other.commentId == this.commentId &&
+          other.userId == this.userId &&
+          other.emoji == this.emoji &&
+          other.createdAt == this.createdAt &&
+          other.isDeleted == this.isDeleted &&
+          other.deletedAt == this.deletedAt &&
+          other.syncStatus == this.syncStatus);
+}
+
+class CommentReactionsCompanion extends UpdateCompanion<CommentReactionRecord> {
+  final Value<String> id;
+  final Value<String> commentId;
+  final Value<String> userId;
+  final Value<String> emoji;
+  final Value<DateTime> createdAt;
+  final Value<bool> isDeleted;
+  final Value<DateTime?> deletedAt;
+  final Value<String?> syncStatus;
+  final Value<int> rowid;
+  const CommentReactionsCompanion({
+    this.id = const Value.absent(),
+    this.commentId = const Value.absent(),
+    this.userId = const Value.absent(),
+    this.emoji = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.syncStatus = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  CommentReactionsCompanion.insert({
+    required String id,
+    required String commentId,
+    required String userId,
+    required String emoji,
+    this.createdAt = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.syncStatus = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       commentId = Value(commentId),
+       userId = Value(userId),
+       emoji = Value(emoji);
+  static Insertable<CommentReactionRecord> custom({
+    Expression<String>? id,
+    Expression<String>? commentId,
+    Expression<String>? userId,
+    Expression<String>? emoji,
+    Expression<DateTime>? createdAt,
+    Expression<bool>? isDeleted,
+    Expression<DateTime>? deletedAt,
+    Expression<String>? syncStatus,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (commentId != null) 'comment_id': commentId,
+      if (userId != null) 'user_id': userId,
+      if (emoji != null) 'emoji': emoji,
+      if (createdAt != null) 'created_at': createdAt,
+      if (isDeleted != null) 'is_deleted': isDeleted,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (syncStatus != null) 'sync_status': syncStatus,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  CommentReactionsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? commentId,
+    Value<String>? userId,
+    Value<String>? emoji,
+    Value<DateTime>? createdAt,
+    Value<bool>? isDeleted,
+    Value<DateTime?>? deletedAt,
+    Value<String?>? syncStatus,
+    Value<int>? rowid,
+  }) {
+    return CommentReactionsCompanion(
+      id: id ?? this.id,
+      commentId: commentId ?? this.commentId,
+      userId: userId ?? this.userId,
+      emoji: emoji ?? this.emoji,
+      createdAt: createdAt ?? this.createdAt,
+      isDeleted: isDeleted ?? this.isDeleted,
+      deletedAt: deletedAt ?? this.deletedAt,
+      syncStatus: syncStatus ?? this.syncStatus,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (commentId.present) {
+      map['comment_id'] = Variable<String>(commentId.value);
+    }
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
+    }
+    if (emoji.present) {
+      map['emoji'] = Variable<String>(emoji.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (isDeleted.present) {
+      map['is_deleted'] = Variable<bool>(isDeleted.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
+    if (syncStatus.present) {
+      map['sync_status'] = Variable<String>(syncStatus.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CommentReactionsCompanion(')
+          ..write('id: $id, ')
+          ..write('commentId: $commentId, ')
+          ..write('userId: $userId, ')
+          ..write('emoji: $emoji, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('syncStatus: $syncStatus, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $SavedPostsTable extends SavedPosts
+    with TableInfo<$SavedPostsTable, SavedPostRecord> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SavedPostsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _postIdMeta = const VerificationMeta('postId');
+  @override
+  late final GeneratedColumn<String> postId = GeneratedColumn<String>(
+    'post_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+    'user_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _isDeletedMeta = const VerificationMeta(
+    'isDeleted',
+  );
+  @override
+  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
+    'is_deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _syncStatusMeta = const VerificationMeta(
+    'syncStatus',
+  );
+  @override
+  late final GeneratedColumn<String> syncStatus = GeneratedColumn<String>(
+    'sync_status',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('synced'),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    postId,
+    userId,
+    createdAt,
+    isDeleted,
+    deletedAt,
+    syncStatus,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'saved_posts';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SavedPostRecord> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('post_id')) {
+      context.handle(
+        _postIdMeta,
+        postId.isAcceptableOrUnknown(data['post_id']!, _postIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_postIdMeta);
+    }
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_userIdMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    if (data.containsKey('is_deleted')) {
+      context.handle(
+        _isDeletedMeta,
+        isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
+      );
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    if (data.containsKey('sync_status')) {
+      context.handle(
+        _syncStatusMeta,
+        syncStatus.isAcceptableOrUnknown(data['sync_status']!, _syncStatusMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  List<Set<GeneratedColumn>> get uniqueKeys => [
+    {postId, userId},
+  ];
+  @override
+  SavedPostRecord map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SavedPostRecord(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      postId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}post_id'],
+      )!,
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_id'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      isDeleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_deleted'],
+      )!,
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
+      syncStatus: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sync_status'],
+      ),
+    );
+  }
+
+  @override
+  $SavedPostsTable createAlias(String alias) {
+    return $SavedPostsTable(attachedDatabase, alias);
+  }
+}
+
+class SavedPostRecord extends DataClass implements Insertable<SavedPostRecord> {
+  /// Unique identifier: 'saved_${postId}_${userId}'
+  final String id;
+
+  /// Target post identifier
+  final String postId;
+
+  /// User identifier saving the post
+  final String userId;
+
+  /// Timestamp when post was saved
+  final DateTime createdAt;
+
+  /// Soft delete flag for unsaving / synchronization
+  final bool isDeleted;
+
+  /// Soft delete timestamp
+  final DateTime? deletedAt;
+
+  /// Sync engine tracking state ('synced', 'pending', etc.)
+  final String? syncStatus;
+  const SavedPostRecord({
+    required this.id,
+    required this.postId,
+    required this.userId,
+    required this.createdAt,
+    required this.isDeleted,
+    this.deletedAt,
+    this.syncStatus,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['post_id'] = Variable<String>(postId);
+    map['user_id'] = Variable<String>(userId);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['is_deleted'] = Variable<bool>(isDeleted);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
+    if (!nullToAbsent || syncStatus != null) {
+      map['sync_status'] = Variable<String>(syncStatus);
+    }
+    return map;
+  }
+
+  SavedPostsCompanion toCompanion(bool nullToAbsent) {
+    return SavedPostsCompanion(
+      id: Value(id),
+      postId: Value(postId),
+      userId: Value(userId),
+      createdAt: Value(createdAt),
+      isDeleted: Value(isDeleted),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+      syncStatus: syncStatus == null && nullToAbsent
+          ? const Value.absent()
+          : Value(syncStatus),
+    );
+  }
+
+  factory SavedPostRecord.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SavedPostRecord(
+      id: serializer.fromJson<String>(json['id']),
+      postId: serializer.fromJson<String>(json['postId']),
+      userId: serializer.fromJson<String>(json['userId']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+      syncStatus: serializer.fromJson<String?>(json['syncStatus']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'postId': serializer.toJson<String>(postId),
+      'userId': serializer.toJson<String>(userId),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'isDeleted': serializer.toJson<bool>(isDeleted),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+      'syncStatus': serializer.toJson<String?>(syncStatus),
+    };
+  }
+
+  SavedPostRecord copyWith({
+    String? id,
+    String? postId,
+    String? userId,
+    DateTime? createdAt,
+    bool? isDeleted,
+    Value<DateTime?> deletedAt = const Value.absent(),
+    Value<String?> syncStatus = const Value.absent(),
+  }) => SavedPostRecord(
+    id: id ?? this.id,
+    postId: postId ?? this.postId,
+    userId: userId ?? this.userId,
+    createdAt: createdAt ?? this.createdAt,
+    isDeleted: isDeleted ?? this.isDeleted,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+    syncStatus: syncStatus.present ? syncStatus.value : this.syncStatus,
+  );
+  SavedPostRecord copyWithCompanion(SavedPostsCompanion data) {
+    return SavedPostRecord(
+      id: data.id.present ? data.id.value : this.id,
+      postId: data.postId.present ? data.postId.value : this.postId,
+      userId: data.userId.present ? data.userId.value : this.userId,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+      syncStatus: data.syncStatus.present
+          ? data.syncStatus.value
+          : this.syncStatus,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SavedPostRecord(')
+          ..write('id: $id, ')
+          ..write('postId: $postId, ')
+          ..write('userId: $userId, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('syncStatus: $syncStatus')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    postId,
+    userId,
+    createdAt,
+    isDeleted,
+    deletedAt,
+    syncStatus,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SavedPostRecord &&
+          other.id == this.id &&
+          other.postId == this.postId &&
+          other.userId == this.userId &&
+          other.createdAt == this.createdAt &&
+          other.isDeleted == this.isDeleted &&
+          other.deletedAt == this.deletedAt &&
+          other.syncStatus == this.syncStatus);
+}
+
+class SavedPostsCompanion extends UpdateCompanion<SavedPostRecord> {
+  final Value<String> id;
+  final Value<String> postId;
+  final Value<String> userId;
+  final Value<DateTime> createdAt;
+  final Value<bool> isDeleted;
+  final Value<DateTime?> deletedAt;
+  final Value<String?> syncStatus;
+  final Value<int> rowid;
+  const SavedPostsCompanion({
+    this.id = const Value.absent(),
+    this.postId = const Value.absent(),
+    this.userId = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.syncStatus = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  SavedPostsCompanion.insert({
+    required String id,
+    required String postId,
+    required String userId,
+    this.createdAt = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.syncStatus = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       postId = Value(postId),
+       userId = Value(userId);
+  static Insertable<SavedPostRecord> custom({
+    Expression<String>? id,
+    Expression<String>? postId,
+    Expression<String>? userId,
+    Expression<DateTime>? createdAt,
+    Expression<bool>? isDeleted,
+    Expression<DateTime>? deletedAt,
+    Expression<String>? syncStatus,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (postId != null) 'post_id': postId,
+      if (userId != null) 'user_id': userId,
+      if (createdAt != null) 'created_at': createdAt,
+      if (isDeleted != null) 'is_deleted': isDeleted,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (syncStatus != null) 'sync_status': syncStatus,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  SavedPostsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? postId,
+    Value<String>? userId,
+    Value<DateTime>? createdAt,
+    Value<bool>? isDeleted,
+    Value<DateTime?>? deletedAt,
+    Value<String?>? syncStatus,
+    Value<int>? rowid,
+  }) {
+    return SavedPostsCompanion(
+      id: id ?? this.id,
+      postId: postId ?? this.postId,
+      userId: userId ?? this.userId,
+      createdAt: createdAt ?? this.createdAt,
+      isDeleted: isDeleted ?? this.isDeleted,
+      deletedAt: deletedAt ?? this.deletedAt,
+      syncStatus: syncStatus ?? this.syncStatus,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (postId.present) {
+      map['post_id'] = Variable<String>(postId.value);
+    }
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (isDeleted.present) {
+      map['is_deleted'] = Variable<bool>(isDeleted.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
+    if (syncStatus.present) {
+      map['sync_status'] = Variable<String>(syncStatus.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SavedPostsCompanion(')
+          ..write('id: $id, ')
+          ..write('postId: $postId, ')
+          ..write('userId: $userId, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('syncStatus: $syncStatus, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -11235,9 +23494,35 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $ExploreDeckVotesTable exploreDeckVotes = $ExploreDeckVotesTable(
     this,
   );
+  late final $UserProfilesTable userProfiles = $UserProfilesTable(this);
+  late final $FeedPostsTable feedPosts = $FeedPostsTable(this);
+  late final $PostLikesTable postLikes = $PostLikesTable(this);
+  late final $PostCommentsTable postComments = $PostCommentsTable(this);
+  late final $FriendshipsTable friendships = $FriendshipsTable(this);
+  late final $NotificationsTable notifications = $NotificationsTable(this);
+  late final $MessagesTable messages = $MessagesTable(this);
+  late final $TradeProposalsTable tradeProposals = $TradeProposalsTable(this);
+  late final $UserFollowsTable userFollows = $UserFollowsTable(this);
+  late final $CardReputationVotesTable cardReputationVotes =
+      $CardReputationVotesTable(this);
+  late final $PostVotesTable postVotes = $PostVotesTable(this);
+  late final $PostReactionsTable postReactions = $PostReactionsTable(this);
+  late final $CommentReactionsTable commentReactions = $CommentReactionsTable(
+    this,
+  );
+  late final $SavedPostsTable savedPosts = $SavedPostsTable(this);
   late final VaultDao vaultDao = VaultDao(this as AppDatabase);
   late final MatchDao matchDao = MatchDao(this as AppDatabase);
   late final ExploreDeckDao exploreDeckDao = ExploreDeckDao(
+    this as AppDatabase,
+  );
+  late final UserProfileDao userProfileDao = UserProfileDao(
+    this as AppDatabase,
+  );
+  late final FeedDao feedDao = FeedDao(this as AppDatabase);
+  late final InboxDao inboxDao = InboxDao(this as AppDatabase);
+  late final FriendsDao friendsDao = FriendsDao(this as AppDatabase);
+  late final CardReputationDao cardReputationDao = CardReputationDao(
     this as AppDatabase,
   );
   @override
@@ -11259,6 +23544,20 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     exploreDecks,
     exploreDeckItems,
     exploreDeckVotes,
+    userProfiles,
+    feedPosts,
+    postLikes,
+    postComments,
+    friendships,
+    notifications,
+    messages,
+    tradeProposals,
+    userFollows,
+    cardReputationVotes,
+    postVotes,
+    postReactions,
+    commentReactions,
+    savedPosts,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -11285,8 +23584,13 @@ typedef $$VaultBindersTableCreateCompanionBuilder =
       required String name,
       required String collectionType,
       required DateTime createdAt,
+      Value<bool?> isSystemBinder,
+      Value<String?> systemBinderType,
+      Value<String?> userId,
       Value<bool> isDeleted,
       Value<DateTime?> updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<String?> syncStatus,
       Value<int> rowid,
     });
 typedef $$VaultBindersTableUpdateCompanionBuilder =
@@ -11295,8 +23599,13 @@ typedef $$VaultBindersTableUpdateCompanionBuilder =
       Value<String> name,
       Value<String> collectionType,
       Value<DateTime> createdAt,
+      Value<bool?> isSystemBinder,
+      Value<String?> systemBinderType,
+      Value<String?> userId,
       Value<bool> isDeleted,
       Value<DateTime?> updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<String?> syncStatus,
       Value<int> rowid,
     });
 
@@ -11351,6 +23660,21 @@ class $$VaultBindersTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<bool> get isSystemBinder => $composableBuilder(
+    column: $table.isSystemBinder,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get systemBinderType => $composableBuilder(
+    column: $table.systemBinderType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<bool> get isDeleted => $composableBuilder(
     column: $table.isDeleted,
     builder: (column) => ColumnFilters(column),
@@ -11358,6 +23682,16 @@ class $$VaultBindersTableFilterComposer
 
   ColumnFilters<DateTime> get updatedAt => $composableBuilder(
     column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -11416,6 +23750,21 @@ class $$VaultBindersTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get isSystemBinder => $composableBuilder(
+    column: $table.isSystemBinder,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get systemBinderType => $composableBuilder(
+    column: $table.systemBinderType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get isDeleted => $composableBuilder(
     column: $table.isDeleted,
     builder: (column) => ColumnOrderings(column),
@@ -11423,6 +23772,16 @@ class $$VaultBindersTableOrderingComposer
 
   ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
     column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
     builder: (column) => ColumnOrderings(column),
   );
 }
@@ -11450,11 +23809,32 @@ class $$VaultBindersTableAnnotationComposer
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
 
+  GeneratedColumn<bool> get isSystemBinder => $composableBuilder(
+    column: $table.isSystemBinder,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get systemBinderType => $composableBuilder(
+    column: $table.systemBinderType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
+
   GeneratedColumn<bool> get isDeleted =>
       $composableBuilder(column: $table.isDeleted, builder: (column) => column);
 
   GeneratedColumn<DateTime> get updatedAt =>
       $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => column,
+  );
 
   Expression<T> vaultItemsRefs<T extends Object>(
     Expression<T> Function($$VaultItemsTableAnnotationComposer a) f,
@@ -11514,16 +23894,26 @@ class $$VaultBindersTableTableManager
                 Value<String> name = const Value.absent(),
                 Value<String> collectionType = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
+                Value<bool?> isSystemBinder = const Value.absent(),
+                Value<String?> systemBinderType = const Value.absent(),
+                Value<String?> userId = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
                 Value<DateTime?> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<String?> syncStatus = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => VaultBindersCompanion(
                 id: id,
                 name: name,
                 collectionType: collectionType,
                 createdAt: createdAt,
+                isSystemBinder: isSystemBinder,
+                systemBinderType: systemBinderType,
+                userId: userId,
                 isDeleted: isDeleted,
                 updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                syncStatus: syncStatus,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -11532,16 +23922,26 @@ class $$VaultBindersTableTableManager
                 required String name,
                 required String collectionType,
                 required DateTime createdAt,
+                Value<bool?> isSystemBinder = const Value.absent(),
+                Value<String?> systemBinderType = const Value.absent(),
+                Value<String?> userId = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
                 Value<DateTime?> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<String?> syncStatus = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => VaultBindersCompanion.insert(
                 id: id,
                 name: name,
                 collectionType: collectionType,
                 createdAt: createdAt,
+                isSystemBinder: isSystemBinder,
+                systemBinderType: systemBinderType,
+                userId: userId,
                 isDeleted: isDeleted,
                 updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                syncStatus: syncStatus,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -11629,8 +24029,16 @@ typedef $$VaultItemsTableCreateCompanionBuilder =
       required double currentMarketPrice,
       required DateTime lastPriceUpdate,
       required String dynamicData,
+      Value<String?> userId,
+      Value<bool?> isTraded,
       Value<bool> isDeleted,
       Value<DateTime?> updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<String?> syncStatus,
+      Value<int?> reputationScore,
+      Value<int?> upvotes,
+      Value<int?> downvotes,
+      Value<bool?> isWishlisted,
       Value<int> rowid,
     });
 typedef $$VaultItemsTableUpdateCompanionBuilder =
@@ -11660,8 +24068,16 @@ typedef $$VaultItemsTableUpdateCompanionBuilder =
       Value<double> currentMarketPrice,
       Value<DateTime> lastPriceUpdate,
       Value<String> dynamicData,
+      Value<String?> userId,
+      Value<bool?> isTraded,
       Value<bool> isDeleted,
       Value<DateTime?> updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<String?> syncStatus,
+      Value<int?> reputationScore,
+      Value<int?> upvotes,
+      Value<int?> downvotes,
+      Value<bool?> isWishlisted,
       Value<int> rowid,
     });
 
@@ -11855,6 +24271,16 @@ class $$VaultItemsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isTraded => $composableBuilder(
+    column: $table.isTraded,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<bool> get isDeleted => $composableBuilder(
     column: $table.isDeleted,
     builder: (column) => ColumnFilters(column),
@@ -11862,6 +24288,36 @@ class $$VaultItemsTableFilterComposer
 
   ColumnFilters<DateTime> get updatedAt => $composableBuilder(
     column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get reputationScore => $composableBuilder(
+    column: $table.reputationScore,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get upvotes => $composableBuilder(
+    column: $table.upvotes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get downvotes => $composableBuilder(
+    column: $table.downvotes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isWishlisted => $composableBuilder(
+    column: $table.isWishlisted,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -12068,6 +24524,16 @@ class $$VaultItemsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isTraded => $composableBuilder(
+    column: $table.isTraded,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get isDeleted => $composableBuilder(
     column: $table.isDeleted,
     builder: (column) => ColumnOrderings(column),
@@ -12075,6 +24541,36 @@ class $$VaultItemsTableOrderingComposer
 
   ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
     column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get reputationScore => $composableBuilder(
+    column: $table.reputationScore,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get upvotes => $composableBuilder(
+    column: $table.upvotes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get downvotes => $composableBuilder(
+    column: $table.downvotes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isWishlisted => $composableBuilder(
+    column: $table.isWishlisted,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -12213,11 +24709,41 @@ class $$VaultItemsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
+
+  GeneratedColumn<bool> get isTraded =>
+      $composableBuilder(column: $table.isTraded, builder: (column) => column);
+
   GeneratedColumn<bool> get isDeleted =>
       $composableBuilder(column: $table.isDeleted, builder: (column) => column);
 
   GeneratedColumn<DateTime> get updatedAt =>
       $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get reputationScore => $composableBuilder(
+    column: $table.reputationScore,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get upvotes =>
+      $composableBuilder(column: $table.upvotes, builder: (column) => column);
+
+  GeneratedColumn<int> get downvotes =>
+      $composableBuilder(column: $table.downvotes, builder: (column) => column);
+
+  GeneratedColumn<bool> get isWishlisted => $composableBuilder(
+    column: $table.isWishlisted,
+    builder: (column) => column,
+  );
 
   $$VaultBindersTableAnnotationComposer get primaryBinderId {
     final $$VaultBindersTableAnnotationComposer composer = $composerBuilder(
@@ -12350,8 +24876,16 @@ class $$VaultItemsTableTableManager
                 Value<double> currentMarketPrice = const Value.absent(),
                 Value<DateTime> lastPriceUpdate = const Value.absent(),
                 Value<String> dynamicData = const Value.absent(),
+                Value<String?> userId = const Value.absent(),
+                Value<bool?> isTraded = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
                 Value<DateTime?> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<String?> syncStatus = const Value.absent(),
+                Value<int?> reputationScore = const Value.absent(),
+                Value<int?> upvotes = const Value.absent(),
+                Value<int?> downvotes = const Value.absent(),
+                Value<bool?> isWishlisted = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => VaultItemsCompanion(
                 id: id,
@@ -12379,8 +24913,16 @@ class $$VaultItemsTableTableManager
                 currentMarketPrice: currentMarketPrice,
                 lastPriceUpdate: lastPriceUpdate,
                 dynamicData: dynamicData,
+                userId: userId,
+                isTraded: isTraded,
                 isDeleted: isDeleted,
                 updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                syncStatus: syncStatus,
+                reputationScore: reputationScore,
+                upvotes: upvotes,
+                downvotes: downvotes,
+                isWishlisted: isWishlisted,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -12410,8 +24952,16 @@ class $$VaultItemsTableTableManager
                 required double currentMarketPrice,
                 required DateTime lastPriceUpdate,
                 required String dynamicData,
+                Value<String?> userId = const Value.absent(),
+                Value<bool?> isTraded = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
                 Value<DateTime?> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<String?> syncStatus = const Value.absent(),
+                Value<int?> reputationScore = const Value.absent(),
+                Value<int?> upvotes = const Value.absent(),
+                Value<int?> downvotes = const Value.absent(),
+                Value<bool?> isWishlisted = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => VaultItemsCompanion.insert(
                 id: id,
@@ -12439,8 +24989,16 @@ class $$VaultItemsTableTableManager
                 currentMarketPrice: currentMarketPrice,
                 lastPriceUpdate: lastPriceUpdate,
                 dynamicData: dynamicData,
+                userId: userId,
+                isTraded: isTraded,
                 isDeleted: isDeleted,
                 updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                syncStatus: syncStatus,
+                reputationScore: reputationScore,
+                upvotes: upvotes,
+                downvotes: downvotes,
+                isWishlisted: isWishlisted,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -12582,8 +25140,11 @@ typedef $$DecksTableCreateCompanionBuilder =
       Value<bool> isRegistered,
       Value<bool> isCompetitive,
       Value<bool> isAssembled,
+      Value<String?> userId,
       Value<bool> isDeleted,
       Value<DateTime?> updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<String?> syncStatus,
       Value<bool> isCloned,
       Value<String?> sourceExploreDeckId,
       Value<int> rowid,
@@ -12604,8 +25165,11 @@ typedef $$DecksTableUpdateCompanionBuilder =
       Value<bool> isRegistered,
       Value<bool> isCompetitive,
       Value<bool> isAssembled,
+      Value<String?> userId,
       Value<bool> isDeleted,
       Value<DateTime?> updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<String?> syncStatus,
       Value<bool> isCloned,
       Value<String?> sourceExploreDeckId,
       Value<int> rowid,
@@ -12766,6 +25330,11 @@ class $$DecksTableFilterComposer extends Composer<_$AppDatabase, $DecksTable> {
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<bool> get isDeleted => $composableBuilder(
     column: $table.isDeleted,
     builder: (column) => ColumnFilters(column),
@@ -12773,6 +25342,16 @@ class $$DecksTableFilterComposer extends Composer<_$AppDatabase, $DecksTable> {
 
   ColumnFilters<DateTime> get updatedAt => $composableBuilder(
     column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -12966,6 +25545,11 @@ class $$DecksTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get isDeleted => $composableBuilder(
     column: $table.isDeleted,
     builder: (column) => ColumnOrderings(column),
@@ -12973,6 +25557,16 @@ class $$DecksTableOrderingComposer
 
   ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
     column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -13050,11 +25644,22 @@ class $$DecksTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
+
   GeneratedColumn<bool> get isDeleted =>
       $composableBuilder(column: $table.isDeleted, builder: (column) => column);
 
   GeneratedColumn<DateTime> get updatedAt =>
       $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<bool> get isCloned =>
       $composableBuilder(column: $table.isCloned, builder: (column) => column);
@@ -13212,8 +25817,11 @@ class $$DecksTableTableManager
                 Value<bool> isRegistered = const Value.absent(),
                 Value<bool> isCompetitive = const Value.absent(),
                 Value<bool> isAssembled = const Value.absent(),
+                Value<String?> userId = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
                 Value<DateTime?> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<String?> syncStatus = const Value.absent(),
                 Value<bool> isCloned = const Value.absent(),
                 Value<String?> sourceExploreDeckId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -13232,8 +25840,11 @@ class $$DecksTableTableManager
                 isRegistered: isRegistered,
                 isCompetitive: isCompetitive,
                 isAssembled: isAssembled,
+                userId: userId,
                 isDeleted: isDeleted,
                 updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                syncStatus: syncStatus,
                 isCloned: isCloned,
                 sourceExploreDeckId: sourceExploreDeckId,
                 rowid: rowid,
@@ -13254,8 +25865,11 @@ class $$DecksTableTableManager
                 Value<bool> isRegistered = const Value.absent(),
                 Value<bool> isCompetitive = const Value.absent(),
                 Value<bool> isAssembled = const Value.absent(),
+                Value<String?> userId = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
                 Value<DateTime?> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<String?> syncStatus = const Value.absent(),
                 Value<bool> isCloned = const Value.absent(),
                 Value<String?> sourceExploreDeckId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -13274,8 +25888,11 @@ class $$DecksTableTableManager
                 isRegistered: isRegistered,
                 isCompetitive: isCompetitive,
                 isAssembled: isAssembled,
+                userId: userId,
                 isDeleted: isDeleted,
                 updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                syncStatus: syncStatus,
                 isCloned: isCloned,
                 sourceExploreDeckId: sourceExploreDeckId,
                 rowid: rowid,
@@ -13425,6 +26042,8 @@ typedef $$DeckVersionsTableCreateCompanionBuilder =
       required DateTime createdAt,
       Value<bool> isDeleted,
       Value<DateTime?> updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<String?> syncStatus,
       Value<int> rowid,
     });
 typedef $$DeckVersionsTableUpdateCompanionBuilder =
@@ -13437,6 +26056,8 @@ typedef $$DeckVersionsTableUpdateCompanionBuilder =
       Value<DateTime> createdAt,
       Value<bool> isDeleted,
       Value<DateTime?> updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<String?> syncStatus,
       Value<int> rowid,
     });
 
@@ -13523,6 +26144,16 @@ class $$DeckVersionsTableFilterComposer
 
   ColumnFilters<DateTime> get updatedAt => $composableBuilder(
     column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -13619,6 +26250,16 @@ class $$DeckVersionsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$DecksTableOrderingComposer get deckId {
     final $$DecksTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -13676,6 +26317,14 @@ class $$DeckVersionsTableAnnotationComposer
 
   GeneratedColumn<DateTime> get updatedAt =>
       $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => column,
+  );
 
   $$DecksTableAnnotationComposer get deckId {
     final $$DecksTableAnnotationComposer composer = $composerBuilder(
@@ -13762,6 +26411,8 @@ class $$DeckVersionsTableTableManager
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
                 Value<DateTime?> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<String?> syncStatus = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => DeckVersionsCompanion(
                 id: id,
@@ -13772,6 +26423,8 @@ class $$DeckVersionsTableTableManager
                 createdAt: createdAt,
                 isDeleted: isDeleted,
                 updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                syncStatus: syncStatus,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -13784,6 +26437,8 @@ class $$DeckVersionsTableTableManager
                 required DateTime createdAt,
                 Value<bool> isDeleted = const Value.absent(),
                 Value<DateTime?> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<String?> syncStatus = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => DeckVersionsCompanion.insert(
                 id: id,
@@ -13794,6 +26449,8 @@ class $$DeckVersionsTableTableManager
                 createdAt: createdAt,
                 isDeleted: isDeleted,
                 updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                syncStatus: syncStatus,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -13900,6 +26557,8 @@ typedef $$DeckVersionItemsTableCreateCompanionBuilder =
       Value<bool> isProxy,
       Value<bool> isDeleted,
       Value<DateTime?> updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<String?> syncStatus,
       Value<int> rowid,
     });
 typedef $$DeckVersionItemsTableUpdateCompanionBuilder =
@@ -13912,6 +26571,8 @@ typedef $$DeckVersionItemsTableUpdateCompanionBuilder =
       Value<bool> isProxy,
       Value<bool> isDeleted,
       Value<DateTime?> updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<String?> syncStatus,
       Value<int> rowid,
     });
 
@@ -13995,6 +26656,16 @@ class $$DeckVersionItemsTableFilterComposer
 
   ColumnFilters<DateTime> get updatedAt => $composableBuilder(
     column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -14084,6 +26755,16 @@ class $$DeckVersionItemsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$DeckVersionsTableOrderingComposer get versionId {
     final $$DeckVersionsTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -14157,6 +26838,14 @@ class $$DeckVersionItemsTableAnnotationComposer
 
   GeneratedColumn<DateTime> get updatedAt =>
       $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => column,
+  );
 
   $$DeckVersionsTableAnnotationComposer get versionId {
     final $$DeckVersionsTableAnnotationComposer composer = $composerBuilder(
@@ -14243,6 +26932,8 @@ class $$DeckVersionItemsTableTableManager
                 Value<bool> isProxy = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
                 Value<DateTime?> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<String?> syncStatus = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => DeckVersionItemsCompanion(
                 id: id,
@@ -14253,6 +26944,8 @@ class $$DeckVersionItemsTableTableManager
                 isProxy: isProxy,
                 isDeleted: isDeleted,
                 updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                syncStatus: syncStatus,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -14265,6 +26958,8 @@ class $$DeckVersionItemsTableTableManager
                 Value<bool> isProxy = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
                 Value<DateTime?> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<String?> syncStatus = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => DeckVersionItemsCompanion.insert(
                 id: id,
@@ -14275,6 +26970,8 @@ class $$DeckVersionItemsTableTableManager
                 isProxy: isProxy,
                 isDeleted: isDeleted,
                 updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                syncStatus: syncStatus,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -14371,6 +27068,8 @@ typedef $$DeckMatchupsTableCreateCompanionBuilder =
       Value<String?> swapOutItemIds,
       Value<bool> isDeleted,
       Value<DateTime?> updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<String?> syncStatus,
       Value<int> rowid,
     });
 typedef $$DeckMatchupsTableUpdateCompanionBuilder =
@@ -14383,6 +27082,8 @@ typedef $$DeckMatchupsTableUpdateCompanionBuilder =
       Value<String?> swapOutItemIds,
       Value<bool> isDeleted,
       Value<DateTime?> updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<String?> syncStatus,
       Value<int> rowid,
     });
 
@@ -14449,6 +27150,16 @@ class $$DeckMatchupsTableFilterComposer
 
   ColumnFilters<DateTime> get updatedAt => $composableBuilder(
     column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -14520,6 +27231,16 @@ class $$DeckMatchupsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$DecksTableOrderingComposer get deckId {
     final $$DecksTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -14579,6 +27300,14 @@ class $$DeckMatchupsTableAnnotationComposer
 
   GeneratedColumn<DateTime> get updatedAt =>
       $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => column,
+  );
 
   $$DecksTableAnnotationComposer get deckId {
     final $$DecksTableAnnotationComposer composer = $composerBuilder(
@@ -14640,6 +27369,8 @@ class $$DeckMatchupsTableTableManager
                 Value<String?> swapOutItemIds = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
                 Value<DateTime?> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<String?> syncStatus = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => DeckMatchupsCompanion(
                 id: id,
@@ -14650,6 +27381,8 @@ class $$DeckMatchupsTableTableManager
                 swapOutItemIds: swapOutItemIds,
                 isDeleted: isDeleted,
                 updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                syncStatus: syncStatus,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -14662,6 +27395,8 @@ class $$DeckMatchupsTableTableManager
                 Value<String?> swapOutItemIds = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
                 Value<DateTime?> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<String?> syncStatus = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => DeckMatchupsCompanion.insert(
                 id: id,
@@ -14672,6 +27407,8 @@ class $$DeckMatchupsTableTableManager
                 swapOutItemIds: swapOutItemIds,
                 isDeleted: isDeleted,
                 updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                syncStatus: syncStatus,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -14749,6 +27486,8 @@ typedef $$DeckSynergiesTableCreateCompanionBuilder =
       required String vaultItemIds,
       Value<bool> isDeleted,
       Value<DateTime?> updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<String?> syncStatus,
       Value<int> rowid,
     });
 typedef $$DeckSynergiesTableUpdateCompanionBuilder =
@@ -14759,6 +27498,8 @@ typedef $$DeckSynergiesTableUpdateCompanionBuilder =
       Value<String> vaultItemIds,
       Value<bool> isDeleted,
       Value<DateTime?> updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<String?> syncStatus,
       Value<int> rowid,
     });
 
@@ -14822,6 +27563,16 @@ class $$DeckSynergiesTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnFilters(column),
+  );
+
   $$DecksTableFilterComposer get deckId {
     final $$DecksTableFilterComposer composer = $composerBuilder(
       composer: this,
@@ -14880,6 +27631,16 @@ class $$DeckSynergiesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$DecksTableOrderingComposer get deckId {
     final $$DecksTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -14931,6 +27692,14 @@ class $$DeckSynergiesTableAnnotationComposer
 
   GeneratedColumn<DateTime> get updatedAt =>
       $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => column,
+  );
 
   $$DecksTableAnnotationComposer get deckId {
     final $$DecksTableAnnotationComposer composer = $composerBuilder(
@@ -14990,6 +27759,8 @@ class $$DeckSynergiesTableTableManager
                 Value<String> vaultItemIds = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
                 Value<DateTime?> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<String?> syncStatus = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => DeckSynergiesCompanion(
                 id: id,
@@ -14998,6 +27769,8 @@ class $$DeckSynergiesTableTableManager
                 vaultItemIds: vaultItemIds,
                 isDeleted: isDeleted,
                 updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                syncStatus: syncStatus,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -15008,6 +27781,8 @@ class $$DeckSynergiesTableTableManager
                 required String vaultItemIds,
                 Value<bool> isDeleted = const Value.absent(),
                 Value<DateTime?> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<String?> syncStatus = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => DeckSynergiesCompanion.insert(
                 id: id,
@@ -15016,6 +27791,8 @@ class $$DeckSynergiesTableTableManager
                 vaultItemIds: vaultItemIds,
                 isDeleted: isDeleted,
                 updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                syncStatus: syncStatus,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -17289,6 +30066,7 @@ typedef $$ExploreDecksTableCreateCompanionBuilder =
       Value<String> tcgDomain,
       Value<String> sourceType,
       Value<String> creatorName,
+      Value<String?> authorId,
       Value<String?> description,
       Value<String?> commanderName,
       Value<String?> commanderImageUrl,
@@ -17316,6 +30094,7 @@ typedef $$ExploreDecksTableUpdateCompanionBuilder =
       Value<String> tcgDomain,
       Value<String> sourceType,
       Value<String> creatorName,
+      Value<String?> authorId,
       Value<String?> description,
       Value<String?> commanderName,
       Value<String?> commanderImageUrl,
@@ -17417,6 +30196,11 @@ class $$ExploreDecksTableFilterComposer
 
   ColumnFilters<String> get creatorName => $composableBuilder(
     column: $table.creatorName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get authorId => $composableBuilder(
+    column: $table.authorId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -17595,6 +30379,11 @@ class $$ExploreDecksTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get authorId => $composableBuilder(
+    column: $table.authorId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get description => $composableBuilder(
     column: $table.description,
     builder: (column) => ColumnOrderings(column),
@@ -17711,6 +30500,9 @@ class $$ExploreDecksTableAnnotationComposer
     column: $table.creatorName,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get authorId =>
+      $composableBuilder(column: $table.authorId, builder: (column) => column);
 
   GeneratedColumn<String> get description => $composableBuilder(
     column: $table.description,
@@ -17869,6 +30661,7 @@ class $$ExploreDecksTableTableManager
                 Value<String> tcgDomain = const Value.absent(),
                 Value<String> sourceType = const Value.absent(),
                 Value<String> creatorName = const Value.absent(),
+                Value<String?> authorId = const Value.absent(),
                 Value<String?> description = const Value.absent(),
                 Value<String?> commanderName = const Value.absent(),
                 Value<String?> commanderImageUrl = const Value.absent(),
@@ -17894,6 +30687,7 @@ class $$ExploreDecksTableTableManager
                 tcgDomain: tcgDomain,
                 sourceType: sourceType,
                 creatorName: creatorName,
+                authorId: authorId,
                 description: description,
                 commanderName: commanderName,
                 commanderImageUrl: commanderImageUrl,
@@ -17921,6 +30715,7 @@ class $$ExploreDecksTableTableManager
                 Value<String> tcgDomain = const Value.absent(),
                 Value<String> sourceType = const Value.absent(),
                 Value<String> creatorName = const Value.absent(),
+                Value<String?> authorId = const Value.absent(),
                 Value<String?> description = const Value.absent(),
                 Value<String?> commanderName = const Value.absent(),
                 Value<String?> commanderImageUrl = const Value.absent(),
@@ -17946,6 +30741,7 @@ class $$ExploreDecksTableTableManager
                 tcgDomain: tcgDomain,
                 sourceType: sourceType,
                 creatorName: creatorName,
+                authorId: authorId,
                 description: description,
                 commanderName: commanderName,
                 commanderImageUrl: commanderImageUrl,
@@ -18621,6 +31417,9 @@ typedef $$ExploreDeckVotesTableCreateCompanionBuilder =
       Value<String> userId,
       Value<int> vote,
       required DateTime updatedAt,
+      Value<bool> isDeleted,
+      Value<DateTime?> deletedAt,
+      Value<String?> syncStatus,
       Value<int> rowid,
     });
 typedef $$ExploreDeckVotesTableUpdateCompanionBuilder =
@@ -18630,6 +31429,9 @@ typedef $$ExploreDeckVotesTableUpdateCompanionBuilder =
       Value<String> userId,
       Value<int> vote,
       Value<DateTime> updatedAt,
+      Value<bool> isDeleted,
+      Value<DateTime?> deletedAt,
+      Value<String?> syncStatus,
       Value<int> rowid,
     });
 
@@ -18690,6 +31492,21 @@ class $$ExploreDeckVotesTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnFilters(column),
+  );
+
   $$ExploreDecksTableFilterComposer get exploreDeckId {
     final $$ExploreDecksTableFilterComposer composer = $composerBuilder(
       composer: this,
@@ -18743,6 +31560,21 @@ class $$ExploreDeckVotesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$ExploreDecksTableOrderingComposer get exploreDeckId {
     final $$ExploreDecksTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -18787,6 +31619,17 @@ class $$ExploreDeckVotesTableAnnotationComposer
 
   GeneratedColumn<DateTime> get updatedAt =>
       $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<bool> get isDeleted =>
+      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => column,
+  );
 
   $$ExploreDecksTableAnnotationComposer get exploreDeckId {
     final $$ExploreDecksTableAnnotationComposer composer = $composerBuilder(
@@ -18847,6 +31690,9 @@ class $$ExploreDeckVotesTableTableManager
                 Value<String> userId = const Value.absent(),
                 Value<int> vote = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<String?> syncStatus = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ExploreDeckVotesCompanion(
                 id: id,
@@ -18854,6 +31700,9 @@ class $$ExploreDeckVotesTableTableManager
                 userId: userId,
                 vote: vote,
                 updatedAt: updatedAt,
+                isDeleted: isDeleted,
+                deletedAt: deletedAt,
+                syncStatus: syncStatus,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -18863,6 +31712,9 @@ class $$ExploreDeckVotesTableTableManager
                 Value<String> userId = const Value.absent(),
                 Value<int> vote = const Value.absent(),
                 required DateTime updatedAt,
+                Value<bool> isDeleted = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<String?> syncStatus = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ExploreDeckVotesCompanion.insert(
                 id: id,
@@ -18870,6 +31722,9 @@ class $$ExploreDeckVotesTableTableManager
                 userId: userId,
                 vote: vote,
                 updatedAt: updatedAt,
+                isDeleted: isDeleted,
+                deletedAt: deletedAt,
+                syncStatus: syncStatus,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -18941,6 +31796,5044 @@ typedef $$ExploreDeckVotesTableProcessedTableManager =
       ExploreDeckVote,
       PrefetchHooks Function({bool exploreDeckId})
     >;
+typedef $$UserProfilesTableCreateCompanionBuilder =
+    UserProfilesCompanion Function({
+      required String id,
+      required String username,
+      required String displayName,
+      Value<String?> bio,
+      Value<String?> avatarUrl,
+      Value<String?> bannerUrl,
+      Value<String> accountType,
+      Value<bool> isVerifiedBusiness,
+      Value<String?> storeAddress,
+      Value<String?> storePhone,
+      Value<String?> storeWebsite,
+      Value<int> friendCount,
+      Value<int> repCount,
+      Value<String> tier,
+      Value<String> syncStatus,
+      required DateTime createdAt,
+      Value<DateTime?> updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<bool> isDeleted,
+      Value<String> collectionVisibility,
+      Value<int> rowid,
+    });
+typedef $$UserProfilesTableUpdateCompanionBuilder =
+    UserProfilesCompanion Function({
+      Value<String> id,
+      Value<String> username,
+      Value<String> displayName,
+      Value<String?> bio,
+      Value<String?> avatarUrl,
+      Value<String?> bannerUrl,
+      Value<String> accountType,
+      Value<bool> isVerifiedBusiness,
+      Value<String?> storeAddress,
+      Value<String?> storePhone,
+      Value<String?> storeWebsite,
+      Value<int> friendCount,
+      Value<int> repCount,
+      Value<String> tier,
+      Value<String> syncStatus,
+      Value<DateTime> createdAt,
+      Value<DateTime?> updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<bool> isDeleted,
+      Value<String> collectionVisibility,
+      Value<int> rowid,
+    });
+
+class $$UserProfilesTableFilterComposer
+    extends Composer<_$AppDatabase, $UserProfilesTable> {
+  $$UserProfilesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get username => $composableBuilder(
+    column: $table.username,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get displayName => $composableBuilder(
+    column: $table.displayName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get bio => $composableBuilder(
+    column: $table.bio,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get avatarUrl => $composableBuilder(
+    column: $table.avatarUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get bannerUrl => $composableBuilder(
+    column: $table.bannerUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get accountType => $composableBuilder(
+    column: $table.accountType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isVerifiedBusiness => $composableBuilder(
+    column: $table.isVerifiedBusiness,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get storeAddress => $composableBuilder(
+    column: $table.storeAddress,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get storePhone => $composableBuilder(
+    column: $table.storePhone,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get storeWebsite => $composableBuilder(
+    column: $table.storeWebsite,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get friendCount => $composableBuilder(
+    column: $table.friendCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get repCount => $composableBuilder(
+    column: $table.repCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get tier => $composableBuilder(
+    column: $table.tier,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get collectionVisibility => $composableBuilder(
+    column: $table.collectionVisibility,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$UserProfilesTableOrderingComposer
+    extends Composer<_$AppDatabase, $UserProfilesTable> {
+  $$UserProfilesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get username => $composableBuilder(
+    column: $table.username,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get displayName => $composableBuilder(
+    column: $table.displayName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get bio => $composableBuilder(
+    column: $table.bio,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get avatarUrl => $composableBuilder(
+    column: $table.avatarUrl,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get bannerUrl => $composableBuilder(
+    column: $table.bannerUrl,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get accountType => $composableBuilder(
+    column: $table.accountType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isVerifiedBusiness => $composableBuilder(
+    column: $table.isVerifiedBusiness,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get storeAddress => $composableBuilder(
+    column: $table.storeAddress,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get storePhone => $composableBuilder(
+    column: $table.storePhone,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get storeWebsite => $composableBuilder(
+    column: $table.storeWebsite,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get friendCount => $composableBuilder(
+    column: $table.friendCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get repCount => $composableBuilder(
+    column: $table.repCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get tier => $composableBuilder(
+    column: $table.tier,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get collectionVisibility => $composableBuilder(
+    column: $table.collectionVisibility,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$UserProfilesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $UserProfilesTable> {
+  $$UserProfilesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get username =>
+      $composableBuilder(column: $table.username, builder: (column) => column);
+
+  GeneratedColumn<String> get displayName => $composableBuilder(
+    column: $table.displayName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get bio =>
+      $composableBuilder(column: $table.bio, builder: (column) => column);
+
+  GeneratedColumn<String> get avatarUrl =>
+      $composableBuilder(column: $table.avatarUrl, builder: (column) => column);
+
+  GeneratedColumn<String> get bannerUrl =>
+      $composableBuilder(column: $table.bannerUrl, builder: (column) => column);
+
+  GeneratedColumn<String> get accountType => $composableBuilder(
+    column: $table.accountType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isVerifiedBusiness => $composableBuilder(
+    column: $table.isVerifiedBusiness,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get storeAddress => $composableBuilder(
+    column: $table.storeAddress,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get storePhone => $composableBuilder(
+    column: $table.storePhone,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get storeWebsite => $composableBuilder(
+    column: $table.storeWebsite,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get friendCount => $composableBuilder(
+    column: $table.friendCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get repCount =>
+      $composableBuilder(column: $table.repCount, builder: (column) => column);
+
+  GeneratedColumn<String> get tier =>
+      $composableBuilder(column: $table.tier, builder: (column) => column);
+
+  GeneratedColumn<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  GeneratedColumn<bool> get isDeleted =>
+      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+
+  GeneratedColumn<String> get collectionVisibility => $composableBuilder(
+    column: $table.collectionVisibility,
+    builder: (column) => column,
+  );
+}
+
+class $$UserProfilesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $UserProfilesTable,
+          UserProfile,
+          $$UserProfilesTableFilterComposer,
+          $$UserProfilesTableOrderingComposer,
+          $$UserProfilesTableAnnotationComposer,
+          $$UserProfilesTableCreateCompanionBuilder,
+          $$UserProfilesTableUpdateCompanionBuilder,
+          (
+            UserProfile,
+            BaseReferences<_$AppDatabase, $UserProfilesTable, UserProfile>,
+          ),
+          UserProfile,
+          PrefetchHooks Function()
+        > {
+  $$UserProfilesTableTableManager(_$AppDatabase db, $UserProfilesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$UserProfilesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$UserProfilesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$UserProfilesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> username = const Value.absent(),
+                Value<String> displayName = const Value.absent(),
+                Value<String?> bio = const Value.absent(),
+                Value<String?> avatarUrl = const Value.absent(),
+                Value<String?> bannerUrl = const Value.absent(),
+                Value<String> accountType = const Value.absent(),
+                Value<bool> isVerifiedBusiness = const Value.absent(),
+                Value<String?> storeAddress = const Value.absent(),
+                Value<String?> storePhone = const Value.absent(),
+                Value<String?> storeWebsite = const Value.absent(),
+                Value<int> friendCount = const Value.absent(),
+                Value<int> repCount = const Value.absent(),
+                Value<String> tier = const Value.absent(),
+                Value<String> syncStatus = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime?> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<String> collectionVisibility = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => UserProfilesCompanion(
+                id: id,
+                username: username,
+                displayName: displayName,
+                bio: bio,
+                avatarUrl: avatarUrl,
+                bannerUrl: bannerUrl,
+                accountType: accountType,
+                isVerifiedBusiness: isVerifiedBusiness,
+                storeAddress: storeAddress,
+                storePhone: storePhone,
+                storeWebsite: storeWebsite,
+                friendCount: friendCount,
+                repCount: repCount,
+                tier: tier,
+                syncStatus: syncStatus,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                isDeleted: isDeleted,
+                collectionVisibility: collectionVisibility,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String username,
+                required String displayName,
+                Value<String?> bio = const Value.absent(),
+                Value<String?> avatarUrl = const Value.absent(),
+                Value<String?> bannerUrl = const Value.absent(),
+                Value<String> accountType = const Value.absent(),
+                Value<bool> isVerifiedBusiness = const Value.absent(),
+                Value<String?> storeAddress = const Value.absent(),
+                Value<String?> storePhone = const Value.absent(),
+                Value<String?> storeWebsite = const Value.absent(),
+                Value<int> friendCount = const Value.absent(),
+                Value<int> repCount = const Value.absent(),
+                Value<String> tier = const Value.absent(),
+                Value<String> syncStatus = const Value.absent(),
+                required DateTime createdAt,
+                Value<DateTime?> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<String> collectionVisibility = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => UserProfilesCompanion.insert(
+                id: id,
+                username: username,
+                displayName: displayName,
+                bio: bio,
+                avatarUrl: avatarUrl,
+                bannerUrl: bannerUrl,
+                accountType: accountType,
+                isVerifiedBusiness: isVerifiedBusiness,
+                storeAddress: storeAddress,
+                storePhone: storePhone,
+                storeWebsite: storeWebsite,
+                friendCount: friendCount,
+                repCount: repCount,
+                tier: tier,
+                syncStatus: syncStatus,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                isDeleted: isDeleted,
+                collectionVisibility: collectionVisibility,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$UserProfilesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $UserProfilesTable,
+      UserProfile,
+      $$UserProfilesTableFilterComposer,
+      $$UserProfilesTableOrderingComposer,
+      $$UserProfilesTableAnnotationComposer,
+      $$UserProfilesTableCreateCompanionBuilder,
+      $$UserProfilesTableUpdateCompanionBuilder,
+      (
+        UserProfile,
+        BaseReferences<_$AppDatabase, $UserProfilesTable, UserProfile>,
+      ),
+      UserProfile,
+      PrefetchHooks Function()
+    >;
+typedef $$FeedPostsTableCreateCompanionBuilder =
+    FeedPostsCompanion Function({
+      required String id,
+      required String authorId,
+      required String authorUsername,
+      required String authorDisplayName,
+      Value<String?> authorAvatarUrl,
+      Value<String?> sharedByUserId,
+      required String type,
+      Value<String?> textContent,
+      Value<String?> locationTag,
+      Value<String?> cardId,
+      Value<String?> cardTitle,
+      Value<String?> cardSubtitle,
+      Value<String?> cardRarity,
+      Value<double?> estimatedValue,
+      Value<String?> cardImageUrl,
+      Value<String?> pullImagesJson,
+      Value<String?> pullCardIdsJson,
+      Value<int> likeCount,
+      Value<int> commentCount,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<bool> isDeleted,
+      Value<String> syncStatus,
+      Value<int> rowid,
+    });
+typedef $$FeedPostsTableUpdateCompanionBuilder =
+    FeedPostsCompanion Function({
+      Value<String> id,
+      Value<String> authorId,
+      Value<String> authorUsername,
+      Value<String> authorDisplayName,
+      Value<String?> authorAvatarUrl,
+      Value<String?> sharedByUserId,
+      Value<String> type,
+      Value<String?> textContent,
+      Value<String?> locationTag,
+      Value<String?> cardId,
+      Value<String?> cardTitle,
+      Value<String?> cardSubtitle,
+      Value<String?> cardRarity,
+      Value<double?> estimatedValue,
+      Value<String?> cardImageUrl,
+      Value<String?> pullImagesJson,
+      Value<String?> pullCardIdsJson,
+      Value<int> likeCount,
+      Value<int> commentCount,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<bool> isDeleted,
+      Value<String> syncStatus,
+      Value<int> rowid,
+    });
+
+class $$FeedPostsTableFilterComposer
+    extends Composer<_$AppDatabase, $FeedPostsTable> {
+  $$FeedPostsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get authorId => $composableBuilder(
+    column: $table.authorId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get authorUsername => $composableBuilder(
+    column: $table.authorUsername,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get authorDisplayName => $composableBuilder(
+    column: $table.authorDisplayName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get authorAvatarUrl => $composableBuilder(
+    column: $table.authorAvatarUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sharedByUserId => $composableBuilder(
+    column: $table.sharedByUserId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get type => $composableBuilder(
+    column: $table.type,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get textContent => $composableBuilder(
+    column: $table.textContent,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get locationTag => $composableBuilder(
+    column: $table.locationTag,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get cardId => $composableBuilder(
+    column: $table.cardId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get cardTitle => $composableBuilder(
+    column: $table.cardTitle,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get cardSubtitle => $composableBuilder(
+    column: $table.cardSubtitle,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get cardRarity => $composableBuilder(
+    column: $table.cardRarity,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get estimatedValue => $composableBuilder(
+    column: $table.estimatedValue,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get cardImageUrl => $composableBuilder(
+    column: $table.cardImageUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get pullImagesJson => $composableBuilder(
+    column: $table.pullImagesJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get pullCardIdsJson => $composableBuilder(
+    column: $table.pullCardIdsJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get likeCount => $composableBuilder(
+    column: $table.likeCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get commentCount => $composableBuilder(
+    column: $table.commentCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$FeedPostsTableOrderingComposer
+    extends Composer<_$AppDatabase, $FeedPostsTable> {
+  $$FeedPostsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get authorId => $composableBuilder(
+    column: $table.authorId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get authorUsername => $composableBuilder(
+    column: $table.authorUsername,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get authorDisplayName => $composableBuilder(
+    column: $table.authorDisplayName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get authorAvatarUrl => $composableBuilder(
+    column: $table.authorAvatarUrl,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sharedByUserId => $composableBuilder(
+    column: $table.sharedByUserId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get type => $composableBuilder(
+    column: $table.type,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get textContent => $composableBuilder(
+    column: $table.textContent,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get locationTag => $composableBuilder(
+    column: $table.locationTag,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get cardId => $composableBuilder(
+    column: $table.cardId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get cardTitle => $composableBuilder(
+    column: $table.cardTitle,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get cardSubtitle => $composableBuilder(
+    column: $table.cardSubtitle,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get cardRarity => $composableBuilder(
+    column: $table.cardRarity,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get estimatedValue => $composableBuilder(
+    column: $table.estimatedValue,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get cardImageUrl => $composableBuilder(
+    column: $table.cardImageUrl,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get pullImagesJson => $composableBuilder(
+    column: $table.pullImagesJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get pullCardIdsJson => $composableBuilder(
+    column: $table.pullCardIdsJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get likeCount => $composableBuilder(
+    column: $table.likeCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get commentCount => $composableBuilder(
+    column: $table.commentCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$FeedPostsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $FeedPostsTable> {
+  $$FeedPostsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get authorId =>
+      $composableBuilder(column: $table.authorId, builder: (column) => column);
+
+  GeneratedColumn<String> get authorUsername => $composableBuilder(
+    column: $table.authorUsername,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get authorDisplayName => $composableBuilder(
+    column: $table.authorDisplayName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get authorAvatarUrl => $composableBuilder(
+    column: $table.authorAvatarUrl,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get sharedByUserId => $composableBuilder(
+    column: $table.sharedByUserId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get type =>
+      $composableBuilder(column: $table.type, builder: (column) => column);
+
+  GeneratedColumn<String> get textContent => $composableBuilder(
+    column: $table.textContent,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get locationTag => $composableBuilder(
+    column: $table.locationTag,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get cardId =>
+      $composableBuilder(column: $table.cardId, builder: (column) => column);
+
+  GeneratedColumn<String> get cardTitle =>
+      $composableBuilder(column: $table.cardTitle, builder: (column) => column);
+
+  GeneratedColumn<String> get cardSubtitle => $composableBuilder(
+    column: $table.cardSubtitle,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get cardRarity => $composableBuilder(
+    column: $table.cardRarity,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get estimatedValue => $composableBuilder(
+    column: $table.estimatedValue,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get cardImageUrl => $composableBuilder(
+    column: $table.cardImageUrl,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get pullImagesJson => $composableBuilder(
+    column: $table.pullImagesJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get pullCardIdsJson => $composableBuilder(
+    column: $table.pullCardIdsJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get likeCount =>
+      $composableBuilder(column: $table.likeCount, builder: (column) => column);
+
+  GeneratedColumn<int> get commentCount => $composableBuilder(
+    column: $table.commentCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  GeneratedColumn<bool> get isDeleted =>
+      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+
+  GeneratedColumn<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => column,
+  );
+}
+
+class $$FeedPostsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $FeedPostsTable,
+          FeedPostRecord,
+          $$FeedPostsTableFilterComposer,
+          $$FeedPostsTableOrderingComposer,
+          $$FeedPostsTableAnnotationComposer,
+          $$FeedPostsTableCreateCompanionBuilder,
+          $$FeedPostsTableUpdateCompanionBuilder,
+          (
+            FeedPostRecord,
+            BaseReferences<_$AppDatabase, $FeedPostsTable, FeedPostRecord>,
+          ),
+          FeedPostRecord,
+          PrefetchHooks Function()
+        > {
+  $$FeedPostsTableTableManager(_$AppDatabase db, $FeedPostsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$FeedPostsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$FeedPostsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$FeedPostsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> authorId = const Value.absent(),
+                Value<String> authorUsername = const Value.absent(),
+                Value<String> authorDisplayName = const Value.absent(),
+                Value<String?> authorAvatarUrl = const Value.absent(),
+                Value<String?> sharedByUserId = const Value.absent(),
+                Value<String> type = const Value.absent(),
+                Value<String?> textContent = const Value.absent(),
+                Value<String?> locationTag = const Value.absent(),
+                Value<String?> cardId = const Value.absent(),
+                Value<String?> cardTitle = const Value.absent(),
+                Value<String?> cardSubtitle = const Value.absent(),
+                Value<String?> cardRarity = const Value.absent(),
+                Value<double?> estimatedValue = const Value.absent(),
+                Value<String?> cardImageUrl = const Value.absent(),
+                Value<String?> pullImagesJson = const Value.absent(),
+                Value<String?> pullCardIdsJson = const Value.absent(),
+                Value<int> likeCount = const Value.absent(),
+                Value<int> commentCount = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<String> syncStatus = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => FeedPostsCompanion(
+                id: id,
+                authorId: authorId,
+                authorUsername: authorUsername,
+                authorDisplayName: authorDisplayName,
+                authorAvatarUrl: authorAvatarUrl,
+                sharedByUserId: sharedByUserId,
+                type: type,
+                textContent: textContent,
+                locationTag: locationTag,
+                cardId: cardId,
+                cardTitle: cardTitle,
+                cardSubtitle: cardSubtitle,
+                cardRarity: cardRarity,
+                estimatedValue: estimatedValue,
+                cardImageUrl: cardImageUrl,
+                pullImagesJson: pullImagesJson,
+                pullCardIdsJson: pullCardIdsJson,
+                likeCount: likeCount,
+                commentCount: commentCount,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                isDeleted: isDeleted,
+                syncStatus: syncStatus,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String authorId,
+                required String authorUsername,
+                required String authorDisplayName,
+                Value<String?> authorAvatarUrl = const Value.absent(),
+                Value<String?> sharedByUserId = const Value.absent(),
+                required String type,
+                Value<String?> textContent = const Value.absent(),
+                Value<String?> locationTag = const Value.absent(),
+                Value<String?> cardId = const Value.absent(),
+                Value<String?> cardTitle = const Value.absent(),
+                Value<String?> cardSubtitle = const Value.absent(),
+                Value<String?> cardRarity = const Value.absent(),
+                Value<double?> estimatedValue = const Value.absent(),
+                Value<String?> cardImageUrl = const Value.absent(),
+                Value<String?> pullImagesJson = const Value.absent(),
+                Value<String?> pullCardIdsJson = const Value.absent(),
+                Value<int> likeCount = const Value.absent(),
+                Value<int> commentCount = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<String> syncStatus = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => FeedPostsCompanion.insert(
+                id: id,
+                authorId: authorId,
+                authorUsername: authorUsername,
+                authorDisplayName: authorDisplayName,
+                authorAvatarUrl: authorAvatarUrl,
+                sharedByUserId: sharedByUserId,
+                type: type,
+                textContent: textContent,
+                locationTag: locationTag,
+                cardId: cardId,
+                cardTitle: cardTitle,
+                cardSubtitle: cardSubtitle,
+                cardRarity: cardRarity,
+                estimatedValue: estimatedValue,
+                cardImageUrl: cardImageUrl,
+                pullImagesJson: pullImagesJson,
+                pullCardIdsJson: pullCardIdsJson,
+                likeCount: likeCount,
+                commentCount: commentCount,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                isDeleted: isDeleted,
+                syncStatus: syncStatus,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$FeedPostsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $FeedPostsTable,
+      FeedPostRecord,
+      $$FeedPostsTableFilterComposer,
+      $$FeedPostsTableOrderingComposer,
+      $$FeedPostsTableAnnotationComposer,
+      $$FeedPostsTableCreateCompanionBuilder,
+      $$FeedPostsTableUpdateCompanionBuilder,
+      (
+        FeedPostRecord,
+        BaseReferences<_$AppDatabase, $FeedPostsTable, FeedPostRecord>,
+      ),
+      FeedPostRecord,
+      PrefetchHooks Function()
+    >;
+typedef $$PostLikesTableCreateCompanionBuilder =
+    PostLikesCompanion Function({
+      required String id,
+      required String postId,
+      required String userId,
+      Value<bool> isLiked,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<bool> isDeleted,
+      Value<String> syncStatus,
+      Value<int> rowid,
+    });
+typedef $$PostLikesTableUpdateCompanionBuilder =
+    PostLikesCompanion Function({
+      Value<String> id,
+      Value<String> postId,
+      Value<String> userId,
+      Value<bool> isLiked,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<bool> isDeleted,
+      Value<String> syncStatus,
+      Value<int> rowid,
+    });
+
+class $$PostLikesTableFilterComposer
+    extends Composer<_$AppDatabase, $PostLikesTable> {
+  $$PostLikesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get postId => $composableBuilder(
+    column: $table.postId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isLiked => $composableBuilder(
+    column: $table.isLiked,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$PostLikesTableOrderingComposer
+    extends Composer<_$AppDatabase, $PostLikesTable> {
+  $$PostLikesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get postId => $composableBuilder(
+    column: $table.postId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isLiked => $composableBuilder(
+    column: $table.isLiked,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$PostLikesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PostLikesTable> {
+  $$PostLikesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get postId =>
+      $composableBuilder(column: $table.postId, builder: (column) => column);
+
+  GeneratedColumn<String> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
+
+  GeneratedColumn<bool> get isLiked =>
+      $composableBuilder(column: $table.isLiked, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  GeneratedColumn<bool> get isDeleted =>
+      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+
+  GeneratedColumn<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => column,
+  );
+}
+
+class $$PostLikesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $PostLikesTable,
+          PostLikeRecord,
+          $$PostLikesTableFilterComposer,
+          $$PostLikesTableOrderingComposer,
+          $$PostLikesTableAnnotationComposer,
+          $$PostLikesTableCreateCompanionBuilder,
+          $$PostLikesTableUpdateCompanionBuilder,
+          (
+            PostLikeRecord,
+            BaseReferences<_$AppDatabase, $PostLikesTable, PostLikeRecord>,
+          ),
+          PostLikeRecord,
+          PrefetchHooks Function()
+        > {
+  $$PostLikesTableTableManager(_$AppDatabase db, $PostLikesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PostLikesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PostLikesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PostLikesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> postId = const Value.absent(),
+                Value<String> userId = const Value.absent(),
+                Value<bool> isLiked = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<String> syncStatus = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PostLikesCompanion(
+                id: id,
+                postId: postId,
+                userId: userId,
+                isLiked: isLiked,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                isDeleted: isDeleted,
+                syncStatus: syncStatus,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String postId,
+                required String userId,
+                Value<bool> isLiked = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<String> syncStatus = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PostLikesCompanion.insert(
+                id: id,
+                postId: postId,
+                userId: userId,
+                isLiked: isLiked,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                isDeleted: isDeleted,
+                syncStatus: syncStatus,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$PostLikesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $PostLikesTable,
+      PostLikeRecord,
+      $$PostLikesTableFilterComposer,
+      $$PostLikesTableOrderingComposer,
+      $$PostLikesTableAnnotationComposer,
+      $$PostLikesTableCreateCompanionBuilder,
+      $$PostLikesTableUpdateCompanionBuilder,
+      (
+        PostLikeRecord,
+        BaseReferences<_$AppDatabase, $PostLikesTable, PostLikeRecord>,
+      ),
+      PostLikeRecord,
+      PrefetchHooks Function()
+    >;
+typedef $$PostCommentsTableCreateCompanionBuilder =
+    PostCommentsCompanion Function({
+      required String id,
+      required String postId,
+      required String authorId,
+      required String authorUsername,
+      required String authorDisplayName,
+      Value<String?> authorAvatarUrl,
+      required String content,
+      Value<String?> parentCommentId,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<bool> isDeleted,
+      Value<String> syncStatus,
+      Value<int> rowid,
+    });
+typedef $$PostCommentsTableUpdateCompanionBuilder =
+    PostCommentsCompanion Function({
+      Value<String> id,
+      Value<String> postId,
+      Value<String> authorId,
+      Value<String> authorUsername,
+      Value<String> authorDisplayName,
+      Value<String?> authorAvatarUrl,
+      Value<String> content,
+      Value<String?> parentCommentId,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<bool> isDeleted,
+      Value<String> syncStatus,
+      Value<int> rowid,
+    });
+
+class $$PostCommentsTableFilterComposer
+    extends Composer<_$AppDatabase, $PostCommentsTable> {
+  $$PostCommentsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get postId => $composableBuilder(
+    column: $table.postId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get authorId => $composableBuilder(
+    column: $table.authorId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get authorUsername => $composableBuilder(
+    column: $table.authorUsername,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get authorDisplayName => $composableBuilder(
+    column: $table.authorDisplayName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get authorAvatarUrl => $composableBuilder(
+    column: $table.authorAvatarUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get content => $composableBuilder(
+    column: $table.content,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get parentCommentId => $composableBuilder(
+    column: $table.parentCommentId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$PostCommentsTableOrderingComposer
+    extends Composer<_$AppDatabase, $PostCommentsTable> {
+  $$PostCommentsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get postId => $composableBuilder(
+    column: $table.postId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get authorId => $composableBuilder(
+    column: $table.authorId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get authorUsername => $composableBuilder(
+    column: $table.authorUsername,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get authorDisplayName => $composableBuilder(
+    column: $table.authorDisplayName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get authorAvatarUrl => $composableBuilder(
+    column: $table.authorAvatarUrl,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get content => $composableBuilder(
+    column: $table.content,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get parentCommentId => $composableBuilder(
+    column: $table.parentCommentId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$PostCommentsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PostCommentsTable> {
+  $$PostCommentsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get postId =>
+      $composableBuilder(column: $table.postId, builder: (column) => column);
+
+  GeneratedColumn<String> get authorId =>
+      $composableBuilder(column: $table.authorId, builder: (column) => column);
+
+  GeneratedColumn<String> get authorUsername => $composableBuilder(
+    column: $table.authorUsername,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get authorDisplayName => $composableBuilder(
+    column: $table.authorDisplayName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get authorAvatarUrl => $composableBuilder(
+    column: $table.authorAvatarUrl,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get content =>
+      $composableBuilder(column: $table.content, builder: (column) => column);
+
+  GeneratedColumn<String> get parentCommentId => $composableBuilder(
+    column: $table.parentCommentId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  GeneratedColumn<bool> get isDeleted =>
+      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+
+  GeneratedColumn<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => column,
+  );
+}
+
+class $$PostCommentsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $PostCommentsTable,
+          PostCommentRecord,
+          $$PostCommentsTableFilterComposer,
+          $$PostCommentsTableOrderingComposer,
+          $$PostCommentsTableAnnotationComposer,
+          $$PostCommentsTableCreateCompanionBuilder,
+          $$PostCommentsTableUpdateCompanionBuilder,
+          (
+            PostCommentRecord,
+            BaseReferences<
+              _$AppDatabase,
+              $PostCommentsTable,
+              PostCommentRecord
+            >,
+          ),
+          PostCommentRecord,
+          PrefetchHooks Function()
+        > {
+  $$PostCommentsTableTableManager(_$AppDatabase db, $PostCommentsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PostCommentsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PostCommentsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PostCommentsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> postId = const Value.absent(),
+                Value<String> authorId = const Value.absent(),
+                Value<String> authorUsername = const Value.absent(),
+                Value<String> authorDisplayName = const Value.absent(),
+                Value<String?> authorAvatarUrl = const Value.absent(),
+                Value<String> content = const Value.absent(),
+                Value<String?> parentCommentId = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<String> syncStatus = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PostCommentsCompanion(
+                id: id,
+                postId: postId,
+                authorId: authorId,
+                authorUsername: authorUsername,
+                authorDisplayName: authorDisplayName,
+                authorAvatarUrl: authorAvatarUrl,
+                content: content,
+                parentCommentId: parentCommentId,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                isDeleted: isDeleted,
+                syncStatus: syncStatus,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String postId,
+                required String authorId,
+                required String authorUsername,
+                required String authorDisplayName,
+                Value<String?> authorAvatarUrl = const Value.absent(),
+                required String content,
+                Value<String?> parentCommentId = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<String> syncStatus = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PostCommentsCompanion.insert(
+                id: id,
+                postId: postId,
+                authorId: authorId,
+                authorUsername: authorUsername,
+                authorDisplayName: authorDisplayName,
+                authorAvatarUrl: authorAvatarUrl,
+                content: content,
+                parentCommentId: parentCommentId,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                isDeleted: isDeleted,
+                syncStatus: syncStatus,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$PostCommentsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $PostCommentsTable,
+      PostCommentRecord,
+      $$PostCommentsTableFilterComposer,
+      $$PostCommentsTableOrderingComposer,
+      $$PostCommentsTableAnnotationComposer,
+      $$PostCommentsTableCreateCompanionBuilder,
+      $$PostCommentsTableUpdateCompanionBuilder,
+      (
+        PostCommentRecord,
+        BaseReferences<_$AppDatabase, $PostCommentsTable, PostCommentRecord>,
+      ),
+      PostCommentRecord,
+      PrefetchHooks Function()
+    >;
+typedef $$FriendshipsTableCreateCompanionBuilder =
+    FriendshipsCompanion Function({
+      required String id,
+      required String userId,
+      required String friendId,
+      Value<String> status,
+      Value<DateTime> createdAt,
+      Value<DateTime?> updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<bool> isDeleted,
+      Value<String> syncStatus,
+      Value<int> rowid,
+    });
+typedef $$FriendshipsTableUpdateCompanionBuilder =
+    FriendshipsCompanion Function({
+      Value<String> id,
+      Value<String> userId,
+      Value<String> friendId,
+      Value<String> status,
+      Value<DateTime> createdAt,
+      Value<DateTime?> updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<bool> isDeleted,
+      Value<String> syncStatus,
+      Value<int> rowid,
+    });
+
+class $$FriendshipsTableFilterComposer
+    extends Composer<_$AppDatabase, $FriendshipsTable> {
+  $$FriendshipsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get friendId => $composableBuilder(
+    column: $table.friendId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$FriendshipsTableOrderingComposer
+    extends Composer<_$AppDatabase, $FriendshipsTable> {
+  $$FriendshipsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get friendId => $composableBuilder(
+    column: $table.friendId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$FriendshipsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $FriendshipsTable> {
+  $$FriendshipsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
+
+  GeneratedColumn<String> get friendId =>
+      $composableBuilder(column: $table.friendId, builder: (column) => column);
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  GeneratedColumn<bool> get isDeleted =>
+      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+
+  GeneratedColumn<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => column,
+  );
+}
+
+class $$FriendshipsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $FriendshipsTable,
+          FriendshipRecord,
+          $$FriendshipsTableFilterComposer,
+          $$FriendshipsTableOrderingComposer,
+          $$FriendshipsTableAnnotationComposer,
+          $$FriendshipsTableCreateCompanionBuilder,
+          $$FriendshipsTableUpdateCompanionBuilder,
+          (
+            FriendshipRecord,
+            BaseReferences<_$AppDatabase, $FriendshipsTable, FriendshipRecord>,
+          ),
+          FriendshipRecord,
+          PrefetchHooks Function()
+        > {
+  $$FriendshipsTableTableManager(_$AppDatabase db, $FriendshipsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$FriendshipsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$FriendshipsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$FriendshipsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> userId = const Value.absent(),
+                Value<String> friendId = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime?> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<String> syncStatus = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => FriendshipsCompanion(
+                id: id,
+                userId: userId,
+                friendId: friendId,
+                status: status,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                isDeleted: isDeleted,
+                syncStatus: syncStatus,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String userId,
+                required String friendId,
+                Value<String> status = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime?> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<String> syncStatus = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => FriendshipsCompanion.insert(
+                id: id,
+                userId: userId,
+                friendId: friendId,
+                status: status,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                isDeleted: isDeleted,
+                syncStatus: syncStatus,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$FriendshipsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $FriendshipsTable,
+      FriendshipRecord,
+      $$FriendshipsTableFilterComposer,
+      $$FriendshipsTableOrderingComposer,
+      $$FriendshipsTableAnnotationComposer,
+      $$FriendshipsTableCreateCompanionBuilder,
+      $$FriendshipsTableUpdateCompanionBuilder,
+      (
+        FriendshipRecord,
+        BaseReferences<_$AppDatabase, $FriendshipsTable, FriendshipRecord>,
+      ),
+      FriendshipRecord,
+      PrefetchHooks Function()
+    >;
+typedef $$NotificationsTableCreateCompanionBuilder =
+    NotificationsCompanion Function({
+      required String id,
+      required String userId,
+      required String actorId,
+      required String actorUsername,
+      Value<String?> actorDisplayName,
+      Value<String?> actorAvatarUrl,
+      required String type,
+      required String title,
+      required String body,
+      Value<String?> targetEntityId,
+      Value<String?> targetEntityType,
+      Value<String> status,
+      Value<bool> isRead,
+      Value<bool> isActioned,
+      Value<DateTime> createdAt,
+      Value<DateTime?> updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<bool> isDeleted,
+      Value<String> syncStatus,
+      Value<int> rowid,
+    });
+typedef $$NotificationsTableUpdateCompanionBuilder =
+    NotificationsCompanion Function({
+      Value<String> id,
+      Value<String> userId,
+      Value<String> actorId,
+      Value<String> actorUsername,
+      Value<String?> actorDisplayName,
+      Value<String?> actorAvatarUrl,
+      Value<String> type,
+      Value<String> title,
+      Value<String> body,
+      Value<String?> targetEntityId,
+      Value<String?> targetEntityType,
+      Value<String> status,
+      Value<bool> isRead,
+      Value<bool> isActioned,
+      Value<DateTime> createdAt,
+      Value<DateTime?> updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<bool> isDeleted,
+      Value<String> syncStatus,
+      Value<int> rowid,
+    });
+
+class $$NotificationsTableFilterComposer
+    extends Composer<_$AppDatabase, $NotificationsTable> {
+  $$NotificationsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get actorId => $composableBuilder(
+    column: $table.actorId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get actorUsername => $composableBuilder(
+    column: $table.actorUsername,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get actorDisplayName => $composableBuilder(
+    column: $table.actorDisplayName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get actorAvatarUrl => $composableBuilder(
+    column: $table.actorAvatarUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get type => $composableBuilder(
+    column: $table.type,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get body => $composableBuilder(
+    column: $table.body,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get targetEntityId => $composableBuilder(
+    column: $table.targetEntityId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get targetEntityType => $composableBuilder(
+    column: $table.targetEntityType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isRead => $composableBuilder(
+    column: $table.isRead,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isActioned => $composableBuilder(
+    column: $table.isActioned,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$NotificationsTableOrderingComposer
+    extends Composer<_$AppDatabase, $NotificationsTable> {
+  $$NotificationsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get actorId => $composableBuilder(
+    column: $table.actorId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get actorUsername => $composableBuilder(
+    column: $table.actorUsername,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get actorDisplayName => $composableBuilder(
+    column: $table.actorDisplayName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get actorAvatarUrl => $composableBuilder(
+    column: $table.actorAvatarUrl,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get type => $composableBuilder(
+    column: $table.type,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get body => $composableBuilder(
+    column: $table.body,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get targetEntityId => $composableBuilder(
+    column: $table.targetEntityId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get targetEntityType => $composableBuilder(
+    column: $table.targetEntityType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isRead => $composableBuilder(
+    column: $table.isRead,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isActioned => $composableBuilder(
+    column: $table.isActioned,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$NotificationsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $NotificationsTable> {
+  $$NotificationsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
+
+  GeneratedColumn<String> get actorId =>
+      $composableBuilder(column: $table.actorId, builder: (column) => column);
+
+  GeneratedColumn<String> get actorUsername => $composableBuilder(
+    column: $table.actorUsername,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get actorDisplayName => $composableBuilder(
+    column: $table.actorDisplayName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get actorAvatarUrl => $composableBuilder(
+    column: $table.actorAvatarUrl,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get type =>
+      $composableBuilder(column: $table.type, builder: (column) => column);
+
+  GeneratedColumn<String> get title =>
+      $composableBuilder(column: $table.title, builder: (column) => column);
+
+  GeneratedColumn<String> get body =>
+      $composableBuilder(column: $table.body, builder: (column) => column);
+
+  GeneratedColumn<String> get targetEntityId => $composableBuilder(
+    column: $table.targetEntityId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get targetEntityType => $composableBuilder(
+    column: $table.targetEntityType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<bool> get isRead =>
+      $composableBuilder(column: $table.isRead, builder: (column) => column);
+
+  GeneratedColumn<bool> get isActioned => $composableBuilder(
+    column: $table.isActioned,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  GeneratedColumn<bool> get isDeleted =>
+      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+
+  GeneratedColumn<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => column,
+  );
+}
+
+class $$NotificationsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $NotificationsTable,
+          NotificationRecord,
+          $$NotificationsTableFilterComposer,
+          $$NotificationsTableOrderingComposer,
+          $$NotificationsTableAnnotationComposer,
+          $$NotificationsTableCreateCompanionBuilder,
+          $$NotificationsTableUpdateCompanionBuilder,
+          (
+            NotificationRecord,
+            BaseReferences<
+              _$AppDatabase,
+              $NotificationsTable,
+              NotificationRecord
+            >,
+          ),
+          NotificationRecord,
+          PrefetchHooks Function()
+        > {
+  $$NotificationsTableTableManager(_$AppDatabase db, $NotificationsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$NotificationsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$NotificationsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$NotificationsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> userId = const Value.absent(),
+                Value<String> actorId = const Value.absent(),
+                Value<String> actorUsername = const Value.absent(),
+                Value<String?> actorDisplayName = const Value.absent(),
+                Value<String?> actorAvatarUrl = const Value.absent(),
+                Value<String> type = const Value.absent(),
+                Value<String> title = const Value.absent(),
+                Value<String> body = const Value.absent(),
+                Value<String?> targetEntityId = const Value.absent(),
+                Value<String?> targetEntityType = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<bool> isRead = const Value.absent(),
+                Value<bool> isActioned = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime?> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<String> syncStatus = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => NotificationsCompanion(
+                id: id,
+                userId: userId,
+                actorId: actorId,
+                actorUsername: actorUsername,
+                actorDisplayName: actorDisplayName,
+                actorAvatarUrl: actorAvatarUrl,
+                type: type,
+                title: title,
+                body: body,
+                targetEntityId: targetEntityId,
+                targetEntityType: targetEntityType,
+                status: status,
+                isRead: isRead,
+                isActioned: isActioned,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                isDeleted: isDeleted,
+                syncStatus: syncStatus,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String userId,
+                required String actorId,
+                required String actorUsername,
+                Value<String?> actorDisplayName = const Value.absent(),
+                Value<String?> actorAvatarUrl = const Value.absent(),
+                required String type,
+                required String title,
+                required String body,
+                Value<String?> targetEntityId = const Value.absent(),
+                Value<String?> targetEntityType = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<bool> isRead = const Value.absent(),
+                Value<bool> isActioned = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime?> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<String> syncStatus = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => NotificationsCompanion.insert(
+                id: id,
+                userId: userId,
+                actorId: actorId,
+                actorUsername: actorUsername,
+                actorDisplayName: actorDisplayName,
+                actorAvatarUrl: actorAvatarUrl,
+                type: type,
+                title: title,
+                body: body,
+                targetEntityId: targetEntityId,
+                targetEntityType: targetEntityType,
+                status: status,
+                isRead: isRead,
+                isActioned: isActioned,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                isDeleted: isDeleted,
+                syncStatus: syncStatus,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$NotificationsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $NotificationsTable,
+      NotificationRecord,
+      $$NotificationsTableFilterComposer,
+      $$NotificationsTableOrderingComposer,
+      $$NotificationsTableAnnotationComposer,
+      $$NotificationsTableCreateCompanionBuilder,
+      $$NotificationsTableUpdateCompanionBuilder,
+      (
+        NotificationRecord,
+        BaseReferences<_$AppDatabase, $NotificationsTable, NotificationRecord>,
+      ),
+      NotificationRecord,
+      PrefetchHooks Function()
+    >;
+typedef $$MessagesTableCreateCompanionBuilder =
+    MessagesCompanion Function({
+      required String id,
+      required String conversationId,
+      required String senderId,
+      required String recipientId,
+      required String messageText,
+      Value<String> attachmentType,
+      Value<String?> attachmentCardId,
+      Value<String?> attachmentCardJson,
+      Value<String?> attachmentTradeProposalId,
+      Value<bool> isRead,
+      Value<DateTime> createdAt,
+      Value<DateTime?> updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<bool> isDeleted,
+      Value<String> syncStatus,
+      Value<int> rowid,
+    });
+typedef $$MessagesTableUpdateCompanionBuilder =
+    MessagesCompanion Function({
+      Value<String> id,
+      Value<String> conversationId,
+      Value<String> senderId,
+      Value<String> recipientId,
+      Value<String> messageText,
+      Value<String> attachmentType,
+      Value<String?> attachmentCardId,
+      Value<String?> attachmentCardJson,
+      Value<String?> attachmentTradeProposalId,
+      Value<bool> isRead,
+      Value<DateTime> createdAt,
+      Value<DateTime?> updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<bool> isDeleted,
+      Value<String> syncStatus,
+      Value<int> rowid,
+    });
+
+class $$MessagesTableFilterComposer
+    extends Composer<_$AppDatabase, $MessagesTable> {
+  $$MessagesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get conversationId => $composableBuilder(
+    column: $table.conversationId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get senderId => $composableBuilder(
+    column: $table.senderId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get recipientId => $composableBuilder(
+    column: $table.recipientId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get messageText => $composableBuilder(
+    column: $table.messageText,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get attachmentType => $composableBuilder(
+    column: $table.attachmentType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get attachmentCardId => $composableBuilder(
+    column: $table.attachmentCardId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get attachmentCardJson => $composableBuilder(
+    column: $table.attachmentCardJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get attachmentTradeProposalId => $composableBuilder(
+    column: $table.attachmentTradeProposalId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isRead => $composableBuilder(
+    column: $table.isRead,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$MessagesTableOrderingComposer
+    extends Composer<_$AppDatabase, $MessagesTable> {
+  $$MessagesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get conversationId => $composableBuilder(
+    column: $table.conversationId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get senderId => $composableBuilder(
+    column: $table.senderId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get recipientId => $composableBuilder(
+    column: $table.recipientId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get messageText => $composableBuilder(
+    column: $table.messageText,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get attachmentType => $composableBuilder(
+    column: $table.attachmentType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get attachmentCardId => $composableBuilder(
+    column: $table.attachmentCardId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get attachmentCardJson => $composableBuilder(
+    column: $table.attachmentCardJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get attachmentTradeProposalId => $composableBuilder(
+    column: $table.attachmentTradeProposalId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isRead => $composableBuilder(
+    column: $table.isRead,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$MessagesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $MessagesTable> {
+  $$MessagesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get conversationId => $composableBuilder(
+    column: $table.conversationId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get senderId =>
+      $composableBuilder(column: $table.senderId, builder: (column) => column);
+
+  GeneratedColumn<String> get recipientId => $composableBuilder(
+    column: $table.recipientId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get messageText => $composableBuilder(
+    column: $table.messageText,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get attachmentType => $composableBuilder(
+    column: $table.attachmentType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get attachmentCardId => $composableBuilder(
+    column: $table.attachmentCardId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get attachmentCardJson => $composableBuilder(
+    column: $table.attachmentCardJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get attachmentTradeProposalId => $composableBuilder(
+    column: $table.attachmentTradeProposalId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isRead =>
+      $composableBuilder(column: $table.isRead, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  GeneratedColumn<bool> get isDeleted =>
+      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+
+  GeneratedColumn<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => column,
+  );
+}
+
+class $$MessagesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $MessagesTable,
+          MessageRecord,
+          $$MessagesTableFilterComposer,
+          $$MessagesTableOrderingComposer,
+          $$MessagesTableAnnotationComposer,
+          $$MessagesTableCreateCompanionBuilder,
+          $$MessagesTableUpdateCompanionBuilder,
+          (
+            MessageRecord,
+            BaseReferences<_$AppDatabase, $MessagesTable, MessageRecord>,
+          ),
+          MessageRecord,
+          PrefetchHooks Function()
+        > {
+  $$MessagesTableTableManager(_$AppDatabase db, $MessagesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$MessagesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$MessagesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$MessagesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> conversationId = const Value.absent(),
+                Value<String> senderId = const Value.absent(),
+                Value<String> recipientId = const Value.absent(),
+                Value<String> messageText = const Value.absent(),
+                Value<String> attachmentType = const Value.absent(),
+                Value<String?> attachmentCardId = const Value.absent(),
+                Value<String?> attachmentCardJson = const Value.absent(),
+                Value<String?> attachmentTradeProposalId = const Value.absent(),
+                Value<bool> isRead = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime?> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<String> syncStatus = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => MessagesCompanion(
+                id: id,
+                conversationId: conversationId,
+                senderId: senderId,
+                recipientId: recipientId,
+                messageText: messageText,
+                attachmentType: attachmentType,
+                attachmentCardId: attachmentCardId,
+                attachmentCardJson: attachmentCardJson,
+                attachmentTradeProposalId: attachmentTradeProposalId,
+                isRead: isRead,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                isDeleted: isDeleted,
+                syncStatus: syncStatus,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String conversationId,
+                required String senderId,
+                required String recipientId,
+                required String messageText,
+                Value<String> attachmentType = const Value.absent(),
+                Value<String?> attachmentCardId = const Value.absent(),
+                Value<String?> attachmentCardJson = const Value.absent(),
+                Value<String?> attachmentTradeProposalId = const Value.absent(),
+                Value<bool> isRead = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime?> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<String> syncStatus = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => MessagesCompanion.insert(
+                id: id,
+                conversationId: conversationId,
+                senderId: senderId,
+                recipientId: recipientId,
+                messageText: messageText,
+                attachmentType: attachmentType,
+                attachmentCardId: attachmentCardId,
+                attachmentCardJson: attachmentCardJson,
+                attachmentTradeProposalId: attachmentTradeProposalId,
+                isRead: isRead,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                isDeleted: isDeleted,
+                syncStatus: syncStatus,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$MessagesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $MessagesTable,
+      MessageRecord,
+      $$MessagesTableFilterComposer,
+      $$MessagesTableOrderingComposer,
+      $$MessagesTableAnnotationComposer,
+      $$MessagesTableCreateCompanionBuilder,
+      $$MessagesTableUpdateCompanionBuilder,
+      (
+        MessageRecord,
+        BaseReferences<_$AppDatabase, $MessagesTable, MessageRecord>,
+      ),
+      MessageRecord,
+      PrefetchHooks Function()
+    >;
+typedef $$TradeProposalsTableCreateCompanionBuilder =
+    TradeProposalsCompanion Function({
+      required String id,
+      required String proposerId,
+      required String receiverId,
+      Value<String?> thirdParticipantId,
+      Value<bool> isThreeWay,
+      Value<String?> cardTransfersJson,
+      Value<String?> fairnessSummaryJson,
+      required String offeredCardIdsJson,
+      required String requestedCardIdsJson,
+      Value<String?> offeredCardsSnapshotJson,
+      Value<String?> requestedCardsSnapshotJson,
+      Value<double> proposerCashDelta,
+      Value<double> offeredTotalValue,
+      Value<double> requestedTotalValue,
+      Value<String> status,
+      Value<String?> note,
+      Value<bool> isTransferred,
+      Value<DateTime> createdAt,
+      Value<DateTime?> updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<bool> isDeleted,
+      Value<String> syncStatus,
+      Value<int> rowid,
+    });
+typedef $$TradeProposalsTableUpdateCompanionBuilder =
+    TradeProposalsCompanion Function({
+      Value<String> id,
+      Value<String> proposerId,
+      Value<String> receiverId,
+      Value<String?> thirdParticipantId,
+      Value<bool> isThreeWay,
+      Value<String?> cardTransfersJson,
+      Value<String?> fairnessSummaryJson,
+      Value<String> offeredCardIdsJson,
+      Value<String> requestedCardIdsJson,
+      Value<String?> offeredCardsSnapshotJson,
+      Value<String?> requestedCardsSnapshotJson,
+      Value<double> proposerCashDelta,
+      Value<double> offeredTotalValue,
+      Value<double> requestedTotalValue,
+      Value<String> status,
+      Value<String?> note,
+      Value<bool> isTransferred,
+      Value<DateTime> createdAt,
+      Value<DateTime?> updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<bool> isDeleted,
+      Value<String> syncStatus,
+      Value<int> rowid,
+    });
+
+class $$TradeProposalsTableFilterComposer
+    extends Composer<_$AppDatabase, $TradeProposalsTable> {
+  $$TradeProposalsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get proposerId => $composableBuilder(
+    column: $table.proposerId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get receiverId => $composableBuilder(
+    column: $table.receiverId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get thirdParticipantId => $composableBuilder(
+    column: $table.thirdParticipantId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isThreeWay => $composableBuilder(
+    column: $table.isThreeWay,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get cardTransfersJson => $composableBuilder(
+    column: $table.cardTransfersJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get fairnessSummaryJson => $composableBuilder(
+    column: $table.fairnessSummaryJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get offeredCardIdsJson => $composableBuilder(
+    column: $table.offeredCardIdsJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get requestedCardIdsJson => $composableBuilder(
+    column: $table.requestedCardIdsJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get offeredCardsSnapshotJson => $composableBuilder(
+    column: $table.offeredCardsSnapshotJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get requestedCardsSnapshotJson => $composableBuilder(
+    column: $table.requestedCardsSnapshotJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get proposerCashDelta => $composableBuilder(
+    column: $table.proposerCashDelta,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get offeredTotalValue => $composableBuilder(
+    column: $table.offeredTotalValue,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get requestedTotalValue => $composableBuilder(
+    column: $table.requestedTotalValue,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get note => $composableBuilder(
+    column: $table.note,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isTransferred => $composableBuilder(
+    column: $table.isTransferred,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$TradeProposalsTableOrderingComposer
+    extends Composer<_$AppDatabase, $TradeProposalsTable> {
+  $$TradeProposalsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get proposerId => $composableBuilder(
+    column: $table.proposerId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get receiverId => $composableBuilder(
+    column: $table.receiverId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get thirdParticipantId => $composableBuilder(
+    column: $table.thirdParticipantId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isThreeWay => $composableBuilder(
+    column: $table.isThreeWay,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get cardTransfersJson => $composableBuilder(
+    column: $table.cardTransfersJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get fairnessSummaryJson => $composableBuilder(
+    column: $table.fairnessSummaryJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get offeredCardIdsJson => $composableBuilder(
+    column: $table.offeredCardIdsJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get requestedCardIdsJson => $composableBuilder(
+    column: $table.requestedCardIdsJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get offeredCardsSnapshotJson => $composableBuilder(
+    column: $table.offeredCardsSnapshotJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get requestedCardsSnapshotJson => $composableBuilder(
+    column: $table.requestedCardsSnapshotJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get proposerCashDelta => $composableBuilder(
+    column: $table.proposerCashDelta,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get offeredTotalValue => $composableBuilder(
+    column: $table.offeredTotalValue,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get requestedTotalValue => $composableBuilder(
+    column: $table.requestedTotalValue,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get note => $composableBuilder(
+    column: $table.note,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isTransferred => $composableBuilder(
+    column: $table.isTransferred,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$TradeProposalsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $TradeProposalsTable> {
+  $$TradeProposalsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get proposerId => $composableBuilder(
+    column: $table.proposerId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get receiverId => $composableBuilder(
+    column: $table.receiverId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get thirdParticipantId => $composableBuilder(
+    column: $table.thirdParticipantId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isThreeWay => $composableBuilder(
+    column: $table.isThreeWay,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get cardTransfersJson => $composableBuilder(
+    column: $table.cardTransfersJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get fairnessSummaryJson => $composableBuilder(
+    column: $table.fairnessSummaryJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get offeredCardIdsJson => $composableBuilder(
+    column: $table.offeredCardIdsJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get requestedCardIdsJson => $composableBuilder(
+    column: $table.requestedCardIdsJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get offeredCardsSnapshotJson => $composableBuilder(
+    column: $table.offeredCardsSnapshotJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get requestedCardsSnapshotJson => $composableBuilder(
+    column: $table.requestedCardsSnapshotJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get proposerCashDelta => $composableBuilder(
+    column: $table.proposerCashDelta,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get offeredTotalValue => $composableBuilder(
+    column: $table.offeredTotalValue,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get requestedTotalValue => $composableBuilder(
+    column: $table.requestedTotalValue,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<String> get note =>
+      $composableBuilder(column: $table.note, builder: (column) => column);
+
+  GeneratedColumn<bool> get isTransferred => $composableBuilder(
+    column: $table.isTransferred,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  GeneratedColumn<bool> get isDeleted =>
+      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+
+  GeneratedColumn<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => column,
+  );
+}
+
+class $$TradeProposalsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $TradeProposalsTable,
+          TradeProposalRecord,
+          $$TradeProposalsTableFilterComposer,
+          $$TradeProposalsTableOrderingComposer,
+          $$TradeProposalsTableAnnotationComposer,
+          $$TradeProposalsTableCreateCompanionBuilder,
+          $$TradeProposalsTableUpdateCompanionBuilder,
+          (
+            TradeProposalRecord,
+            BaseReferences<
+              _$AppDatabase,
+              $TradeProposalsTable,
+              TradeProposalRecord
+            >,
+          ),
+          TradeProposalRecord,
+          PrefetchHooks Function()
+        > {
+  $$TradeProposalsTableTableManager(
+    _$AppDatabase db,
+    $TradeProposalsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$TradeProposalsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$TradeProposalsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$TradeProposalsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> proposerId = const Value.absent(),
+                Value<String> receiverId = const Value.absent(),
+                Value<String?> thirdParticipantId = const Value.absent(),
+                Value<bool> isThreeWay = const Value.absent(),
+                Value<String?> cardTransfersJson = const Value.absent(),
+                Value<String?> fairnessSummaryJson = const Value.absent(),
+                Value<String> offeredCardIdsJson = const Value.absent(),
+                Value<String> requestedCardIdsJson = const Value.absent(),
+                Value<String?> offeredCardsSnapshotJson = const Value.absent(),
+                Value<String?> requestedCardsSnapshotJson =
+                    const Value.absent(),
+                Value<double> proposerCashDelta = const Value.absent(),
+                Value<double> offeredTotalValue = const Value.absent(),
+                Value<double> requestedTotalValue = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<String?> note = const Value.absent(),
+                Value<bool> isTransferred = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime?> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<String> syncStatus = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => TradeProposalsCompanion(
+                id: id,
+                proposerId: proposerId,
+                receiverId: receiverId,
+                thirdParticipantId: thirdParticipantId,
+                isThreeWay: isThreeWay,
+                cardTransfersJson: cardTransfersJson,
+                fairnessSummaryJson: fairnessSummaryJson,
+                offeredCardIdsJson: offeredCardIdsJson,
+                requestedCardIdsJson: requestedCardIdsJson,
+                offeredCardsSnapshotJson: offeredCardsSnapshotJson,
+                requestedCardsSnapshotJson: requestedCardsSnapshotJson,
+                proposerCashDelta: proposerCashDelta,
+                offeredTotalValue: offeredTotalValue,
+                requestedTotalValue: requestedTotalValue,
+                status: status,
+                note: note,
+                isTransferred: isTransferred,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                isDeleted: isDeleted,
+                syncStatus: syncStatus,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String proposerId,
+                required String receiverId,
+                Value<String?> thirdParticipantId = const Value.absent(),
+                Value<bool> isThreeWay = const Value.absent(),
+                Value<String?> cardTransfersJson = const Value.absent(),
+                Value<String?> fairnessSummaryJson = const Value.absent(),
+                required String offeredCardIdsJson,
+                required String requestedCardIdsJson,
+                Value<String?> offeredCardsSnapshotJson = const Value.absent(),
+                Value<String?> requestedCardsSnapshotJson =
+                    const Value.absent(),
+                Value<double> proposerCashDelta = const Value.absent(),
+                Value<double> offeredTotalValue = const Value.absent(),
+                Value<double> requestedTotalValue = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<String?> note = const Value.absent(),
+                Value<bool> isTransferred = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime?> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<String> syncStatus = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => TradeProposalsCompanion.insert(
+                id: id,
+                proposerId: proposerId,
+                receiverId: receiverId,
+                thirdParticipantId: thirdParticipantId,
+                isThreeWay: isThreeWay,
+                cardTransfersJson: cardTransfersJson,
+                fairnessSummaryJson: fairnessSummaryJson,
+                offeredCardIdsJson: offeredCardIdsJson,
+                requestedCardIdsJson: requestedCardIdsJson,
+                offeredCardsSnapshotJson: offeredCardsSnapshotJson,
+                requestedCardsSnapshotJson: requestedCardsSnapshotJson,
+                proposerCashDelta: proposerCashDelta,
+                offeredTotalValue: offeredTotalValue,
+                requestedTotalValue: requestedTotalValue,
+                status: status,
+                note: note,
+                isTransferred: isTransferred,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                isDeleted: isDeleted,
+                syncStatus: syncStatus,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$TradeProposalsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $TradeProposalsTable,
+      TradeProposalRecord,
+      $$TradeProposalsTableFilterComposer,
+      $$TradeProposalsTableOrderingComposer,
+      $$TradeProposalsTableAnnotationComposer,
+      $$TradeProposalsTableCreateCompanionBuilder,
+      $$TradeProposalsTableUpdateCompanionBuilder,
+      (
+        TradeProposalRecord,
+        BaseReferences<
+          _$AppDatabase,
+          $TradeProposalsTable,
+          TradeProposalRecord
+        >,
+      ),
+      TradeProposalRecord,
+      PrefetchHooks Function()
+    >;
+typedef $$UserFollowsTableCreateCompanionBuilder =
+    UserFollowsCompanion Function({
+      required String id,
+      required String followerId,
+      required String targetUserId,
+      Value<DateTime> createdAt,
+      Value<bool> isDeleted,
+      Value<DateTime?> deletedAt,
+      Value<String?> syncStatus,
+      Value<int> rowid,
+    });
+typedef $$UserFollowsTableUpdateCompanionBuilder =
+    UserFollowsCompanion Function({
+      Value<String> id,
+      Value<String> followerId,
+      Value<String> targetUserId,
+      Value<DateTime> createdAt,
+      Value<bool> isDeleted,
+      Value<DateTime?> deletedAt,
+      Value<String?> syncStatus,
+      Value<int> rowid,
+    });
+
+class $$UserFollowsTableFilterComposer
+    extends Composer<_$AppDatabase, $UserFollowsTable> {
+  $$UserFollowsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get followerId => $composableBuilder(
+    column: $table.followerId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get targetUserId => $composableBuilder(
+    column: $table.targetUserId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$UserFollowsTableOrderingComposer
+    extends Composer<_$AppDatabase, $UserFollowsTable> {
+  $$UserFollowsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get followerId => $composableBuilder(
+    column: $table.followerId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get targetUserId => $composableBuilder(
+    column: $table.targetUserId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$UserFollowsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $UserFollowsTable> {
+  $$UserFollowsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get followerId => $composableBuilder(
+    column: $table.followerId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get targetUserId => $composableBuilder(
+    column: $table.targetUserId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<bool> get isDeleted =>
+      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => column,
+  );
+}
+
+class $$UserFollowsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $UserFollowsTable,
+          UserFollow,
+          $$UserFollowsTableFilterComposer,
+          $$UserFollowsTableOrderingComposer,
+          $$UserFollowsTableAnnotationComposer,
+          $$UserFollowsTableCreateCompanionBuilder,
+          $$UserFollowsTableUpdateCompanionBuilder,
+          (
+            UserFollow,
+            BaseReferences<_$AppDatabase, $UserFollowsTable, UserFollow>,
+          ),
+          UserFollow,
+          PrefetchHooks Function()
+        > {
+  $$UserFollowsTableTableManager(_$AppDatabase db, $UserFollowsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$UserFollowsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$UserFollowsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$UserFollowsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> followerId = const Value.absent(),
+                Value<String> targetUserId = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<String?> syncStatus = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => UserFollowsCompanion(
+                id: id,
+                followerId: followerId,
+                targetUserId: targetUserId,
+                createdAt: createdAt,
+                isDeleted: isDeleted,
+                deletedAt: deletedAt,
+                syncStatus: syncStatus,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String followerId,
+                required String targetUserId,
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<String?> syncStatus = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => UserFollowsCompanion.insert(
+                id: id,
+                followerId: followerId,
+                targetUserId: targetUserId,
+                createdAt: createdAt,
+                isDeleted: isDeleted,
+                deletedAt: deletedAt,
+                syncStatus: syncStatus,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$UserFollowsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $UserFollowsTable,
+      UserFollow,
+      $$UserFollowsTableFilterComposer,
+      $$UserFollowsTableOrderingComposer,
+      $$UserFollowsTableAnnotationComposer,
+      $$UserFollowsTableCreateCompanionBuilder,
+      $$UserFollowsTableUpdateCompanionBuilder,
+      (
+        UserFollow,
+        BaseReferences<_$AppDatabase, $UserFollowsTable, UserFollow>,
+      ),
+      UserFollow,
+      PrefetchHooks Function()
+    >;
+typedef $$CardReputationVotesTableCreateCompanionBuilder =
+    CardReputationVotesCompanion Function({
+      required String id,
+      required String cardId,
+      Value<String> userId,
+      Value<int> vote,
+      required DateTime updatedAt,
+      Value<bool> isDeleted,
+      Value<DateTime?> deletedAt,
+      Value<String?> syncStatus,
+      Value<int> rowid,
+    });
+typedef $$CardReputationVotesTableUpdateCompanionBuilder =
+    CardReputationVotesCompanion Function({
+      Value<String> id,
+      Value<String> cardId,
+      Value<String> userId,
+      Value<int> vote,
+      Value<DateTime> updatedAt,
+      Value<bool> isDeleted,
+      Value<DateTime?> deletedAt,
+      Value<String?> syncStatus,
+      Value<int> rowid,
+    });
+
+class $$CardReputationVotesTableFilterComposer
+    extends Composer<_$AppDatabase, $CardReputationVotesTable> {
+  $$CardReputationVotesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get cardId => $composableBuilder(
+    column: $table.cardId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get vote => $composableBuilder(
+    column: $table.vote,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$CardReputationVotesTableOrderingComposer
+    extends Composer<_$AppDatabase, $CardReputationVotesTable> {
+  $$CardReputationVotesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get cardId => $composableBuilder(
+    column: $table.cardId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get vote => $composableBuilder(
+    column: $table.vote,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$CardReputationVotesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $CardReputationVotesTable> {
+  $$CardReputationVotesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get cardId =>
+      $composableBuilder(column: $table.cardId, builder: (column) => column);
+
+  GeneratedColumn<String> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
+
+  GeneratedColumn<int> get vote =>
+      $composableBuilder(column: $table.vote, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<bool> get isDeleted =>
+      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => column,
+  );
+}
+
+class $$CardReputationVotesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $CardReputationVotesTable,
+          CardReputationVote,
+          $$CardReputationVotesTableFilterComposer,
+          $$CardReputationVotesTableOrderingComposer,
+          $$CardReputationVotesTableAnnotationComposer,
+          $$CardReputationVotesTableCreateCompanionBuilder,
+          $$CardReputationVotesTableUpdateCompanionBuilder,
+          (
+            CardReputationVote,
+            BaseReferences<
+              _$AppDatabase,
+              $CardReputationVotesTable,
+              CardReputationVote
+            >,
+          ),
+          CardReputationVote,
+          PrefetchHooks Function()
+        > {
+  $$CardReputationVotesTableTableManager(
+    _$AppDatabase db,
+    $CardReputationVotesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$CardReputationVotesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$CardReputationVotesTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$CardReputationVotesTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> cardId = const Value.absent(),
+                Value<String> userId = const Value.absent(),
+                Value<int> vote = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<String?> syncStatus = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CardReputationVotesCompanion(
+                id: id,
+                cardId: cardId,
+                userId: userId,
+                vote: vote,
+                updatedAt: updatedAt,
+                isDeleted: isDeleted,
+                deletedAt: deletedAt,
+                syncStatus: syncStatus,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String cardId,
+                Value<String> userId = const Value.absent(),
+                Value<int> vote = const Value.absent(),
+                required DateTime updatedAt,
+                Value<bool> isDeleted = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<String?> syncStatus = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CardReputationVotesCompanion.insert(
+                id: id,
+                cardId: cardId,
+                userId: userId,
+                vote: vote,
+                updatedAt: updatedAt,
+                isDeleted: isDeleted,
+                deletedAt: deletedAt,
+                syncStatus: syncStatus,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$CardReputationVotesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $CardReputationVotesTable,
+      CardReputationVote,
+      $$CardReputationVotesTableFilterComposer,
+      $$CardReputationVotesTableOrderingComposer,
+      $$CardReputationVotesTableAnnotationComposer,
+      $$CardReputationVotesTableCreateCompanionBuilder,
+      $$CardReputationVotesTableUpdateCompanionBuilder,
+      (
+        CardReputationVote,
+        BaseReferences<
+          _$AppDatabase,
+          $CardReputationVotesTable,
+          CardReputationVote
+        >,
+      ),
+      CardReputationVote,
+      PrefetchHooks Function()
+    >;
+typedef $$PostVotesTableCreateCompanionBuilder =
+    PostVotesCompanion Function({
+      required String id,
+      required String postId,
+      required String userId,
+      Value<int> vote,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<bool> isDeleted,
+      Value<DateTime?> deletedAt,
+      Value<String?> syncStatus,
+      Value<int> rowid,
+    });
+typedef $$PostVotesTableUpdateCompanionBuilder =
+    PostVotesCompanion Function({
+      Value<String> id,
+      Value<String> postId,
+      Value<String> userId,
+      Value<int> vote,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<bool> isDeleted,
+      Value<DateTime?> deletedAt,
+      Value<String?> syncStatus,
+      Value<int> rowid,
+    });
+
+class $$PostVotesTableFilterComposer
+    extends Composer<_$AppDatabase, $PostVotesTable> {
+  $$PostVotesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get postId => $composableBuilder(
+    column: $table.postId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get vote => $composableBuilder(
+    column: $table.vote,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$PostVotesTableOrderingComposer
+    extends Composer<_$AppDatabase, $PostVotesTable> {
+  $$PostVotesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get postId => $composableBuilder(
+    column: $table.postId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get vote => $composableBuilder(
+    column: $table.vote,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$PostVotesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PostVotesTable> {
+  $$PostVotesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get postId =>
+      $composableBuilder(column: $table.postId, builder: (column) => column);
+
+  GeneratedColumn<String> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
+
+  GeneratedColumn<int> get vote =>
+      $composableBuilder(column: $table.vote, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<bool> get isDeleted =>
+      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => column,
+  );
+}
+
+class $$PostVotesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $PostVotesTable,
+          PostVoteRecord,
+          $$PostVotesTableFilterComposer,
+          $$PostVotesTableOrderingComposer,
+          $$PostVotesTableAnnotationComposer,
+          $$PostVotesTableCreateCompanionBuilder,
+          $$PostVotesTableUpdateCompanionBuilder,
+          (
+            PostVoteRecord,
+            BaseReferences<_$AppDatabase, $PostVotesTable, PostVoteRecord>,
+          ),
+          PostVoteRecord,
+          PrefetchHooks Function()
+        > {
+  $$PostVotesTableTableManager(_$AppDatabase db, $PostVotesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PostVotesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PostVotesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PostVotesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> postId = const Value.absent(),
+                Value<String> userId = const Value.absent(),
+                Value<int> vote = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<String?> syncStatus = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PostVotesCompanion(
+                id: id,
+                postId: postId,
+                userId: userId,
+                vote: vote,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                isDeleted: isDeleted,
+                deletedAt: deletedAt,
+                syncStatus: syncStatus,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String postId,
+                required String userId,
+                Value<int> vote = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<String?> syncStatus = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PostVotesCompanion.insert(
+                id: id,
+                postId: postId,
+                userId: userId,
+                vote: vote,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                isDeleted: isDeleted,
+                deletedAt: deletedAt,
+                syncStatus: syncStatus,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$PostVotesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $PostVotesTable,
+      PostVoteRecord,
+      $$PostVotesTableFilterComposer,
+      $$PostVotesTableOrderingComposer,
+      $$PostVotesTableAnnotationComposer,
+      $$PostVotesTableCreateCompanionBuilder,
+      $$PostVotesTableUpdateCompanionBuilder,
+      (
+        PostVoteRecord,
+        BaseReferences<_$AppDatabase, $PostVotesTable, PostVoteRecord>,
+      ),
+      PostVoteRecord,
+      PrefetchHooks Function()
+    >;
+typedef $$PostReactionsTableCreateCompanionBuilder =
+    PostReactionsCompanion Function({
+      required String id,
+      required String postId,
+      required String userId,
+      required String emoji,
+      Value<DateTime> createdAt,
+      Value<bool> isDeleted,
+      Value<DateTime?> deletedAt,
+      Value<String?> syncStatus,
+      Value<int> rowid,
+    });
+typedef $$PostReactionsTableUpdateCompanionBuilder =
+    PostReactionsCompanion Function({
+      Value<String> id,
+      Value<String> postId,
+      Value<String> userId,
+      Value<String> emoji,
+      Value<DateTime> createdAt,
+      Value<bool> isDeleted,
+      Value<DateTime?> deletedAt,
+      Value<String?> syncStatus,
+      Value<int> rowid,
+    });
+
+class $$PostReactionsTableFilterComposer
+    extends Composer<_$AppDatabase, $PostReactionsTable> {
+  $$PostReactionsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get postId => $composableBuilder(
+    column: $table.postId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get emoji => $composableBuilder(
+    column: $table.emoji,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$PostReactionsTableOrderingComposer
+    extends Composer<_$AppDatabase, $PostReactionsTable> {
+  $$PostReactionsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get postId => $composableBuilder(
+    column: $table.postId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get emoji => $composableBuilder(
+    column: $table.emoji,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$PostReactionsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PostReactionsTable> {
+  $$PostReactionsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get postId =>
+      $composableBuilder(column: $table.postId, builder: (column) => column);
+
+  GeneratedColumn<String> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
+
+  GeneratedColumn<String> get emoji =>
+      $composableBuilder(column: $table.emoji, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<bool> get isDeleted =>
+      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => column,
+  );
+}
+
+class $$PostReactionsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $PostReactionsTable,
+          PostReactionRecord,
+          $$PostReactionsTableFilterComposer,
+          $$PostReactionsTableOrderingComposer,
+          $$PostReactionsTableAnnotationComposer,
+          $$PostReactionsTableCreateCompanionBuilder,
+          $$PostReactionsTableUpdateCompanionBuilder,
+          (
+            PostReactionRecord,
+            BaseReferences<
+              _$AppDatabase,
+              $PostReactionsTable,
+              PostReactionRecord
+            >,
+          ),
+          PostReactionRecord,
+          PrefetchHooks Function()
+        > {
+  $$PostReactionsTableTableManager(_$AppDatabase db, $PostReactionsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PostReactionsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PostReactionsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PostReactionsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> postId = const Value.absent(),
+                Value<String> userId = const Value.absent(),
+                Value<String> emoji = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<String?> syncStatus = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PostReactionsCompanion(
+                id: id,
+                postId: postId,
+                userId: userId,
+                emoji: emoji,
+                createdAt: createdAt,
+                isDeleted: isDeleted,
+                deletedAt: deletedAt,
+                syncStatus: syncStatus,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String postId,
+                required String userId,
+                required String emoji,
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<String?> syncStatus = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PostReactionsCompanion.insert(
+                id: id,
+                postId: postId,
+                userId: userId,
+                emoji: emoji,
+                createdAt: createdAt,
+                isDeleted: isDeleted,
+                deletedAt: deletedAt,
+                syncStatus: syncStatus,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$PostReactionsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $PostReactionsTable,
+      PostReactionRecord,
+      $$PostReactionsTableFilterComposer,
+      $$PostReactionsTableOrderingComposer,
+      $$PostReactionsTableAnnotationComposer,
+      $$PostReactionsTableCreateCompanionBuilder,
+      $$PostReactionsTableUpdateCompanionBuilder,
+      (
+        PostReactionRecord,
+        BaseReferences<_$AppDatabase, $PostReactionsTable, PostReactionRecord>,
+      ),
+      PostReactionRecord,
+      PrefetchHooks Function()
+    >;
+typedef $$CommentReactionsTableCreateCompanionBuilder =
+    CommentReactionsCompanion Function({
+      required String id,
+      required String commentId,
+      required String userId,
+      required String emoji,
+      Value<DateTime> createdAt,
+      Value<bool> isDeleted,
+      Value<DateTime?> deletedAt,
+      Value<String?> syncStatus,
+      Value<int> rowid,
+    });
+typedef $$CommentReactionsTableUpdateCompanionBuilder =
+    CommentReactionsCompanion Function({
+      Value<String> id,
+      Value<String> commentId,
+      Value<String> userId,
+      Value<String> emoji,
+      Value<DateTime> createdAt,
+      Value<bool> isDeleted,
+      Value<DateTime?> deletedAt,
+      Value<String?> syncStatus,
+      Value<int> rowid,
+    });
+
+class $$CommentReactionsTableFilterComposer
+    extends Composer<_$AppDatabase, $CommentReactionsTable> {
+  $$CommentReactionsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get commentId => $composableBuilder(
+    column: $table.commentId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get emoji => $composableBuilder(
+    column: $table.emoji,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$CommentReactionsTableOrderingComposer
+    extends Composer<_$AppDatabase, $CommentReactionsTable> {
+  $$CommentReactionsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get commentId => $composableBuilder(
+    column: $table.commentId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get emoji => $composableBuilder(
+    column: $table.emoji,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$CommentReactionsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $CommentReactionsTable> {
+  $$CommentReactionsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get commentId =>
+      $composableBuilder(column: $table.commentId, builder: (column) => column);
+
+  GeneratedColumn<String> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
+
+  GeneratedColumn<String> get emoji =>
+      $composableBuilder(column: $table.emoji, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<bool> get isDeleted =>
+      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => column,
+  );
+}
+
+class $$CommentReactionsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $CommentReactionsTable,
+          CommentReactionRecord,
+          $$CommentReactionsTableFilterComposer,
+          $$CommentReactionsTableOrderingComposer,
+          $$CommentReactionsTableAnnotationComposer,
+          $$CommentReactionsTableCreateCompanionBuilder,
+          $$CommentReactionsTableUpdateCompanionBuilder,
+          (
+            CommentReactionRecord,
+            BaseReferences<
+              _$AppDatabase,
+              $CommentReactionsTable,
+              CommentReactionRecord
+            >,
+          ),
+          CommentReactionRecord,
+          PrefetchHooks Function()
+        > {
+  $$CommentReactionsTableTableManager(
+    _$AppDatabase db,
+    $CommentReactionsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$CommentReactionsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$CommentReactionsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$CommentReactionsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> commentId = const Value.absent(),
+                Value<String> userId = const Value.absent(),
+                Value<String> emoji = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<String?> syncStatus = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CommentReactionsCompanion(
+                id: id,
+                commentId: commentId,
+                userId: userId,
+                emoji: emoji,
+                createdAt: createdAt,
+                isDeleted: isDeleted,
+                deletedAt: deletedAt,
+                syncStatus: syncStatus,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String commentId,
+                required String userId,
+                required String emoji,
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<String?> syncStatus = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CommentReactionsCompanion.insert(
+                id: id,
+                commentId: commentId,
+                userId: userId,
+                emoji: emoji,
+                createdAt: createdAt,
+                isDeleted: isDeleted,
+                deletedAt: deletedAt,
+                syncStatus: syncStatus,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$CommentReactionsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $CommentReactionsTable,
+      CommentReactionRecord,
+      $$CommentReactionsTableFilterComposer,
+      $$CommentReactionsTableOrderingComposer,
+      $$CommentReactionsTableAnnotationComposer,
+      $$CommentReactionsTableCreateCompanionBuilder,
+      $$CommentReactionsTableUpdateCompanionBuilder,
+      (
+        CommentReactionRecord,
+        BaseReferences<
+          _$AppDatabase,
+          $CommentReactionsTable,
+          CommentReactionRecord
+        >,
+      ),
+      CommentReactionRecord,
+      PrefetchHooks Function()
+    >;
+typedef $$SavedPostsTableCreateCompanionBuilder =
+    SavedPostsCompanion Function({
+      required String id,
+      required String postId,
+      required String userId,
+      Value<DateTime> createdAt,
+      Value<bool> isDeleted,
+      Value<DateTime?> deletedAt,
+      Value<String?> syncStatus,
+      Value<int> rowid,
+    });
+typedef $$SavedPostsTableUpdateCompanionBuilder =
+    SavedPostsCompanion Function({
+      Value<String> id,
+      Value<String> postId,
+      Value<String> userId,
+      Value<DateTime> createdAt,
+      Value<bool> isDeleted,
+      Value<DateTime?> deletedAt,
+      Value<String?> syncStatus,
+      Value<int> rowid,
+    });
+
+class $$SavedPostsTableFilterComposer
+    extends Composer<_$AppDatabase, $SavedPostsTable> {
+  $$SavedPostsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get postId => $composableBuilder(
+    column: $table.postId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$SavedPostsTableOrderingComposer
+    extends Composer<_$AppDatabase, $SavedPostsTable> {
+  $$SavedPostsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get postId => $composableBuilder(
+    column: $table.postId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$SavedPostsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $SavedPostsTable> {
+  $$SavedPostsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get postId =>
+      $composableBuilder(column: $table.postId, builder: (column) => column);
+
+  GeneratedColumn<String> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<bool> get isDeleted =>
+      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => column,
+  );
+}
+
+class $$SavedPostsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $SavedPostsTable,
+          SavedPostRecord,
+          $$SavedPostsTableFilterComposer,
+          $$SavedPostsTableOrderingComposer,
+          $$SavedPostsTableAnnotationComposer,
+          $$SavedPostsTableCreateCompanionBuilder,
+          $$SavedPostsTableUpdateCompanionBuilder,
+          (
+            SavedPostRecord,
+            BaseReferences<_$AppDatabase, $SavedPostsTable, SavedPostRecord>,
+          ),
+          SavedPostRecord,
+          PrefetchHooks Function()
+        > {
+  $$SavedPostsTableTableManager(_$AppDatabase db, $SavedPostsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SavedPostsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SavedPostsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$SavedPostsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> postId = const Value.absent(),
+                Value<String> userId = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<String?> syncStatus = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SavedPostsCompanion(
+                id: id,
+                postId: postId,
+                userId: userId,
+                createdAt: createdAt,
+                isDeleted: isDeleted,
+                deletedAt: deletedAt,
+                syncStatus: syncStatus,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String postId,
+                required String userId,
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<String?> syncStatus = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SavedPostsCompanion.insert(
+                id: id,
+                postId: postId,
+                userId: userId,
+                createdAt: createdAt,
+                isDeleted: isDeleted,
+                deletedAt: deletedAt,
+                syncStatus: syncStatus,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$SavedPostsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $SavedPostsTable,
+      SavedPostRecord,
+      $$SavedPostsTableFilterComposer,
+      $$SavedPostsTableOrderingComposer,
+      $$SavedPostsTableAnnotationComposer,
+      $$SavedPostsTableCreateCompanionBuilder,
+      $$SavedPostsTableUpdateCompanionBuilder,
+      (
+        SavedPostRecord,
+        BaseReferences<_$AppDatabase, $SavedPostsTable, SavedPostRecord>,
+      ),
+      SavedPostRecord,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -18973,4 +36866,32 @@ class $AppDatabaseManager {
       $$ExploreDeckItemsTableTableManager(_db, _db.exploreDeckItems);
   $$ExploreDeckVotesTableTableManager get exploreDeckVotes =>
       $$ExploreDeckVotesTableTableManager(_db, _db.exploreDeckVotes);
+  $$UserProfilesTableTableManager get userProfiles =>
+      $$UserProfilesTableTableManager(_db, _db.userProfiles);
+  $$FeedPostsTableTableManager get feedPosts =>
+      $$FeedPostsTableTableManager(_db, _db.feedPosts);
+  $$PostLikesTableTableManager get postLikes =>
+      $$PostLikesTableTableManager(_db, _db.postLikes);
+  $$PostCommentsTableTableManager get postComments =>
+      $$PostCommentsTableTableManager(_db, _db.postComments);
+  $$FriendshipsTableTableManager get friendships =>
+      $$FriendshipsTableTableManager(_db, _db.friendships);
+  $$NotificationsTableTableManager get notifications =>
+      $$NotificationsTableTableManager(_db, _db.notifications);
+  $$MessagesTableTableManager get messages =>
+      $$MessagesTableTableManager(_db, _db.messages);
+  $$TradeProposalsTableTableManager get tradeProposals =>
+      $$TradeProposalsTableTableManager(_db, _db.tradeProposals);
+  $$UserFollowsTableTableManager get userFollows =>
+      $$UserFollowsTableTableManager(_db, _db.userFollows);
+  $$CardReputationVotesTableTableManager get cardReputationVotes =>
+      $$CardReputationVotesTableTableManager(_db, _db.cardReputationVotes);
+  $$PostVotesTableTableManager get postVotes =>
+      $$PostVotesTableTableManager(_db, _db.postVotes);
+  $$PostReactionsTableTableManager get postReactions =>
+      $$PostReactionsTableTableManager(_db, _db.postReactions);
+  $$CommentReactionsTableTableManager get commentReactions =>
+      $$CommentReactionsTableTableManager(_db, _db.commentReactions);
+  $$SavedPostsTableTableManager get savedPosts =>
+      $$SavedPostsTableTableManager(_db, _db.savedPosts);
 }

@@ -36,6 +36,9 @@ class RandomizerService {
   /// Read-only snapshot of the past randomizer history (most recent first).
   List<RandomizerHistoryEntry> get history => List.unmodifiable(_history);
 
+  /// Convenience getter for the 5 most recent randomizer history entries.
+  List<RandomizerHistoryEntry> get recentRolls => _history.take(5).toList();
+
   /// Resets the running coin flip tally.
   void resetTally() {
     _headsCount = 0;
@@ -105,6 +108,21 @@ class RandomizerService {
   DiceRollResult rollDiceDetailed(DiceType type) {
     rollDice(type);
     return _history.first.diceResult!;
+  }
+
+  /// Rolls a custom N-sided die where [sides] >= 2.
+  int rollCustomDice(int sides) {
+    final safeSides = sides < 2 ? 2 : sides;
+    final value = _random.nextInt(safeSides) + 1;
+    _recordHistory(
+      RandomizerHistoryEntry(
+        id: 'custom_${DateTime.now().microsecondsSinceEpoch}',
+        type: RandomizerEntryType.dice,
+        summary: 'D$safeSides Roll: $value',
+        timestamp: DateTime.now(),
+      ),
+    );
+    return value;
   }
 
   /// Selects a random player seat index from active players (`0` to `activePlayerCount - 1`).

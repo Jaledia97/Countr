@@ -377,6 +377,7 @@ void main() {
         isRegistered: false,
         isAssembled: false,
         isCompetitive: false, isDeleted: false,
+        isCloned: false,
       );
 
       await tester.pumpWidget(

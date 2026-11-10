@@ -699,7 +699,7 @@ void main() {
       // Verify dirty pre-reset life visible in tree (e.g. 52, 12, 8, 3, 29, 41)
       expect(find.text('52'), findsOneWidget);
       expect(find.text('12'), findsOneWidget);
-      expect(find.text('8'), findsOneWidget);
+      expect(find.byKey(const Key('life_display_p2')), findsOneWidget);
       expect(find.text('3'), findsOneWidget);
 
       // Open Center Crossroads -> RandomizerHubModal -> Reset Game
@@ -958,6 +958,7 @@ void main() {
             losses: 0,
             draws: 0,
             isDeleted: false,
+            isCloned: false,
           ),
         ),
       ];

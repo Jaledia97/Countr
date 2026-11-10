@@ -2,12 +2,15 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
+import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:drift/drift.dart';
 
+import 'package:countr/core/cache/countr_cached_image.dart';
 import 'package:countr/core/database/app_database.dart';
 import 'package:countr/features/decks/data/services/fallback_explore_seeds.dart';
+import 'package:countr/features/decks/data/services/precon_hydration_service.dart';
 
 /// Service responsible for offline parsing and ingestion of MTGJSON precons
 /// and mock community decks into local SQLite via Drift.
@@ -49,7 +52,11 @@ class ExploreSeederService {
   }
 
   /// Idempotently seeds bundled MTG precons and community decks off the UI thread.
-  static Future<void> seedIfNeeded(AppDatabase db, {bool force = false}) async {
+  static Future<void> seedIfNeeded(
+    AppDatabase db, {
+    bool force = false,
+    int minOfficialDecks = 12,
+  }) async {
     if (Zone.current[_exploreZoneKey] == true) {
       debugPrint('[ExploreSeederService] Re-entrant call detected; skipping to prevent self-await deadlock.');
       return;
@@ -57,7 +64,7 @@ class ExploreSeederService {
 
     if (Zone.current[AppDatabase.beforeOpenZoneKey] == true) {
       debugPrint('[ExploreSeederService] Call from within beforeOpen detected; deferring to microtask to prevent deadlock.');
-      Zone.root.scheduleMicrotask(() => seedIfNeeded(db, force: force));
+      Zone.root.scheduleMicrotask(() => seedIfNeeded(db, force: force, minOfficialDecks: minOfficialDecks));
       return;
     }
 
@@ -65,13 +72,13 @@ class ExploreSeederService {
       try {
         await _activeSeedFuture;
       } catch (_) {}
-      if (!force && await isExploreCatalogSeeded(db)) {
+      if (!force && await isExploreCatalogSeeded(db, minOfficialDecks: minOfficialDecks)) {
         return;
       }
     }
 
     final future = runZoned(
-      () => _executeSeed(db, force: force),
+      () => _executeSeed(db, force: force, minOfficialDecks: minOfficialDecks),
       zoneValues: {_exploreZoneKey: true},
     );
     _activeSeedFuture = future;
@@ -84,15 +91,30 @@ class ExploreSeederService {
     }
   }
 
-  static Future<void> _executeSeed(AppDatabase db, {required bool force}) async {
+  static Future<void> _executeSeed(
+    AppDatabase db, {
+    required bool force,
+    int minOfficialDecks = 12,
+  }) async {
+    // 1. Startup repair pass
+    await PreconHydrationService.repairArtSeriesCards(db);
+
     if (!force) {
-      final alreadySeeded = await isExploreCatalogSeeded(db);
+      final alreadySeeded = await isExploreCatalogSeeded(
+        db,
+        minOfficialDecks: minOfficialDecks,
+      );
       if (alreadySeeded) {
         debugPrint(
           '[ExploreSeederService] Explore catalog already populated with official & community decks. Skipping seed.',
         );
         return;
       }
+    }
+
+    if (minOfficialDecks >= 500) {
+      await hydrateFullCatalogIfNeeded(db, force: force);
+      return;
     }
 
     // 1. Offload JSON decoding and normalization to background isolate
@@ -148,6 +170,54 @@ class ExploreSeederService {
     });
   }
 
+  /// Decompresses and hydrates the 500+ official MTGJSON preconstructed decks
+  /// bundle (`assets/data/official_precons.json.gz`) into SQLite if official deck count < 500.
+  static Future<void> hydrateFullCatalogIfNeeded(
+    AppDatabase db, {
+    bool force = false,
+    String? bundlePath,
+  }) async {
+    if (!force) {
+      final isHydrated = await isExploreCatalogSeeded(db, minOfficialDecks: 500);
+      if (isHydrated) return;
+    }
+
+    final path = bundlePath ?? 'assets/data/official_precons.json.gz';
+    Uint8List? bytes;
+    try {
+      final f = File(path);
+      if (f.existsSync()) bytes = f.readAsBytesSync();
+    } catch (_) {}
+
+    if (bytes == null) {
+      try {
+        final bd = await rootBundle.load(path);
+        bytes = bd.buffer.asUint8List();
+      } catch (_) {}
+    }
+
+    if (bytes != null && bytes.isNotEmpty) {
+      final rawDecks = await parseGzDecksInIsolate(bytes);
+      await seedFromRawDecks(db, rawDecks);
+    }
+  }
+
+  /// Parses gzipped raw decks JSON bytes in a background isolate.
+  static Future<List<Map<String, dynamic>>> parseGzDecksInIsolate(Uint8List bytes) {
+    if (Platform.environment.containsKey('FLUTTER_TEST')) {
+      final isGzip = bytes.length >= 2 && bytes[0] == 0x1f && bytes[1] == 0x8b;
+      final payload = isGzip ? gzip.decode(bytes) : bytes;
+      final jsonStr = utf8.decode(payload);
+      return Future.value((jsonDecode(jsonStr) as List).cast<Map<String, dynamic>>());
+    }
+    return Isolate.run(() {
+      final isGzip = bytes.length >= 2 && bytes[0] == 0x1f && bytes[1] == 0x8b;
+      final payload = isGzip ? gzip.decode(bytes) : bytes;
+      final jsonStr = utf8.decode(payload);
+      return (jsonDecode(jsonStr) as List).cast<Map<String, dynamic>>();
+    });
+  }
+
   /// Ingests a list of raw deck Maps into SQLite in chunked transactions.
   static Future<void> seedFromRawDecks(
     AppDatabase db,
@@ -190,6 +260,31 @@ class ExploreSeederService {
         tagsStr = null;
       }
 
+      // Sanitize commander using strict art series / memorabilia predicate
+      String? cmdrName = commander?['name'] as String?;
+      String? cmdrImg = commander?['image_url'] as String?;
+      String? cmdrCrop = commander?['art_crop_url'] as String?;
+      if (cmdrName != null && cmdrName.isNotEmpty) {
+        final isCmdrArtSeries = (cmdrImg != null && cmdrImg.contains('art_series')) ||
+            (cmdrCrop != null && cmdrCrop.contains('art_series')) ||
+            cmdrName.toLowerCase().contains('art card') ||
+            cmdrName.toLowerCase().contains('art series') ||
+            (cmdrName.contains('//') &&
+                cmdrName.split('//')[0].trim().toLowerCase() ==
+                    cmdrName.split('//')[1].trim().toLowerCase());
+        if (isCmdrArtSeries || (cmdrImg != null && cmdrImg.contains('/art_crop/'))) {
+          final clean = cmdrName.contains('//')
+              ? cmdrName.split('//').first.trim()
+              : cmdrName.trim();
+          cmdrName = clean
+              .replaceAll(RegExp(r'\s*\((?:Art Card|Art Series)\)', caseSensitive: false), '')
+              .replaceAll(RegExp(r'\s*-\s*(?:Art Card|Art Series)', caseSensitive: false), '')
+              .trim();
+          cmdrImg = CountrCachedImage.buildScryfallNamedUrl(cmdrName, version: 'normal');
+          cmdrCrop = CountrCachedImage.buildScryfallNamedUrl(cmdrName, version: 'art_crop');
+        }
+      }
+
       deckCompanions.add(ExploreDecksCompanion.insert(
         id: deckId,
         name: d['name'] as String,
@@ -197,10 +292,11 @@ class ExploreSeederService {
         tcgDomain: Value(d['tcg_domain'] as String? ?? 'mtg'),
         sourceType: Value(d['source_type'] as String? ?? 'official'),
         creatorName: Value(d['creator_name'] as String? ?? 'Wizards of the Coast'),
+        authorId: Value(d['author_id'] as String? ?? d['authorId'] as String?),
         description: Value(d['description'] as String?),
-        commanderName: Value(commander?['name'] as String?),
-        commanderImageUrl: Value(commander?['image_url'] as String?),
-        commanderArtCrop: Value(commander?['art_crop_url'] as String?),
+        commanderName: Value(cmdrName),
+        commanderImageUrl: Value(cmdrImg),
+        commanderArtCrop: Value(cmdrCrop),
         colorIdentity: Value(jsonEncode(colorList)),
         cardCount: Value(cardCount),
         estimatedPrice: Value(estimatedPrice),
@@ -223,10 +319,13 @@ class ExploreSeederService {
             ? (colorsVal is List ? jsonEncode(colorsVal) : colorsVal.toString())
             : null;
 
+        final isCommander = (commander['is_commander'] as bool?) ??
+            (commander['board_zone'] == 'Commander' || commander['board_zone'] == null);
+
         itemCompanions.add(ExploreDeckItemsCompanion.insert(
           id: '${deckId}_commander',
           exploreDeckId: deckId,
-          cardName: commander['name'] as String,
+          cardName: cmdrName ?? (commander['name'] as String),
           scryfallId: Value(commander['scryfall_id'] as String?),
           oracleId: Value(commander['oracle_id'] as String?),
           quantity: Value((commander['count'] as num?)?.toInt() ?? 1),
@@ -235,10 +334,10 @@ class ExploreSeederService {
           cmc: Value((commander['cmc'] as num?)?.toDouble()),
           typeLine: Value(commander['type_line'] as String?),
           colors: Value(colorsStr),
-          imageUrl: Value(commander['image_url'] as String?),
-          artCropUrl: Value(commander['art_crop_url'] as String?),
+          imageUrl: Value(cmdrImg ?? (commander['image_url'] as String?)),
+          artCropUrl: Value(cmdrCrop ?? (commander['art_crop_url'] as String?)),
           price: Value((commander['price'] as num?)?.toDouble()),
-          isCommander: const Value(true),
+          isCommander: Value(isCommander),
           isDeleted: const Value(false),
         ));
       }
@@ -273,9 +372,23 @@ class ExploreSeederService {
       }
     }
 
-    await db.batch((b) {
-      b.insertAll(db.exploreDecks, deckCompanions, mode: InsertMode.insertOrReplace);
-      b.insertAll(db.exploreDeckItems, itemCompanions, mode: InsertMode.insertOrReplace);
+    // Execute chunked insertions in transaction (chunkSize <= 250)
+    await db.transaction(() async {
+      for (var i = 0; i < deckCompanions.length; i += 250) {
+        final chunk = deckCompanions.sublist(
+          i,
+          math.min(i + 250, deckCompanions.length),
+        );
+        await db.batch((b) => b.insertAll(db.exploreDecks, chunk, mode: InsertMode.insertOrReplace));
+      }
+      for (var i = 0; i < itemCompanions.length; i += 250) {
+        final chunk = itemCompanions.sublist(
+          i,
+          math.min(i + 250, itemCompanions.length),
+        );
+        await db.batch((b) => b.insertAll(db.exploreDeckItems, chunk, mode: InsertMode.insertOrReplace));
+      }
     });
   }
 }
+

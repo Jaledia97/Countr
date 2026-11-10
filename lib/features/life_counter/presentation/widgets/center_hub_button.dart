@@ -13,6 +13,9 @@ class CenterHubButton extends StatelessWidget {
   /// Callback triggered when the center hub button is tapped.
   final VoidCallback? onPressed;
 
+  /// Callback triggered when the center hub button is long-pressed.
+  final VoidCallback? onLongPress;
+
   /// Diameter of the circular button. Defaults to 48.0 (standard 48–56px).
   final double size;
 
@@ -47,6 +50,7 @@ class CenterHubButton extends StatelessWidget {
   const CenterHubButton({
     super.key,
     this.onPressed,
+    this.onLongPress,
     this.size = 48.0,
     this.icon = Icons.casino,
     this.iconColor = Colors.amberAccent,
@@ -100,6 +104,12 @@ class CenterHubButton extends StatelessWidget {
                     : () {
                         HapticFeedback.lightImpact();
                         onPressed!();
+                      },
+                onLongPress: onLongPress == null
+                    ? null
+                    : () {
+                        HapticFeedback.mediumImpact();
+                        onLongPress!();
                       },
                 child: Center(
                   child: Icon(

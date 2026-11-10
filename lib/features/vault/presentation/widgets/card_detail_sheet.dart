@@ -7,20 +7,27 @@ import 'package:countr/core/constants/app_colors.dart';
 import 'package:countr/core/constants/app_typography.dart';
 import 'package:countr/core/database/app_database.dart';
 import 'package:countr/core/cache/countr_cached_image.dart';
+import 'package:countr/core/cache/card_image_and_data_cache_resolver.dart';
 import 'package:countr/core/state/app_state.dart';
-import 'package:countr/features/hydration/domain/isolate/scryfall_parser.dart';
 import 'package:countr/features/hydration/domain/models/scryfall_ruling.dart';
 import 'package:countr/features/hydration/presentation/providers/hydration_providers.dart';
 import 'package:countr/features/vault/domain/mtg_keyword_glossary.dart';
 import 'package:countr/features/vault/domain/vault_pricing_helper.dart';
 import 'package:countr/features/vault/presentation/providers/vault_providers.dart';
+import 'package:countr/features/vault/data/daos/card_reputation_dao.dart';
 import 'package:countr/features/vault/presentation/widgets/edit_card_modal.dart';
 import 'package:countr/features/vault/presentation/widgets/full_screen_card_viewer.dart';
 import 'package:countr/features/vault/presentation/widgets/switch_printing_modal.dart';
-import 'package:countr/features/vault/presentation/widgets/variant_price_chart.dart';
+import 'package:countr/features/vault/presentation/widgets/versions_printings_modal.dart';
 import 'package:countr/features/decks/presentation/widgets/conflict_resolution_modal.dart';
 import 'package:countr/features/decks/presentation/providers/deck_providers.dart';
 import 'package:countr/features/decks/data/mock_deck_data.dart';
+import 'package:flutter/services.dart';
+import 'package:countr/features/auth/presentation/providers/auth_providers.dart';
+import 'package:countr/features/profile/presentation/providers/profile_providers.dart';
+import 'package:countr/features/feed/presentation/widgets/post_composer_modal.dart';
+import 'package:countr/features/feed/presentation/providers/inbox_providers.dart';
+import 'package:countr/features/feed/presentation/providers/friends_providers.dart';
 import 'package:countr/features/symbology/presentation/widgets/mana_cost_bar.dart';
 import 'package:countr/features/symbology/presentation/widgets/mana_text.dart';
 import 'package:countr/features/values/presentation/widgets/locked_values_view.dart';
@@ -44,6 +51,7 @@ enum CardDetailTab { details, valuesTab }
 class CardDetailSheet extends ConsumerStatefulWidget {
   final VaultItem? item;
   final List<VaultItem>? items;
+  final String? cardId;
   final int initialIndex;
   final ValueChanged<int>? onPageChanged;
   final bool fetchOnlinePrintings;
@@ -57,6 +65,7 @@ class CardDetailSheet extends ConsumerStatefulWidget {
     super.key,
     this.item,
     this.items,
+    this.cardId,
     this.initialIndex = 0,
     this.onPageChanged,
     this.fetchOnlinePrintings = false,
@@ -65,13 +74,17 @@ class CardDetailSheet extends ConsumerStatefulWidget {
     this.binderId,
     this.binder,
     this.boardZone,
-  }) : assert(item != null || (items != null && items.length > 0),
-            'Either item or a non-empty items list must be provided.');
+  }) : assert(item != null || (items != null && items.length > 0) || cardId != null,
+            'Either item, items, or cardId must be provided.');
 
   /// Opens the CardDetailSheet inside a draggable scrollable modal bottom sheet.
+  /// Supports passing either a [VaultItem] or a [cardId] (or both) for complete
+  /// deep hydration from SQLite.
   static Future<void> show(
     BuildContext context,
-    VaultItem item, {
+    dynamic itemOrCardId, {
+    String? cardId,
+    VaultItem? item,
     List<VaultItem>? items,
     int? initialIndex,
     ValueChanged<int>? onPageChanged,
@@ -82,8 +95,21 @@ class CardDetailSheet extends ConsumerStatefulWidget {
     VaultBinder? binder,
     String? boardZone,
   }) {
-    final effectiveItems = items ?? [item];
-    final effectiveIndex = initialIndex ?? (items != null ? items.indexOf(item) : 0);
+    VaultItem? resolvedItem;
+    String? resolvedCardId = cardId;
+
+    if (itemOrCardId is VaultItem) {
+      resolvedItem = itemOrCardId;
+      resolvedCardId ??= resolvedItem.id;
+    } else if (itemOrCardId is String) {
+      resolvedCardId = itemOrCardId;
+      resolvedItem = item;
+    } else if (itemOrCardId == null) {
+      resolvedItem = item;
+    }
+
+    final effectiveItems = items ?? (resolvedItem != null ? [resolvedItem] : null);
+    final effectiveIndex = initialIndex ?? (items != null && resolvedItem != null ? items.indexOf(resolvedItem) : 0);
     final resolvedIndex = effectiveIndex >= 0 ? effectiveIndex : 0;
 
     return showModalBottomSheet(
@@ -92,8 +118,9 @@ class CardDetailSheet extends ConsumerStatefulWidget {
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: 0.7),
       builder: (ctx) => CardDetailSheet(
-        item: item,
+        item: resolvedItem,
         items: effectiveItems,
+        cardId: resolvedCardId,
         initialIndex: resolvedIndex,
         onPageChanged: onPageChanged,
         fetchOnlinePrintings: fetchOnlinePrintings,
@@ -103,6 +130,38 @@ class CardDetailSheet extends ConsumerStatefulWidget {
         binder: binder,
         boardZone: boardZone,
       ),
+    );
+  }
+
+  /// Convenience helper to open CardDetailSheet by card ID directly.
+  static Future<void> showById(
+    BuildContext context, {
+    required String cardId,
+    VaultItem? initialItem,
+    List<VaultItem>? items,
+    int? initialIndex,
+    ValueChanged<int>? onPageChanged,
+    bool fetchOnlinePrintings = false,
+    String? deckId,
+    Deck? deck,
+    String? binderId,
+    VaultBinder? binder,
+    String? boardZone,
+  }) {
+    return show(
+      context,
+      cardId,
+      cardId: cardId,
+      item: initialItem,
+      items: items,
+      initialIndex: initialIndex,
+      onPageChanged: onPageChanged,
+      fetchOnlinePrintings: fetchOnlinePrintings,
+      deckId: deckId,
+      deck: deck,
+      binderId: binderId,
+      binder: binder,
+      boardZone: boardZone,
     );
   }
 
@@ -134,6 +193,156 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
   late final TextEditingController _notesController;
   bool _isSavingNotes = false;
   bool _isEditingNotes = false;
+  bool _isResolutionError = false;
+
+  final Map<String, int> _optimisticVotes = {};
+  final Map<String, int> _optimisticScores = {};
+
+  int _extractInitialScore(VaultItem item, Map<String, dynamic> itemData) {
+    try {
+      final dyn = item as dynamic;
+      if (dyn.reputationScore != null) return (dyn.reputationScore as num).toInt();
+    } catch (_) {}
+    if (itemData.isNotEmpty) {
+      final score = itemData['reputation_score'] ?? itemData['score'];
+      if (score != null) return (score as num).toInt();
+    }
+    return 0;
+  }
+
+  int _extractInitialUserVote(VaultItem item, Map<String, dynamic> itemData) {
+    if (itemData.isNotEmpty) {
+      final vote = itemData['user_vote'] ?? itemData['vote'];
+      if (vote != null) return (vote as num).toInt();
+    }
+    return 0;
+  }
+
+  void _handleReputationVote(
+    VaultItem item,
+    int currentVote,
+    int currentScore, {
+    required int targetVote,
+  }) {
+    final int newVote;
+    if (currentVote == targetVote) {
+      newVote = 0; // Toggle to neutral
+    } else {
+      newVote = targetVote;
+    }
+
+    final delta = newVote - currentVote;
+    final newScore = currentScore + delta;
+
+    setState(() {
+      _optimisticVotes[item.id] = newVote;
+      _optimisticScores[item.id] = newScore;
+    });
+
+    try {
+      ref.read(cardReputationDaoProvider).castVote(
+        cardId: item.id,
+        targetVote: targetVote,
+        toggle: true,
+      ).catchError((e) {
+        debugPrint('[CardDetailSheet] Failed to persist reputation vote: $e');
+        return const CardVoteResult(newVote: 0, newScore: 0, upvotes: 0, downvotes: 0);
+      });
+    } catch (e) {
+      debugPrint('[CardDetailSheet] Exception invoking cardReputationDaoProvider: $e');
+    }
+  }
+
+  Widget _buildReputationCluster(
+    VaultItem item,
+    Map<String, dynamic> itemData, {
+    bool isCompact = false,
+    bool isUltraCompact = false,
+  }) {
+    CardReputationSummary? liveSummary;
+    try {
+      final repAsync = ref.watch(cardReputationProvider(item.id));
+      liveSummary = repAsync.asData?.value;
+    } catch (_) {}
+
+    final initialScore = _extractInitialScore(item, itemData);
+    final initialVote = _extractInitialUserVote(item, itemData);
+
+    final currentScore = _optimisticScores[item.id] ?? (liveSummary?.score ?? initialScore);
+    final currentVote = _optimisticVotes[item.id] ?? (liveSummary?.userVote ?? initialVote);
+
+    final isUpvoted = currentVote == 1;
+    final isDownvoted = currentVote == -1;
+
+    final Color scoreColor;
+    if (isUpvoted) {
+      scoreColor = AppColors.accentEmerald;
+    } else if (isDownvoted) {
+      scoreColor = AppColors.accentAmber;
+    } else {
+      scoreColor = AppColors.textPrimary;
+    }
+
+    final double iconSize = isUltraCompact ? 14 : (isCompact ? 16 : 18);
+    final double fontSize = isUltraCompact ? 10.5 : (isCompact ? 11.5 : 12.5);
+
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: isUltraCompact ? 4 : (isCompact ? 6 : 8),
+        vertical: isUltraCompact ? 1 : 2,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceRaised,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.surfaceBorderSubtle),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Upvote button
+          InkWell(
+            key: const Key('card_detail_upvote_button'),
+            borderRadius: BorderRadius.circular(8),
+            onTap: () => _handleReputationVote(item, currentVote, currentScore, targetVote: 1),
+            child: Padding(
+              padding: const EdgeInsets.all(2),
+              child: Icon(
+                Icons.arrow_upward_rounded,
+                size: iconSize,
+                color: isUpvoted ? AppColors.accentEmerald : AppColors.textMuted,
+              ),
+            ),
+          ),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: isUltraCompact ? 2 : 4),
+            child: Text(
+              '$currentScore',
+              key: const Key('card_detail_reputation_score'),
+              style: TextStyle(
+                color: scoreColor,
+                fontSize: fontSize,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          // Downvote button
+          InkWell(
+            key: const Key('card_detail_downvote_button'),
+            borderRadius: BorderRadius.circular(8),
+            onTap: () => _handleReputationVote(item, currentVote, currentScore, targetVote: -1),
+            child: Padding(
+              padding: const EdgeInsets.all(2),
+              child: Icon(
+                Icons.arrow_downward_rounded,
+                size: iconSize,
+                color: isDownvoted ? AppColors.accentAmber : AppColors.textMuted,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -149,7 +358,54 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
       _currentIndex = 0;
     }
 
-    _currentItem = _items.isNotEmpty ? _items[_currentIndex] : widget.item!;
+    if (_items.isNotEmpty) {
+      _currentItem = _items[_currentIndex];
+    } else {
+      final initialId = widget.cardId ?? (widget.item?.id ?? '');
+      String initialName = 'Loading...';
+      final lowerId = initialId.toLowerCase();
+      String? matchedPrefix;
+      for (final prefix in const [
+        'item-mtg-',
+        'item-pokemon-',
+        'item-yugioh-',
+        'item-lorcana-',
+        'item-starwars-',
+      ]) {
+        if (lowerId.startsWith(prefix)) {
+          matchedPrefix = prefix;
+          break;
+        }
+      }
+      if (matchedPrefix != null) {
+        final slugCore = initialId.substring(matchedPrefix.length);
+        final cleanWords = slugCore.split('-').map((w) => w.trim()).where((w) => w.isNotEmpty).toList();
+        if (cleanWords.isNotEmpty) {
+          initialName = cleanWords.map((w) => w[0].toUpperCase() + w.substring(1).toLowerCase()).join(' ');
+        }
+      }
+      _currentItem = widget.item ??
+          VaultItem(
+            id: initialId,
+            collectionType: 'mtg',
+            name: initialName,
+            setOrSeries: '',
+            imageUrl: '',
+            acquiredPrice: 0.0,
+            acquiredDate: DateTime.now(),
+            quantity: 0,
+            condition: 'Near Mint',
+            isGraded: false,
+            isAltered: false,
+            isMisprint: false,
+            isSigned: false,
+            isDeleted: false,
+            currentMarketPrice: 0.0,
+            lastPriceUpdate: DateTime.now(),
+            dynamicData: '{}',
+          );
+      _items = [_currentItem];
+    }
     _pageController = PageController(initialPage: _currentIndex);
     _notesController = TextEditingController(text: _currentItem.personalNotes ?? _currentItem.notes ?? '');
     _flipController = AnimationController(
@@ -162,9 +418,11 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
     );
     _parseDynamicData();
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _hydrateCardFromDatabase();
+      _ensureCatalogFallback();
       _fetchAndCacheRulings();
-      _healMissingMultiFaceData();
+      _resolveMissingCardData();
     });
   }
 
@@ -180,6 +438,9 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
   @override
   void didUpdateWidget(CardDetailSheet oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (widget.cardId != oldWidget.cardId && widget.cardId != null) {
+      _hydrateCardFromDatabase();
+    }
     if (widget.items != null && widget.items != oldWidget.items) {
       _items = List<VaultItem>.from(widget.items!);
       if (_currentIndex >= _items.length) {
@@ -198,6 +459,192 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
     }
   }
 
+  Future<void> _hydrateCardFromDatabase() async {
+    // 1. Prioritize active item in carousel to avoid stale widget.cardId desync
+    final currentCard = (_items.isNotEmpty && _currentIndex < _items.length)
+        ? _items[_currentIndex]
+        : _currentItem;
+    final targetId = currentCard.id.isNotEmpty
+        ? currentCard.id
+        : (widget.cardId ?? '');
+    if (targetId.isEmpty) return;
+
+    try {
+      final dao = ref.read(vaultDaoProvider);
+      final resolver = ref.read(cardImageAndDataCacheResolverProvider);
+
+      // 1. Unified identifier resolution (handles cards.id, scryfall_id, collection_items.id, and slugs)
+      VaultItem? hydrated = await dao.findCatalogCard(identifier: targetId);
+      hydrated ??= await resolver.resolveByIdentifier(targetId);
+      hydrated ??= await dao.getItemById(targetId);
+
+      // Fallback to legacy field-specific lookup if not resolved
+      if (hydrated == null) {
+        String? scryfallId;
+        String? oracleId;
+        if (currentCard.dynamicData.isNotEmpty && currentCard.dynamicData != '{}') {
+          try {
+            final data = jsonDecode(currentCard.dynamicData) as Map<String, dynamic>;
+            scryfallId = data['scryfall_id']?.toString() ?? data['id']?.toString();
+            oracleId = data['oracle_id']?.toString();
+          } catch (_) {}
+        }
+        final isUuid = RegExp(r'^[0-9a-fA-F-]{36}$').hasMatch(targetId);
+        if (scryfallId != null || oracleId != null || isUuid || (currentCard.name.isNotEmpty && currentCard.name != 'Loading...')) {
+          hydrated = await dao.findCatalogCard(
+            scryfallId: scryfallId ?? (isUuid ? targetId : null),
+            oracleId: oracleId,
+            name: (currentCard.name.isNotEmpty && currentCard.name != 'Loading...') ? currentCard.name : null,
+          );
+        }
+      }
+
+      // 2. Update state only if a genuine match was found
+      if (hydrated != null && mounted) {
+        // Backfill SQLite record if this was an owned stub
+        if (currentCard.quantity > 0 && !resolver.isCardComplete(currentCard)) {
+          await resolver.resolveCardDataAndImage(currentCard);
+        }
+
+        final currentSet = (_parseItemData(currentCard)['set'] ?? _parseItemData(currentCard)['set_code'] ?? currentCard.setOrSeries).toString().toLowerCase().trim();
+        final currentCollector = _parseItemData(currentCard)['collector_number']?.toString().trim();
+        final hydratedSet = (_parseItemData(hydrated)['set'] ?? _parseItemData(hydrated)['set_code'] ?? hydrated.setOrSeries).toString().toLowerCase().trim();
+        final hydratedCollector = _parseItemData(hydrated)['collector_number']?.toString().trim();
+
+        final isSamePrinting = currentSet.isEmpty ||
+            hydratedSet.isEmpty ||
+            (currentSet == hydratedSet && (currentCollector == null || currentCollector.isEmpty || currentCollector == hydratedCollector));
+
+        if (isSamePrinting || currentCard.dynamicData.isEmpty || currentCard.dynamicData == '{}') {
+          final card = hydrated;
+          setState(() {
+            _currentItem = card;
+            _isResolutionError = false;
+            if (_items.isEmpty) {
+              _items = [card];
+              _currentIndex = 0;
+            } else {
+              final idx = _items.indexWhere((it) => it.id == targetId || it.id == card.id);
+              if (idx >= 0) {
+                _items[idx] = card;
+              } else if (_currentIndex < _items.length && (_items[_currentIndex].id == targetId || _items[_currentIndex].name == card.name)) {
+                _items[_currentIndex] = card;
+              }
+            }
+            _notesController.text = _currentItem.personalNotes ?? _currentItem.notes ?? '';
+            _parseDynamicData();
+            _fetchAndCacheRulings();
+          });
+        }
+      } else if (hydrated == null && mounted) {
+        // If resolution yielded no catalog match, check if current item has usable artwork/metadata.
+        // If not (e.g. unknown slug or unknown UUID stub), activate resolution error state (B19.3 & F19-EMP-8).
+        final hasUsableData = _currentItem.imageUrl.isNotEmpty ||
+            (_currentItem.dynamicData.isNotEmpty &&
+                _currentItem.dynamicData != '{}' &&
+                _currentItem.dynamicData != 'null');
+        if (!hasUsableData) {
+          setState(() {
+            _isResolutionError = true;
+          });
+          return;
+        }
+      }
+
+      if (!_isResolutionError) {
+        await _resolveMissingCardData();
+      }
+    } catch (e) {
+      debugPrint('[CardDetailSheet._hydrateCardFromDatabase] Error hydrating card $targetId: $e');
+      if (mounted) {
+        final hasUsableData = _currentItem.imageUrl.isNotEmpty ||
+            (_currentItem.dynamicData.isNotEmpty &&
+                _currentItem.dynamicData != '{}' &&
+                _currentItem.dynamicData != 'null');
+        if (!hasUsableData) {
+          setState(() {
+            _isResolutionError = true;
+          });
+        }
+      }
+    }
+  }
+
+  Future<void> _ensureCatalogFallback() async {
+    if (!mounted || !_isMtgCard()) return;
+    final itemData = _parseItemData(_currentItem);
+    final hasOracle = (itemData['oracle_text']?.toString().trim().isNotEmpty ?? false) ||
+        (itemData['card_faces'] is List && (itemData['card_faces'] as List).isNotEmpty);
+    final hasLegalities = itemData['legalities'] is Map && (itemData['legalities'] as Map).isNotEmpty;
+
+    if (!hasOracle || !hasLegalities || _currentItem.imageUrl.isEmpty) {
+      try {
+        final dao = ref.read(vaultDaoProvider);
+        final catalogCard = await dao.findCatalogCard(
+          scryfallId: itemData['scryfall_id']?.toString() ?? itemData['id']?.toString(),
+          oracleId: itemData['oracle_id']?.toString(),
+          name: _currentItem.name,
+        );
+        if (catalogCard != null && catalogCard.dynamicData.isNotEmpty) {
+          final catalogData = jsonDecode(catalogCard.dynamicData) as Map<String, dynamic>;
+          final currentSet = (itemData['set'] ?? itemData['set_code'] ?? _currentItem.setOrSeries).toString().toLowerCase().trim();
+          final currentCollector = itemData['collector_number']?.toString().trim();
+          final catSet = (catalogData['set'] ?? catalogData['set_code'] ?? catalogCard.setOrSeries).toString().toLowerCase().trim();
+          final catCollector = catalogData['collector_number']?.toString().trim();
+
+          final isSamePrinting = currentSet.isEmpty ||
+              catSet.isEmpty ||
+              (currentSet == catSet && (currentCollector == null || currentCollector.isEmpty || currentCollector == catCollector));
+
+          if (!isSamePrinting && hasOracle && _currentItem.imageUrl.isNotEmpty) {
+            return;
+          }
+
+          final merged = Map<String, dynamic>.from(catalogData);
+          if (itemData['cached_rulings'] != null) merged['cached_rulings'] = itemData['cached_rulings'];
+          if (itemData['deck_history'] != null) merged['deck_history'] = itemData['deck_history'];
+          if (itemData['personal_notes'] != null) merged['personal_notes'] = itemData['personal_notes'];
+          if (currentCollector != null && currentCollector.isNotEmpty) merged['collector_number'] = currentCollector;
+          if (currentSet.isNotEmpty) merged['set'] = currentSet;
+
+          final newDynamicStr = jsonEncode(merged);
+          final newImg = (_currentItem.imageUrl.isEmpty ||
+                  !_currentItem.imageUrl.startsWith('http') ||
+                  _currentItem.imageUrl.contains('12a34567') ||
+                  _currentItem.imageUrl.contains('722a3456'))
+              ? catalogCard.imageUrl
+              : _currentItem.imageUrl;
+
+          final updated = _currentItem.copyWith(
+            name: (_currentItem.name.isEmpty || _currentItem.name == 'Loading...') ? catalogCard.name : _currentItem.name,
+            setOrSeries: _currentItem.setOrSeries.isEmpty ? catalogCard.setOrSeries : _currentItem.setOrSeries,
+            imageUrl: newImg.isNotEmpty ? newImg : _currentItem.imageUrl,
+            currentMarketPrice: _currentItem.currentMarketPrice > 0 ? _currentItem.currentMarketPrice : catalogCard.currentMarketPrice,
+            dynamicData: newDynamicStr,
+          );
+
+          if (mounted) {
+            setState(() {
+              _currentItem = updated;
+              if (_currentIndex < _items.length) {
+                _items[_currentIndex] = updated;
+              }
+              _parseDynamicData();
+            });
+          }
+
+          await dao.updateItemMetadata(
+            _currentItem.id,
+            imageUrl: newImg.isNotEmpty ? newImg : null,
+            dynamicData: newDynamicStr,
+          );
+        }
+      } catch (e, stackTrace) {
+        debugPrint('[CardDetailSheet._ensureCatalogFallback] Error: $e\n$stackTrace');
+      }
+    }
+  }
+
   void _syncCurrentItem() {
     if (_items.isNotEmpty && _currentIndex < _items.length) {
       _currentItem = _items[_currentIndex];
@@ -211,8 +658,12 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
     _isRulingsExpanded = false;
     _flipController.reset();
     _parseDynamicData();
+    if (_currentItem.dynamicData.isEmpty || _currentItem.dynamicData == '{}') {
+      _hydrateCardFromDatabase();
+    }
+    _ensureCatalogFallback();
     _fetchAndCacheRulings();
-    _healMissingMultiFaceData();
+    _resolveMissingCardData();
   }
 
   void _onPageChanged(int index) {
@@ -243,7 +694,7 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
           }
         }
         _fetchAndCacheRulings();
-        _healMissingMultiFaceData();
+        _resolveMissingCardData();
       }
     });
   }
@@ -417,9 +868,6 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
   }
 
   bool _isAdventureCardForItem(VaultItem item, Map<String, dynamic> data) {
-    if (item.id == _currentItem.id) {
-      return _isAdventureCard();
-    }
     final layout = data['layout']?.toString().toLowerCase() ?? '';
     if (layout == 'adventure') return true;
 
@@ -432,13 +880,20 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
       if (faceType.contains('adventure')) return true;
     }
 
-    final rawJson = item.dynamicData.toLowerCase();
-    return rawJson.contains('"layout":"adventure"') ||
+    final rawJson = '${item.dynamicData} ${_currentItem.dynamicData}'.toLowerCase();
+    if (rawJson.contains('"layout":"adventure"') ||
         rawJson.contains('"layout": "adventure"') ||
         rawJson.contains('instant — adventure') ||
         rawJson.contains('sorcery — adventure') ||
         rawJson.contains('instant - adventure') ||
-        rawJson.contains('sorcery - adventure');
+        rawJson.contains('sorcery - adventure')) {
+      return true;
+    }
+
+    if (item.id == _currentItem.id) {
+      return _isAdventureCard();
+    }
+    return false;
   }
 
   bool _isDfc() {
@@ -611,81 +1066,43 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
     return col == 'mtg' || col.contains('magic');
   }
 
-  Future<void> _healMissingMultiFaceData() async {
+  Future<void> _resolveMissingCardData() async {
     if (!mounted || !_isMtgCard()) return;
-    final hasCardFaces = _dynamicData['card_faces'] is List &&
-        (_dynamicData['card_faces'] as List).isNotEmpty;
-    final oracle = _dynamicData['oracle_text']?.toString() ?? '';
-    final isDfcName =
-        _currentItem.name.contains(' // ') || _currentItem.name.contains('//');
-    final isMissingFaceData =
-        isDfcName && (!hasCardFaces || oracle.trim().isEmpty);
-    final isMissingPrice = _currentItem.currentMarketPrice <= 0.0;
-    final isMissingImage = _currentItem.imageUrl.isEmpty;
-
-    if (!isMissingFaceData && !isMissingPrice && !isMissingImage) return;
-
+    final currentData = _parseItemData(_currentItem);
+    final hasRichData = (currentData['oracle_text']?.toString().trim().isNotEmpty ?? false) ||
+        (currentData['card_faces'] is List && (currentData['card_faces'] as List).isNotEmpty) ||
+        (currentData['layout']?.toString().trim().isNotEmpty ?? false);
+    if (hasRichData && _currentItem.imageUrl.isNotEmpty) {
+      return;
+    }
     try {
-      final scryfallId = _dynamicData['scryfall_id']?.toString() ??
-          _dynamicData['id']?.toString() ??
-          _currentItem.id;
-      final service = ref.read(scryfallServiceProvider);
-      final cardJson = await service.fetchCardDetails(
-        scryfallId: scryfallId,
-        name: _currentItem.name,
-      );
+      final resolver = ref.read(cardImageAndDataCacheResolverProvider);
+      if (!resolver.isCardComplete(_currentItem)) {
+        final resolved = await resolver.resolveCardDataAndImage(_currentItem);
+        if (mounted && resolved != _currentItem) {
+          final currentHasData = _currentItem.dynamicData.isNotEmpty && _currentItem.dynamicData != '{}';
+          final resolvedData = _parseItemData(resolved);
+          final resolvedHasData = resolvedData.isNotEmpty &&
+              (resolvedData['oracle_text'] != null ||
+                  resolvedData['card_faces'] != null ||
+                  resolvedData['layout'] != null);
 
-      if (cardJson != null && mounted) {
-        final companion = mapScryfallCardToCompanion(cardJson);
-        final newDynamic =
-            jsonDecode(companion.dynamicData.value) as Map<String, dynamic>;
-
-        if (_dynamicData['cached_rulings'] != null) {
-          newDynamic['cached_rulings'] = _dynamicData['cached_rulings'];
-        }
-        if (_dynamicData['deck_history'] != null) {
-          newDynamic['deck_history'] = _dynamicData['deck_history'];
-        }
-        final newDynamicStr = jsonEncode(newDynamic);
-
-        final newFlavor =
-            companion.flavorName.present ? companion.flavorName.value : null;
-        final newImage = companion.imageUrl.value;
-        final newPrice = companion.currentMarketPrice.value;
-
-        final dao = ref.read(vaultDaoProvider);
-        await dao.updateItemMetadata(
-          _currentItem.id,
-          flavorName: newFlavor,
-          imageUrl: newImage.isNotEmpty ? newImage : null,
-          currentMarketPrice: newPrice > 0 ? newPrice : null,
-          dynamicData: newDynamicStr,
-        );
-
-        if (mounted) {
-          setState(() {
-            _dynamicData = newDynamic;
-            _currentItem = _currentItem.copyWith(
-              flavorName: Value(newFlavor ?? _currentItem.flavorName),
-              imageUrl:
-                  newImage.isNotEmpty ? newImage : _currentItem.imageUrl,
-              currentMarketPrice: newPrice > 0
-                  ? newPrice
-                  : _currentItem.currentMarketPrice,
-              dynamicData: newDynamicStr,
-            );
-            if (_currentIndex < _items.length) {
-              _items[_currentIndex] = _currentItem;
-            }
-            if (_isFlipped && _hasFlipArt) {
-              _flipController.value = 1.0;
-            }
-          });
+          if (!currentHasData || resolvedHasData) {
+            setState(() {
+              _currentItem = resolved;
+              if (_items.isNotEmpty && _currentIndex < _items.length) {
+                _items[_currentIndex] = resolved;
+              }
+              _parseDynamicData();
+              if (_isFlipped && _hasFlipArt) {
+                _flipController.value = 1.0;
+              }
+            });
+          }
         }
       }
     } catch (e, stackTrace) {
-      debugPrint('[CardDetailSheet._fetchOnlinePrintings] Failed: $e\n$stackTrace');
-      // Graceful offline fallback
+      debugPrint('[CardDetailSheet._resolveMissingCardData] Error: $e\n$stackTrace');
     }
   }
 
@@ -787,11 +1204,20 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
     final liveItemAsync = ref.watch(vaultItemProvider(_currentItem.id));
     final liveItem = liveItemAsync.asData?.value;
     if (liveItem != null && (liveItem != _currentItem || liveItem.dynamicData != _currentItem.dynamicData)) {
-      _currentItem = liveItem;
-      if (_currentIndex < _items.length) {
-        _items[_currentIndex] = liveItem;
+      final currentHasData = _currentItem.dynamicData.isNotEmpty && _currentItem.dynamicData != '{}';
+      final liveData = _parseItemData(liveItem);
+      final liveHasData = liveData.isNotEmpty &&
+          (liveData['oracle_text'] != null ||
+              liveData['card_faces'] != null ||
+              liveData['layout'] != null);
+
+      if (!currentHasData || liveHasData) {
+        _currentItem = liveItem;
+        if (_currentIndex < _items.length) {
+          _items[_currentIndex] = liveItem;
+        }
+        _parseDynamicData();
       }
-      _parseDynamicData();
     }
 
     return DraggableScrollableSheet(
@@ -828,14 +1254,61 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
                 ),
               ),
 
-              // Swiping Card View Area
-              Expanded(
-                child: PageView.builder(
-                  key: const Key('card_detail_page_view'),
-                  controller: _pageController,
-                  itemCount: _items.length,
-                  onPageChanged: _onPageChanged,
-                  itemBuilder: (pageCtx, index) {
+              // Swiping Card View Area or Error Tile
+              if (_isResolutionError)
+                Expanded(
+                  child: Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24.0),
+                      child: Container(
+                        key: const Key('card_detail_error_tile'),
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceBorder.withValues(alpha: 0.3),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: Colors.redAccent.withValues(alpha: 0.5)),
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.error_outline, size: 48, color: Colors.redAccent),
+                            const SizedBox(height: 12),
+                            const Text(
+                              'Card not found',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Unable to locate details for "${_currentItem.id}".',
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: AppColors.textSecondary,
+                                fontSize: 13,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            ElevatedButton(
+                              onPressed: () => Navigator.of(context).pop(),
+                              child: const Text('Dismiss'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                )
+              else
+                Expanded(
+                  child: PageView.builder(
+                    key: const Key('card_detail_page_view'),
+                    controller: _pageController,
+                    itemCount: _items.length,
+                    onPageChanged: _onPageChanged,
+                    itemBuilder: (pageCtx, index) {
                     final item = _items[index];
                     final isCurrent = index == _currentIndex;
                     final activeScrollController = isCurrent ? scrollController : null;
@@ -844,9 +1317,11 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
                 ),
               ),
 
-              // Pinned Bottom Quick Action Bar
-              const Divider(height: 1, color: AppColors.surfaceBorderSubtle),
-              _buildQuickActionBar(context),
+              // Pinned Bottom Quick Action Bar (suppressed on resolution error)
+              if (!_isResolutionError) ...[
+                const Divider(height: 1, color: AppColors.surfaceBorderSubtle),
+                _buildQuickActionBar(context),
+              ],
             ],
           ),
         );
@@ -1002,6 +1477,8 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
                                   )
                                 : const SizedBox.shrink()),
                       ),
+                      _buildReputationCluster(item, itemData, isCompact: isCompact, isUltraCompact: isUltraCompact),
+                      const SizedBox(width: 6),
                       IconButton(
                         key: const Key('card_detail_close_button'),
                         tooltip: 'Close',
@@ -1400,6 +1877,10 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
   ) {
     final artistName = itemData['artist']?.toString() ??
         activeFace?['artist']?.toString() ??
+        '';
+    final collectorNumber = itemData['collector_number']?.toString() ??
+        activeFace?['collector_number']?.toString() ??
+        _dynamicData['collector_number']?.toString() ??
         '';
 
     return ListView(
@@ -1982,35 +2463,39 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
           ),
         ],
 
-        // Section 7: Variant & Price Chart Component
+        // Section 7: Variant & Price Chart Component (Inline Treatments)
         const SizedBox(height: 8),
-        VariantPriceChart(
-          item: item,
-          isPrivacyMode: _isPrivacyMode,
-          enableOnlineFetch: widget.fetchOnlinePrintings,
-          onPrintingSelected: isCurrent
-              ? (candidate) {
-                  setState(() {
-                    _previewCandidate = candidate;
-                  });
-                }
-              : null,
-          onPrintingChanged: (updated) {
-            setState(() {
-              _currentItem = updated;
-              _previewCandidate = null;
-              if (_items.isNotEmpty && _currentIndex < _items.length) {
-                _items[_currentIndex] = updated;
-              }
-              if (updated.dynamicData.isNotEmpty) {
-                try {
-                  _dynamicData = jsonDecode(updated.dynamicData) as Map<String, dynamic>;
-                } catch (e, stackTrace) {
-                  debugPrint('[CardDetailSheet] Failed decoding updated dynamicData: $e\n$stackTrace');
-                }
-              }
-            });
-          },
+        Container(
+          key: const Key('section_variant_price_chart'),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildSectionHeader(Icons.auto_awesome, 'Treatments'),
+              const SizedBox(height: 8),
+              _buildInlineTreatments(itemData),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  key: const Key('card_detail_see_more_versions_button'),
+                  icon: const Icon(Icons.style_outlined, size: 16, color: AppColors.accentCyan),
+                  label: const Text(
+                    'See More Versions & Printings',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.accentCyan),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                    side: const BorderSide(color: AppColors.accentCyan, width: 1.2),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    backgroundColor: AppColors.accentCyan.withValues(alpha: 0.08),
+                  ),
+                  onPressed: () => _openVersionsAndPrintingsModal(context),
+                ),
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: 8),
 
@@ -2047,6 +2532,27 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
                     ref.read(vaultSearchQueryProvider.notifier).state = artistName;
                     Navigator.of(context).pop();
                   },
+                ),
+              ],
+              if (collectorNumber.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    const Icon(Icons.tag_rounded, size: 14, color: AppColors.textMuted),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'Collector #$collectorNumber',
+                        key: const Key('card_detail_collector_number'),
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
               _buildFrameBadges(itemData),
@@ -2932,8 +3438,20 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
     );
   }
 
+  static const List<String> _majorFormats = [
+    'Commander',
+    'Standard',
+    'Modern',
+    'Pioneer',
+    'Legacy',
+    'Vintage',
+    'Pauper',
+    'Brawl',
+    'Oathbreaker',
+    'Historic',
+  ];
+
   Widget _buildFormatLegalities() {
-    final formats = ['Standard', 'Pioneer', 'Modern', 'Legacy', 'Vintage', 'Commander', 'Pauper'];
     final legalities = _dynamicData['legalities'] is Map
         ? (_dynamicData['legalities'] as Map<String, dynamic>)
         : const <String, dynamic>{};
@@ -2944,47 +3462,367 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
       children: [
         _buildSectionHeader(Icons.verified_outlined, 'Format Legalities'),
         const SizedBox(height: 8),
-        Wrap(
-          spacing: 6,
-          runSpacing: 6,
-          children: formats.map((f) {
-            final rawStatus = legalities[f.toLowerCase()]?.toString().toLowerCase();
-            final Color color;
-            final String statusLabel;
-
-            if (rawStatus == 'legal') {
-              color = AppColors.accentEmerald;
-              statusLabel = 'Legal';
-            } else if (rawStatus == 'banned') {
-              color = Colors.redAccent;
-              statusLabel = 'Banned';
-            } else if (rawStatus == 'restricted') {
-              color = Colors.amberAccent;
-              statusLabel = 'Restricted';
-            } else {
-              color = AppColors.textSecondary;
-              statusLabel = 'Not Legal';
-            }
-
-            return Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: color.withValues(alpha: 0.35)),
+        Column(
+          children: [
+            for (int i = 0; i < _majorFormats.length; i += 2) ...[
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildLegalityPill(_majorFormats[i], legalities),
+                  ),
+                  const SizedBox(width: 8),
+                  if (i + 1 < _majorFormats.length)
+                    Expanded(
+                      child: _buildLegalityPill(_majorFormats[i + 1], legalities),
+                    )
+                  else
+                    const Expanded(child: SizedBox.shrink()),
+                ],
               ),
+              if (i + 2 < _majorFormats.length) const SizedBox(height: 6),
+            ],
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLegalityPill(String formatName, Map<String, dynamic> legalities) {
+    final key = formatName.toLowerCase();
+    final rawStatus = (legalities[key] ??
+            (key == 'brawl' ? legalities['standardbrawl'] : null))
+        ?.toString()
+        .toLowerCase();
+
+    final Color color;
+    final String statusLabel;
+
+    if (rawStatus == 'legal') {
+      color = AppColors.accentEmerald;
+      statusLabel = 'Legal';
+    } else if (rawStatus == 'banned') {
+      color = AppColors.accentRed;
+      statusLabel = 'Banned';
+    } else if (rawStatus == 'restricted') {
+      color = AppColors.accentAmber;
+      statusLabel = 'Restricted';
+    } else {
+      color = AppColors.textMuted;
+      statusLabel = 'Not Legal';
+    }
+
+    final slug = formatName.toLowerCase();
+
+    return Container(
+      key: Key('legality_pill_$slug'),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceRaised,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
               child: Text(
-                '$f: $statusLabel',
-                style: TextStyle(
-                  color: color,
-                  fontSize: 11,
+                formatName,
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 12,
                   fontWeight: FontWeight.w600,
                 ),
               ),
-            );
-          }).toList(),
-        ),
-      ],
+            ),
+          ),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  statusLabel,
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<Map<String, dynamic>> _extractAvailableTreatments(VaultItem item, Map<String, dynamic> itemData) {
+    final List<Map<String, dynamic>> list = [];
+    final prices = (itemData['prices'] is Map)
+        ? (itemData['prices'] as Map<String, dynamic>)
+        : (_dynamicData['prices'] is Map ? _dynamicData['prices'] as Map<String, dynamic> : <String, dynamic>{});
+
+    final rawFinishes = (itemData['finishes'] is List)
+        ? (itemData['finishes'] as List).map((e) => e.toString().toLowerCase()).toList()
+        : (_dynamicData['finishes'] is List
+            ? (_dynamicData['finishes'] as List).map((e) => e.toString().toLowerCase()).toList()
+            : <String>[]);
+
+    final finishesList = rawFinishes.isNotEmpty ? rawFinishes : ['nonfoil', 'foil'];
+
+    final promoTypes = (itemData['promo_types'] is List)
+        ? (itemData['promo_types'] as List).map((e) => e.toString().toLowerCase()).toList()
+        : (_dynamicData['promo_types'] is List
+            ? (_dynamicData['promo_types'] as List).map((e) => e.toString().toLowerCase()).toList()
+            : <String>[]);
+
+    final hasSurge = finishesList.contains('surgefoil') || finishesList.contains('surge') || promoTypes.contains('surgefoil');
+    final hasTextured = finishesList.contains('textured') || promoTypes.contains('textured');
+    final hasEtched = finishesList.contains('etched');
+
+    final baseNonFoil = double.tryParse(prices['usd']?.toString() ?? '') ??
+        (item.currentMarketPrice > 0 ? item.currentMarketPrice : 0.0);
+    final baseFoil = double.tryParse(prices['usd_foil']?.toString() ?? '') ??
+        (baseNonFoil > 0 ? baseNonFoil * 1.5 : 0.0);
+    final baseEtched = double.tryParse(prices['usd_etched']?.toString() ?? '') ??
+        (baseFoil > 0 ? baseFoil * 1.25 : (baseNonFoil > 0 ? baseNonFoil * 1.8 : 0.0));
+    final baseSurge = double.tryParse(prices['usd_surge']?.toString() ?? '') ??
+        (baseFoil > 0 ? baseFoil * 1.5 : (baseNonFoil > 0 ? baseNonFoil * 2.2 : 0.0));
+    final baseTextured = double.tryParse(prices['usd_textured']?.toString() ?? '') ??
+        (baseFoil > 0 ? baseFoil * 2.0 : (baseNonFoil > 0 ? baseNonFoil * 3.0 : 0.0));
+
+    if (finishesList.contains('nonfoil') || finishesList.isEmpty) {
+      list.add({
+        'key': 'nonfoil',
+        'label': 'Non-Foil',
+        'price': baseNonFoil,
+      });
+    }
+
+    if (finishesList.contains('foil') || finishesList.isEmpty) {
+      list.add({
+        'key': 'foil',
+        'label': 'Traditional Foil',
+        'price': baseFoil,
+      });
+    }
+
+    if (hasEtched) {
+      list.add({
+        'key': 'etched',
+        'label': 'Etched Foil',
+        'price': baseEtched,
+      });
+    }
+
+    if (hasSurge) {
+      list.add({
+        'key': 'surge',
+        'label': 'Surge Foil',
+        'price': baseSurge,
+      });
+    }
+
+    if (hasTextured) {
+      list.add({
+        'key': 'textured',
+        'label': 'Textured Foil',
+        'price': baseTextured,
+      });
+    }
+
+    if (list.isEmpty) {
+      list.add({
+        'key': 'nonfoil',
+        'label': 'Non-Foil',
+        'price': item.currentMarketPrice,
+      });
+    }
+
+    return list;
+  }
+
+  String _getActiveFinishKey(VaultItem item, Map<String, dynamic> itemData) {
+    final rawFinish = (itemData['finish'] ?? itemData['treatment'] ?? _dynamicData['finish'] ?? _dynamicData['treatment'])
+            ?.toString()
+            .toLowerCase()
+            .trim() ??
+        '';
+    if (rawFinish.contains('etched')) return 'etched';
+    if (rawFinish.contains('surge')) return 'surge';
+    if (rawFinish.contains('textured')) return 'textured';
+    if (rawFinish.contains('foil')) return 'foil';
+    return 'nonfoil';
+  }
+
+  Widget _buildInlineTreatments(Map<String, dynamic> itemData) {
+    final treatments = _extractAvailableTreatments(_currentItem, itemData);
+    final activeFinish = _getActiveFinishKey(_currentItem, itemData);
+
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: treatments.map((t) {
+        final key = t['key'] as String;
+        final label = t['label'] as String;
+        final price = t['price'] as double;
+        final isSelected = activeFinish == key;
+        final priceStr = _isPrivacyMode
+            ? '****'
+            : (price > 0 ? '\$${price.toStringAsFixed(2)}' : 'Unlisted');
+
+        return GestureDetector(
+          key: Key('treatment_chip_$key'),
+          onTap: () => _handleFinishTap(key, price, label),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? AppColors.accentCyan.withValues(alpha: 0.18)
+                  : AppColors.surfaceRaised,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: isSelected ? AppColors.accentCyan : AppColors.surfaceBorder,
+                width: isSelected ? 1.8 : 1.0,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (isSelected) ...[
+                  const Icon(Icons.check_circle, size: 14, color: AppColors.accentCyan),
+                  const SizedBox(width: 6),
+                ],
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: isSelected ? Colors.white : AppColors.textSecondary,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                      fontSize: 12.5,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? AppColors.accentCyan.withValues(alpha: 0.25)
+                          : AppColors.surfaceHighlight,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        priceStr,
+                        style: TextStyle(
+                          color: isSelected ? AppColors.accentCyan : AppColors.accentEmerald,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Future<void> _handleFinishTap(String finishKey, double price, String label) async {
+    if (_currentItem.id.isNotEmpty && _currentItem.quantity > 0) {
+      try {
+        final dao = ref.read(vaultDaoProvider);
+        final dyn = Map<String, dynamic>.from(_dynamicData);
+        dyn['finish'] = finishKey;
+        dyn['treatment'] = label;
+
+        await dao.updateItemFinish(_currentItem.id, finishKey, marketPrice: price > 0 ? price : null);
+        await (dao.update(dao.vaultItems)..where((t) => t.id.equals(_currentItem.id))).write(
+          VaultItemsCompanion(
+            currentMarketPrice: price > 0 ? Value(price) : Value(_currentItem.currentMarketPrice),
+            dynamicData: Value(jsonEncode(dyn)),
+            updatedAt: Value(DateTime.now()),
+          ),
+        );
+        final updated = await dao.getItemById(_currentItem.id);
+        if (mounted && updated != null) {
+          setState(() {
+            _currentItem = updated;
+            _dynamicData = dyn;
+            if (_currentIndex < _items.length) {
+              _items[_currentIndex] = updated;
+            }
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Finish updated to $label!'),
+              behavior: SnackBarBehavior.floating,
+              backgroundColor: AppColors.accentEmerald,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      } catch (e) {
+        debugPrint('[CardDetailSheet] Failed finish update: $e');
+      }
+    } else {
+      // Unowned preview card optimistic update
+      final dyn = Map<String, dynamic>.from(_dynamicData);
+      dyn['finish'] = finishKey;
+      dyn['treatment'] = label;
+      final updated = _currentItem.copyWith(
+        currentMarketPrice: price > 0 ? price : _currentItem.currentMarketPrice,
+        dynamicData: jsonEncode(dyn),
+      );
+      setState(() {
+        _dynamicData = dyn;
+        _currentItem = updated;
+        if (_currentIndex < _items.length) {
+          _items[_currentIndex] = updated;
+        }
+      });
+    }
+  }
+
+  void _openVersionsAndPrintingsModal(BuildContext context) {
+    VersionsAndPrintingsModal.show(
+      context: context,
+      item: _currentItem,
+      isPrivacyMode: _isPrivacyMode,
+      enableOnlineFetch: widget.fetchOnlinePrintings,
+      onPrintingChanged: (updated) {
+        setState(() {
+          _currentItem = updated;
+          _previewCandidate = null;
+          if (_items.isNotEmpty && _currentIndex < _items.length) {
+            _items[_currentIndex] = updated;
+          }
+          if (updated.dynamicData.isNotEmpty) {
+            try {
+              _dynamicData = jsonDecode(updated.dynamicData) as Map<String, dynamic>;
+            } catch (e, stackTrace) {
+              debugPrint('[CardDetailSheet] Failed decoding updated dynamicData: $e\n$stackTrace');
+            }
+          }
+        });
+      },
     );
   }
 
@@ -3581,12 +4419,15 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
     }
 
     actions.add(
-      _buildQuickActionButton(
-        key: const Key('quick_action_share'),
-        icon: Icons.share_rounded,
-        label: 'Share',
-        color: AppColors.accentEmerald,
-        onTap: _handleShareAction,
+      KeyedSubtree(
+        key: const Key('card_detail_share_button'),
+        child: _buildQuickActionButton(
+          key: const Key('quick_action_share'),
+          icon: Icons.share_rounded,
+          label: 'Share',
+          color: AppColors.accentEmerald,
+          onTap: _handleShareAction,
+        ),
       ),
     );
 
@@ -3851,11 +4692,19 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
 
   Future<void> _showMoveBinderModal() async {
     final dao = ref.read(vaultDaoProvider);
-    final binders = await dao.getAllBinders();
+    final currentUserId = ref.read(currentUserIdProvider);
+    final profileAsync = ref.read(userProfileProvider(currentUserId));
+    final isBusiness = profileAsync.valueOrNull?.accountType == 'business';
+    final binders = await dao.getBindersByCollection(
+      'all',
+      userId: currentUserId,
+      isBusiness: isBusiness,
+    );
     if (!mounted) return;
 
     await showModalBottomSheet<void>(
       context: context,
+      isScrollControlled: true,
       backgroundColor: AppColors.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -3920,96 +4769,110 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
             }
 
             return SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.drive_file_move_outlined, color: AppColors.accentCyan),
-                          const SizedBox(width: 8),
-                          const Text('Move to Binder', style: AppTypography.heading2),
-                          const Spacer(),
-                          IconButton(
-                            icon: const Icon(Icons.close, color: AppColors.textMuted),
-                            onPressed: isAssigning
-                                ? null
-                                : () {
-                                    if (sheetCtx.mounted && ModalRoute.of(sheetCtx)?.isCurrent == true) {
-                                      Navigator.of(sheetCtx).pop();
-                                    }
-                                  },
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Divider(color: AppColors.surfaceBorder),
-                    ListTile(
-                      key: const Key('move_to_inbox_tile'),
-                      leading: Icon(
-                        Icons.inbox_outlined,
-                        color: (isCurrentInbox || isAssigning) ? AppColors.textMuted : AppColors.textSecondary,
-                      ),
-                      title: Text(
-                        'Unassigned / Inbox',
-                        style: TextStyle(
-                          color: (isCurrentInbox || isAssigning) ? AppColors.textMuted : Colors.white,
-                          fontWeight: isCurrentInbox ? FontWeight.normal : FontWeight.w600,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(sheetCtx).size.height * 0.75,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.drive_file_move_outlined, color: AppColors.accentCyan),
+                            const SizedBox(width: 8),
+                            const Text('Move to Binder', style: AppTypography.heading2),
+                            const Spacer(),
+                            IconButton(
+                              icon: const Icon(Icons.close, color: AppColors.textMuted),
+                              onPressed: isAssigning
+                                  ? null
+                                  : () {
+                                      if (sheetCtx.mounted && ModalRoute.of(sheetCtx)?.isCurrent == true) {
+                                        Navigator.of(sheetCtx).pop();
+                                      }
+                                    },
+                            ),
+                          ],
                         ),
                       ),
-                      trailing: isCurrentInbox
-                          ? const Text('Current', style: TextStyle(color: AppColors.textMuted, fontSize: 11))
-                          : null,
-                      enabled: !isCurrentInbox && !isAssigning,
-                      onTap: (isCurrentInbox || isAssigning)
-                          ? null
-                          : () => handleAssign(
-                                targetBinderId: 'INBOX',
-                                destinationName: 'Inbox',
-                              ),
-                    ),
-                    if (binders.isEmpty)
-                      const Padding(
-                        padding: EdgeInsets.all(20),
-                        child: Text('No other binders available.', style: TextStyle(color: AppColors.textMuted)),
-                      )
-                    else
-                      ...binders.map((b) {
-                        final isCurrentBinder = b.id == effectiveCurrentBinderId;
-                        return ListTile(
-                          key: Key('move_to_binder_${b.id}'),
-                          leading: Icon(
-                            Icons.folder_outlined,
-                            color: (isCurrentBinder || isAssigning) ? AppColors.textMuted : AppColors.accentCyan,
-                          ),
-                          title: Text(
-                            b.name,
-                            style: TextStyle(
-                              color: (isCurrentBinder || isAssigning) ? AppColors.textMuted : Colors.white,
-                              fontWeight: isCurrentBinder ? FontWeight.normal : FontWeight.w600,
-                            ),
-                          ),
-                          subtitle: Text(
-                            b.collectionType,
-                            style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
-                          ),
-                          trailing: isCurrentBinder
-                              ? const Text('Current', style: TextStyle(color: AppColors.textMuted, fontSize: 11))
-                              : null,
-                          enabled: !isCurrentBinder && !isAssigning,
-                          onTap: (isCurrentBinder || isAssigning)
-                              ? null
-                              : () => handleAssign(
-                                    targetBinderId: b.id,
-                                    destinationName: b.name,
+                      const Divider(color: AppColors.surfaceBorder),
+                      Flexible(
+                        child: SingleChildScrollView(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              ListTile(
+                                key: const Key('move_to_inbox_tile'),
+                                leading: Icon(
+                                  Icons.inbox_outlined,
+                                  color: (isCurrentInbox || isAssigning) ? AppColors.textMuted : AppColors.textSecondary,
+                                ),
+                                title: Text(
+                                  'Unassigned / Inbox',
+                                  style: TextStyle(
+                                    color: (isCurrentInbox || isAssigning) ? AppColors.textMuted : Colors.white,
+                                    fontWeight: isCurrentInbox ? FontWeight.normal : FontWeight.w600,
                                   ),
-                        );
-                      }),
-                  ],
+                                ),
+                                trailing: isCurrentInbox
+                                    ? const Text('Current', style: TextStyle(color: AppColors.textMuted, fontSize: 11))
+                                    : null,
+                                enabled: !isCurrentInbox && !isAssigning,
+                                onTap: (isCurrentInbox || isAssigning)
+                                    ? null
+                                    : () => handleAssign(
+                                          targetBinderId: 'INBOX',
+                                          destinationName: 'Inbox',
+                                        ),
+                              ),
+                              if (binders.isEmpty)
+                                const Padding(
+                                  padding: EdgeInsets.all(20),
+                                  child: Text('No other binders available.', style: TextStyle(color: AppColors.textMuted)),
+                                )
+                              else
+                                ...binders.map((b) {
+                                  final isCurrentBinder = b.id == effectiveCurrentBinderId;
+                                  return ListTile(
+                                    key: Key('move_to_binder_${b.id}'),
+                                    leading: Icon(
+                                      Icons.folder_outlined,
+                                      color: (isCurrentBinder || isAssigning) ? AppColors.textMuted : AppColors.accentCyan,
+                                    ),
+                                    title: Text(
+                                      b.name,
+                                      style: TextStyle(
+                                        color: (isCurrentBinder || isAssigning) ? AppColors.textMuted : Colors.white,
+                                        fontWeight: isCurrentBinder ? FontWeight.normal : FontWeight.w600,
+                                      ),
+                                    ),
+                                    subtitle: Text(
+                                      b.collectionType,
+                                      style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                                    ),
+                                    trailing: isCurrentBinder
+                                        ? const Text('Current', style: TextStyle(color: AppColors.textMuted, fontSize: 11))
+                                        : null,
+                                    enabled: !isCurrentBinder && !isAssigning,
+                                    onTap: (isCurrentBinder || isAssigning)
+                                        ? null
+                                        : () => handleAssign(
+                                              targetBinderId: b.id,
+                                              destinationName: b.name,
+                                            ),
+                                  );
+                                }),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             );
@@ -4218,7 +5081,8 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
   }
 
   void _handleShareAction() {
-    final isLoggedIn = ref.read(isUserLoggedInProvider);
+    final currentUser = ref.read(currentUserProvider);
+    final isLoggedIn = ref.read(isUserLoggedInProvider) || !currentUser.isGuest;
     if (!isLoggedIn) {
       showDialog(
         context: context,
@@ -4244,7 +5108,16 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
                 foregroundColor: AppColors.textDark,
               ),
               onPressed: () {
-                ref.read(isUserLoggedInProvider.notifier).state = true;
+                ref.read(currentUserProvider.notifier).setUser(
+                      AuthUser(
+                        id: 'demo_user',
+                        username: 'demouser',
+                        displayName: 'Demo User',
+                        provider: AuthProviderType.email,
+                        tier: AccountTier.free,
+                        createdAt: DateTime.now(),
+                      ),
+                    );
                 Navigator.of(ctx).pop();
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
@@ -4265,69 +5138,15 @@ class _CardDetailSheetState extends ConsumerState<CardDetailSheet>
   }
 
   void _showShareDialog() {
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      builder: (ctx) => AlertDialog(
-        key: const Key('card_share_dialog'),
-        backgroundColor: AppColors.surfaceRaised,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: [
-            const Icon(Icons.share_rounded, color: AppColors.accentEmerald, size: 22),
-            const SizedBox(width: 8),
-            Text('Share ${_currentItem.name}', style: AppTypography.heading2.copyWith(fontSize: 16)),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '${_currentItem.name} • ${_currentItem.setOrSeries}',
-              style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold, fontSize: 13),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              ref.read(privacyModeProvider)
-                  ? 'Market Value: ****'
-                  : (_effectiveMarketPrice > 0
-                      ? 'Market Value: \$${_effectiveMarketPrice.toStringAsFixed(2)}'
-                      : 'Market Value: Unavailable'),
-              style: const TextStyle(color: AppColors.accentCyan, fontSize: 13),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Share this card with friends or export card data to external collection formats.',
-              style: TextStyle(color: AppColors.textSecondary, fontSize: 12.5),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            key: const Key('share_dialog_close'),
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Close', style: TextStyle(color: AppColors.textMuted)),
-          ),
-          ElevatedButton.icon(
-            key: const Key('share_copy_link_button'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.accentEmerald,
-              foregroundColor: Colors.white,
-            ),
-            icon: const Icon(Icons.copy_rounded, size: 16),
-            label: const Text('Copy Card Info'),
-            onPressed: () {
-              Navigator.of(ctx).pop();
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Copied "${_currentItem.name}" link to clipboard'),
-                  behavior: SnackBarBehavior.floating,
-                  duration: const Duration(seconds: 2),
-                ),
-              );
-            },
-          ),
-        ],
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.7),
+      builder: (ctx) => _CardShareSheet(
+        item: _currentItem,
+        marketPrice: _effectiveMarketPrice,
+        parentContext: context,
       ),
     );
   }
@@ -4623,3 +5442,393 @@ class _PinnedSegmentedTabDelegate extends SliverPersistentHeaderDelegate {
     return oldDelegate.height != height || oldDelegate.child != child;
   }
 }
+
+class _CardShareSheet extends ConsumerWidget {
+  final VaultItem item;
+  final double marketPrice;
+  final BuildContext parentContext;
+
+  const _CardShareSheet({
+    required this.item,
+    required this.marketPrice,
+    required this.parentContext,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final priceStr = marketPrice > 0 ? '\$${marketPrice.toStringAsFixed(2)}' : 'N/A';
+    final deepLink = 'https://countr.app/card/${item.id}';
+    final shareText = 'Check out ${item.name} (${item.setOrSeries} - $priceStr) on Countr: $deepLink';
+
+    final chatThreadsAsync = ref.watch(chatThreadsStreamProvider);
+    final friendsAsync = ref.watch(myFriendsStreamProvider);
+
+    final recentContacts = <Map<String, String>>[];
+
+    chatThreadsAsync.whenData((threads) {
+      for (final t in threads) {
+        if (!recentContacts.any((c) => c['id'] == t.contactUser.id)) {
+          recentContacts.add({
+            'id': t.contactUser.id,
+            'name': t.contactUser.displayName,
+            'username': t.contactUser.username,
+          });
+        }
+      }
+    });
+
+    friendsAsync.whenData((friends) {
+      for (final f in friends) {
+        if (!recentContacts.any((c) => c['id'] == f.id)) {
+          recentContacts.add({
+            'id': f.id,
+            'name': f.displayName,
+            'username': f.username,
+          });
+        }
+      }
+    });
+
+    final defaultTargets = [
+      {'id': 'user_spicy', 'name': 'Spicy Brewmaster', 'username': '@SpicyBrewMaster'},
+      {'id': 'user_edh', 'name': 'EDH Rec Fanatic', 'username': '@EDH_Rec_Fanatic'},
+      {'id': 'store_tbs', 'name': 'TBS Comics', 'username': '@TBSComics'},
+    ];
+
+    for (final dt in defaultTargets) {
+      if (!recentContacts.any((c) => c['username'] == dt['username'])) {
+        recentContacts.add(dt);
+      }
+    }
+
+    return Container(
+      key: const Key('card_share_dialog'),
+      decoration: const BoxDecoration(
+        color: AppColors.surfaceRaised,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      padding: EdgeInsets.fromLTRB(
+        20,
+        14,
+        20,
+        math.max(MediaQuery.of(context).padding.bottom + 16, 24),
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                const Icon(Icons.share_rounded, color: AppColors.accentEmerald, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Share ${item.name}',
+                    style: AppTypography.heading2.copyWith(fontSize: 16),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                IconButton(
+                  key: const Key('share_dialog_close'),
+                  icon: const Icon(Icons.close_rounded, color: AppColors.textMuted, size: 20),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppColors.surfaceBorderSubtle),
+              ),
+              child: Row(
+                children: [
+                  if (item.imageUrl.isNotEmpty) ...[
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: CountrCachedImage(
+                        imageUrl: item.imageUrl,
+                        width: 36,
+                        height: 50,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                  ],
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${item.name} • ${item.setOrSeries}',
+                          style: const TextStyle(
+                            color: AppColors.textPrimary,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          marketPrice > 0 ? 'Market Value: $priceStr' : 'Market Value: Unavailable',
+                          style: const TextStyle(color: AppColors.accentCyan, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Option 1: As Link
+            InkWell(
+              key: const Key('share_as_link_option'),
+              onTap: () {
+                Clipboard.setData(ClipboardData(text: shareText));
+                Navigator.of(context).pop();
+                ScaffoldMessenger.of(parentContext).showSnackBar(
+                  SnackBar(
+                    content: Text('Copied "${item.name}" link to clipboard'),
+                    behavior: SnackBarBehavior.floating,
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
+              },
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceBorder.withValues(alpha: 0.25),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.accentEmerald.withValues(alpha: 0.4)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AppColors.accentEmerald.withValues(alpha: 0.15),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.link_rounded, color: AppColors.accentEmerald, size: 20),
+                        ),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'As Link',
+                                style: TextStyle(
+                                  color: AppColors.textPrimary,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
+                              ),
+                              SizedBox(height: 2),
+                              Text(
+                                'Share deep link via OS share sheet or copy card info',
+                                style: TextStyle(
+                                  color: AppColors.textSecondary,
+                                  fontSize: 11.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Icon(Icons.arrow_forward_ios_rounded, color: AppColors.textMuted, size: 14),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: ElevatedButton.icon(
+                        key: const Key('share_copy_link_button'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.accentEmerald,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                        ),
+                        icon: const Icon(Icons.copy_rounded, size: 14),
+                        label: const Text('Copy Card Info'),
+                        onPressed: () {
+                          Clipboard.setData(ClipboardData(text: shareText));
+                          Navigator.of(context).pop();
+                          ScaffoldMessenger.of(parentContext).showSnackBar(
+                            SnackBar(
+                              content: Text('Copied "${item.name}" link to clipboard'),
+                              behavior: SnackBarBehavior.floating,
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Option 2: As Post
+            InkWell(
+              key: const Key('share_as_post_option'),
+              onTap: () {
+                Navigator.of(context).pop();
+                PostComposerModal.show(
+                  parentContext,
+                  cardId: item.id,
+                  cardTitle: item.name,
+                  cardImageUrl: item.imageUrl,
+                  estimatedValue: marketPrice > 0 ? marketPrice : null,
+                  postType: 'single_pull',
+                );
+              },
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceBorder.withValues(alpha: 0.25),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.accentCyan.withValues(alpha: 0.4)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppColors.accentCyan.withValues(alpha: 0.15),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.post_add_rounded, color: AppColors.accentCyan, size: 20),
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'As Post',
+                            style: TextStyle(
+                              color: AppColors.textPrimary,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'Open post creator pre-attached with this card (+ Add Card / Image)',
+                            style: TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 11.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.arrow_forward_ios_rounded, color: AppColors.textMuted, size: 14),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Quick Internal Message Targets
+            const Text(
+              'Quick Send in Messages',
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+              ),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 72,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: recentContacts.length,
+                separatorBuilder: (_, _) => const SizedBox(width: 12),
+                itemBuilder: (ctx, index) {
+                  final contact = recentContacts[index];
+                  final handle = contact['username'] ?? '@collector';
+                  final targetId = contact['id'] ?? 'user_$index';
+
+                  return InkWell(
+                    key: Key('quick_send_target_${contact['username']}'),
+                    onTap: () async {
+                      final currentUserId = ref.read(currentUserIdProvider);
+                      final inboxDao = ref.read(inboxDaoProvider);
+                      await inboxDao.sendMessage(
+                        senderId: currentUserId,
+                        recipientId: targetId,
+                        messageText: 'Check out ${item.name} on Countr!',
+                        attachmentType: 'card',
+                        attachmentCardId: item.id,
+                      );
+                      if (context.mounted) Navigator.of(context).pop();
+                      if (parentContext.mounted) {
+                        ScaffoldMessenger.of(parentContext).showSnackBar(
+                          SnackBar(
+                            content: Text('Sent "${item.name}" to $handle!'),
+                            behavior: SnackBarBehavior.floating,
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                      }
+                    },
+                    borderRadius: BorderRadius.circular(8),
+                    child: SizedBox(
+                      width: 68,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          CircleAvatar(
+                            radius: 18,
+                            backgroundColor: AppColors.surfaceBorder,
+                            child: Text(
+                              handle.replaceFirst('@', '').substring(0, math.min(2, handle.length - 1)).toUpperCase(),
+                              style: const TextStyle(color: AppColors.accentCyan, fontSize: 11, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            handle,
+                            style: const TextStyle(color: AppColors.textPrimary, fontSize: 10),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+

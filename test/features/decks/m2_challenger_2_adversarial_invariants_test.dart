@@ -561,6 +561,7 @@ void main() {
         draws: 0,
         isDeleted: false,
         createdAt: now,
+        isCloned: false,
       );
 
       await insertTestCard(id: 'deck-card-1', name: 'Lightning Bolt');
@@ -623,6 +624,7 @@ void main() {
         draws: 0,
         isDeleted: false,
         createdAt: now,
+        isCloned: false,
       );
 
       await insertTestDeck(id: 'test-deck-reset', name: 'Reset Test Deck', coverItemId: 'existing-cover-id');
@@ -666,6 +668,7 @@ void main() {
         draws: 0,
         isDeleted: false,
         createdAt: now,
+        isCloned: false,
       );
 
       const dfcDynamicData = '{"card_faces":[{"name":"Front","oracle_text":"Front text"},{"name":"Back","image_uris":{"art_crop":"https://scryfall.io/back_art.jpg"}}]}';

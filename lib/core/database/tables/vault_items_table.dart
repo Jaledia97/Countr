@@ -58,11 +58,32 @@ class VaultItems extends Table {
   // The Polymorphic Engine (Stringified JSON payload for item-specific attributes)
   TextColumn get dynamicData => text().named('dynamic_data')();
 
-  // Soft Delete & Outbox Sync (v9)
+  // User Scoping & Trade Engine (v12 / Epic 3)
+  TextColumn get userId => text().named('user_id').nullable()();
+  BoolColumn get isTraded =>
+      boolean().named('is_traded').withDefault(const Constant(false)).nullable()();
+
+  // Soft Delete & Outbox Sync (v9 & v12 / Epic 5)
   BoolColumn get isDeleted =>
       boolean().named('is_deleted').withDefault(const Constant(false))();
   DateTimeColumn get updatedAt =>
       dateTime().named('updated_at').nullable()();
+  DateTimeColumn get deletedAt =>
+      dateTime().named('deleted_at').nullable()();
+  TextColumn get syncStatus =>
+      text().named('sync_status').withDefault(const Constant('synced')).nullable()();
+
+  // Community Card Reputation (v14 / Milestone 4)
+  IntColumn get reputationScore =>
+      integer().named('reputation_score').nullable().withDefault(const Constant(0))();
+  IntColumn get upvotes =>
+      integer().named('upvotes').nullable().withDefault(const Constant(0))();
+  IntColumn get downvotes =>
+      integer().named('downvotes').nullable().withDefault(const Constant(0))();
+
+  // Wishlist Feature (v16 / Milestone 1)
+  BoolColumn get isWishlisted =>
+      boolean().named('is_wishlisted').withDefault(const Constant(false)).nullable()();
 
   @override
   Set<Column> get primaryKey => {id};

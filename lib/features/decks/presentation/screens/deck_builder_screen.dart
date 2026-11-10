@@ -1890,11 +1890,18 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
       dynStr = item['dynamic_data'] as String?;
     }
 
-    if (rawLayout?.toLowerCase() == 'art_series') return true;
+    final layoutLower = rawLayout?.toLowerCase();
+    if (layoutLower == 'art_series' || layoutLower == 'double_faced_token') return true;
 
     final nameLower = name?.toLowerCase() ?? '';
     if (nameLower.contains('art series') || nameLower.contains('art card')) {
       return true;
+    }
+    if (name != null && name.contains('//')) {
+      final parts = name.split('//').map((p) => p.trim().toLowerCase()).toList();
+      if (parts.length >= 2 && parts[0].isNotEmpty && parts[0] == parts[1]) {
+        return true;
+      }
     }
 
     final typeLower = typeLine?.toLowerCase() ?? '';
@@ -1920,11 +1927,19 @@ class _DeckBuilderScreenState extends ConsumerState<DeckBuilderScreen> {
       try {
         final dynData = ParsedJsonCache.parse(dynStr);
         if (dynData.isNotEmpty) {
-          if (dynData['layout']?.toString().toLowerCase() == 'art_series') return true;
+          final dynLayout = dynData['layout']?.toString().toLowerCase();
+          if (dynLayout == 'art_series' || dynLayout == 'double_faced_token') return true;
+          final setType = (dynData['set_type'] ?? dynData['setType'])?.toString().toLowerCase();
+          if (setType == 'memorabilia') return true;
           final dynType = dynData['type_line']?.toString().toLowerCase() ?? '';
           if (dynType.contains('art series') || dynType.contains('art card')) return true;
           final dynName = dynData['name']?.toString().toLowerCase() ?? '';
           if (dynName.contains('art series') || dynName.contains('art card')) return true;
+          if (dynName.contains('//')) {
+            final parts = dynName.split('//').map((p) => p.trim()).toList();
+            if (parts.length >= 2 && parts[0].isNotEmpty && parts[0] == parts[1]) return true;
+          }
+
           final dynSet = dynData['set']?.toString().toLowerCase() ?? '';
           if (dynSet.length >= 4 &&
               dynSet.startsWith('a') &&

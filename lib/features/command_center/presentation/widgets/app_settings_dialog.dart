@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/state/app_state.dart';
+import '../../../profile/presentation/providers/profile_providers.dart';
+import '../../../vault/presentation/providers/vault_providers.dart';
+import '../../../auth/presentation/widgets/logout_confirmation_dialog.dart';
 
 /// Dedicated App Settings modal dialog component.
 ///
@@ -238,6 +241,81 @@ class AppSettingsDialog extends ConsumerWidget {
                         ),
                         const SizedBox(height: 8),
 
+                        // 1.5. Collection Visibility Toggle
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceRaised,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: AppColors.surfaceBorderSubtle,
+                            ),
+                          ),
+                          child: Builder(
+                            builder: (context) {
+                              final currentUserId = ref.watch(currentUserIdProvider);
+                              final profileAsync = ref.watch(userProfileProvider(currentUserId));
+                              final profile = profileAsync.valueOrNull;
+                              final isPublic = (profile?.collectionVisibility ?? 'public') == 'public';
+
+                              return Row(
+                                children: [
+                                  const Icon(
+                                    Icons.inventory_2_outlined,
+                                    size: 20,
+                                    color: AppColors.accentCyan,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        const Text(
+                                          'Collection Visibility',
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w700,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          isPublic
+                                              ? 'Public: Trade partners can browse full collection'
+                                              : 'Private: Trade partners restricted to Trade Binder',
+                                          overflow: TextOverflow.ellipsis,
+                                          maxLines: 2,
+                                          style: const TextStyle(
+                                            fontSize: 10,
+                                            color: AppColors.textSecondary,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Switch.adaptive(
+                                    key: const Key('command_center_collection_visibility_toggle'),
+                                    value: isPublic,
+                                    activeTrackColor: AppColors.accentCyan,
+                                    onChanged: (val) async {
+                                      final newVis = val ? 'public' : 'private';
+                                      await ref.read(appDatabaseProvider).userProfileDao.updateCollectionVisibility(
+                                        currentUserId,
+                                        newVis,
+                                      );
+                                    },
+                                  ),
+                                ],
+                              );
+                            },
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+
                         // 2. Base Currency Dropdown
                         Container(
                           padding: const EdgeInsets.symmetric(
@@ -441,6 +519,45 @@ class AppSettingsDialog extends ConsumerWidget {
                                 },
                               ),
                             ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        const Divider(
+                          color: AppColors.surfaceBorderSubtle,
+                          height: 1,
+                        ),
+                        const SizedBox(height: 14),
+
+                        // High-visibility Log Out button in App Settings
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            key: const Key('app_settings_logout_button'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.surfaceRaised,
+                              foregroundColor: AppColors.accentRed,
+                              side: BorderSide(
+                                color: AppColors.accentRed.withValues(alpha: 0.4),
+                                width: 1.2,
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 11),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              elevation: 0,
+                            ),
+                            icon: const Icon(Icons.logout_rounded, size: 18),
+                            label: const Text(
+                              'Log Out',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                            onPressed: () {
+                              LogoutConfirmationDialog.show(context);
+                            },
                           ),
                         ),
                       ],

@@ -111,6 +111,7 @@ Deck createChallengeDeck({
     isRegistered: false,
     isAssembled: false,
     isCompetitive: false, isDeleted: false,
+    isCloned: false,
   );
 }
 

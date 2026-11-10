@@ -1,162 +1,169 @@
-# Project: Major 2-Tab Rework of Countr Decks Experience
+# Project: Countr Multi-Epic Production Overhaul (R1–R8)
 
 ## Architecture
-Countr's deck management system is partitioned into two distinct tabs ("My Decks" and "Explore Decks") with independent scroll and filter states, backed by local Drift SQLite persistence.
-
-### Data Flow
-1. **Explore Catalog & Seeding**:
-   - Preconstructed decks (MTGJSON Commander, Challenger, Starter Kits, Duel Decks, Planechase, Archenemy) and mock community decks (@SpicyBrewMaster, @EDH_Rec_Fanatic, @DraftGuru) are bundled as offline assets and backed by a compiled Dart fallback dataset.
-   - On database initialization, `ExploreDeckDao` seeds decks into `explore_decks` and `explore_deck_items` via background isolate processing, ensuring zero UI thread jank.
-2. **Persistent Voting Engine**:
-   - `explore_deck_votes` records user vote (-1, 0, 1) in SQLite.
-   - Toggling an upvote or downvote atomically updates `explore_deck_votes` and the net score in `explore_decks`.
-   - Reactive Drift streams emit state updates to both `ExploreDeckCard` summary tiles and `ReadOnlyDeckScreen`.
-3. **Sharing & Cloning**:
-   - "Share to Explore": User decks from `decks` and `deck_version_items` are exported to `explore_decks` with source type `user_shared`.
-   - "Add to My Decks" (Clone): Explore decks are cloned into `decks`, `deck_versions`, and `deck_version_items` with `is_cloned = true` and `is_assembled = false`, creating unowned catalog reference `vault_items` (quantity: 0) where needed.
-4. **Presentation & Navigation**:
-   - `DecksScreen` is the root tabbed host using `TabBarView` with `AutomaticKeepAliveClientMixin` and `PageStorageKey`s.
-   - Tab 0 ("My Decks") preserves all 17 legacy test keys (`decks_tab_all`, `decks_new_deck_fab`, `decks_tcg_context_switcher`, `decks_privacy_mode_button`, `deck_setup_wizard_button`, `deck_item_${id}`, `deck_assembly_status_${id}`).
-   - Tab 1 ("Explore Decks") houses the discovery feed with 2-column grid, horizontal carousels, embedded sort menu, multi-level search with visual headings, and deep filter modal.
-
----
+Countr is an offline-first Flutter TCG mobile application featuring:
+- **Presentation Layer**: Flutter widgets with Riverpod StateNotifier / AsyncNotifier / StreamProvider state management, dark-slate & neon theme.
+- **Domain Layer**: Models, DTOs, `FeedPost`, `PostComment`, `AuthUser`, `TradeProposal`, `GuestMigrationService`, `CardImageAndDataCacheResolver`.
+- **Data Layer**: Drift SQLite relational database (`AppDatabase` v16) with SQLite expression indexes, reactive DAOs (`FeedDao`, `InboxDao`, `UserProfileDao`, `VaultDao`, `FriendsDao`), and background Isolates.
+- **Cache & Hydration Layer**: `CardImageAndDataCacheResolver` (2-step local catalog repair -> Scryfall HTTP fallback), `CountrCachedImage`.
+- **Routing & Shell**: `GoRouter` declarative router managing app shells, `/welcome` onboarding route, and deep links.
 
 ## Feature Inventory
+Every feature from the Survey phase is mapped to an assigned milestone:
+
 | # | Feature | Description | Milestone | Source |
 |---|---------|-------------|-----------|--------|
-| F1 | Dual-Tab Top Navigation | `DecksScreen` partitioned into "My Decks" and "Explore Decks" tabs with TabBar | M2 | R1 |
-| F2 | Independent Scroll & Filter Isolation | Tab states preserved across switches via `AutomaticKeepAliveClientMixin` and `PageStorageKey` | M2 | R1 |
-| F3 | "My Decks" Status Badges | Drafts, Ready, and Assembled visual badges on personal deck cards | M2 | R2 |
-| F4 | "My Decks" Multi-Tier Search | Personal search matching Deck Name and contained Card Name with visual divider headers | M2 | R2 |
-| F5 | "My Decks" Quick Filter Pills | Format chips, status pills (All, Competitive, Draft), and color identity pips | M2 | R2 |
-| F6 | 3-Dot Overflow Menu & Sharing | Card overflow menu with "Share to Explore" exporting to SQLite explore tables | M2 | R2 |
-| F7 | Press-and-Hold Selection Mode | Long-press selection bringing up bottom footer; "Share to Explore" strictly when 1 deck selected | M2 | R2 |
-| F8 | Dedicated Explore SQLite Schema & Migration | `explore_decks`, `explore_deck_items`, `explore_deck_votes` tables, Drift v11 migration | M1 | R3, R5 |
-| F9 | Offline MTGJSON Precon & Starter Seeder | Offline bundling & background isolate ingestion of Commander, Challenger, Starter, Duel Decks | M1 | R3 |
-| F10 | Mock Community Decks Seeder | Offline seeding of mock community brews with creator usernames (@SpicyBrewMaster, etc.) | M1 | R3 |
-| F11 | Top-Level Explore Category Pills | Quick-toggle pills for "All", "Official (WotC)", and "Community" | M3 | R3 |
-| F12 | Explore 2-Column Grid Layout | Responsive 2-column deck card grid for rapid discovery | M3 | R3 |
-| F13 | Dynamic Horizontal Carousels | Horizontal scrolling carousels ("Suggested Commanders", "From Top Deck Builders", "Popular Standard") | M3 | R3 |
-| F14 | Dedicated Explore Filter Modal | Deep modal filtering by Format, Color Identity, Budget ($0-$50, $50-$200, $200+), Commander, Cards | M3 | R3 |
-| F15 | Embedded Search Bar & Sort Menu | Inline sort button inside search bar with popup menu offering 5 sort algorithms | M3 | R4 |
-| F16 | Multi-Level Contextual Search Headings | Explore search results partitioned under `"in Deck Name"`, `"in Deck Cards"`, `"by Username"` | M3 | R4 |
-| F17 | Explore Deck Summary Card UI | High-res art banner, creator tag, mana symbols, market price, popularity score | M4 | R5 |
-| F18 | Persistent SQLite Voting System | Interactive Upvote/Downvote buttons, atomic score computation, persistence across restarts | M4 | R5 |
-| F19 | Read-Only Deck View Screen | View-only deck detail screen hiding all card/deck mutation and playtest controls | M5 | R6 |
-| F20 | Clone Engine ("Add to My Decks") | Prominent clone button copying full decklist into local `decks`, `deck_versions`, `deck_version_items` | M5 | R6 |
-| F21 | E2E & Regression Verification | 100% test pass across all new and 17 existing deck test suites, 0 static analysis errors | M6 | Acceptance Criteria |
-
----
+| 1 | Database Schema v16 | Add tables `post_votes`, `post_reactions`, `comment_reactions`, `saved_posts`, add `parent_comment_id` to `post_comments`, and `is_wishlisted` to `vault_items` | M1 | Survey R1-R3 |
+| 2 | Reactive Profile Sync in Feed & Comments | `FeedDao.watchComments` LEFT JOIN `user_profiles` on author_id; reactive refresh when user updates display name, avatar, or @username | M1 | Survey R3 |
+| 3 | Atomic Notification & Friendship Sync | `InboxDao` & `FriendsDao` atomically update status to "Accepted" or "Declined", completely removing "@Request removed" | M1 | Survey R6 |
+| 4 | Trade Lifecycle DAO Methods | `InboxDao.cancelTradeProposal` and `counterTradeProposal` with atomic status updates | M1 | Survey R7 |
+| 5 | Unsegregated Post Creation Workflow | Post creator starts as text post, removing segregated post-type menus; action buttons `[+ Add Card]` and `[+ Add Image]` | M2 | Survey R1 |
+| 6 | Automatic Dynamic Post Transformation | Post editor preview and published layout adapt automatically to single-card, multi-card grid, image, or mixed media, reverting to text when empty | M2 | Survey R1 |
+| 7 | Card Details Share Sheet (`As Link` & `As Post`) | Share button opens sheet: `As Link` (via `share_plus` + Countr message targets) and `As Post` (opens Post Editor pre-attached) | M2 | Survey R1 |
+| 8 | Home Page Card Click Lightbox Overlay | Tapping any card in a post opens Expanded Card View lightbox with high-res art, swipe navigation, and `[See Details]` button navigating to details | M2 | Survey R1 |
+| 9 | Icons-Only Post Interaction Bar | Strip all text labels off interaction bar; icons accompanied only by compact numeric counters | M3 | Survey R2 |
+| 10 | Reddit-Style Upvote/Downvote Pill | Replace Hype with `[ ↑ \| Net Score \| ↓ ]` pill; +1 neon/orange, -1 blue/purple; persistent votes in SQLite and sync | M3 | Survey R2 |
+| 11 | Emoji Reactions on Posts | React Emoji icon; tap or long-press opens 5 MRU suggestions (`🔥`, `❤️`, `😂`, `🤯`, `💎`) + `+` full picker; active reaction pills above bar | M3 | Survey R2 |
+| 12 | Relocate Wishlist/Save to Header Menu | Single-card: Wishlist Card (Add to Looking For); Multi-card: Wishlist Cards (multi-select drawer); Text/image: Save Post bookmark | M3 | Survey R2 |
+| 13 | Command Center Saved Posts Dropdown | Top My Profile tile chevron expands downward to reveal `Saved Posts` row with count badge opening saved posts screen | M3 | Survey R2 |
+| 14 | Deep Nested Reply Threads | Multi-level comments tree with vertical thread guide lines, `Reply` button, and `"Replying to @username [X]"` banner | M3 | Survey R3 |
+| 15 | True Total Comment Count | Post card and comments header display true total count across all nesting depths | M3 | Survey R3 |
+| 16 | Comment Emoji Reactions | React to individual comments with 5 MRU emoji bar and compact reaction pills beneath comments | M3 | Survey R3 |
+| 17 | Log Out Feature | High-visibility Log Out button at bottom of Command Center and Settings, showing confirmation prompt, signOut, and routing to `/welcome` | M4 | Survey R4 |
+| 18 | Complete 3-Step Onboarding Workflow | Step 1 Account Type; Step 2 Individual (Discord primary CTA + Profile Setup) vs Business (Places + 6-digit OTP); Step 3 Shell + Guest Merge | M4 | Survey R4 |
+| 19 | Unified Card Details Resolution | Handle any identifier (`cards.id`, `scryfall_id`, `collection_items.id`, legacy slug `item-mtg-...`), repairing FKs/backfill with zero blank screens | M5 | Survey R5 |
+| 20 | Vault Singles Header Spacing Fix | Remove hardcoded height/padding/empty SizedBox when Estimated Vault Value hidden, making search bar flush with zero dead space | M5 | Survey R5 |
+| 21 | Vault Singles Live Search | Live typing executes SQLite query matching `name`, `type_line`, and `oracle_text` | M5 | Survey R5 |
+| 22 | Vault Collections Set Completion Ratio | Calculate `COUNT(DISTINCT owned.card_id)` divided by master catalog total `COUNT(DISTINCT catalog.id) WHERE catalog.set_code = ?` | M5 | Survey R5 |
+| 23 | 3x3 Master Set View | Display all cards from master catalog in 3x3 grid; owned in full color with quantity badge (`x2`), unowned in true grayscale with dimmed opacity | M5 | Survey R5 |
+| 24 | Wishlist Badge & Filter in Vault/Binders | Cards with `isWishlisted: true` display Wishlist Badge in Vault / Binders and filter via `Wishlisted` filter pill | M5 | Survey R2/R5 |
+| 25 | Friends & Groups 2-Tab Restructure | Strictly two tabs (`Friends` and `Groups`), completely removing `"Requests & Find"` tab | M6 | Survey R6 |
+| 26 | Friends Tab 3-Section Layout | Top: Friend Requests (inline + See More); Middle: Searchable Friends List; Bottom: Sent Requests (inline + See More + Cancel) | M6 | Survey R6 |
+| 27 | Inbox Messages Draft Compose Button | Prominent Draft New Message button on `Messages` tab opening searchable friend/user picker for 1 or up to 2 recipients | M6 | Survey R7 |
+| 28 | Reactive Trade Proposal Status & Unpinning | Pinned trade banner and chat card bind directly to `trade_proposals.status`; unpin on decline/cancel/counter and display status badge | M6 | Survey R7 |
+| 29 | Trade Card Plain English Name Resolution | Join trade items against `cards`/vault items to display plain English names (never raw IDs or `item-mtg-...`) | M6 | Survey R7 |
+| 30 | Full Trade Negotiation Lifecycle | Cancel Trade (Proposer), Edit Trade (Proposer), Counter Trade (Recipient) with pre-loaded Trade Builder and live Trade Value Meter | M6 | Survey R7 |
+| 31 | Architectural Zero-Duplicate Mandate & Clean Quality | Zero duplicate widgets, zero conflicting providers, `dart analyze` 0 issues, `flutter test` 100% passing across repository | M7 | Survey R8 |
 
 ## Milestones
 | # | Name | Scope | Dependencies | Status |
 |---|------|-------|-------------|--------|
-| M1 | Data Models, Drift v11 Schema, DAO & Offline Seeder | F8, F9, F10 | none | DONE |
-| M2 | Dual-Tab Architecture & "My Decks" Search, Badges & Sharing | F1, F2, F3, F4, F5, F6, F7 | M1 | DONE |
-| M3 | Explore Feed, 2-Column Grid, Carousels, Search & Filter Modal | F11, F12, F13, F14, F15, F16 | M1, M2 | DONE |
-| M4 | Deck Summary Cards & Persistent SQLite Voting System | F17, F18 | M1, M3 | DONE |
-| M5 | Read-Only Deck View Screen & Clone Engine | F19, F20 | M1, M4 | DONE |
-| M6 | E2E Test Suite Validation, Regression Harmonization & Hardening | F21 | M1, M2, M3, M4, M5 | DONE |
-
----
+| 1 | M1: Database Schema v16 & Reactive DAOs | Features 1–4 (Tables `post_votes`, `post_reactions`, `comment_reactions`, `saved_posts`, `parent_comment_id`, `is_wishlisted`, DAO queries, atomic notifications, trade DAO methods) | None | DONE |
+| 2 | M2: Unified Post Creation, Share Sheet & Card Lightbox | Features 5–8 (Text-first composer, `[+ Add Card]`, `[+ Add Image]`, dynamic transform, `share_plus` share sheet `As Link` & `As Post`, expanded card lightbox with `[See Details]`) | M1 | DONE |
+| 3 | M3: Post UI Rework, Voting, Emoji Reactions & Nested Comments Tree | Features 9–16 (Icons-only interaction bar, Reddit voting pill, 5 MRU post reactions, `'⋮'` Wishlist/Save menu, Command Center Saved Posts dropdown, deep nested comments tree with thread guides, true total comment count, comment reactions, live profile sync) | M1, M2 | DONE |
+| 4 | M4: Authentication, Logout & Complete Onboarding Workflow | Features 17–18 (Command Center & Settings Log Out button, confirmation dialog, session reset, 3-step onboarding wizard with Discord primary CTA, Profile Setup, Business Places + OTP, Guest Data Merge) | M1 | PLANNED |
+| 5 | M5: Unified Card Details Resolution & Vault Overhaul | Features 19–24 (Identifier resolution & slug de-hyphenation, Vault Singles flush header spacing, SQLite live search on name/type/oracle, Collections set completion ratio, 3x3 Master Set grid with color/grayscale, Wishlist badge & filter) | M1 | PLANNED |
+| 6 | M6: Friends & Groups Restructure, Inbox Compose & Trade Negotiation | Features 25–30 (Friends & Groups 2 tabs, Friends tab 3 sections, cross-app notification sync to "Accepted"/"Declined", Inbox compose button & user picker, reactive pinned banner unpinning, plain English card names, Cancel/Edit/Counter trade negotiation lifecycle) | M1 | PLANNED |
+| 7 | M7: Full Repository Verification, Dual-Track E2E & Forensic Audit | Feature 31 (Dual-track test suite publication, `dart analyze` 0 issues, full `flutter test` 100% pass rate, Forensic Integrity Audit CLEAN verdict) | M1, M2, M3, M4, M5, M6 | PLANNED |
 
 ## Interface Contracts
 
-### 1. Data Layer ↔ Presentation Layer (`ExploreDeckDao` ↔ Riverpod Providers)
-```dart
-abstract class ExploreDeckDaoInterface {
-  Stream<List<ExploreDeckWithVote>> watchExploreDecks({
-    ExploreCategory category = ExploreCategory.all,
-    ExploreSortOption sort = ExploreSortOption.popularity,
-    ExploreFilterState? filter,
-    String searchQuery = '',
-  });
+### M1 Contract: Schema v16, Reactive Feeds & Inbox DAOs
+- `AppDatabase.schemaVersion => 16`.
+- Tables added:
+  - `PostVotesTable`: `postId`, `userId`, `vote` (+1, -1, 0), timestamps.
+  - `PostReactionsTable`: `postId`, `userId`, `emoji`, timestamps.
+  - `CommentReactionsTable`: `commentId`, `userId`, `emoji`, timestamps.
+  - `SavedPostsTable`: `postId`, `userId`, timestamps.
+- Table columns added:
+  - `PostCommentsTable.parentCommentId`: `TextColumn get parentCommentId => text().named('parent_comment_id').nullable()();`
+  - `VaultItemsTable.isWishlisted`: `BoolColumn get isWishlisted => boolean().named('is_wishlisted').withDefault(const Constant(false))();`
+- `FeedDao`:
+  - `watchComments(String postId)`: `LEFT JOIN user_profiles ON post_comments.author_id = user_profiles.id`.
+  - `watchCommentCount(String postId)`: counts all comments where `post_id = ?` and `is_deleted = 0`.
+  - `votePost(String postId, String userId, int vote)`: upserts row in `post_votes`.
+- `InboxDao`:
+  - `cancelTradeProposal(String proposalId, {required String currentUserId})`: status -> `'cancelled'`.
+  - `counterTradeProposal(String priorProposalId, {required String proposerId, required String receiverId, ...})`: status -> `'countered'`, creates counter-proposal.
+  - `respondToFriendRequest`: updates `notifications` to `'Accepted'` or `'Declined'`.
 
-  Stream<ExploreDeckDetail?> watchExploreDeckDetail(String deckId);
+### M2 Contract: Post Creation, Share Sheet & Card Lightbox
+- `PostComposerModal`:
+  - Starts as Text Post.
+  - Attachment buttons: `Key('post_add_card_button')` and `Key('post_add_image_button')`.
+  - Dynamic transform to single-card, multi-card, image, or mixed media.
+- `CardDetailSheet` Share Sheet:
+  - `As Link`: invokes `Share.share` with deep link + displays internal Countr message targets.
+  - `As Post`: opens `PostComposerModal` with card pre-attached.
+- `ExpandedCardViewModal`:
+  - Opened on card tap in Feed. Displays high-res art, PageView for multi-card posts, and `[See Details]` (`Key('expanded_card_see_details_button')`).
 
-  Future<void> castVote({
-    required String deckId,
-    required String userId,
-    required int vote, // -1, 0, 1
-  });
+### M3 Contract: Post UI, Voting, Reactions, Menu & Comments Tree
+- `PostActionBar`:
+  - Icons-only, no string labels.
+  - Reddit voting pill: `[ ↑ | Net Score | ↓ ]` (`Key('post_upvote_button')`, `Key('post_net_score_text')`, `Key('post_downvote_button')`).
+  - React Emoji icon: `Key('post_action_react_button')`. 5 MRU suggestions floating bar + pills above bar.
+- `PostHeader` Menu:
+  - `Key('post_header_overflow_menu')`:
+    - Single card: `Wishlist Card (Add to Looking For)`.
+    - Multi-card: `Wishlist Cards` opening slide-up drawer.
+    - Text/image: `Save Post`.
+- `MorphingCommandCenter`:
+  - Downward chevron on top My Profile tile expands `Saved Posts` row (`Key('command_center_saved_posts_tile')`).
+- `PostCommentsSheet`:
+  - Tree rendering with indentation and thread guides.
+  - `Reply` button on each comment item (`Key('comment_reply_button_$id')`).
+  - Input header banner: `"Replying to @username [X]"`.
+  - 5 MRU comment reactions bar & pills.
 
-  Future<void> seedPreconsAndCommunityDecks();
+### M4 Contract: Auth, Logout & Onboarding
+- `Log Out` button: `Key('command_center_logout_button')` and `Key('app_settings_logout_button')`.
+- `LogoutConfirmationDialog`: options to keep local guest data vs dev/test reset, executes `authRepository.signOut()`, routes to `/welcome`.
+- `/welcome` route: `OnboardingWelcomeScreen` 3-step wizard:
+  - Step 1: Account Type selection.
+  - Step 2: Individual Auth (Discord primary CTA `#5865F2` + Profile Setup) vs Business (Places + OTP).
+  - Step 3: Shell transition + `GuestMigrationService.migrateGuestData()`.
 
-  Future<ExploreDeck> sharePersonalDeckToExplore({
-    required String personalDeckId,
-    required String creatorName,
-  });
+### M5 Contract: Card Details Resolution & Vault Overhaul
+- `CardImageAndDataCacheResolver` & `VaultDao.findCatalogCard`:
+  - Resolves any ID (`cards.id`, `scryfall_id`, `collection_items.id`, legacy slug `item-mtg-...` stripped to title case).
+  - Zero blank screens on card details.
+- `VaultScreen`:
+  - When Estimated Vault Value is hidden, collapse header delegate to 0dp extent and set flush padding (zero dead space).
+  - Live typing in search filters `name`, `type_line`, and `oracle_text`.
+  - Wishlisted cards display Wishlist Badge and filter via `Wishlisted` filter pill.
+- `VaultDao.watchSetCollectionsFull`:
+  - Completion ratio = unique owned cards / master catalog set total.
+- `MasterSetScreen`:
+  - 3x3 grid (`crossAxisCount: 3`). Owned cards in full color with `'x$quantity'` badge. Unowned cards in true grayscale with dimmed opacity.
 
-  Future<Deck> cloneExploreDeckToPersonal({
-    required ExploreDeck exploreDeck,
-  });
-}
-```
-
-### 2. Search & Filter State Models
-```dart
-enum ExploreCategory { all, official, community }
-enum ExploreSortOption { popularity, recentlyAdded, priceLowToHigh, priceHighToLow, alphabetical }
-
-class ExploreFilterState {
-  final String? format;
-  final List<String> colors;
-  final String colorMatchMode;
-  final String priceRange; // 'all', 'budget_0_50', 'mid_50_200', 'high_200_plus'
-  final String? commanderName;
-  final String? cardInclusion;
-  ...
-}
-```
-
-### 3. Clone Engine Contract
-- Input: `ExploreDeck` (including full `List<ExploreDeckCardItem> cards`).
-- Output: `Future<Deck>` saved in SQLite `DecksTable`, `DeckVersionsTable`, `DeckVersionItemsTable`, and `VaultItemsTable` (if cards unowned).
-- Invalidation: Triggers `ref.invalidate(deckListProvider)` and `ref.invalidate(deckSummariesProvider)`.
-
----
+### M6 Contract: Friends & Groups, Notifications & Trade Negotiation
+- `FriendsHubScreen`: strictly 2 tabs (`Friends` and `Groups`).
+  - `Friends` tab: Top (Friend Requests 2-3 inline + See More), Middle (Searchable Friends List), Bottom (Sent Requests 2-3 inline + See More + Cancel).
+- Notification status text: strictly `"Accepted"` or `"Declined"` (zero occurrences of `"Request removed"`).
+- `InboxHubScreen`: Draft New Message button (`Key('inbox_compose_button')`) opening searchable user picker.
+- `ChatConversationScreen`:
+  - `_ActiveTradeProposalBanner` unpins immediately when status is `'declined'`, `'cancelled'`, or `'countered'`.
+  - Displays plain English card names.
+  - Proposer buttons: `[Cancel Trade]` and `[Edit Trade]`.
+  - Recipient button: `[Counter Trade]`.
+- `TradeScreen`: preloads existing proposal in Counter/Edit mode with live Trade Value Meter.
 
 ## Code Layout
-
-### Data Layer:
-- `lib/core/database/tables/decks/explore_decks_table.dart`: Explore decks table schema
-- `lib/core/database/tables/decks/explore_deck_items_table.dart`: Explore deck card items schema
-- `lib/core/database/tables/decks/explore_deck_votes_table.dart`: Persistent SQLite voting table
-- `lib/core/database/app_database.dart`: Schema v11 upgrade, table registration, defensive DDL in beforeOpen
-- `lib/features/decks/data/daos/explore_deck_dao.dart`: Drift DAO with reactive queries, atomic voting, and seeding
-- `lib/features/decks/data/services/explore_seeder_service.dart`: Background isolate parser & compiled seed fallback
-- `assets/decks/precons.json`: Bundled official MTG precons (Commander, Challenger, Starter, Duel Decks)
-- `assets/decks/community.json`: Bundled mock community decks (@SpicyBrewMaster, @EDH_Rec_Fanatic, etc.)
-
-### Domain Models:
-- `lib/features/decks/domain/models/explore_deck.dart`
-- `lib/features/decks/domain/models/explore_deck_card_item.dart`
-- `lib/features/decks/domain/models/explore_filter_state.dart`
-- `lib/features/decks/domain/models/my_decks_search_result.dart`
-- `lib/features/decks/domain/models/explore_search_result.dart`
-
-### Presentation Layer:
-- `lib/features/decks/presentation/providers/explore_deck_providers.dart`: Riverpod state providers
-- `lib/features/decks/presentation/screens/decks_screen.dart`: Dual-tab root host (TabBarView, PageStorageKeys)
-- `lib/features/decks/presentation/screens/read_only_deck_screen.dart`: Read-only deck viewer
-- `lib/features/decks/presentation/controllers/deck_clone_controller.dart`: Cloning logic
-- `lib/features/decks/presentation/widgets/my_decks/my_decks_tab_view.dart`: Tab 0 implementation
-- `lib/features/decks/presentation/widgets/my_decks/my_decks_search_bar.dart`: Personal search input
-- `lib/features/decks/presentation/widgets/my_decks/my_decks_search_results_view.dart`: Divided results
-- `lib/features/decks/presentation/widgets/my_decks/my_deck_card.dart`: Personal deck card with 3-dot overflow
-- `lib/features/decks/presentation/widgets/my_decks/my_decks_selection_footer.dart`: Press-and-hold selection bar
-- `lib/features/decks/presentation/widgets/explore/explore_decks_tab_view.dart`: Tab 1 feed
-- `lib/features/decks/presentation/widgets/explore/explore_search_bar.dart`: Search bar with sort button & filter trigger
-- `lib/features/decks/presentation/widgets/explore/explore_search_results_view.dart`: Multi-level grouped search
-- `lib/features/decks/presentation/widgets/explore/explore_carousel_section.dart`: Horizontal category carousels
-- `lib/features/decks/presentation/widgets/explore/explore_deck_card.dart`: 2-column grid summary card with voting
-- `lib/features/decks/presentation/widgets/explore/explore_filter_modal.dart`: Dedicated filter sheet
-
-### Test Suites:
-- `test/features/decks/decks_dual_tab_architecture_test.dart`: R1 Dual-Tab navigation & state isolation
-- `test/features/decks/my_decks_search_and_sharing_test.dart`: R2 Personal search, line breaks & sharing
-- `test/features/decks/explore_precon_seeder_test.dart`: R3 Offline seeding & SQLite ingestion
-- `test/features/decks/explore_feed_and_carousels_test.dart`: R3 2-column grid, carousels & filter modal
-- `test/features/decks/explore_search_and_sort_test.dart`: R4 Embedded sort & multi-level query headings
-- `test/features/decks/explore_voting_persistence_test.dart`: R5 Persistent SQLite voting & score updates
-- `test/features/decks/explore_deck_clone_engine_test.dart`: R6 Read-only detail view & cloning engine
+- `lib/core/database/`:
+  - `app_database.dart`: schema version 16, migrations.
+  - `tables/social/`: `post_votes_table.dart`, `post_reactions_table.dart`, `comment_reactions_table.dart`, `saved_posts_table.dart`, `post_comments_table.dart`.
+  - `tables/vault/`: `vault_items_table.dart` (`isWishlisted`).
+- `lib/features/feed/`:
+  - `data/daos/feed_dao.dart`: joined comments query, total comment count, voting, reactions, saving.
+  - `data/daos/inbox_dao.dart`: trade proposal lifecycle, atomic notification updates.
+  - `presentation/widgets/post_composer_modal.dart`: unified post creation.
+  - `presentation/widgets/post_card.dart`, `post_header.dart`, `post_action_bar.dart`: icons-only bar, Reddit pill, reactions, wishlist menu.
+  - `presentation/widgets/post_comments_sheet.dart`: nested comments tree, reply banner, reactions.
+  - `presentation/screens/friends_hub_screen.dart`: 2-tab restructure, 3-section layout.
+  - `presentation/screens/inbox_hub_screen.dart`: compose button, notifications without "Request removed".
+  - `presentation/screens/chat_conversation_screen.dart`: reactive trade banner unpinning, plain English names, cancel/edit/counter buttons.
+- `lib/features/vault/`:
+  - `presentation/widgets/card_detail_sheet.dart`: share sheet `As Link` & `As Post`, identifier normalization.
+  - `presentation/widgets/expanded_card_view_modal.dart`: feed card lightbox overlay.
+  - `presentation/screens/vault_screen.dart`: zero dead space header, live SQLite search on name/type/oracle.
+  - `presentation/screens/master_set_screen.dart`: 3x3 grid, color vs grayscale.
+- `lib/features/auth/`:
+  - `presentation/screens/onboarding_welcome_screen.dart`: 3-step onboarding wizard.
+  - `presentation/widgets/logout_confirmation_dialog.dart`: logout prompt with guest data options.
+- `lib/features/command_center/`:
+  - `presentation/widgets/morphing_command_center.dart`: logout button, saved posts dropdown.
+- `lib/features/trades/`:
+  - `presentation/screens/trade_screen.dart`: preloaded counter/edit offer with Trade Value Meter.
+- `test/`:
+  - Comprehensive unit, widget, and E2E test suites for all 8 requirements.

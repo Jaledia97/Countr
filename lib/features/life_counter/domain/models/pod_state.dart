@@ -1,4 +1,7 @@
+import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
+
+import 'game_history_entry.dart';
 
 /// Configuration for initializing a player when creating a new match session.
 class PlayerSetupConfig {
@@ -45,12 +48,14 @@ class PodPlayerState {
   final int energy;
   final int experience;
   final int commanderTax;
+  final int radCounters;
   final bool isMonarch;
   final bool hasInitiative;
   final Map<String, int> commanderDamageTaken; // sourcePlayerId -> damage
   final Map<String, int> floatingMana; // 'W', 'U', 'B', 'R', 'G', 'C' -> count
   final int stormCount;
   final bool isEliminated;
+  final bool isKoIgnored;
   final bool isLocalDevice;
   final String? peerDeviceId;
 
@@ -68,12 +73,14 @@ class PodPlayerState {
     this.energy = 0,
     this.experience = 0,
     this.commanderTax = 0,
+    this.radCounters = 0,
     this.isMonarch = false,
     this.hasInitiative = false,
     this.commanderDamageTaken = const {},
     this.floatingMana = const {'W': 0, 'U': 0, 'B': 0, 'R': 0, 'G': 0, 'C': 0},
     this.stormCount = 0,
     this.isEliminated = false,
+    this.isKoIgnored = false,
     this.isLocalDevice = true,
     this.peerDeviceId,
   });
@@ -88,6 +95,26 @@ class PodPlayerState {
   /// Whether the player has received 21 or more commander damage from any opponent.
   bool get hasAnyLethalCommanderDamage =>
       commanderDamageTaken.values.any((dmg) => dmg >= 21);
+
+  /// Total commander damage taken from a specific opponent (Partner A + Partner B).
+  int totalCommanderDamageFrom(String opponentId) {
+    final dmgA = commanderDamageTaken[opponentId] ?? 0;
+    final dmgB = commanderDamageTaken['${opponentId}_partner'] ?? 0;
+    return dmgA + dmgB;
+  }
+
+  /// Highest commander damage taken from any single commander of a specific opponent.
+  int maxCommanderDamageFrom(String opponentId) {
+    final dmgA = commanderDamageTaken[opponentId] ?? 0;
+    final dmgB = commanderDamageTaken['${opponentId}_partner'] ?? 0;
+    return math.max(dmgA, dmgB);
+  }
+
+  /// Whether a specific opponent has dealt 21+ commander damage (from either partner).
+  bool isLethalFromOpponent(String opponentId) {
+    return (commanderDamageTaken[opponentId] ?? 0) >= 21 ||
+        (commanderDamageTaken['${opponentId}_partner'] ?? 0) >= 21;
+  }
 
   /// Whether the player is in a lethal state (0 or negative life, 10+ poison, 21+ cmd damage, or eliminated).
   bool get isLethal =>
@@ -107,12 +134,14 @@ class PodPlayerState {
     int? energy,
     int? experience,
     int? commanderTax,
+    int? radCounters,
     bool? isMonarch,
     bool? hasInitiative,
     Map<String, int>? commanderDamageTaken,
     Map<String, int>? floatingMana,
     int? stormCount,
     bool? isEliminated,
+    bool? isKoIgnored,
     bool? isLocalDevice,
     String? peerDeviceId,
   }) {
@@ -130,6 +159,7 @@ class PodPlayerState {
       energy: energy ?? this.energy,
       experience: experience ?? this.experience,
       commanderTax: commanderTax ?? this.commanderTax,
+      radCounters: radCounters ?? this.radCounters,
       isMonarch: isMonarch ?? this.isMonarch,
       hasInitiative: hasInitiative ?? this.hasInitiative,
       commanderDamageTaken: commanderDamageTaken != null
@@ -140,6 +170,7 @@ class PodPlayerState {
           : this.floatingMana,
       stormCount: stormCount ?? this.stormCount,
       isEliminated: isEliminated ?? this.isEliminated,
+      isKoIgnored: isKoIgnored ?? this.isKoIgnored,
       isLocalDevice: isLocalDevice ?? this.isLocalDevice,
       peerDeviceId: peerDeviceId ?? this.peerDeviceId,
     );
@@ -159,12 +190,14 @@ class PodPlayerState {
     'energy': energy,
     'experience': experience,
     'commanderTax': commanderTax,
+    'radCounters': radCounters,
     'isMonarch': isMonarch,
     'hasInitiative': hasInitiative,
     'commanderDamageTaken': commanderDamageTaken,
     'floatingMana': floatingMana,
     'stormCount': stormCount,
     'isEliminated': isEliminated,
+    'isKoIgnored': isKoIgnored,
     'isLocalDevice': isLocalDevice,
     'peerDeviceId': peerDeviceId,
   };
@@ -183,6 +216,7 @@ class PodPlayerState {
     energy: json['energy'] as int? ?? 0,
     experience: json['experience'] as int? ?? 0,
     commanderTax: json['commanderTax'] as int? ?? 0,
+    radCounters: json['radCounters'] as int? ?? 0,
     isMonarch: json['isMonarch'] as bool? ?? false,
     hasInitiative: json['hasInitiative'] as bool? ?? false,
     commanderDamageTaken: (json['commanderDamageTaken'] as Map<String, dynamic>?)
@@ -193,6 +227,7 @@ class PodPlayerState {
         const {'W': 0, 'U': 0, 'B': 0, 'R': 0, 'G': 0, 'C': 0},
     stormCount: json['stormCount'] as int? ?? 0,
     isEliminated: json['isEliminated'] as bool? ?? false,
+    isKoIgnored: json['isKoIgnored'] as bool? ?? false,
     isLocalDevice: json['isLocalDevice'] as bool? ?? true,
     peerDeviceId: json['peerDeviceId'] as String?,
   );
@@ -215,17 +250,19 @@ class PodPlayerState {
           energy == other.energy &&
           experience == other.experience &&
           commanderTax == other.commanderTax &&
+          radCounters == other.radCounters &&
           isMonarch == other.isMonarch &&
           hasInitiative == other.hasInitiative &&
           mapEquals(commanderDamageTaken, other.commanderDamageTaken) &&
           mapEquals(floatingMana, other.floatingMana) &&
           stormCount == other.stormCount &&
           isEliminated == other.isEliminated &&
+          isKoIgnored == other.isKoIgnored &&
           isLocalDevice == other.isLocalDevice &&
           peerDeviceId == other.peerDeviceId;
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
         id,
         seatIndex,
         name,
@@ -239,13 +276,15 @@ class PodPlayerState {
         energy,
         experience,
         commanderTax,
+        radCounters,
         isMonarch,
         hasInitiative,
         stormCount,
         isEliminated,
+        isKoIgnored,
         isLocalDevice,
         peerDeviceId,
-      );
+      ]);
 }
 
 /// Immutable top-level domain state representing an entire MTG life counter pod.
@@ -259,6 +298,11 @@ class PodState {
   final bool isP2pHost;
   final String? roomCode;
   final int sequenceNumber;
+  final List<GameHistoryEntry> gameHistory;
+  final bool commanderDamageLifeLoss;
+  final bool colorizeCommanderMiniGrids;
+  final bool autoKo;
+  final String cardDensity;
 
   const PodState({
     required this.sessionId,
@@ -269,7 +313,33 @@ class PodState {
     this.isP2pHost = false,
     this.roomCode,
     this.sequenceNumber = 0,
+    this.gameHistory = const [],
+    this.commanderDamageLifeLoss = true,
+    this.colorizeCommanderMiniGrids = true,
+    this.autoKo = true,
+    this.cardDensity = 'Default',
   });
+
+  /// Whether an active game is currently in progress (any life total != startingLife,
+  /// any non-zero secondary counter, non-zero commander damage, or non-empty gameHistory).
+  bool get isGameInProgress {
+    if (gameHistory.isNotEmpty) return true;
+    for (final p in players) {
+      if (p.life != startingLife) return true;
+      if (p.poison > 0 ||
+          p.energy > 0 ||
+          p.experience > 0 ||
+          p.commanderTax > 0 ||
+          p.radCounters > 0 ||
+          p.stormCount > 0 ||
+          p.isEliminated) {
+        return true;
+      }
+      if (p.commanderDamageTaken.values.any((d) => d > 0)) return true;
+      if (p.floatingMana.values.any((m) => m > 0)) return true;
+    }
+    return false;
+  }
 
   /// Finds a player by unique [id], or null if not found.
   PodPlayerState? getPlayer(String id) {
@@ -299,6 +369,11 @@ class PodState {
     bool? isP2pHost,
     String? roomCode,
     int? sequenceNumber,
+    List<GameHistoryEntry>? gameHistory,
+    bool? commanderDamageLifeLoss,
+    bool? colorizeCommanderMiniGrids,
+    bool? autoKo,
+    String? cardDensity,
   }) {
     return PodState(
       sessionId: sessionId ?? this.sessionId,
@@ -309,6 +384,13 @@ class PodState {
       isP2pHost: isP2pHost ?? this.isP2pHost,
       roomCode: roomCode ?? this.roomCode,
       sequenceNumber: sequenceNumber ?? this.sequenceNumber,
+      gameHistory: gameHistory ?? this.gameHistory,
+      commanderDamageLifeLoss:
+          commanderDamageLifeLoss ?? this.commanderDamageLifeLoss,
+      colorizeCommanderMiniGrids:
+          colorizeCommanderMiniGrids ?? this.colorizeCommanderMiniGrids,
+      autoKo: autoKo ?? this.autoKo,
+      cardDensity: cardDensity ?? this.cardDensity,
     );
   }
 
@@ -321,6 +403,11 @@ class PodState {
     'isP2pHost': isP2pHost,
     'roomCode': roomCode,
     'sequenceNumber': sequenceNumber,
+    'gameHistory': gameHistory.map((e) => e.toJson()).toList(),
+    'commanderDamageLifeLoss': commanderDamageLifeLoss,
+    'colorizeCommanderMiniGrids': colorizeCommanderMiniGrids,
+    'autoKo': autoKo,
+    'cardDensity': cardDensity,
   };
 
   factory PodState.fromJson(Map<String, dynamic> json) => PodState(
@@ -334,6 +421,16 @@ class PodState {
     isP2pHost: json['isP2pHost'] as bool? ?? false,
     roomCode: json['roomCode'] as String?,
     sequenceNumber: json['sequenceNumber'] as int? ?? 0,
+    gameHistory: (json['gameHistory'] as List<dynamic>?)
+            ?.map((e) => GameHistoryEntry.fromJson(e as Map<String, dynamic>))
+            .toList() ??
+        const [],
+    commanderDamageLifeLoss:
+        json['commanderDamageLifeLoss'] as bool? ?? true,
+    colorizeCommanderMiniGrids:
+        json['colorizeCommanderMiniGrids'] as bool? ?? true,
+    autoKo: json['autoKo'] as bool? ?? true,
+    cardDensity: json['cardDensity'] as String? ?? 'Default',
   );
 
   @override
@@ -348,7 +445,12 @@ class PodState {
           isDay == other.isDay &&
           isP2pHost == other.isP2pHost &&
           roomCode == other.roomCode &&
-          sequenceNumber == other.sequenceNumber;
+          sequenceNumber == other.sequenceNumber &&
+          listEquals(gameHistory, other.gameHistory) &&
+          commanderDamageLifeLoss == other.commanderDamageLifeLoss &&
+          colorizeCommanderMiniGrids == other.colorizeCommanderMiniGrids &&
+          autoKo == other.autoKo &&
+          cardDensity == other.cardDensity;
 
   @override
   int get hashCode => Object.hash(
@@ -360,5 +462,10 @@ class PodState {
         isP2pHost,
         roomCode,
         sequenceNumber,
+        Object.hashAll(gameHistory),
+        commanderDamageLifeLoss,
+        colorizeCommanderMiniGrids,
+        autoKo,
+        cardDensity,
       );
 }

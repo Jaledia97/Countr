@@ -108,6 +108,7 @@ Deck createTier5TestDeck({
     isRegistered: false,
     isAssembled: false,
     isCompetitive: false, isDeleted: false,
+    isCloned: false,
   );
 }
 

@@ -5,6 +5,8 @@ import 'package:countr/core/constants/app_typography.dart';
 import 'package:countr/core/database/app_database.dart';
 import 'package:countr/features/vault/presentation/providers/vault_providers.dart';
 import 'package:countr/core/cache/countr_cached_image.dart';
+import 'package:countr/features/auth/presentation/providers/auth_providers.dart';
+import 'package:countr/features/profile/presentation/providers/profile_providers.dart';
 
 /// Screen representing the staged "Inbox" holding area where cards scanned
 /// via the Edge Scanner are reviewed before being sorted into Vault Binders.
@@ -102,6 +104,12 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
     String collectionType,
   ) async {
     final dao = ref.read(vaultDaoProvider);
+    final currentUserId = ref.read(currentUserIdProvider);
+    final authUser = ref.read(currentUserProvider);
+    final profile = ref.read(currentUserProfileProvider);
+    final isBusiness = authUser.isBusiness ||
+        profile?.accountType == 'business' ||
+        (profile?.isVerifiedBusiness ?? false);
 
     await showModalBottomSheet(
       context: context,
@@ -112,7 +120,11 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
       ),
       builder: (bottomSheetContext) {
         return StreamBuilder<List<VaultBinder>>(
-          stream: dao.watchBindersByCollection(collectionType),
+          stream: dao.watchBindersByCollection(
+            collectionType,
+            userId: currentUserId,
+            isBusiness: isBusiness,
+          ),
           builder: (context, snapshot) {
             final binders = snapshot.data ?? [];
 

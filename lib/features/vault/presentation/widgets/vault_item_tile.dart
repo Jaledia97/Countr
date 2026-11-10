@@ -104,7 +104,7 @@ class VaultItemTile extends StatelessWidget {
                 children: [
                   // Image
                   IgnorePointer(
-                    child: (resolvedUrl.isNotEmpty || item.name.isNotEmpty)
+                    child: resolvedUrl.isNotEmpty
                         ? CountrCachedImage(
                             imageUrl: resolvedUrl,
                             cardId: item.id,
@@ -193,10 +193,31 @@ class VaultItemTile extends StatelessWidget {
                       ),
                     ),
 
+                  // Top Right Wishlist Badge
+                  if (item.isWishlisted == true)
+                    Positioned(
+                      top: 4,
+                      right: 4,
+                      child: Container(
+                        key: const Key('vault_card_wishlist_badge'),
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.75),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.bookmark,
+                          key: Key('wishlist_badge_pos'),
+                          color: Colors.purpleAccent,
+                          size: 14,
+                        ),
+                      ),
+                    ),
+
                   // Top Right: Selection Indicator or Quantity/Unowned Badge
                   Positioned(
                     top: 6,
-                    right: 6,
+                    right: (item.isWishlisted == true) ? 24 : 6,
                     child: _buildTopRightBadge(isOwned),
                   ),
 

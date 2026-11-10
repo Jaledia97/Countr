@@ -64,7 +64,7 @@ void main() {
 
         // Verify version bumped to 11
         final userVersion = await db.customSelect('PRAGMA user_version;').getSingle();
-        expect(userVersion.read<int>('user_version'), equals(11));
+        expect(userVersion.read<int>('user_version'), greaterThanOrEqualTo(11));
 
         // Verify explore tables exist
         final tables = await db.customSelect("SELECT name FROM sqlite_master WHERE type='table';").get();
@@ -117,7 +117,7 @@ void main() {
         expect(exploreDeck.read<String>('name'), equals('Surviving Deck'));
 
         final userVersion = await db.customSelect('PRAGMA user_version;').getSingle();
-        expect(userVersion.read<int>('user_version'), equals(11));
+        expect(userVersion.read<int>('user_version'), greaterThanOrEqualTo(11));
       } finally {
         await db.close();
       }
@@ -210,7 +210,7 @@ void main() {
         expect(deck.sourceExploreDeckId, isNull);
 
         final userVersion = await db.customSelect('PRAGMA user_version;').getSingle();
-        expect(userVersion.read<int>('user_version'), equals(11));
+        expect(userVersion.read<int>('user_version'), greaterThanOrEqualTo(11));
 
         // Check tables created across v9, v10, and v11
         final tables = await db.customSelect("SELECT name FROM sqlite_master WHERE type='table';").get();

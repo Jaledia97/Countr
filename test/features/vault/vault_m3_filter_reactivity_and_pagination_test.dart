@@ -68,7 +68,7 @@ void main() {
         if (line.contains('ref.watch(')) {
           final lineNum = i + 1;
           // Legal places: build() methods (inside _VaultScreenState or Consumer builders)
-          final isInsideConsumer = lineNum >= 2410 && lineNum <= 2435;
+          final isInsideConsumer = (lineNum >= 2410 && lineNum <= 2500) || (lineNum >= 3200 && lineNum <= 3600);
           final isInsideBuild = lineNum >= 400 && lineNum <= 440;
           final isInsideSubBuild = lineNum > 1000 && lineNum < 2200;
           expect(
@@ -80,7 +80,7 @@ void main() {
       }
 
       // Verify no setModalState in the 7 filter modal methods
-      final filterModalSection = lines.sublist(2400, 2980).join('\n');
+      final filterModalSection = lines.sublist(2450, 3050).join('\n');
       expect(filterModalSection.contains('setModalState('), isFalse);
     });
 

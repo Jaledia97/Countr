@@ -193,7 +193,7 @@ void main() {
       );
       addTearDown(container.dispose);
 
-      await tester.pumpWidget(buildVaultApp(container: container));
+      await tester.pumpWidget(buildVaultApp(container: container, tester: tester));
       await tester.pumpAndSettle();
 
       expect(container.read(vaultShowCatalogProvider), isFalse);
@@ -222,7 +222,7 @@ void main() {
       );
       addTearDown(container.dispose);
 
-      await tester.pumpWidget(buildVaultApp(container: container));
+      await tester.pumpWidget(buildVaultApp(container: container, tester: tester));
       await tester.pumpAndSettle();
 
       // Select Comics chip in All Collections mode
@@ -390,7 +390,7 @@ void main() {
       );
       addTearDown(container.dispose);
 
-      await tester.pumpWidget(buildVaultApp(container: container, size: const Size(1400, 900), tester: tester));
+      await tester.pumpWidget(buildVaultApp(container: container, size: const Size(1600, 900), tester: tester));
       await tester.pumpAndSettle();
 
       // Rarity
@@ -454,6 +454,7 @@ void main() {
           activeGame: 'Magic: The Gathering',
           size: const Size(320, 568),
           textScaleFactor: 2.0,
+          tester: tester,
         ),
       );
       await tester.pumpAndSettle();
@@ -461,7 +462,7 @@ void main() {
       expect(tester.takeException(), isNull);
 
       // Drag horizontally across the filter chips row
-      await tester.drag(find.byKey(const Key('vault_filter_chip_colors')), const Offset(-200, 0));
+      await tester.drag(find.byKey(const Key('vault_filter_chip_owned')), const Offset(-200, 0));
       await tester.pumpAndSettle();
 
       expect(tester.takeException(), isNull);

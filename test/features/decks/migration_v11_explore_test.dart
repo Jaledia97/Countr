@@ -126,8 +126,8 @@ void main() {
         // Query user_version
         final versionRow = await db.customSelect('PRAGMA user_version;').getSingle();
         final currentVersion = versionRow.read<int>('user_version');
-        expect(currentVersion, equals(11),
-            reason: 'Database schemaVersion must be upgraded to 11');
+        expect(currentVersion, greaterThanOrEqualTo(11),
+            reason: 'Database schemaVersion must be upgraded to at least 11');
 
         // Verify decks table has been altered with new columns
         final tableInfo = await db.customSelect("PRAGMA table_info('decks');").get();

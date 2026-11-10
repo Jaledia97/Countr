@@ -10,10 +10,12 @@ import 'package:countr/features/decks/presentation/widgets/explore/explore_searc
 import 'package:countr/features/decks/presentation/widgets/explore/explore_carousel_section.dart';
 import 'package:countr/features/decks/presentation/widgets/explore/explore_deck_card.dart';
 import 'package:countr/features/decks/presentation/widgets/explore/explore_search_results_view.dart';
+import 'package:countr/features/decks/presentation/widgets/explore/explore_category_drill_down_view.dart';
 import 'package:countr/features/vault/presentation/providers/vault_providers.dart';
 import 'package:countr/features/decks/presentation/providers/deck_providers.dart';
 import 'package:countr/features/decks/data/services/precon_hydration_service.dart';
 import 'package:countr/features/decks/data/services/explore_seeder_service.dart';
+import 'package:countr/features/decks/domain/services/explore_category_engine.dart';
 
 /// Tab 1 host widget for "Explore Decks", maintaining independent scroll offsets via
 /// [AutomaticKeepAliveClientMixin] and [PageStorageKey], providing top category pills,
@@ -95,10 +97,7 @@ class _ExploreDecksTabViewState extends ConsumerState<ExploreDecksTabView>
     }
   }
 
-  Widget _buildTopCategoryPills(
-    ExploreCategory currentCategory, {
-    required bool showHeaderSeedButton,
-  }) {
+  Widget _buildTopCategoryPills(ExploreCategory currentCategory) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: const BoxDecoration(
@@ -142,58 +141,68 @@ class _ExploreDecksTabViewState extends ConsumerState<ExploreDecksTabView>
                     ExploreCategory.community;
               },
             ),
-            if (showHeaderSeedButton) ...[
-              const SizedBox(width: 8),
-              InkWell(
-                key: const Key('load_precons_button'),
-                onTap: _isSeeding
-                    ? null
-                    : () => _seedPreconsAndCommunity(
-                          force: true,
-                          showSnackBar: true,
-                        ),
-                borderRadius: BorderRadius.circular(20),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: AppColors.accentCyan.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: AppColors.accentCyan.withValues(alpha: 0.6),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (_isSeeding)
-                        const SizedBox(
-                          width: 13,
-                          height: 13,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: AppColors.accentCyan,
-                          ),
-                        )
-                      else
-                        const Icon(
-                          Icons.download_rounded,
-                          size: 13,
-                          color: AppColors.accentCyan,
-                        ),
-                      const SizedBox(width: 4),
-                      Text(
-                        _isSeeding ? 'Loading Decks...' : 'Seed Precons & Community',
-                        style: const TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.accentCyan,
-                        ),
-                      ),
-                    ],
-                  ),
+            const SizedBox(width: 8),
+            _ExploreCategoryPill(
+              key: const Key('explore_pill_my_uploads'),
+              label: 'My Uploads',
+              isSelected: currentCategory == ExploreCategory.myUploads,
+              onTap: () {
+                ref.read(activeExploreCategoryProvider.notifier).state =
+                    ExploreCategory.myUploads;
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAllExploreDecksHeader(int deckCount) {
+    return SliverToBoxAdapter(
+      child: Padding(
+        key: const Key('all_explore_decks_header'),
+        padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(5),
+              decoration: BoxDecoration(
+                color: AppColors.accentCyan.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: AppColors.accentCyan.withValues(alpha: 0.3),
                 ),
               ),
-            ],
+              child: const Icon(
+                Icons.grid_view_rounded,
+                size: 16,
+                color: AppColors.accentCyan,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'All Explore Decks',
+                key: const Key('explore_all_decks_header'),
+                style: AppTypography.heading2.copyWith(
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.2,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (deckCount > 0)
+              Text(
+                '$deckCount decks',
+                key: const Key('explore_decks_count_badge'),
+                style: AppTypography.caption.copyWith(
+                  color: AppColors.textMuted,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
           ],
         ),
       ),
@@ -207,8 +216,8 @@ class _ExploreDecksTabViewState extends ConsumerState<ExploreDecksTabView>
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 2,
           crossAxisSpacing: 10,
-          mainAxisSpacing: 10,
-          childAspectRatio: 0.72,
+          mainAxisSpacing: 6,
+          childAspectRatio: 0.54,
         ),
         delegate: SliverChildBuilderDelegate(
           (context, index) {
@@ -225,9 +234,20 @@ class _ExploreDecksTabViewState extends ConsumerState<ExploreDecksTabView>
   Widget build(BuildContext context) {
     super.build(context);
 
+    final drillDownCategory = ref.watch(exploreDrillDownCategoryProvider);
+    if (drillDownCategory != null) {
+      return ExploreCategoryDrillDownView(
+        category: drillDownCategory,
+        onBack: () {
+          ref.read(exploreDrillDownCategoryProvider.notifier).state = null;
+        },
+      );
+    }
+
     final currentCategory = ref.watch(activeExploreCategoryProvider);
     final searchQuery = ref.watch(exploreSearchQueryProvider);
     final exploreDecksAsync = ref.watch(exploreDecksStreamProvider);
+    final filteredDeckCountAsync = ref.watch(exploreFilteredDeckCountProvider);
     final isSearching = searchQuery.trim().isNotEmpty;
 
     final decks = exploreDecksAsync.valueOrNull ?? const [];
@@ -235,7 +255,7 @@ class _ExploreDecksTabViewState extends ConsumerState<ExploreDecksTabView>
     final slice2 = decks.skip(4).take(4).toList();
     final slice3 = decks.skip(8).toList();
     final showEmptyStateBanner =
-        !isSearching && decks.isEmpty && !exploreDecksAsync.isLoading;
+        !isSearching && (decks.isEmpty || _isSeeding) && !exploreDecksAsync.isLoading;
 
     return CustomScrollView(
       key: const PageStorageKey('explore_decks_scroll_key'),
@@ -245,12 +265,9 @@ class _ExploreDecksTabViewState extends ConsumerState<ExploreDecksTabView>
           child: ExploreSearchBar(),
         ),
 
-        // 2. Top Category Pills + Seed Action Button
+        // 2. Top Category Pills
         SliverToBoxAdapter(
-          child: _buildTopCategoryPills(
-            currentCategory,
-            showHeaderSeedButton: !showEmptyStateBanner,
-          ),
+          child: _buildTopCategoryPills(currentCategory),
         ),
 
         // 3. Search Mode vs Discovery Feed Mode
@@ -321,20 +338,42 @@ class _ExploreDecksTabViewState extends ConsumerState<ExploreDecksTabView>
             ),
 
           // Discovery Feed Mode
-          // Carousel 1: Suggested Commanders
-          const SliverToBoxAdapter(
-            child: ExploreCarouselSection(
-              category: 'Suggested Commanders',
+          // Carousel 1: Lead Velocity / Suggested Commanders (Features 18 & 20)
+          // Dynamically switches to "Today's Picks" (48h velocity >= 5) or "This Week's Picks" (7d >= 5)
+          // and falls back gracefully to "Suggested Commanders".
+          SliverToBoxAdapter(
+            child: Consumer(
+              builder: (context, ref, _) {
+                final windowAsync = ref.watch(leadVelocityWindowProvider);
+                final window = windowAsync.valueOrNull ?? LeadVelocityWindow.todaysPicks;
+                final isDynamicVelocity = window == LeadVelocityWindow.todaysPicks ||
+                    window == LeadVelocityWindow.thisWeeksPicks;
+                final category = isDynamicVelocity ? window.title : 'Suggested Commanders';
+
+                return KeyedSubtree(
+                  key: const Key('explore_carousel_lead_velocity'),
+                  child: ExploreCarouselSection(
+                    category: category,
+                    title: category,
+                  ),
+                );
+              },
             ),
           ),
 
           // Primary 2-Column Grid: Slice 1
+          if (!showEmptyStateBanner && decks.isNotEmpty)
+            _buildAllExploreDecksHeader(filteredDeckCountAsync.valueOrNull ?? decks.length),
           _buildGridSlice(slice1),
 
-          // Carousel 2: From Top Deck Builders
+          // Carousel 2: Lateral Rotating Category / From Top Deck Builders (Features 19 & 20)
           const SliverToBoxAdapter(
-            child: ExploreCarouselSection(
-              category: 'From Top Deck Builders',
+            child: KeyedSubtree(
+              key: Key('explore_carousel_lateral_rotating'),
+              child: ExploreCarouselSection(
+                category: 'From Top Deck Builders',
+                title: 'From Top Deck Builders',
+              ),
             ),
           ),
 

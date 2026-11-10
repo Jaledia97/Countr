@@ -146,23 +146,27 @@ void main() {
       }
 
       // Benchmark 5,000 lookups via findChildIndexCallback
+      int mismatchCountO1 = 0;
       final stopwatchO1 = Stopwatch()..start();
       for (int i = 0; i < items.length; i++) {
         final index = findChildIndexCallback(ValueKey<String>('card-$i'));
-        expect(index, equals(i));
+        if (index != i) mismatchCountO1++;
       }
       stopwatchO1.stop();
+      expect(mismatchCountO1, equals(0), reason: 'All 5,000 indices must match');
 
       // Benchmark 500 lookups via O(N) indexWhere (subsampled to save test time)
+      int mismatchCountON = 0;
       final stopwatchON = Stopwatch()..start();
       for (int i = 0; i < 500; i++) {
         final targetId = 'card-$i';
         final index = items.indexWhere((it) => it.id == targetId);
-        expect(index, equals(i));
+        if (index != i) mismatchCountON++;
       }
       stopwatchON.stop();
+      expect(mismatchCountON, equals(0), reason: 'All 500 indices must match');
 
-      // O(1) for 5000 lookups should be significantly fast (< 15ms)
+      // O(1) for 5000 lookups should be significantly fast (< 100ms)
       expect(stopwatchO1.elapsedMilliseconds, lessThan(100),
           reason: '5,000 O(1) map lookups must execute within sub-frame latency');
     });

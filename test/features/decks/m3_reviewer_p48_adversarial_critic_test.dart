@@ -37,6 +37,7 @@ void main() {
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
         isDeleted: false,
+        isCloned: false,
       );
 
       testWidgets('Renders inside showModalBottomSheet on compact screen (320x480) with zero overflow', (tester) async {
@@ -270,6 +271,7 @@ void main() {
           createdAt: DateTime.now(),
           updatedAt: DateTime.now(),
           isDeleted: false,
+          isCloned: false,
         );
 
         await tester.pumpWidget(

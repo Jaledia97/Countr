@@ -137,6 +137,7 @@ void main() {
             losses: 0,
             draws: 0,
             isDeleted: false,
+            isCloned: false,
           ),
         ),
       ];

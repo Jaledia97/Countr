@@ -63,14 +63,18 @@ class VaultPricingHelper {
     final isFoilFinish = !isNonfoilFinish &&
         (normFinish == 'foil' ||
             normFinish == 'etched' ||
+            normFinish == 'surge' ||
+            normFinish == 'surgefoil' ||
             (normFinish != null && normFinish.contains('foil')));
 
     final List<String> hierarchy;
     if (isFoilFinish) {
       if (normFinish == 'etched') {
-        hierarchy = const ['usd_etched', 'usd_foil', 'eur_foil'];
+        hierarchy = const ['usd_etched', 'usd_foil', 'eur_foil', 'usd', 'eur'];
+      } else if (normFinish == 'surge' || normFinish == 'surgefoil') {
+        hierarchy = const ['usd_surge', 'usd_foil', 'usd', 'eur_foil', 'eur'];
       } else {
-        hierarchy = const ['usd_foil', 'usd_etched', 'eur_foil'];
+        hierarchy = const ['usd_foil', 'usd_etched', 'eur_foil', 'usd', 'eur'];
       }
     } else if (isNonfoilFinish) {
       hierarchy = const ['usd', 'eur'];
@@ -120,10 +124,12 @@ class VaultPricingHelper {
         }
       }
       if (map != null) {
+        final effectiveFinish = finish ??
+            (map['finish']?.toString() ?? map['treatment']?.toString());
         if (map['prices'] is Map) {
           final p = resolveHierarchicalPrice(
             map['prices'] as Map,
-            finish: finish,
+            finish: effectiveFinish,
             currency: currency,
           );
           if (p > 0) return p;
@@ -133,7 +139,7 @@ class VaultPricingHelper {
           if (firstFace is Map && firstFace['prices'] is Map) {
             final p = resolveHierarchicalPrice(
               firstFace['prices'] as Map,
-              finish: finish,
+              finish: effectiveFinish,
               currency: currency,
             );
             if (p > 0) return p;
@@ -146,7 +152,7 @@ class VaultPricingHelper {
             map.containsKey('eur_foil')) {
           final p = resolveHierarchicalPrice(
             map,
-            finish: finish,
+            finish: effectiveFinish,
             currency: currency,
           );
           if (p > 0) return p;

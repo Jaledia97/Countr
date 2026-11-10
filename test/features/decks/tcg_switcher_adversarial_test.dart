@@ -445,6 +445,7 @@ void main() {
           createdAt: DateTime.now(),
           updatedAt: DateTime.now(),
           isDeleted: false,
+          isCloned: false,
         );
 
         await tester.pumpWidget(

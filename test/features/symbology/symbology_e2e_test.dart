@@ -120,6 +120,7 @@ Deck createE2ETestDeck({
     isRegistered: false,
     isAssembled: false,
     isCompetitive: false, isDeleted: false,
+    isCloned: false,
   );
 }
 

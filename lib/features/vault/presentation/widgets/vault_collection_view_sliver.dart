@@ -8,6 +8,7 @@ import 'package:countr/core/database/app_database.dart';
 import 'package:countr/features/vault/domain/models/vault_set_collection.dart';
 import 'package:countr/features/vault/presentation/providers/vault_providers.dart';
 import 'package:countr/features/vault/presentation/widgets/card_detail_sheet.dart';
+import 'package:countr/features/vault/presentation/screens/master_set_screen.dart';
 
 /// Standard Rec. 709 grayscale matrix filter for unowned cards.
 const ColorFilter vaultGrayscaleColorFilter = ColorFilter.matrix(<double>[
@@ -161,6 +162,16 @@ class _VaultCollectionViewSliverState
                       collection: collection,
                       activeGame: widget.activeGame,
                       isExpanded: isExpanded,
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => MasterSetScreen(
+                              collection: collection,
+                              activeGame: widget.activeGame,
+                            ),
+                          ),
+                        );
+                      },
                       onToggle: () => _toggleExpand(code),
                     );
                   },
@@ -238,6 +249,25 @@ class _VaultCollectionViewSliverState
                   ),
                 ),
                 IconButton(
+                  key: Key('vault_collection_fullscreen_$code'),
+                  icon: const Icon(
+                    Icons.open_in_full_rounded,
+                    size: 18,
+                    color: AppColors.accentCyan,
+                  ),
+                  tooltip: 'Full-screen Master Set',
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => MasterSetScreen(
+                          collection: collection,
+                          activeGame: widget.activeGame,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                IconButton(
                   icon: const Icon(
                     Icons.close_rounded,
                     size: 20,
@@ -253,6 +283,7 @@ class _VaultCollectionViewSliverState
           StreamBuilder<List<VaultItem>>(
             stream: dao.watchItemsBySet(
               collection.setName,
+              setCode: collection.setCode.isNotEmpty ? collection.setCode : null,
               collectionType: widget.activeGame,
             ),
             builder: (context, snapshot) {
@@ -322,6 +353,7 @@ class VaultCollectionCard extends StatelessWidget {
   final String activeGame;
   final bool isExpanded;
   final VoidCallback? onToggle;
+  final VoidCallback? onTap;
 
   const VaultCollectionCard({
     super.key,
@@ -329,6 +361,7 @@ class VaultCollectionCard extends StatelessWidget {
     required this.activeGame,
     this.isExpanded = false,
     this.onToggle,
+    this.onTap,
   });
 
   @override
@@ -342,6 +375,17 @@ class VaultCollectionCard extends StatelessWidget {
     final code =
         collection.setCode.isNotEmpty ? collection.setCode : collection.setName;
     final isCompact = MediaQuery.sizeOf(context).width <= 360;
+
+    void openMasterSet() {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => MasterSetScreen(
+            collection: collection,
+            activeGame: activeGame,
+          ),
+        ),
+      );
+    }
 
     return Container(
       decoration: BoxDecoration(
@@ -364,7 +408,8 @@ class VaultCollectionCard extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           key: Key('vault_collection_header_$code'),
-          onTap: onToggle,
+          onTap: onTap ?? openMasterSet,
+          onLongPress: openMasterSet,
           child: Padding(
             padding: EdgeInsets.all(isCompact ? 10 : 12),
             child: Column(
@@ -538,7 +583,9 @@ class _VaultCollectionCardItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isOwned = item.quantity > 0;
+    final isOwned = item.quantity > 0 &&
+        !(item.primaryBinderId?.startsWith('system_looking_for') ?? false) &&
+        (item.isTraded != true);
 
     Widget artwork = item.imageUrl.isNotEmpty
         ? IgnorePointer(
@@ -659,7 +706,7 @@ class _VaultCollectionCardItem extends StatelessWidget {
                   ),
                 ),
               )
-            else if (item.quantity > 1)
+            else if (isOwned && item.quantity > 1)
               Positioned(
                 top: 4,
                 right: 4,

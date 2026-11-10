@@ -142,7 +142,7 @@ class _VaultImportBottomSheetState extends ConsumerState<VaultImportBottomSheet>
 
       for (final item in _parsedPreview) {
         final matches = await dao.searchCatalogCards(item.name, limit: 1);
-        if (matches.isNotEmpty) {
+        if (matches.isNotEmpty && matches.first.quantity == 0) {
           final matchedCard = matches.first;
           await dao.bulkAddCatalogItems(
             stagedItems: {matchedCard.id: item.quantity},
@@ -153,21 +153,22 @@ class _VaultImportBottomSheetState extends ConsumerState<VaultImportBottomSheet>
           // Insert new VaultItem record scoped to target binder
           final newCardId = const Uuid().v4();
           final now = DateTime.now();
+          final match = matches.isNotEmpty ? matches.first : null;
           await dao.insertItem(
             VaultItemsCompanion.insert(
               id: newCardId,
               name: item.name,
-              setOrSeries: item.setCode ?? 'Imported',
+              setOrSeries: item.setCode ?? (match?.setOrSeries ?? 'Imported'),
               collectionType: 'mtg',
               quantity: drift.Value(item.quantity),
-              imageUrl: '',
+              imageUrl: match?.imageUrl ?? '',
               condition: 'Near Mint',
               acquiredPrice: 0.0,
-              currentMarketPrice: 0.0,
+              currentMarketPrice: match?.currentMarketPrice ?? 0.0,
               acquiredDate: now,
               lastPriceUpdate: now,
               primaryBinderId: drift.Value(_selectedBinderId),
-              dynamicData:
+              dynamicData: match?.dynamicData ??
                   '{"collector_number": "${item.collectorNumber ?? '1'}"}',
             ),
           );

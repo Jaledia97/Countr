@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 export 'settings_state.dart';
+export '../../features/auth/presentation/providers/auth_providers.dart'
+    show isUserLoggedInProvider;
 
 /// Scalable Riverpod StateProvider for the Active Game Context.
 /// Defaults to 'Magic: The Gathering'.
@@ -20,10 +22,4 @@ enum UserPersona {
 /// Defaults to [UserPersona.investor].
 final userPersonaProvider = StateProvider<UserPersona>((ref) {
   return UserPersona.investor;
-});
-
-/// Global Riverpod StateProvider tracking user authentication status.
-/// Defaults to false.
-final isUserLoggedInProvider = StateProvider<bool>((ref) {
-  return false;
 });

@@ -16,6 +16,8 @@ import 'package:countr/features/vault/presentation/providers/vault_providers.dar
 import 'package:countr/features/decks/presentation/providers/explore_deck_providers.dart';
 import 'package:countr/features/decks/data/services/precon_hydration_service.dart';
 import 'package:countr/features/decks/data/services/explore_seeder_service.dart';
+import 'package:countr/features/profile/domain/services/tier_quota_service.dart';
+import 'package:countr/features/profile/presentation/widgets/quota_limit_prompt_sheet.dart';
 
 /// Tab 0 host widget for "My Decks", maintaining independent scroll offsets via
 /// [AutomaticKeepAliveClientMixin] and [PageStorageKey], providing quick filter pills,
@@ -244,10 +246,22 @@ class _MyDecksTabViewState extends ConsumerState<MyDecksTabView>
                                   ),
                                   icon: const Icon(Icons.add_rounded, size: 18),
                                   label: const Text('+ New Deck', style: TextStyle(fontWeight: FontWeight.w700)),
-                                  onPressed: () => DeckSetupWizardModal.show(
-                                    context,
-                                    initialTcgDomain: activeFilter,
-                                  ),
+                                  onPressed: () async {
+                                    final quotaService = ref.read(tierQuotaServiceProvider);
+                                    final canCreate = await quotaService.canCreateOrCloneDeck(ref);
+                                    if (!canCreate) {
+                                      if (context.mounted) {
+                                        await QuotaLimitPromptSheet.showForDecks(context);
+                                      }
+                                      return;
+                                    }
+                                    if (context.mounted) {
+                                      DeckSetupWizardModal.show(
+                                        context,
+                                        initialTcgDomain: activeFilter,
+                                      );
+                                    }
+                                  },
                                 ),
                               ],
                             ),

@@ -60,12 +60,39 @@ typedef QuadrantWidgetBuilder = Widget Function(
 /// - Feature 19: 5-Player Hybrid Pod Layout (Top 3x 33.3% rotated 180°, Bottom 2x 50% 0°)
 /// - Feature 20: 6-Player 2x3 Grid Layout (Top 3x rotated 180°, Bottom 3x 0°)
 /// - Feature 21: Opposing Player Inversion (RotatedBox(quarterTurns: isTopRow ? 2 : 0))
+/// Pod layout orientation variants.
+enum PodLayoutVariant {
+  layoutA,
+  layoutB,
+  legacy;
+
+  static PodLayoutVariant parse(String? value) {
+    if (value == null) return PodLayoutVariant.legacy;
+    final normalized = value.trim().toLowerCase().replaceAll(RegExp(r'[\s_-]'), '');
+    if (normalized == 'a' || normalized == 'layouta') {
+      return PodLayoutVariant.layoutA;
+    }
+    if (normalized == 'b' || normalized == 'layoutb') {
+      return PodLayoutVariant.layoutB;
+    }
+    return PodLayoutVariant.legacy;
+  }
+}
+
 class PodLayoutEngine extends StatelessWidget {
   final List<PodPlayerState> players;
   final bool isTablet;
   final QuadrantWidgetBuilder quadrantBuilder;
   final Color dividerColor;
   final double dividerThickness;
+  final bool showDividers;
+
+  /// Layout variant: 'layoutA', 'layoutB', or legacy ('opposed', 'standard', 'radial').
+  /// Defaults to 'opposed' for backward compatibility.
+  final String layoutVariant;
+
+  /// When true, overrides all player rotations to quarterTurns: 0.
+  final bool isCameraMode;
 
   const PodLayoutEngine({
     super.key,
@@ -74,6 +101,9 @@ class PodLayoutEngine extends StatelessWidget {
     required this.quadrantBuilder,
     this.dividerColor = Colors.white24,
     this.dividerThickness = 2.0,
+    this.showDividers = false,
+    this.layoutVariant = 'opposed',
+    this.isCameraMode = false,
   });
 
   /// Resolves the layout configuration enum for a given player count.
@@ -126,6 +156,45 @@ class PodLayoutEngine extends StatelessWidget {
     return list;
   }
 
+  Widget _buildPlayerSlot(
+    BuildContext context, {
+    required PodPlayerState player,
+    required int quarterTurns,
+    required bool isTopRow,
+  }) {
+    final effectiveQuarterTurns = isCameraMode ? 0 : quarterTurns;
+    final quadrant = quadrantBuilder(
+      context,
+      player,
+      isTopRow: isTopRow,
+      isTablet: isTablet,
+    );
+
+    if (effectiveQuarterTurns % 4 == 0) {
+      return quadrant;
+    }
+    return RotatedBox(
+      quarterTurns: effectiveQuarterTurns % 4,
+      child: quadrant,
+    );
+  }
+
+  Widget _buildHorizontalDivider() {
+    return Divider(
+      height: dividerThickness,
+      thickness: dividerThickness,
+      color: dividerColor,
+    );
+  }
+
+  Widget _buildVerticalDivider() {
+    return VerticalDivider(
+      width: dividerThickness,
+      thickness: dividerThickness,
+      color: dividerColor,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (players.isEmpty) {
@@ -138,8 +207,20 @@ class PodLayoutEngine extends StatelessWidget {
     }
 
     final normalized = normalizePlayers(players);
-    final count = normalized.length;
+    final variant = PodLayoutVariant.parse(layoutVariant);
 
+    if (variant == PodLayoutVariant.layoutA) {
+      return _buildLayoutA(context, normalized);
+    } else if (variant == PodLayoutVariant.layoutB) {
+      return _buildLayoutB(context, normalized);
+    } else {
+      return _buildLegacyLayout(context, normalized);
+    }
+  }
+
+  /// Routes legacy layout strings ('opposed', 'standard', 'radial') to preserve exact test compatibility.
+  Widget _buildLegacyLayout(BuildContext context, List<PodPlayerState> normalized) {
+    final count = normalized.length;
     switch (count) {
       case 1:
         return _buildSoloLayout(context, normalized);
@@ -159,15 +240,15 @@ class PodLayoutEngine extends StatelessWidget {
 
   /// 1-Player Solo / Playtest View (100% viewport, 0° rotation).
   Widget _buildSoloLayout(BuildContext context, List<PodPlayerState> p) {
-    return quadrantBuilder(
+    return _buildPlayerSlot(
       context,
-      safeGetPlayer(p, 0),
+      player: safeGetPlayer(p, 0),
+      quarterTurns: 0,
       isTopRow: false,
-      isTablet: isTablet,
     );
   }
 
-  /// Feature 16: 1v1 Horizontal Split Layout.
+  /// Feature 16: 1v1 Horizontal Split Layout (Legacy).
   /// Top player (Seat 1) inverted 180° facing opponent; Bottom player (Seat 0) upright 0°.
   Widget _build1v1Layout(BuildContext context, List<PodPlayerState> p) {
     final topPlayer = safeGetPlayer(p, 1);
@@ -175,38 +256,28 @@ class PodLayoutEngine extends StatelessWidget {
 
     return Column(
       children: [
-        // Top Player (Opponent, Inverted 180°)
         Expanded(
-          child: RotatedBox(
+          child: _buildPlayerSlot(
+            context,
+            player: topPlayer,
             quarterTurns: 2,
-            child: quadrantBuilder(
-              context,
-              topPlayer,
-              isTopRow: true,
-              isTablet: isTablet,
-            ),
+            isTopRow: true,
           ),
         ),
-        // Horizontal divider
-        Divider(
-          height: dividerThickness,
-          thickness: dividerThickness,
-          color: dividerColor,
-        ),
-        // Bottom Player (Primary, Upright 0°)
+        if (showDividers) _buildHorizontalDivider(),
         Expanded(
-          child: quadrantBuilder(
+          child: _buildPlayerSlot(
             context,
-            bottomPlayer,
+            player: bottomPlayer,
+            quarterTurns: 0,
             isTopRow: false,
-            isTablet: isTablet,
           ),
         ),
       ],
     );
   }
 
-  /// Feature 17: 3-Player Asymmetric Pod Layout.
+  /// Feature 17: 3-Player Asymmetric Pod Layout (Legacy).
   /// Top row: Seats 1 and 2 (50% width each, inverted 180°).
   /// Bottom row: Seat 0 (100% width, upright 0°).
   Widget _build3PlayerLayout(BuildContext context, List<PodPlayerState> p) {
@@ -216,61 +287,44 @@ class PodLayoutEngine extends StatelessWidget {
 
     return Column(
       children: [
-        // Top Row: 2 opposing players
         Expanded(
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Expanded(
-                child: RotatedBox(
+                child: _buildPlayerSlot(
+                  context,
+                  player: p2,
                   quarterTurns: 2,
-                  child: quadrantBuilder(
-                    context,
-                    p2,
-                    isTopRow: true,
-                    isTablet: isTablet,
-                  ),
+                  isTopRow: true,
                 ),
               ),
-              VerticalDivider(
-                width: dividerThickness,
-                thickness: dividerThickness,
-                color: dividerColor,
-              ),
+              if (showDividers) _buildVerticalDivider(),
               Expanded(
-                child: RotatedBox(
+                child: _buildPlayerSlot(
+                  context,
+                  player: p3,
                   quarterTurns: 2,
-                  child: quadrantBuilder(
-                    context,
-                    p3,
-                    isTopRow: true,
-                    isTablet: isTablet,
-                  ),
+                  isTopRow: true,
                 ),
               ),
             ],
           ),
         ),
-        // Horizontal divider
-        Divider(
-          height: dividerThickness,
-          thickness: dividerThickness,
-          color: dividerColor,
-        ),
-        // Bottom Row: 1 player (100% width)
+        if (showDividers) _buildHorizontalDivider(),
         Expanded(
-          child: quadrantBuilder(
+          child: _buildPlayerSlot(
             context,
-            p1,
+            player: p1,
+            quarterTurns: 0,
             isTopRow: false,
-            isTablet: isTablet,
           ),
         ),
       ],
     );
   }
 
-  /// Feature 18: 4-Player 2x2 Quadrant Grid.
+  /// Feature 18: 4-Player 2x2 Quadrant Grid (Legacy).
   /// Top row: Seats 1 and 2 (inverted 180°).
   /// Bottom row: Seats 0 and 3 (upright 0°).
   Widget _build4PlayerLayout(BuildContext context, List<PodPlayerState> p) {
@@ -281,71 +335,50 @@ class PodLayoutEngine extends StatelessWidget {
 
     return Column(
       children: [
-        // Top Row: Seats 1 and 2
         Expanded(
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Expanded(
-                child: RotatedBox(
+                child: _buildPlayerSlot(
+                  context,
+                  player: p2,
                   quarterTurns: 2,
-                  child: quadrantBuilder(
-                    context,
-                    p2,
-                    isTopRow: true,
-                    isTablet: isTablet,
-                  ),
+                  isTopRow: true,
                 ),
               ),
-              VerticalDivider(
-                width: dividerThickness,
-                thickness: dividerThickness,
-                color: dividerColor,
-              ),
+              if (showDividers) _buildVerticalDivider(),
               Expanded(
-                child: RotatedBox(
+                child: _buildPlayerSlot(
+                  context,
+                  player: p3,
                   quarterTurns: 2,
-                  child: quadrantBuilder(
-                    context,
-                    p3,
-                    isTopRow: true,
-                    isTablet: isTablet,
-                  ),
+                  isTopRow: true,
                 ),
               ),
             ],
           ),
         ),
-        // Central horizontal divider
-        Divider(
-          height: dividerThickness,
-          thickness: dividerThickness,
-          color: dividerColor,
-        ),
-        // Bottom Row: Seats 0 and 3
+        if (showDividers) _buildHorizontalDivider(),
         Expanded(
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Expanded(
-                child: quadrantBuilder(
+                child: _buildPlayerSlot(
                   context,
-                  p1,
+                  player: p1,
+                  quarterTurns: 0,
                   isTopRow: false,
-                  isTablet: isTablet,
                 ),
               ),
-              VerticalDivider(
-                width: dividerThickness,
-                thickness: dividerThickness,
-                color: dividerColor,
-              ),
+              if (showDividers) _buildVerticalDivider(),
               Expanded(
-                child: quadrantBuilder(
+                child: _buildPlayerSlot(
                   context,
-                  p4,
+                  player: p4,
+                  quarterTurns: 0,
                   isTopRow: false,
-                  isTablet: isTablet,
                 ),
               ),
             ],
@@ -355,7 +388,7 @@ class PodLayoutEngine extends StatelessWidget {
     );
   }
 
-  /// Feature 19: 5-Player Hybrid Pod Layout.
+  /// Feature 19: 5-Player Hybrid Pod Layout (Legacy).
   /// Top row: Seats 1, 2, 3 (33.3% width each, inverted 180°).
   /// Bottom row: Seats 0, 4 (50% width each, upright 0°).
   Widget _build5PlayerLayout(BuildContext context, List<PodPlayerState> p) {
@@ -367,87 +400,59 @@ class PodLayoutEngine extends StatelessWidget {
 
     return Column(
       children: [
-        // Top Row: 3 players
         Expanded(
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Expanded(
-                child: RotatedBox(
+                child: _buildPlayerSlot(
+                  context,
+                  player: p2,
                   quarterTurns: 2,
-                  child: quadrantBuilder(
-                    context,
-                    p2,
-                    isTopRow: true,
-                    isTablet: isTablet,
-                  ),
+                  isTopRow: true,
                 ),
               ),
-              VerticalDivider(
-                width: dividerThickness,
-                thickness: dividerThickness,
-                color: dividerColor,
-              ),
+              if (showDividers) _buildVerticalDivider(),
               Expanded(
-                child: RotatedBox(
+                child: _buildPlayerSlot(
+                  context,
+                  player: p3,
                   quarterTurns: 2,
-                  child: quadrantBuilder(
-                    context,
-                    p3,
-                    isTopRow: true,
-                    isTablet: isTablet,
-                  ),
+                  isTopRow: true,
                 ),
               ),
-              VerticalDivider(
-                width: dividerThickness,
-                thickness: dividerThickness,
-                color: dividerColor,
-              ),
+              if (showDividers) _buildVerticalDivider(),
               Expanded(
-                child: RotatedBox(
+                child: _buildPlayerSlot(
+                  context,
+                  player: p4,
                   quarterTurns: 2,
-                  child: quadrantBuilder(
-                    context,
-                    p4,
-                    isTopRow: true,
-                    isTablet: isTablet,
-                  ),
+                  isTopRow: true,
                 ),
               ),
             ],
           ),
         ),
-        // Central horizontal divider
-        Divider(
-          height: dividerThickness,
-          thickness: dividerThickness,
-          color: dividerColor,
-        ),
-        // Bottom Row: 2 players
+        if (showDividers) _buildHorizontalDivider(),
         Expanded(
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Expanded(
-                child: quadrantBuilder(
+                child: _buildPlayerSlot(
                   context,
-                  p1,
+                  player: p1,
+                  quarterTurns: 0,
                   isTopRow: false,
-                  isTablet: isTablet,
                 ),
               ),
-              VerticalDivider(
-                width: dividerThickness,
-                thickness: dividerThickness,
-                color: dividerColor,
-              ),
+              if (showDividers) _buildVerticalDivider(),
               Expanded(
-                child: quadrantBuilder(
+                child: _buildPlayerSlot(
                   context,
-                  p5,
+                  player: p5,
+                  quarterTurns: 0,
                   isTopRow: false,
-                  isTablet: isTablet,
                 ),
               ),
             ],
@@ -457,7 +462,7 @@ class PodLayoutEngine extends StatelessWidget {
     );
   }
 
-  /// Feature 20: 6-Player 2x3 Grid Layout.
+  /// Feature 20: 6-Player 2x3 Grid Layout (Legacy).
   /// Top row: Seats 1, 2, 3 (33.3% width each, inverted 180°).
   /// Bottom row: Seats 0, 4, 5 (33.3% width each, upright 0°).
   Widget _build6PlayerLayout(BuildContext context, List<PodPlayerState> p) {
@@ -470,100 +475,68 @@ class PodLayoutEngine extends StatelessWidget {
 
     return Column(
       children: [
-        // Top Row: 3 opposing players (Seats 1, 2, 3)
         Expanded(
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Expanded(
-                child: RotatedBox(
+                child: _buildPlayerSlot(
+                  context,
+                  player: p2,
                   quarterTurns: 2,
-                  child: quadrantBuilder(
-                    context,
-                    p2,
-                    isTopRow: true,
-                    isTablet: isTablet,
-                  ),
+                  isTopRow: true,
                 ),
               ),
-              VerticalDivider(
-                width: dividerThickness,
-                thickness: dividerThickness,
-                color: dividerColor,
-              ),
+              if (showDividers) _buildVerticalDivider(),
               Expanded(
-                child: RotatedBox(
+                child: _buildPlayerSlot(
+                  context,
+                  player: p3,
                   quarterTurns: 2,
-                  child: quadrantBuilder(
-                    context,
-                    p3,
-                    isTopRow: true,
-                    isTablet: isTablet,
-                  ),
+                  isTopRow: true,
                 ),
               ),
-              VerticalDivider(
-                width: dividerThickness,
-                thickness: dividerThickness,
-                color: dividerColor,
-              ),
+              if (showDividers) _buildVerticalDivider(),
               Expanded(
-                child: RotatedBox(
+                child: _buildPlayerSlot(
+                  context,
+                  player: p4,
                   quarterTurns: 2,
-                  child: quadrantBuilder(
-                    context,
-                    p4,
-                    isTopRow: true,
-                    isTablet: isTablet,
-                  ),
+                  isTopRow: true,
                 ),
               ),
             ],
           ),
         ),
-        // Central horizontal divider
-        Divider(
-          height: dividerThickness,
-          thickness: dividerThickness,
-          color: dividerColor,
-        ),
-        // Bottom Row: 3 players (Seats 0, 4, 5)
+        if (showDividers) _buildHorizontalDivider(),
         Expanded(
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Expanded(
-                child: quadrantBuilder(
+                child: _buildPlayerSlot(
                   context,
-                  p1,
+                  player: p1,
+                  quarterTurns: 0,
                   isTopRow: false,
-                  isTablet: isTablet,
                 ),
               ),
-              VerticalDivider(
-                width: dividerThickness,
-                thickness: dividerThickness,
-                color: dividerColor,
-              ),
+              if (showDividers) _buildVerticalDivider(),
               Expanded(
-                child: quadrantBuilder(
+                child: _buildPlayerSlot(
                   context,
-                  p5,
+                  player: p5,
+                  quarterTurns: 0,
                   isTopRow: false,
-                  isTablet: isTablet,
                 ),
               ),
-              VerticalDivider(
-                width: dividerThickness,
-                thickness: dividerThickness,
-                color: dividerColor,
-              ),
+              if (showDividers) _buildVerticalDivider(),
               Expanded(
-                child: quadrantBuilder(
+                child: _buildPlayerSlot(
                   context,
-                  p6,
+                  player: p6,
+                  quarterTurns: 0,
                   isTopRow: false,
-                  isTablet: isTablet,
                 ),
               ),
             ],
@@ -571,5 +544,536 @@ class PodLayoutEngine extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  /// Milestone 2: Layout A physical tabletop geometry.
+  /// - 1P: Solo (quarterTurns: 0)
+  /// - 2P: Face-to-Face (Top: Seat 1 [2], Bottom: Seat 0 [0])
+  /// - 3P: Side-by-Side + Head (Top: Seat 1 [1] & Seat 2 [3], Bottom: Seat 0 [0])
+  /// - 4P: 2x2 Grid Side Seating (Top: Seat 1 [1] & Seat 2 [3], Bottom: Seat 0 [1] & Seat 3 [3])
+  /// - 5P: Grid (Top: Seat 1 [1] & Seat 2 [3], Mid: Seat 3 [1] & Seat 4 [3], Bottom: Seat 0 [0])
+  /// - 6P: 2x3 Side Grid (Left col all 1, Right col all 3)
+  Widget _buildLayoutA(BuildContext context, List<PodPlayerState> p) {
+    final count = p.length;
+    switch (count) {
+      case 1:
+        return _buildSoloLayout(context, p);
+      case 2:
+        return Column(
+          children: [
+            Expanded(
+              child: _buildPlayerSlot(
+                context,
+                player: safeGetPlayer(p, 1),
+                quarterTurns: 2,
+                isTopRow: true,
+              ),
+            ),
+            if (showDividers) _buildHorizontalDivider(),
+            Expanded(
+              child: _buildPlayerSlot(
+                context,
+                player: safeGetPlayer(p, 0),
+                quarterTurns: 0,
+                isTopRow: false,
+              ),
+            ),
+          ],
+        );
+      case 3:
+        return Column(
+          children: [
+            Expanded(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: _buildPlayerSlot(
+                      context,
+                      player: safeGetPlayer(p, 1),
+                      quarterTurns: 1,
+                      isTopRow: true,
+                    ),
+                  ),
+                  if (showDividers) _buildVerticalDivider(),
+                  Expanded(
+                    child: _buildPlayerSlot(
+                      context,
+                      player: safeGetPlayer(p, 2),
+                      quarterTurns: 3,
+                      isTopRow: true,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (showDividers) _buildHorizontalDivider(),
+            Expanded(
+              child: _buildPlayerSlot(
+                context,
+                player: safeGetPlayer(p, 0),
+                quarterTurns: 0,
+                isTopRow: false,
+              ),
+            ),
+          ],
+        );
+      case 4:
+        return Column(
+          children: [
+            Expanded(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: _buildPlayerSlot(
+                      context,
+                      player: safeGetPlayer(p, 1),
+                      quarterTurns: 1,
+                      isTopRow: true,
+                    ),
+                  ),
+                  if (showDividers) _buildVerticalDivider(),
+                  Expanded(
+                    child: _buildPlayerSlot(
+                      context,
+                      player: safeGetPlayer(p, 2),
+                      quarterTurns: 3,
+                      isTopRow: true,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (showDividers) _buildHorizontalDivider(),
+            Expanded(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: _buildPlayerSlot(
+                      context,
+                      player: safeGetPlayer(p, 0),
+                      quarterTurns: 1,
+                      isTopRow: false,
+                    ),
+                  ),
+                  if (showDividers) _buildVerticalDivider(),
+                  Expanded(
+                    child: _buildPlayerSlot(
+                      context,
+                      player: safeGetPlayer(p, 3),
+                      quarterTurns: 3,
+                      isTopRow: false,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      case 5:
+        return Column(
+          children: [
+            Expanded(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: _buildPlayerSlot(
+                      context,
+                      player: safeGetPlayer(p, 1),
+                      quarterTurns: 1,
+                      isTopRow: true,
+                    ),
+                  ),
+                  if (showDividers) _buildVerticalDivider(),
+                  Expanded(
+                    child: _buildPlayerSlot(
+                      context,
+                      player: safeGetPlayer(p, 2),
+                      quarterTurns: 3,
+                      isTopRow: true,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (showDividers) _buildHorizontalDivider(),
+            Expanded(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: _buildPlayerSlot(
+                      context,
+                      player: safeGetPlayer(p, 3),
+                      quarterTurns: 1,
+                      isTopRow: false,
+                    ),
+                  ),
+                  if (showDividers) _buildVerticalDivider(),
+                  Expanded(
+                    child: _buildPlayerSlot(
+                      context,
+                      player: safeGetPlayer(p, 4),
+                      quarterTurns: 3,
+                      isTopRow: false,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (showDividers) _buildHorizontalDivider(),
+            Expanded(
+              child: _buildPlayerSlot(
+                context,
+                player: safeGetPlayer(p, 0),
+                quarterTurns: 0,
+                isTopRow: false,
+              ),
+            ),
+          ],
+        );
+      case 6:
+      default:
+        return Column(
+          children: [
+            Expanded(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: _buildPlayerSlot(
+                      context,
+                      player: safeGetPlayer(p, 1),
+                      quarterTurns: 1,
+                      isTopRow: true,
+                    ),
+                  ),
+                  if (showDividers) _buildVerticalDivider(),
+                  Expanded(
+                    child: _buildPlayerSlot(
+                      context,
+                      player: safeGetPlayer(p, 2),
+                      quarterTurns: 3,
+                      isTopRow: true,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (showDividers) _buildHorizontalDivider(),
+            Expanded(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: _buildPlayerSlot(
+                      context,
+                      player: safeGetPlayer(p, 3),
+                      quarterTurns: 1,
+                      isTopRow: false,
+                    ),
+                  ),
+                  if (showDividers) _buildVerticalDivider(),
+                  Expanded(
+                    child: _buildPlayerSlot(
+                      context,
+                      player: safeGetPlayer(p, 4),
+                      quarterTurns: 3,
+                      isTopRow: false,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (showDividers) _buildHorizontalDivider(),
+            Expanded(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: _buildPlayerSlot(
+                      context,
+                      player: safeGetPlayer(p, 0),
+                      quarterTurns: 1,
+                      isTopRow: false,
+                    ),
+                  ),
+                  if (showDividers) _buildVerticalDivider(),
+                  Expanded(
+                    child: _buildPlayerSlot(
+                      context,
+                      player: safeGetPlayer(p, 5),
+                      quarterTurns: 3,
+                      isTopRow: false,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+    }
+  }
+
+  /// Milestone 2: Layout B physical tabletop geometry.
+  /// - 1P: Solo (quarterTurns: 0)
+  /// - 2P: Side-by-Side (Left: Seat 0 [1], Right: Seat 1 [3])
+  /// - 3P: Opposed (Top: Seat 1 [2], Bottom row: Seat 0 [0] & Seat 2 [0])
+  /// - 4P: Head-of-Table (Top: Seat 1 [2], Middle: Seat 2 [1] & Seat 3 [3], Bottom: Seat 0 [0])
+  /// - 5P: Opposed (Top: Seat 1 [2] & Seat 2 [2], Bottom: Seat 0 [0], Seat 3 [0], Seat 4 [0])
+  /// - 6P: Head-of-Table (Top: Seat 1 [2], Middle 2x2: Seats 2 [1], 3 [3], 4 [1], 5 [3], Bottom: Seat 0 [0])
+  Widget _buildLayoutB(BuildContext context, List<PodPlayerState> p) {
+    final count = p.length;
+    switch (count) {
+      case 1:
+        return _buildSoloLayout(context, p);
+      case 2:
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: _buildPlayerSlot(
+                context,
+                player: safeGetPlayer(p, 0),
+                quarterTurns: 1,
+                isTopRow: false,
+              ),
+            ),
+            if (showDividers) _buildVerticalDivider(),
+            Expanded(
+              child: _buildPlayerSlot(
+                context,
+                player: safeGetPlayer(p, 1),
+                quarterTurns: 3,
+                isTopRow: true,
+              ),
+            ),
+          ],
+        );
+      case 3:
+        return Column(
+          children: [
+            Expanded(
+              child: _buildPlayerSlot(
+                context,
+                player: safeGetPlayer(p, 1),
+                quarterTurns: 2,
+                isTopRow: true,
+              ),
+            ),
+            if (showDividers) _buildHorizontalDivider(),
+            Expanded(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: _buildPlayerSlot(
+                      context,
+                      player: safeGetPlayer(p, 0),
+                      quarterTurns: 0,
+                      isTopRow: false,
+                    ),
+                  ),
+                  if (showDividers) _buildVerticalDivider(),
+                  Expanded(
+                    child: _buildPlayerSlot(
+                      context,
+                      player: safeGetPlayer(p, 2),
+                      quarterTurns: 0,
+                      isTopRow: false,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      case 4:
+        return Column(
+          children: [
+            Expanded(
+              child: _buildPlayerSlot(
+                context,
+                player: safeGetPlayer(p, 1),
+                quarterTurns: 2,
+                isTopRow: true,
+              ),
+            ),
+            if (showDividers) _buildHorizontalDivider(),
+            Expanded(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: _buildPlayerSlot(
+                      context,
+                      player: safeGetPlayer(p, 2),
+                      quarterTurns: 1,
+                      isTopRow: false,
+                    ),
+                  ),
+                  if (showDividers) _buildVerticalDivider(),
+                  Expanded(
+                    child: _buildPlayerSlot(
+                      context,
+                      player: safeGetPlayer(p, 3),
+                      quarterTurns: 3,
+                      isTopRow: false,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (showDividers) _buildHorizontalDivider(),
+            Expanded(
+              child: _buildPlayerSlot(
+                context,
+                player: safeGetPlayer(p, 0),
+                quarterTurns: 0,
+                isTopRow: false,
+              ),
+            ),
+          ],
+        );
+      case 5:
+        return Column(
+          children: [
+            Expanded(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: _buildPlayerSlot(
+                      context,
+                      player: safeGetPlayer(p, 1),
+                      quarterTurns: 2,
+                      isTopRow: true,
+                    ),
+                  ),
+                  if (showDividers) _buildVerticalDivider(),
+                  Expanded(
+                    child: _buildPlayerSlot(
+                      context,
+                      player: safeGetPlayer(p, 2),
+                      quarterTurns: 2,
+                      isTopRow: true,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (showDividers) _buildHorizontalDivider(),
+            Expanded(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: _buildPlayerSlot(
+                      context,
+                      player: safeGetPlayer(p, 0),
+                      quarterTurns: 0,
+                      isTopRow: false,
+                    ),
+                  ),
+                  if (showDividers) _buildVerticalDivider(),
+                  Expanded(
+                    child: _buildPlayerSlot(
+                      context,
+                      player: safeGetPlayer(p, 3),
+                      quarterTurns: 0,
+                      isTopRow: false,
+                    ),
+                  ),
+                  if (showDividers) _buildVerticalDivider(),
+                  Expanded(
+                    child: _buildPlayerSlot(
+                      context,
+                      player: safeGetPlayer(p, 4),
+                      quarterTurns: 0,
+                      isTopRow: false,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      case 6:
+      default:
+        return Column(
+          children: [
+            Expanded(
+              child: _buildPlayerSlot(
+                context,
+                player: safeGetPlayer(p, 1),
+                quarterTurns: 2,
+                isTopRow: true,
+              ),
+            ),
+            if (showDividers) _buildHorizontalDivider(),
+            Expanded(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: _buildPlayerSlot(
+                      context,
+                      player: safeGetPlayer(p, 2),
+                      quarterTurns: 1,
+                      isTopRow: false,
+                    ),
+                  ),
+                  if (showDividers) _buildVerticalDivider(),
+                  Expanded(
+                    child: _buildPlayerSlot(
+                      context,
+                      player: safeGetPlayer(p, 3),
+                      quarterTurns: 3,
+                      isTopRow: false,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (showDividers) _buildHorizontalDivider(),
+            Expanded(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: _buildPlayerSlot(
+                      context,
+                      player: safeGetPlayer(p, 4),
+                      quarterTurns: 1,
+                      isTopRow: false,
+                    ),
+                  ),
+                  if (showDividers) _buildVerticalDivider(),
+                  Expanded(
+                    child: _buildPlayerSlot(
+                      context,
+                      player: safeGetPlayer(p, 5),
+                      quarterTurns: 3,
+                      isTopRow: false,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (showDividers) _buildHorizontalDivider(),
+            Expanded(
+              child: _buildPlayerSlot(
+                context,
+                player: safeGetPlayer(p, 0),
+                quarterTurns: 0,
+                isTopRow: false,
+              ),
+            ),
+          ],
+        );
+    }
   }
 }

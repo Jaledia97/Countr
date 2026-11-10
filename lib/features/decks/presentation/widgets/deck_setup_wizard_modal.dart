@@ -13,6 +13,8 @@ import 'package:countr/core/database/app_database.dart';
 import 'package:countr/features/decks/domain/deck_io_parser.dart';
 import 'package:countr/features/decks/presentation/screens/deck_builder_screen.dart';
 import 'package:countr/features/vault/presentation/providers/vault_providers.dart';
+import 'package:countr/features/profile/domain/services/tier_quota_service.dart';
+import 'package:countr/features/profile/presentation/widgets/quota_limit_prompt_sheet.dart';
 
 enum DeckCreationMode {
   blank,
@@ -110,6 +112,15 @@ class _DeckSetupWizardModalState extends ConsumerState<DeckSetupWizardModal> {
 
   Future<void> _handleCreateDeck() async {
     if (!_formKey.currentState!.validate()) return;
+
+    final quotaService = ref.read(tierQuotaServiceProvider);
+    final canCreate = await quotaService.canCreateOrCloneDeck(ref);
+    if (!canCreate) {
+      if (mounted) {
+        await QuotaLimitPromptSheet.showForDecks(context);
+      }
+      return;
+    }
 
     setState(() {
       _isSubmitting = true;

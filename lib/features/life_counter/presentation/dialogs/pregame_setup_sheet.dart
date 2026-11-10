@@ -9,6 +9,7 @@ import 'package:countr/core/constants/app_colors.dart';
 import 'package:countr/features/decks/domain/models/deck_summary.dart';
 import 'package:countr/features/decks/presentation/providers/deck_providers.dart';
 import 'package:countr/features/life_counter/domain/models/pod_state.dart';
+import '../../domain/services/pod_haptics.dart';
 import 'art_override_sheet.dart';
 
 /// Per-seat internal configuration state inside the setup sheet.
@@ -37,8 +38,316 @@ class _PlayerSetupEntry {
 
 /// Riverpod state providers for Match Setup Preferences.
 final podSeatingOrientationProvider = StateProvider<String>((ref) => 'opposed');
+final podLayoutVariantProvider = StateProvider<String>((ref) => 'opposed');
+final podCameraModeProvider = StateProvider<bool>((ref) => false);
 final podOledModeProvider = StateProvider<bool>((ref) => false);
 final podImmersiveModeProvider = StateProvider<bool>((ref) => false);
+final podLayoutDensityProvider = StateProvider<String>((ref) => 'Default');
+final podAutohideMenuProvider = StateProvider<bool>((ref) => true);
+final podWakelockProvider = StateProvider<bool>((ref) => true);
+final podHapticsProvider = StateProvider<bool>((ref) => true);
+
+/// Visual miniature layout preview widget showing physical table layout
+/// and directional seating arrows for each player slot.
+class MiniatureLayoutIcon extends StatelessWidget {
+  final int playerCount;
+  final String variant; // 'A', 'B', 'opposed', 'standard', 'radial'
+  final bool isSelected;
+
+  const MiniatureLayoutIcon({
+    super.key,
+    required this.playerCount,
+    required this.variant,
+    this.isSelected = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 44,
+      height: 32,
+      padding: const EdgeInsets.all(2),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0E1218),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(
+          color: isSelected ? AppColors.accentGold : Colors.white24,
+          width: 1,
+        ),
+      ),
+      child: _buildMiniSlots(context),
+    );
+  }
+
+  Widget _buildSlot({required String direction, double flex = 1.0}) {
+    IconData icon;
+    switch (direction) {
+      case 'up':
+        icon = Icons.keyboard_arrow_up_rounded;
+        break;
+      case 'down':
+        icon = Icons.keyboard_arrow_down_rounded;
+        break;
+      case 'left':
+        icon = Icons.keyboard_arrow_left_rounded;
+        break;
+      case 'right':
+        icon = Icons.keyboard_arrow_right_rounded;
+        break;
+      default:
+        icon = Icons.crop_square_rounded;
+        break;
+    }
+
+    return Expanded(
+      flex: (flex * 10).round(),
+      child: Container(
+        margin: const EdgeInsets.all(1),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.accentGold.withValues(alpha: 0.25) : Colors.white12,
+          borderRadius: BorderRadius.circular(2),
+          border: Border.all(
+            color: isSelected ? AppColors.accentGold : Colors.white24,
+            width: 0.5,
+          ),
+        ),
+        alignment: Alignment.center,
+        child: Icon(
+          icon,
+          size: 10,
+          color: isSelected ? AppColors.accentGold : Colors.white70,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMiniSlots(BuildContext context) {
+    final isVarB = variant == 'B' || variant == 'standard';
+
+    if (playerCount <= 1) {
+      return Column(
+        children: [
+          _buildSlot(direction: 'down'),
+        ],
+      );
+    }
+
+    if (playerCount == 2) {
+      if (!isVarB) {
+        // Layout A: Face-to-Face (Top 2, Bottom 0)
+        return Column(
+          children: [
+            _buildSlot(direction: 'up'),
+            _buildSlot(direction: 'down'),
+          ],
+        );
+      } else {
+        // Layout B: Side-by-Side (Left 1, Right 3)
+        return Row(
+          children: [
+            _buildSlot(direction: 'left'),
+            _buildSlot(direction: 'right'),
+          ],
+        );
+      }
+    }
+
+    if (playerCount == 3) {
+      if (!isVarB) {
+        // Layout A: Top 1 & 3, Bottom 0
+        return Column(
+          children: [
+            Expanded(
+              child: Row(
+                children: [
+                  _buildSlot(direction: 'left'),
+                  _buildSlot(direction: 'right'),
+                ],
+              ),
+            ),
+            _buildSlot(direction: 'down'),
+          ],
+        );
+      } else {
+        // Layout B: Top 2, Bottom 0 & 0
+        return Column(
+          children: [
+            _buildSlot(direction: 'up'),
+            Expanded(
+              child: Row(
+                children: [
+                  _buildSlot(direction: 'down'),
+                  _buildSlot(direction: 'down'),
+                ],
+              ),
+            ),
+          ],
+        );
+      }
+    }
+
+    if (playerCount == 4) {
+      if (variant == 'radial') {
+        return const Center(
+          child: Icon(Icons.rotate_right_rounded, size: 16, color: Colors.white70),
+        );
+      }
+      if (!isVarB) {
+        // Layout A: 2x2 Grid Side Seating (Left 1, Right 3)
+        return Column(
+          children: [
+            Expanded(
+              child: Row(
+                children: [
+                  _buildSlot(direction: 'left'),
+                  _buildSlot(direction: 'right'),
+                ],
+              ),
+            ),
+            Expanded(
+              child: Row(
+                children: [
+                  _buildSlot(direction: 'left'),
+                  _buildSlot(direction: 'right'),
+                ],
+              ),
+            ),
+          ],
+        );
+      } else {
+        // Layout B: Head-of-Table (Top 2, Middle 1 & 3, Bottom 0)
+        return Column(
+          children: [
+            _buildSlot(direction: 'up'),
+            Expanded(
+              child: Row(
+                children: [
+                  _buildSlot(direction: 'left'),
+                  _buildSlot(direction: 'right'),
+                ],
+              ),
+            ),
+            _buildSlot(direction: 'down'),
+          ],
+        );
+      }
+    }
+
+    if (playerCount == 5) {
+      if (!isVarB) {
+        // Layout A: Grid (Top 1 & 3, Mid 1 & 3, Bottom 0)
+        return Column(
+          children: [
+            Expanded(
+              child: Row(
+                children: [
+                  _buildSlot(direction: 'left'),
+                  _buildSlot(direction: 'right'),
+                ],
+              ),
+            ),
+            Expanded(
+              child: Row(
+                children: [
+                  _buildSlot(direction: 'left'),
+                  _buildSlot(direction: 'right'),
+                ],
+              ),
+            ),
+            _buildSlot(direction: 'down'),
+          ],
+        );
+      } else {
+        // Layout B: Opposed (Top 2 & 2, Bottom 0, 0, 0)
+        return Column(
+          children: [
+            Expanded(
+              child: Row(
+                children: [
+                  _buildSlot(direction: 'up'),
+                  _buildSlot(direction: 'up'),
+                ],
+              ),
+            ),
+            Expanded(
+              child: Row(
+                children: [
+                  _buildSlot(direction: 'down'),
+                  _buildSlot(direction: 'down'),
+                  _buildSlot(direction: 'down'),
+                ],
+              ),
+            ),
+          ],
+        );
+      }
+    }
+
+    // 6P
+    if (!isVarB) {
+      // Layout A: 2x3 Side Grid (Left 1, Right 3 across 3 rows)
+      return Column(
+        children: [
+          Expanded(
+            child: Row(
+              children: [
+                _buildSlot(direction: 'left'),
+                _buildSlot(direction: 'right'),
+              ],
+            ),
+          ),
+          Expanded(
+            child: Row(
+              children: [
+                _buildSlot(direction: 'left'),
+                _buildSlot(direction: 'right'),
+              ],
+            ),
+          ),
+          Expanded(
+            child: Row(
+              children: [
+                _buildSlot(direction: 'left'),
+                _buildSlot(direction: 'right'),
+              ],
+            ),
+          ),
+        ],
+      );
+    } else {
+      // Layout B: Head-of-Table (Top 2, Middle 2x2 1 & 3, Bottom 0)
+      return Column(
+        children: [
+          _buildSlot(direction: 'up'),
+          Expanded(
+            flex: 2,
+            child: Column(
+              children: [
+                Expanded(
+                  child: Row(
+                    children: [
+                      _buildSlot(direction: 'left'),
+                      _buildSlot(direction: 'right'),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: Row(
+                    children: [
+                      _buildSlot(direction: 'left'),
+                      _buildSlot(direction: 'right'),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          _buildSlot(direction: 'down'),
+        ],
+      );
+    }
+  }
+}
 
 /// Pre-game Deck Selection & Pod Setup Modal Bottom Sheet (Feature 29).
 ///
@@ -49,15 +358,15 @@ final podImmersiveModeProvider = StateProvider<bool>((ref) => false);
 ///   2. Commander card ID and commander name.
 ///   3. Commander `art_crop` URL for dynamic backdrop rendering.
 ///   4. Recommended starting life preset based on format (40 for Commander, 20 for Standard, 30 for Brawl).
-/// - Dynamic player count selection (2-player 1v1, 3P, 4P 2x2, 5P, 6P 2x3).
-/// - Pod table seating orientation picker (Opposed, Standard, Radial).
+/// - Dynamic player count selection (1-player Solo, 2-player 1v1, 3P, 4P 2x2, 5P, 6P 2x3).
+/// - Pod table seating orientation picker with visual miniature layout icons.
 /// - Format selector (Commander, Standard, Brawl, Draft, Custom).
 /// - Starting life slider with format snap points (20, 30, 40) + stepper.
-/// - OLED True Black (#000000) & Immersive gameplay modes.
+/// - OLED True Black (#000000), Camera Mode & Immersive gameplay modes.
 /// - Full decoupling for testing: accepts optional [injectedDecks] and [onStartMatch] callback.
 /// - Produces a validated [PodState] ready for instant match initialization.
 class PregameSetupSheet extends ConsumerStatefulWidget {
-  /// Initial number of players (defaults to 4, clamped between 2 and 6).
+  /// Initial number of players (defaults to 4, clamped between 1 and 6).
   final int initialPlayerCount;
 
   /// Initial format (defaults to 'commander').
@@ -81,16 +390,46 @@ class PregameSetupSheet extends ConsumerStatefulWidget {
   /// Table seating orientation ('opposed', 'standard', 'radial').
   final String initialSeatingOrientation;
 
+  /// Layout variant ('A' or 'B').
+  final String initialLayoutVariant;
+
+  /// Camera mode toggle (all cards upright 0°).
+  final bool initialCameraMode;
+
   /// OLED True Black mode toggle.
   final bool initialOledMode;
 
   /// Immersive full-screen gameplay mode toggle.
   final bool initialImmersiveMode;
 
+  /// Card layout density ('Default', 'Name only', 'Big font').
+  final String initialCardDensity;
+
+  /// Whether a match is already ongoing in the pod.
+  final bool isGameInProgress;
+
+  /// Existing pod state before opening settings mid-game.
+  final PodState? existingPodState;
+
+  /// Auto-hide menu toggle.
+  final bool initialAutohideMenu;
+
+  /// Keep display awake toggle.
+  final bool initialWakelock;
+
+  /// Haptic feedback toggle.
+  final bool initialHaptics;
+
   /// Static trackers preserving user match setup preferences across navigation.
   static String lastSeatingOrientation = 'opposed';
+  static String lastLayoutVariant = 'opposed';
+  static bool lastCameraMode = false;
   static bool lastOledMode = false;
   static bool lastImmersiveMode = false;
+  static String lastCardDensity = 'Default';
+  static bool lastAutohideMenu = true;
+  static bool lastWakelock = true;
+  static bool lastHaptics = true;
   static String? lastTcg;
 
   const PregameSetupSheet({
@@ -103,8 +442,16 @@ class PregameSetupSheet extends ConsumerStatefulWidget {
     this.onStartMatch,
     this.initialTcg,
     this.initialSeatingOrientation = 'opposed',
+    this.initialLayoutVariant = 'opposed',
+    this.initialCameraMode = false,
     this.initialOledMode = false,
     this.initialImmersiveMode = false,
+    this.initialCardDensity = 'Default',
+    this.isGameInProgress = false,
+    this.existingPodState,
+    this.initialAutohideMenu = true,
+    this.initialWakelock = true,
+    this.initialHaptics = true,
   });
 
   /// Static helper to display the [PregameSetupSheet] bottom modal.
@@ -118,8 +465,16 @@ class PregameSetupSheet extends ConsumerStatefulWidget {
     void Function(PodState podState)? onStartMatch,
     String? initialTcg,
     String initialSeatingOrientation = 'opposed',
+    String initialLayoutVariant = 'opposed',
+    bool initialCameraMode = false,
     bool initialOledMode = false,
     bool initialImmersiveMode = false,
+    String initialCardDensity = 'Default',
+    bool isGameInProgress = false,
+    PodState? existingPodState,
+    bool initialAutohideMenu = true,
+    bool initialWakelock = true,
+    bool initialHaptics = true,
   }) {
     return showModalBottomSheet<PodState>(
       context: context,
@@ -134,8 +489,16 @@ class PregameSetupSheet extends ConsumerStatefulWidget {
         onStartMatch: onStartMatch,
         initialTcg: initialTcg,
         initialSeatingOrientation: initialSeatingOrientation,
+        initialLayoutVariant: initialLayoutVariant,
+        initialCameraMode: initialCameraMode,
         initialOledMode: initialOledMode,
         initialImmersiveMode: initialImmersiveMode,
+        initialCardDensity: initialCardDensity,
+        isGameInProgress: isGameInProgress,
+        existingPodState: existingPodState,
+        initialAutohideMenu: initialAutohideMenu,
+        initialWakelock: initialWakelock,
+        initialHaptics: initialHaptics,
       ),
     );
   }
@@ -144,18 +507,38 @@ class PregameSetupSheet extends ConsumerStatefulWidget {
   ConsumerState<PregameSetupSheet> createState() => _PregameSetupSheetState();
 }
 
+enum _ResetTrigger { playerCount, startingLife }
+
 class _PregameSetupSheetState extends ConsumerState<PregameSetupSheet> {
   late int _playerCount;
   late String _format;
   late int _startingLife;
   late String _seatingOrientation;
+  late String _layoutVariant;
+  late bool _isCameraMode;
   late bool _isOledMode;
   late bool _isImmersiveMode;
+  late String _cardDensity;
+  late bool _isAutohideMenu;
+  late bool _isWakelock;
+  late bool _isHaptics;
   String? _tcg;
   final List<_PlayerSetupEntry> _players = [];
   bool _isCreatingSession = false;
 
-  static const List<int> _playerCounts = [2, 3, 4, 5, 6];
+  // R4.1 Reset safeguard state
+  late bool _isGameInProgress;
+  late int _originalPlayerCount;
+  late int _originalStartingLife;
+  late String _originalFormat;
+  bool _showResetWarning = false;
+  _ResetTrigger? _pendingResetTrigger;
+  int? _pendingPlayerCount;
+  int? _pendingStartingLife;
+  String? _pendingFormat;
+  bool _hasConfirmedReset = false;
+
+  static const List<int> _playerCounts = [1, 2, 3, 4, 5, 6];
 
   static const Map<String, int> _formatStartingLife = {
     'commander': 40,
@@ -168,22 +551,40 @@ class _PregameSetupSheetState extends ConsumerState<PregameSetupSheet> {
   @override
   void initState() {
     super.initState();
-    _playerCount = widget.initialPlayerCount.clamp(2, 6);
+    _playerCount = widget.initialPlayerCount.clamp(1, 6);
     _tcg = widget.initialTcg;
     _seatingOrientation = widget.initialSeatingOrientation;
+    _layoutVariant = widget.initialLayoutVariant;
+    _isCameraMode = widget.initialCameraMode;
     _isOledMode = widget.initialOledMode;
     _isImmersiveMode = widget.initialImmersiveMode;
-
-    PregameSetupSheet.lastSeatingOrientation = _seatingOrientation;
-    PregameSetupSheet.lastOledMode = _isOledMode;
-    PregameSetupSheet.lastImmersiveMode = _isImmersiveMode;
-    if (_tcg != null) {
-      PregameSetupSheet.lastTcg = _tcg;
-    }
+    _cardDensity = widget.initialCardDensity;
+    _isAutohideMenu = widget.initialAutohideMenu;
+    _isWakelock = widget.initialWakelock;
+    _isHaptics = widget.initialHaptics;
 
     _format = widget.initialFormat.toLowerCase();
     _startingLife = widget.initialStartingLife ??
         (_formatStartingLife[_format] ?? 40);
+
+    _isGameInProgress = widget.isGameInProgress ||
+        (widget.existingPodState?.isGameInProgress ?? false);
+    _originalPlayerCount = _playerCount;
+    _originalStartingLife = _startingLife;
+    _originalFormat = _format;
+
+    PregameSetupSheet.lastSeatingOrientation = _seatingOrientation;
+    PregameSetupSheet.lastLayoutVariant = _layoutVariant;
+    PregameSetupSheet.lastCameraMode = _isCameraMode;
+    PregameSetupSheet.lastOledMode = _isOledMode;
+    PregameSetupSheet.lastImmersiveMode = _isImmersiveMode;
+    PregameSetupSheet.lastCardDensity = _cardDensity;
+    PregameSetupSheet.lastAutohideMenu = _isAutohideMenu;
+    PregameSetupSheet.lastWakelock = _isWakelock;
+    PregameSetupSheet.lastHaptics = _isHaptics;
+    if (_tcg != null) {
+      PregameSetupSheet.lastTcg = _tcg;
+    }
 
     _initializePlayers();
   }
@@ -219,6 +620,28 @@ class _PregameSetupSheetState extends ConsumerState<PregameSetupSheet> {
   }
 
   void _setPlayerCount(int count) {
+    if (_isGameInProgress && !_hasConfirmedReset) {
+      if (count == _originalPlayerCount) {
+        setState(() {
+          _pendingPlayerCount = null;
+          if (_pendingStartingLife == null) {
+            _showResetWarning = false;
+            _pendingResetTrigger = null;
+          }
+        });
+        return;
+      }
+      setState(() {
+        _pendingPlayerCount = count;
+        _pendingResetTrigger = _ResetTrigger.playerCount;
+        _showResetWarning = true;
+      });
+      return;
+    }
+    _applyPlayerCountChange(count);
+  }
+
+  void _applyPlayerCountChange(int count) {
     if (count == _playerCount) return;
     setState(() {
       if (count > _playerCount) {
@@ -238,21 +661,192 @@ class _PregameSetupSheetState extends ConsumerState<PregameSetupSheet> {
           removed.dispose();
         }
       }
+      if (count != 4 && _seatingOrientation == 'radial') {
+        _seatingOrientation = 'opposed';
+        _layoutVariant = 'A';
+        PregameSetupSheet.lastSeatingOrientation = _seatingOrientation;
+        PregameSetupSheet.lastLayoutVariant = _layoutVariant;
+      }
       _playerCount = count;
     });
   }
 
   void _setFormat(String newFormat) {
+    final targetLife = _formatStartingLife[newFormat] ?? _startingLife;
+    if (_isGameInProgress && !_hasConfirmedReset) {
+      if (targetLife == _originalStartingLife && newFormat == _originalFormat) {
+        setState(() {
+          _pendingStartingLife = null;
+          _pendingFormat = null;
+          if (_pendingPlayerCount == null) {
+            _showResetWarning = false;
+            _pendingResetTrigger = null;
+          }
+        });
+        return;
+      }
+      setState(() {
+        _pendingFormat = newFormat;
+        _pendingStartingLife = targetLife;
+        _pendingResetTrigger = _ResetTrigger.startingLife;
+        _showResetWarning = true;
+      });
+      return;
+    }
     setState(() {
       _format = newFormat;
-      _startingLife = _formatStartingLife[newFormat] ?? _startingLife;
+      _startingLife = targetLife;
     });
   }
 
   void _setStartingLife(int life) {
+    if (_isGameInProgress && !_hasConfirmedReset) {
+      if (life == _originalStartingLife) {
+        setState(() {
+          _pendingStartingLife = null;
+          if (_pendingPlayerCount == null) {
+            _showResetWarning = false;
+            _pendingResetTrigger = null;
+          }
+        });
+        return;
+      }
+      setState(() {
+        _pendingStartingLife = life;
+        _pendingResetTrigger = _ResetTrigger.startingLife;
+        _showResetWarning = true;
+      });
+      return;
+    }
     setState(() {
       _startingLife = life;
     });
+  }
+
+  void _handleCancelReset() {
+    setState(() {
+      _pendingPlayerCount = null;
+      _pendingStartingLife = null;
+      _pendingFormat = null;
+      _showResetWarning = false;
+      _pendingResetTrigger = null;
+    });
+  }
+
+  void _handleConfirmReset() {
+    setState(() {
+      if (_pendingPlayerCount != null) {
+        _applyPlayerCountChange(_pendingPlayerCount!);
+        _originalPlayerCount = _playerCount;
+      }
+      if (_pendingStartingLife != null) {
+        _startingLife = _pendingStartingLife!;
+        _originalStartingLife = _startingLife;
+        if (_pendingFormat != null) {
+          _format = _pendingFormat!;
+          _originalFormat = _format;
+        }
+      }
+      _pendingPlayerCount = null;
+      _pendingStartingLife = null;
+      _pendingFormat = null;
+      _showResetWarning = false;
+      _pendingResetTrigger = null;
+      _hasConfirmedReset = true;
+      _isGameInProgress = false;
+    });
+  }
+
+  Widget _buildResetWarningBox() {
+    return Container(
+      key: const Key('pregame_reset_warning_box'),
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF261A14),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: const Color(0xFFE5A93C).withValues(alpha: 0.8),
+          width: 1.2,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(
+                Icons.warning_amber_rounded,
+                color: Color(0xFFE5A93C),
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: const [
+                    Text(
+                      'Warning: this will reset the current game',
+                      style: TextStyle(
+                        color: Color(0xFFE5A93C),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Changing player count or starting life will reset the current game.',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              OutlinedButton(
+                key: const Key('pregame_reset_cancel_button'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.white70,
+                  side: const BorderSide(color: Colors.white24),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                ),
+                onPressed: _handleCancelReset,
+                child: const Text('Cancel', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              ),
+              const SizedBox(width: 8),
+              ElevatedButton(
+                key: const Key('pregame_reset_confirm_button'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFE5A93C),
+                  foregroundColor: Colors.black,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                ),
+                onPressed: _handleConfirmReset,
+                child: const Text('Confirm', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   /// Assigns a saved MTG deck to a specific player seat and auto-populates all metadata.
@@ -379,47 +973,109 @@ class _PregameSetupSheetState extends ConsumerState<PregameSetupSheet> {
     setState(() => _isCreatingSession = true);
 
     final podPlayers = <PodPlayerState>[];
+    final existingPod = widget.existingPodState;
+    final preserveOngoingMatch =
+        _isGameInProgress && !_hasConfirmedReset && existingPod != null;
+
     for (var i = 0; i < _players.length; i++) {
       final p = _players[i];
       final name = p.nameController.text.trim().isNotEmpty
           ? p.nameController.text.trim()
           : 'Player ${i + 1}';
 
-      podPlayers.add(
-        PodPlayerState(
-          id: p.id,
-          seatIndex: i,
-          name: name,
-          deckId: p.deck?.id,
-          commanderCardId: p.commanderCardId,
-          commanderName: p.commanderName,
-          commanderArtCropUrl: p.artCropUrl,
-          colorTheme: p.colorTheme,
-          life: _startingLife,
-        ),
-      );
+      final existingPlayer =
+          (preserveOngoingMatch && i < existingPod.players.length)
+              ? existingPod.players[i]
+              : null;
+
+      if (existingPlayer != null) {
+        podPlayers.add(
+          PodPlayerState(
+            id: p.id,
+            seatIndex: i,
+            name: name,
+            deckId: p.deck?.id ?? existingPlayer.deckId,
+            commanderCardId:
+                p.commanderCardId ?? existingPlayer.commanderCardId,
+            commanderName: p.commanderName ?? existingPlayer.commanderName,
+            commanderArtCropUrl:
+                p.artCropUrl ?? existingPlayer.commanderArtCropUrl,
+            colorTheme: p.colorTheme ?? existingPlayer.colorTheme,
+            life: existingPlayer.life,
+            poison: existingPlayer.poison,
+            energy: existingPlayer.energy,
+            experience: existingPlayer.experience,
+            commanderTax: existingPlayer.commanderTax,
+            radCounters: existingPlayer.radCounters,
+            isMonarch: existingPlayer.isMonarch,
+            hasInitiative: existingPlayer.hasInitiative,
+            commanderDamageTaken: existingPlayer.commanderDamageTaken,
+            floatingMana: existingPlayer.floatingMana,
+            stormCount: existingPlayer.stormCount,
+            isEliminated: existingPlayer.isEliminated,
+            isKoIgnored: existingPlayer.isKoIgnored,
+            isLocalDevice: existingPlayer.isLocalDevice,
+            peerDeviceId: existingPlayer.peerDeviceId,
+          ),
+        );
+      } else {
+        podPlayers.add(
+          PodPlayerState(
+            id: p.id,
+            seatIndex: i,
+            name: name,
+            deckId: p.deck?.id,
+            commanderCardId: p.commanderCardId,
+            commanderName: p.commanderName,
+            commanderArtCropUrl: p.artCropUrl,
+            colorTheme: p.colorTheme,
+            life: _startingLife,
+          ),
+        );
+      }
     }
 
     final podState = PodState(
-      sessionId: const Uuid().v4(),
+      sessionId:
+          preserveOngoingMatch ? existingPod.sessionId : const Uuid().v4(),
       format: _format,
       startingLife: _startingLife,
       players: podPlayers,
-      isDay: true,
-      isP2pHost: true,
-      sequenceNumber: 0,
+      isDay: preserveOngoingMatch ? existingPod.isDay : true,
+      isP2pHost: preserveOngoingMatch ? existingPod.isP2pHost : true,
+      sequenceNumber: preserveOngoingMatch ? existingPod.sequenceNumber : 0,
+      gameHistory: preserveOngoingMatch ? existingPod.gameHistory : const [],
+      commanderDamageLifeLoss:
+          preserveOngoingMatch ? existingPod.commanderDamageLifeLoss : true,
+      colorizeCommanderMiniGrids:
+          preserveOngoingMatch ? existingPod.colorizeCommanderMiniGrids : true,
+      autoKo: preserveOngoingMatch ? existingPod.autoKo : true,
+      cardDensity: _cardDensity,
     );
 
     // Persist setup preferences to static trackers and Riverpod providers
     PregameSetupSheet.lastSeatingOrientation = _seatingOrientation;
+    PregameSetupSheet.lastLayoutVariant = _layoutVariant;
+    PregameSetupSheet.lastCameraMode = _isCameraMode;
     PregameSetupSheet.lastOledMode = _isOledMode;
     PregameSetupSheet.lastImmersiveMode = _isImmersiveMode;
+    PregameSetupSheet.lastCardDensity = _cardDensity;
+    PregameSetupSheet.lastAutohideMenu = _isAutohideMenu;
+    PregameSetupSheet.lastWakelock = _isWakelock;
+    PregameSetupSheet.lastHaptics = _isHaptics;
     PregameSetupSheet.lastTcg = _tcg;
 
     try {
-      ref.read(podSeatingOrientationProvider.notifier).state = _seatingOrientation;
+      ref.read(podSeatingOrientationProvider.notifier).state =
+          _seatingOrientation;
+      ref.read(podLayoutVariantProvider.notifier).state = _layoutVariant;
+      ref.read(podCameraModeProvider.notifier).state = _isCameraMode;
       ref.read(podOledModeProvider.notifier).state = _isOledMode;
       ref.read(podImmersiveModeProvider.notifier).state = _isImmersiveMode;
+      ref.read(podLayoutDensityProvider.notifier).state = _cardDensity;
+      ref.read(podAutohideMenuProvider.notifier).state = _isAutohideMenu;
+      ref.read(podWakelockProvider.notifier).state = _isWakelock;
+      ref.read(podHapticsProvider.notifier).state = _isHaptics;
     } catch (_) {}
 
     try {
@@ -516,6 +1172,7 @@ class _PregameSetupSheetState extends ConsumerState<PregameSetupSheet> {
           // Scrollable Setup Body
           Expanded(
             child: ListView(
+              cacheExtent: 10000,
               padding: const EdgeInsets.all(16),
               children: [
                 // 1. Player Count Selector
@@ -530,7 +1187,11 @@ class _PregameSetupSheetState extends ConsumerState<PregameSetupSheet> {
                 _buildFormatAndLifeSection(),
                 const SizedBox(height: 16),
 
-                // 4. OLED True Black & Immersive Gameplay Settings (R5.3 & R5.4)
+                // 4. Player Card Layout Density (R4.2)
+                _buildCardDensitySection(),
+                const SizedBox(height: 16),
+
+                // 5. OLED True Black & Immersive Gameplay Settings (R5.3 & R5.4)
                 _buildDisplayAndGameplaySettingsSection(),
                 const SizedBox(height: 20),
 
@@ -556,11 +1217,13 @@ class _PregameSetupSheetState extends ConsumerState<PregameSetupSheet> {
               color: Color(0xFF101318),
               border: Border(top: BorderSide(color: Colors.white12, width: 0.5)),
             ),
-            child: SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: ElevatedButton.icon(
-                key: const Key('start_match_button'),
+            child: KeyedSubtree(
+              key: const Key('pregame_start_match_button'),
+              child: SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton.icon(
+                  key: const Key('start_match_button'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.accentGold,
                   foregroundColor: Colors.black,
@@ -583,6 +1246,7 @@ class _PregameSetupSheetState extends ConsumerState<PregameSetupSheet> {
               ),
             ),
           ),
+        ),
         ],
       ),
     );
@@ -590,6 +1254,7 @@ class _PregameSetupSheetState extends ConsumerState<PregameSetupSheet> {
 
   /// Player count segmented control
   Widget _buildPlayerCountSection() {
+    final selectedCount = _pendingPlayerCount ?? _playerCount;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -604,7 +1269,7 @@ class _PregameSetupSheetState extends ConsumerState<PregameSetupSheet> {
         const SizedBox(height: 8),
         Row(
           children: _playerCounts.map((count) {
-            final isSelected = count == _playerCount;
+            final isSelected = count == selectedCount;
             return Expanded(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 3),
@@ -623,7 +1288,7 @@ class _PregameSetupSheetState extends ConsumerState<PregameSetupSheet> {
                     ),
                     alignment: Alignment.center,
                     child: Text(
-                      count == 2 ? '1v1' : '${count}P',
+                      count == 1 ? '1P' : (count == 2 ? '1v1' : '${count}P'),
                       style: TextStyle(
                         color: isSelected ? Colors.black : Colors.white,
                         fontWeight: FontWeight.bold,
@@ -636,12 +1301,22 @@ class _PregameSetupSheetState extends ConsumerState<PregameSetupSheet> {
             );
           }).toList(),
         ),
+        if (_showResetWarning && _pendingResetTrigger == _ResetTrigger.playerCount) ...[
+          const SizedBox(height: 10),
+          _buildResetWarningBox(),
+        ],
       ],
     );
   }
 
-  /// Pod table seating orientation segmented control (R5.1)
+  /// Pod table seating orientation segmented control with visual miniature layout icons (R2)
   Widget _buildSeatingOrientationSection() {
+    final segments = _buildSegmentsForPlayerCount(_playerCount);
+    final validValues = segments.map((s) => s.value).toSet();
+    final effectiveSelected = validValues.contains(_seatingOrientation)
+        ? _seatingOrientation
+        : validValues.first;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -663,29 +1338,27 @@ class _PregameSetupSheetState extends ConsumerState<PregameSetupSheet> {
               selectedBackgroundColor: AppColors.accentGold,
               selectedForegroundColor: Colors.black,
               foregroundColor: Colors.white70,
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
             ),
-            segments: const [
-              ButtonSegment(
-                value: 'opposed',
-                label: Text('Opposed'),
-                icon: Icon(Icons.swap_vert_rounded, size: 16),
-              ),
-              ButtonSegment(
-                value: 'standard',
-                label: Text('Standard'),
-                icon: Icon(Icons.crop_square_rounded, size: 16),
-              ),
-              ButtonSegment(
-                value: 'radial',
-                label: Text('Radial'),
-                icon: Icon(Icons.rotate_right_rounded, size: 16),
-              ),
-            ],
-            selected: {_seatingOrientation},
+            segments: segments,
+            selected: {effectiveSelected},
             onSelectionChanged: (newSelection) {
+              final selectedVal = newSelection.first;
               setState(() {
-                _seatingOrientation = newSelection.first;
+                _seatingOrientation = selectedVal;
+                if (_playerCount == 4 || _playerCount == 1) {
+                  _layoutVariant = selectedVal;
+                } else {
+                  if (selectedVal == 'standard' || selectedVal == 'B') {
+                    _layoutVariant = 'B';
+                  } else if (selectedVal == 'opposed' || selectedVal == 'A') {
+                    _layoutVariant = 'A';
+                  } else {
+                    _layoutVariant = selectedVal;
+                  }
+                }
                 PregameSetupSheet.lastSeatingOrientation = _seatingOrientation;
+                PregameSetupSheet.lastLayoutVariant = _layoutVariant;
               });
             },
           ),
@@ -694,8 +1367,116 @@ class _PregameSetupSheetState extends ConsumerState<PregameSetupSheet> {
     );
   }
 
+  List<ButtonSegment<String>> _buildSegmentsForPlayerCount(int count) {
+    if (count == 1) {
+      return [
+        ButtonSegment<String>(
+          value: 'opposed',
+          icon: const MiniatureLayoutIcon(playerCount: 1, variant: 'A', isSelected: true),
+          label: const Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Solo', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+              Text('Full View', style: TextStyle(fontSize: 10)),
+            ],
+          ),
+        ),
+      ];
+    }
+
+    if (count == 4) {
+      return [
+        ButtonSegment<String>(
+          value: 'opposed',
+          icon: MiniatureLayoutIcon(playerCount: 4, variant: 'A', isSelected: _seatingOrientation == 'opposed'),
+          label: const Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Opposed', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+              Text('2x2 Grid', style: TextStyle(fontSize: 10)),
+            ],
+          ),
+        ),
+        ButtonSegment<String>(
+          value: 'standard',
+          icon: MiniatureLayoutIcon(playerCount: 4, variant: 'B', isSelected: _seatingOrientation == 'standard'),
+          label: const Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Standard', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+              Text('1-2-1 Hybrid', style: TextStyle(fontSize: 10)),
+            ],
+          ),
+        ),
+        const ButtonSegment<String>(
+          value: 'radial',
+          icon: Icon(Icons.rotate_right_rounded, size: 16),
+          label: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Radial', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+              Text('Circular', style: TextStyle(fontSize: 10)),
+            ],
+          ),
+        ),
+      ];
+    }
+
+    String labelA = 'Layout A';
+    String descA = 'Opposed';
+    String labelB = 'Layout B';
+    String descB = 'Standard';
+
+    switch (count) {
+      case 2:
+        labelA = 'Opposed';
+        descA = 'Face-to-Face';
+        labelB = 'Standard';
+        descB = 'Side-by-Side';
+        break;
+      case 3:
+        descA = 'Top 1 & 3, Bot 0';
+        descB = 'Top 2, Bot 0 & 0';
+        break;
+      case 5:
+        descA = 'Grid (2+2+1)';
+        descB = 'Opposed (2+3)';
+        break;
+      case 6:
+        descA = '2x3 Side Grid';
+        descB = 'Head-of-Table';
+        break;
+    }
+
+    return [
+      ButtonSegment<String>(
+        value: 'opposed',
+        icon: MiniatureLayoutIcon(playerCount: count, variant: 'A', isSelected: _seatingOrientation == 'opposed'),
+        label: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(labelA, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+            Text(descA, style: const TextStyle(fontSize: 10)),
+          ],
+        ),
+      ),
+      ButtonSegment<String>(
+        value: 'standard',
+        icon: MiniatureLayoutIcon(playerCount: count, variant: 'B', isSelected: _seatingOrientation == 'standard'),
+        label: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(labelB, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+            Text(descB, style: const TextStyle(fontSize: 10)),
+          ],
+        ),
+      ),
+    ];
+  }
+
   /// Format & starting life presets with interactive snap slider (R5.2)
   Widget _buildFormatAndLifeSection() {
+    final displayedLife = _pendingStartingLife ?? _startingLife;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -721,10 +1502,10 @@ class _PregameSetupSheetState extends ConsumerState<PregameSetupSheet> {
                 IconButton(
                   key: const Key('life_dec_btn'),
                   icon: const Icon(Icons.remove_circle_outline, size: 18, color: Colors.white60),
-                  onPressed: () => _setStartingLife((_startingLife - 5).clamp(1, 999)),
+                  onPressed: () => _setStartingLife((displayedLife - 5).clamp(1, 999)),
                 ),
                 Text(
-                  '$_startingLife',
+                  '$displayedLife',
                   key: const Key('starting_life_value_text'),
                   style: const TextStyle(
                     color: AppColors.accentGold,
@@ -735,7 +1516,7 @@ class _PregameSetupSheetState extends ConsumerState<PregameSetupSheet> {
                 IconButton(
                   key: const Key('life_inc_btn'),
                   icon: const Icon(Icons.add_circle_outline, size: 18, color: Colors.white60),
-                  onPressed: () => _setStartingLife((_startingLife + 5).clamp(1, 999)),
+                  onPressed: () => _setStartingLife((displayedLife + 5).clamp(1, 999)),
                 ),
               ],
             ),
@@ -758,8 +1539,8 @@ class _PregameSetupSheetState extends ConsumerState<PregameSetupSheet> {
             min: 10.0,
             max: 100.0,
             divisions: 90,
-            value: _startingLife.toDouble().clamp(10.0, 100.0),
-            label: '$_startingLife Life',
+            value: displayedLife.toDouble().clamp(10.0, 100.0),
+            label: '$displayedLife Life',
             onChanged: (val) {
               int target = val.round();
               // Format snap points: 40 Commander, 30 Brawl, 20 Standard
@@ -790,12 +1571,18 @@ class _PregameSetupSheetState extends ConsumerState<PregameSetupSheet> {
             ],
           ),
         ),
+        if (_showResetWarning && _pendingResetTrigger == _ResetTrigger.startingLife) ...[
+          const SizedBox(height: 10),
+          _buildResetWarningBox(),
+        ],
       ],
     );
   }
 
   Widget _buildPresetChip(String label, String formatKey, int life) {
-    final isSelected = _format == formatKey && _startingLife == life;
+    final displayedFormat = _pendingFormat ?? _format;
+    final displayedLife = _pendingStartingLife ?? _startingLife;
+    final isSelected = displayedFormat == formatKey && displayedLife == life;
     return ChoiceChip(
       key: Key('preset_chip_$formatKey'),
       label: Text(label),
@@ -819,7 +1606,63 @@ class _PregameSetupSheetState extends ConsumerState<PregameSetupSheet> {
     );
   }
 
-  /// Display & gameplay settings (OLED mode & Immersive mode) (R5.3 & R5.4)
+  /// Player card layout density selector (R4.2)
+  Widget _buildCardDensitySection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Player Card Layout Density',
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 13,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          child: SegmentedButton<String>(
+            key: const Key('pregame_density_picker'),
+            style: SegmentedButton.styleFrom(
+              backgroundColor: const Color(0xFF1C222C),
+              selectedBackgroundColor: AppColors.accentGold,
+              selectedForegroundColor: Colors.black,
+              foregroundColor: Colors.white70,
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+            ),
+            segments: const [
+              ButtonSegment<String>(
+                value: 'Default',
+                label: Text('Default', style: TextStyle(fontSize: 12)),
+                icon: Icon(Icons.dashboard_customize_outlined, size: 16),
+              ),
+              ButtonSegment<String>(
+                value: 'Name only',
+                label: Text('Name only', style: TextStyle(fontSize: 12)),
+                icon: Icon(Icons.badge_outlined, size: 16),
+              ),
+              ButtonSegment<String>(
+                value: 'Big font',
+                label: Text('Big font', style: TextStyle(fontSize: 12)),
+                icon: Icon(Icons.format_size_rounded, size: 16),
+              ),
+            ],
+            selected: {_cardDensity},
+            onSelectionChanged: (newSelection) {
+              final selectedVal = newSelection.first;
+              setState(() {
+                _cardDensity = selectedVal;
+                PregameSetupSheet.lastCardDensity = selectedVal;
+              });
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Display & gameplay settings (OLED mode, Immersive mode, Wakelock, Haptics, Autohide) (R4.3 & R4.4)
   Widget _buildDisplayAndGameplaySettingsSection() {
     return Container(
       padding: const EdgeInsets.all(12),
@@ -840,56 +1683,162 @@ class _PregameSetupSheetState extends ConsumerState<PregameSetupSheet> {
             ),
           ),
           const SizedBox(height: 4),
-          // OLED True Black Mode (R5.3)
-          SwitchListTile(
-            key: const Key('pregame_oled_mode_switch'),
-            contentPadding: EdgeInsets.zero,
-            dense: true,
-            title: const Text(
-              'OLED True Black Mode',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-                fontSize: 13,
+
+          // 1. Auto-Hide Menu (R4.3)
+          KeyedSubtree(
+            key: const Key('pregame_autohide_mode_switch'),
+            child: SwitchListTile(
+              key: const Key('pregame_autohide_switch'),
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+              title: const Text(
+                'Auto-Hide Menu',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
               ),
+              value: _isAutohideMenu,
+              activeThumbColor: AppColors.accentGold,
+              onChanged: (val) {
+                setState(() {
+                  _isAutohideMenu = val;
+                  PregameSetupSheet.lastAutohideMenu = val;
+                });
+              },
             ),
-            subtitle: const Text(
-              'True black (#000000) background for pure contrast and OLED battery savings',
-              style: TextStyle(color: Colors.white54, fontSize: 11),
-            ),
-            value: _isOledMode,
-            activeThumbColor: AppColors.accentGold,
-            onChanged: (val) {
-              setState(() {
-                _isOledMode = val;
-                PregameSetupSheet.lastOledMode = val;
-              });
-            },
           ),
           const Divider(color: Colors.white12, height: 1),
-          // Immersive Mode (R5.4)
+
+          // 2. OLED True Black Mode (R4.4)
+          KeyedSubtree(
+            key: const Key('pregame_oled_switch'),
+            child: SwitchListTile(
+              key: const Key('pregame_oled_mode_switch'),
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+              title: const Text(
+                'OLED True Black Mode',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+              ),
+              value: _isOledMode,
+              activeThumbColor: AppColors.accentGold,
+              onChanged: (val) {
+                setState(() {
+                  _isOledMode = val;
+                  PregameSetupSheet.lastOledMode = val;
+                });
+              },
+            ),
+          ),
+          const Divider(color: Colors.white12, height: 1),
+
+          // 3. Keep Display Awake (R4.4)
+          KeyedSubtree(
+            key: const Key('pregame_wakelock_mode_switch'),
+            child: SwitchListTile(
+              key: const Key('pregame_wakelock_switch'),
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+              title: const Text(
+                'Keep Display Awake',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+              ),
+              value: _isWakelock,
+              activeThumbColor: AppColors.accentGold,
+              onChanged: (val) {
+                setState(() {
+                  _isWakelock = val;
+                  PregameSetupSheet.lastWakelock = val;
+                });
+              },
+            ),
+          ),
+          const Divider(color: Colors.white12, height: 1),
+
+          // 4. Haptic Feedback (R4.4)
+          KeyedSubtree(
+            key: const Key('pregame_haptics_mode_switch'),
+            child: SwitchListTile(
+              key: const Key('pregame_haptics_switch'),
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+              title: const Text(
+                'Haptic Feedback',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+              ),
+              value: _isHaptics,
+              activeThumbColor: AppColors.accentGold,
+              onChanged: (val) {
+                setState(() {
+                  _isHaptics = val;
+                  PregameSetupSheet.lastHaptics = val;
+                  PodHaptics.enabled = val;
+                });
+              },
+            ),
+          ),
+          const Divider(color: Colors.white12, height: 1),
+
+          // 5. Immersive Mode (R4.4)
+          KeyedSubtree(
+            key: const Key('pregame_immersive_switch'),
+            child: SwitchListTile(
+              key: const Key('pregame_immersive_mode_switch'),
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+              title: const Text(
+                'Immersive Mode',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+              ),
+              value: _isImmersiveMode,
+              activeThumbColor: AppColors.accentGold,
+              onChanged: (val) {
+                setState(() {
+                  _isImmersiveMode = val;
+                  PregameSetupSheet.lastImmersiveMode = val;
+                });
+              },
+            ),
+          ),
+          const Divider(color: Colors.white12, height: 1),
+
+          // 6. Camera Mode (Streamer / Overhead)
           SwitchListTile(
-            key: const Key('pregame_immersive_mode_switch'),
+            key: const Key('pregame_camera_mode_switch'),
             contentPadding: EdgeInsets.zero,
             dense: true,
             title: const Text(
-              'Immersive Mode',
+              'Camera Mode (Streamer / Overhead)',
               style: TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.w600,
                 fontSize: 13,
               ),
             ),
-            subtitle: const Text(
-              'Hide system status and navigation bars during gameplay',
-              style: TextStyle(color: Colors.white54, fontSize: 11),
-            ),
-            value: _isImmersiveMode,
+            value: _isCameraMode,
             activeThumbColor: AppColors.accentGold,
             onChanged: (val) {
               setState(() {
-                _isImmersiveMode = val;
-                PregameSetupSheet.lastImmersiveMode = val;
+                _isCameraMode = val;
+                PregameSetupSheet.lastCameraMode = val;
               });
             },
           ),
@@ -905,7 +1854,7 @@ class _PregameSetupSheetState extends ConsumerState<PregameSetupSheet> {
 
     return Container(
       key: Key('player_setup_card_$seatIndex'),
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
         color: const Color(0xFF1A1F29),
         borderRadius: BorderRadius.circular(12),

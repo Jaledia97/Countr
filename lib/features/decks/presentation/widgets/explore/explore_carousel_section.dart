@@ -14,6 +14,7 @@ class ExploreCarouselSection extends ConsumerWidget {
   final Key? sectionKey;
   final List<ExploreDeckWithVote>? customDecks;
   final ValueChanged<ExploreDeckWithVote>? onTapDeck;
+  final VoidCallback? onSeeMore;
 
   const ExploreCarouselSection({
     super.key,
@@ -22,6 +23,7 @@ class ExploreCarouselSection extends ConsumerWidget {
     this.sectionKey,
     this.customDecks,
     this.onTapDeck,
+    this.onSeeMore,
   });
 
   Key _resolveKey() {
@@ -33,10 +35,62 @@ class ExploreCarouselSection extends ConsumerWidget {
         return const Key('explore_carousel_top_builders');
       case 'Popular Standard Decks':
         return const Key('explore_carousel_popular_standard');
+      case "Today's Picks":
+        return const Key('explore_carousel_todays_picks');
+      case "This Week's Picks":
+        return const Key('explore_carousel_this_weeks_picks');
+      case "This Month's Picks":
+        return const Key('explore_carousel_this_months_picks');
       default:
-        final normalized = category.toLowerCase().replaceAll(' ', '_');
+        final normalized = category
+            .toLowerCase()
+            .replaceAll("'", '')
+            .replaceAll('(', '')
+            .replaceAll(')', '')
+            .replaceAll('<', '')
+            .replaceAll(r'$', '')
+            .replaceAll(' ', '_');
         return Key('explore_carousel_$normalized');
     }
+  }
+
+  String _resolveNormalizedCategory() {
+    switch (category) {
+      case 'Suggested Commanders':
+        return 'suggested_commanders';
+      case 'From Top Deck Builders':
+        return 'top_builders';
+      case 'Popular Standard Decks':
+        return 'popular_standard';
+      case "Today's Picks":
+        return 'todays_picks';
+      case "This Week's Picks":
+        return 'this_weeks_picks';
+      case "This Month's Picks":
+        return 'this_months_picks';
+      default:
+        return category
+            .toLowerCase()
+            .replaceAll("'", '')
+            .replaceAll('(', '')
+            .replaceAll(')', '')
+            .replaceAll('<', '')
+            .replaceAll(r'$', '')
+            .replaceAll(' ', '_');
+    }
+  }
+
+  Key _resolveSeeMoreKey() {
+    return Key('explore_carousel_see_more_${_resolveNormalizedCategory()}');
+  }
+
+  Key? _resolveSeeMoreAliasKey() {
+    final literal = category.toLowerCase().replaceAll(' ', '_');
+    final norm = _resolveNormalizedCategory();
+    if (literal != norm) {
+      return Key('explore_carousel_see_more_$literal');
+    }
+    return null;
   }
 
   IconData _resolveCategoryIcon() {
@@ -47,6 +101,24 @@ class ExploreCarouselSection extends ConsumerWidget {
         return Icons.workspace_premium_rounded;
       case 'Popular Standard Decks':
         return Icons.trending_up_rounded;
+      case "Today's Picks":
+      case "This Week's Picks":
+      case "This Month's Picks":
+        return Icons.local_fire_department_rounded;
+      case 'Hot New Precons':
+        return Icons.whatshot_rounded;
+      case r'Trending Budget Brews (<$100)':
+        return Icons.savings_rounded;
+      case 'Most Upvoted Mono-Color Commanders':
+        return Icons.palette_rounded;
+      case 'Tribal Spotlight':
+        return Icons.pets_rounded;
+      case 'Rising Community Builders':
+        return Icons.group_rounded;
+      case 'Top Modern Decks':
+        return Icons.flash_on_rounded;
+      case 'Pioneer Showdown':
+        return Icons.military_tech_rounded;
       default:
         return Icons.auto_awesome_rounded;
     }
@@ -60,6 +132,26 @@ class ExploreCarouselSection extends ConsumerWidget {
         return AppColors.accentAmber;
       case 'Popular Standard Decks':
         return AppColors.accentEmerald;
+      case "Today's Picks":
+        return AppColors.accentAmber;
+      case "This Week's Picks":
+        return AppColors.accentCyan;
+      case "This Month's Picks":
+        return AppColors.accentViolet;
+      case r'Trending Budget Brews (<$100)':
+        return AppColors.accentEmerald;
+      case 'Most Upvoted Mono-Color Commanders':
+        return AppColors.accentViolet;
+      case 'Hot New Precons':
+        return AppColors.accentAmber;
+      case 'Tribal Spotlight':
+        return AppColors.accentCyan;
+      case 'Rising Community Builders':
+        return AppColors.accentAmber;
+      case 'Top Modern Decks':
+        return AppColors.accentRose;
+      case 'Pioneer Showdown':
+        return AppColors.accentRose;
       default:
         return AppColors.accentCyan;
     }
@@ -76,15 +168,20 @@ class ExploreCarouselSection extends ConsumerWidget {
         ? AsyncValue.data(customDecks!)
         : ref.watch(featuredExploreCategoryStreamProvider(category));
 
+    final textScale = MediaQuery.textScalerOf(context).scale(1.0);
+    final carouselHeight = textScale > 1.2
+        ? (350.0 + (textScale - 1.0) * 70.0)
+        : 350.0;
+
     return Container(
       key: effectiveKey,
-      margin: const EdgeInsets.symmetric(vertical: 12),
+      margin: const EdgeInsets.symmetric(vertical: 3),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Section Header
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
             child: Row(
               children: [
                 Container(
@@ -116,23 +213,56 @@ class ExploreCarouselSection extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Text(
-                  'Featured',
-                  style: AppTypography.caption.copyWith(
-                    color: AppColors.textMuted,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
+                Flexible(
+                  fit: FlexFit.loose,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: InkWell(
+                      key: _resolveSeeMoreKey(),
+                      onTap: () {
+                        if (onSeeMore != null) {
+                          onSeeMore!();
+                        } else {
+                          ref.read(exploreDrillDownCategoryProvider.notifier).state =
+                              category;
+                        }
+                      },
+                      borderRadius: BorderRadius.circular(6),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                        child: Row(
+                          key: _resolveSeeMoreAliasKey(),
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'See More',
+                              style: AppTypography.caption.copyWith(
+                                color: accentColor,
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(width: 2),
+                            Icon(
+                              Icons.chevron_right_rounded,
+                              size: 14,
+                              color: accentColor,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ],
             ),
           ),
 
-          const SizedBox(height: 6),
+          const SizedBox(height: 2),
 
           // Horizontal Carousel List
           SizedBox(
-            height: 215,
+            height: carouselHeight,
             child: decksAsync.when(
               data: (decks) {
                 if (decks.isEmpty) {

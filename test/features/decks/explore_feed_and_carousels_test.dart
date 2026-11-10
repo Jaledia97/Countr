@@ -155,7 +155,7 @@ void main() {
   group('Milestone 3: Explore Feed, Carousels & Filters Tests', () {
     testWidgets('1. Discovery layout renders 2-column grid and all 3 horizontal category carousels',
         (tester) async {
-      tester.view.physicalSize = const Size(800, 2600);
+      tester.view.physicalSize = const Size(800, 4000);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
 
@@ -184,18 +184,18 @@ void main() {
       final delegate = sliverGridWidget.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount;
       expect(delegate.crossAxisCount, 2);
 
+      // Deck cards render with explore_card_${id} keys
+      expect(find.byKey(const Key('explore_card_deck_sug_comm_1')), findsWidgets);
+      expect(find.byKey(const Key('explore_card_deck_top_builder_1')), findsWidgets);
+
       // Scroll down to reveal popular standard carousel
       await tester.drag(
         find.byKey(const PageStorageKey('explore_decks_scroll_key')),
-        const Offset(0, -600),
+        const Offset(0, -1000),
       );
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('explore_carousel_popular_standard')), findsOneWidget);
-
-      // Deck cards render with explore_card_${id} keys
-      expect(find.byKey(const Key('explore_card_deck_sug_comm_1')), findsWidgets);
-      expect(find.byKey(const Key('explore_card_deck_top_builder_1')), findsWidgets);
     });
 
     testWidgets('2. Top category pills filter between All, Official (WotC), and Community',
@@ -345,7 +345,7 @@ void main() {
 
     testWidgets('5. Interactive voting cluster updates score persistently on deck card',
         (tester) async {
-      tester.view.physicalSize = const Size(800, 1600);
+      tester.view.physicalSize = const Size(800, 4000);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
 
@@ -376,16 +376,22 @@ void main() {
       expect(tester.widget<Text>(scoreFinder).data, '15');
     });
 
-    testWidgets('6. Seed Precons & Community button (load_precons_button) is always visible at the top of ExploreDecksTabView',
+    testWidgets('6. Category pill row cleanly displays All, Official, and Community, and omits debug load_precons_button when feed is populated',
         (tester) async {
       await tester.pumpWidget(createSubject(initialTopTab: 1));
       await tester.pumpAndSettle();
 
-      // Button must be visible without scrolling even on a standard viewport
-      expect(find.byKey(const Key('load_precons_button')), findsOneWidget);
+      // Top category pills are present
+      expect(find.byKey(const Key('explore_pill_all')), findsOneWidget);
+      expect(find.byKey(const Key('explore_pill_official')), findsOneWidget);
+      expect(find.byKey(const Key('explore_pill_community')), findsOneWidget);
+
+      // Debug seed button is absent from the populated top category pill bar
+      expect(find.byKey(const Key('load_precons_button')), findsNothing);
+      expect(find.text('Seed Precons & Community'), findsNothing);
     });
 
-    testWidgets('7. Tapping Seed Precons & Community button (load_precons_button) triggers seeding, displays loading indicator, shows completion SnackBar, and populates 19 decks into the feed and carousels',
+    testWidgets('7. Tapping empty-state seed button (load_precons_button) triggers seeding, displays loading indicator, shows completion SnackBar, populates 19 decks, and removes seed button from populated feed',
         (tester) async {
       final freshDb = AppDatabase(NativeDatabase.memory());
       addTearDown(freshDb.close);
@@ -459,26 +465,10 @@ void main() {
       // Ur-Dragon official precon card is rendered
       expect(find.byKey(const Key('explore_card_precon-c17-draconic-domination')), findsWidgets);
 
-      // Button in populated state header is visible with 'Seed Precons & Community'
-      expect(find.byKey(const Key('load_precons_button')), findsOneWidget);
-      expect(find.text('Seed Precons & Community'), findsOneWidget);
-
-      // Verify re-seeding by tapping the populated state header button
-      await tester.tap(find.byKey(const Key('load_precons_button')));
-      await tester.pump();
-
-      // Loading state shown in header button
-      expect(find.text('Loading Decks...'), findsOneWidget);
-
-      await tester.pump(const Duration(milliseconds: 50));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
-
-      expect(find.text('Successfully loaded precons & community decks!'), findsOneWidget);
-      await tester.pumpAndSettle();
-
-      expect(find.text('Seed Precons & Community'), findsOneWidget);
-      expect(await freshExploreDao.getExploreDeckCount(), 19);
+      // Verify debug seed button is absent from the populated category pill bar
+      expect(find.byKey(const Key('load_precons_button')), findsNothing);
+      expect(find.text('Seed Precons & Community'), findsNothing);
+      expect(await freshExploreDao.getExploreDeckCount(), equals(19));
     });
 
     testWidgets('8. Rapid tab switching between My Decks and Explore Decks maintains state integrity and populates feed without deadlock or exceptions',
@@ -534,8 +524,8 @@ void main() {
       // Verify all 19 decks are populated and rendered without exception
       final count = await freshExploreDao.getExploreDeckCount();
       expect(count, equals(19));
-      expect(find.byKey(const Key('load_precons_button')), findsOneWidget);
-      expect(find.text('Seed Precons & Community'), findsOneWidget);
+      expect(find.byKey(const Key('load_precons_button')), findsNothing);
+      expect(find.text('Seed Precons & Community'), findsNothing);
     });
 
     testWidgets('9. Seeding error is caught gracefully, displays error feedback SnackBar, resets loading state, and allows user retry',
@@ -653,7 +643,8 @@ void main() {
       // 19 decks populated cleanly
       final count = await freshExploreDao.getExploreDeckCount();
       expect(count, equals(19));
-      expect(find.text('Seed Precons & Community'), findsOneWidget);
+      expect(find.byKey(const Key('load_precons_button')), findsNothing);
+      expect(find.text('Seed Precons & Community'), findsNothing);
     });
   });
 }

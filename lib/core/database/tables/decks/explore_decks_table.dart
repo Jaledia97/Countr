@@ -27,6 +27,9 @@ class ExploreDecks extends Table {
   TextColumn get creatorName =>
       text().named('creator_name').withDefault(const Constant('Wizards of the Coast'))();
 
+  /// Author profile ID for user-shared decks (linked to user_profiles table)
+  TextColumn get authorId => text().named('author_id').nullable()();
+
   /// Deck description, primer summary, or strategy notes
   TextColumn get description => text().nullable()();
 

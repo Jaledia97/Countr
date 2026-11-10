@@ -384,7 +384,7 @@ void main() {
         await tester.pumpAndSettle();
 
         // Scroll horizontal chip row to bring "All Cards" fully onto 320px viewport
-        await tester.drag(find.byType(SingleChildScrollView).first, const Offset(-200, 0));
+        await tester.ensureVisible(find.text('All Cards'));
         await tester.pumpAndSettle();
 
         await tester.tap(find.text('All Cards'));

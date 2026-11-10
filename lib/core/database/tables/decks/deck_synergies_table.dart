@@ -8,11 +8,15 @@ class DeckSynergies extends Table {
   TextColumn get synergyName => text()();
   TextColumn get vaultItemIds => text()(); // JSON list of combo pieces
   
-  // Soft Delete & Outbox Sync (v9)
+  // Soft Delete & Outbox Sync (v9 & v12)
   BoolColumn get isDeleted =>
       boolean().named('is_deleted').withDefault(const Constant(false))();
   DateTimeColumn get updatedAt =>
       dateTime().named('updated_at').nullable()();
+  DateTimeColumn get deletedAt =>
+      dateTime().named('deleted_at').nullable()();
+  TextColumn get syncStatus =>
+      text().named('sync_status').withDefault(const Constant('synced')).nullable()();
   
   @override
   Set<Column> get primaryKey => {id};

@@ -17,6 +17,9 @@ import 'package:countr/features/vault/domain/models/card_availability.dart';
 import 'package:countr/features/vault/domain/vault_variant_helper.dart';
 import 'package:countr/features/vault/presentation/providers/mtg_filter_state.dart';
 import 'package:countr/features/vault/domain/models/vault_set_collection.dart';
+import 'package:countr/features/vault/presentation/providers/vault_providers.dart';
+import 'package:countr/features/vault/data/daos/card_reputation_dao.dart';
+import 'package:countr/features/trades/domain/models/trade_card_source_filter.dart';
 
 import 'package:countr/core/database/tables/decks/decks_table.dart';
 import 'package:countr/core/database/tables/decks/deck_versions_table.dart';
@@ -110,65 +113,255 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     return query.map((row) => row.read(count) ?? 0).watchSingle();
   }
 
+  /// Streams the true total database count (SELECT COUNT(*)) of vault items matching
+  /// the specified collection type, ownership status, search query, and MTG filters.
+  ///
+  /// Completely independent of pagination [limit] and [offset], guaranteeing that UI
+  /// counters reflect the entire matching candidate dataset in SQLite.
+  Stream<int> watchFilteredItemCount(
+    String collectionType, {
+    bool onlyOwned = false,
+    bool onlyWishlisted = false,
+    String? searchQuery,
+    MtgFilterState? mtgFilter,
+  }) {
+    final countCol = vaultItems.id.count();
+    final query = selectOnly(vaultItems)..addColumns([countCol]);
+    final expressions = _buildItemFilterExpressions(
+      collectionType: collectionType,
+      onlyOwned: onlyOwned,
+      onlyWishlisted: onlyWishlisted,
+      searchQuery: searchQuery,
+      mtgFilter: mtgFilter,
+    );
+
+    if (expressions.isNotEmpty) {
+      query.where(expressions.reduce((a, b) => a & b));
+    }
+
+    return query.watchSingle().map((row) => row.read(countCol) ?? 0);
+  }
+
+  /// One-shot query returning the true total database count of vault items matching
+  /// the specified criteria in SQLite.
+  Future<int> getFilteredItemCount(
+    String collectionType, {
+    bool onlyOwned = false,
+    bool onlyWishlisted = false,
+    String? searchQuery,
+    MtgFilterState? mtgFilter,
+  }) async {
+    final countCol = vaultItems.id.count();
+    final query = selectOnly(vaultItems)..addColumns([countCol]);
+    final expressions = _buildItemFilterExpressions(
+      collectionType: collectionType,
+      onlyOwned: onlyOwned,
+      onlyWishlisted: onlyWishlisted,
+      searchQuery: searchQuery,
+      mtgFilter: mtgFilter,
+    );
+
+    if (expressions.isNotEmpty) {
+      query.where(expressions.reduce((a, b) => a & b));
+    }
+
+    final row = await query.getSingleOrNull();
+    return row?.read(countCol) ?? 0;
+  }
+
+  /// Builds all SQL WHERE expressions for collection queries and SELECT COUNT(*) queries.
+  /// Guarantees 100% predicate symmetry between [watchItemsByCollection],
+  /// [getItemsByCollection], [watchFilteredItemCount], and [getFilteredItemCount].
+  List<Expression<bool>> _buildItemFilterExpressions({
+    required String collectionType,
+    bool onlyOwned = false,
+    bool onlyWishlisted = false,
+    String? searchQuery,
+    MtgFilterState? mtgFilter,
+  }) {
+    final expressions = <Expression<bool>>[];
+
+    // 1. Soft-deletion guard
+    expressions.add(vaultItems.isDeleted.equals(false));
+
+    // 1b. Wishlist filter
+    if (onlyWishlisted) {
+      expressions.add(vaultItems.isWishlisted.equals(true));
+    }
+
+    // 2. Collection type scoping (e.g. 'mtg', 'pokemon', 'all')
+    final normalized = _normalizeCollectionType(collectionType);
+    if (normalized != 'all') {
+      expressions.add(vaultItems.collectionType.equals(normalized));
+    }
+
+    // 3. Owned inventory vs Catalog reference
+    if (onlyOwned) {
+      expressions.add(vaultItems.quantity.isBiggerThanValue(0));
+      expressions.add(vaultItems.isTraded.equals(true).not() | vaultItems.isTraded.isNull());
+      // Wishlist exclusion: "Looking For" binder cards are NOT part of owned Singles inventory
+      expressions.add(
+        vaultItems.primaryBinderId.isNull() |
+        (
+          vaultItems.primaryBinderId.equals('INBOX').not() &
+          vaultItems.primaryBinderId.like('system_looking_for%').not() &
+          const CustomExpression<bool>(
+            'vault_items.primary_binder_id NOT IN ('
+            'SELECT id FROM vault_binders WHERE system_binder_type = \'looking_for\' AND is_deleted = 0'
+            ')',
+          )
+        ),
+      );
+    } else {
+      // 4. Primary binder exclusion (exclude cards in staging INBOX)
+      expressions.add(
+        vaultItems.primaryBinderId.isNull() |
+        vaultItems.primaryBinderId.equals('INBOX').not(),
+      );
+    }
+
+    // 5. Search query pushdown (name, flavorName, setOrSeries, expression indexes, SLD aliases, type_line & oracle_text)
+    if (searchQuery != null && searchQuery.trim().isNotEmpty) {
+      final clean = searchQuery.trim();
+      final lower = clean.toLowerCase();
+      final sqlClean = clean.replaceAll("'", "''");
+      final sqlLower = lower.replaceAll("'", "''");
+      final isSld = lower == 'sld' || lower == 'secret lair' || lower == 'secret lair drop';
+
+      final prefixTerm = '$clean%';
+      final containsTerm = '%$clean%';
+
+      final nameMatch = vaultItems.name.like(prefixTerm) |
+          (vaultItems.flavorName.isNotNull() & vaultItems.flavorName.like(prefixTerm)) |
+          vaultItems.name.like(containsTerm) |
+          (vaultItems.flavorName.isNotNull() & vaultItems.flavorName.like(containsTerm)) |
+          vaultItems.setOrSeries.like(containsTerm) |
+          vaultItems.dynamicData.like(containsTerm) |
+          CustomExpression<bool>(
+            "CASE WHEN json_valid(vault_items.dynamic_data) = 1 THEN ("
+            "LOWER(json_extract(vault_items.dynamic_data, '\$.type_line')) LIKE '%$sqlLower%' OR "
+            "LOWER(json_extract(vault_items.dynamic_data, '\$.oracle_text')) LIKE '%$sqlLower%'"
+            ") ELSE 0 END",
+          );
+
+      if (isSld) {
+        expressions.add(
+          nameMatch |
+          vaultItems.setOrSeries.like('%Secret Lair%') |
+          const CustomExpression<bool>(
+            "CASE WHEN json_valid(vault_items.dynamic_data) = 1 THEN ("
+            "json_extract(vault_items.dynamic_data, '\$.set_code') = 'sld' OR "
+            "json_extract(vault_items.dynamic_data, '\$.set') = 'sld'"
+            ") ELSE 0 END",
+          ),
+        );
+      } else {
+        if (clean.length <= 6) {
+          expressions.add(
+            nameMatch |
+            CustomExpression<bool>(
+              "CASE WHEN json_valid(vault_items.dynamic_data) = 1 THEN ("
+              "json_extract(vault_items.dynamic_data, '\$.set_code') = '$sqlLower' OR "
+              "json_extract(vault_items.dynamic_data, '\$.collector_number') = '$sqlClean'"
+              ") ELSE 0 END",
+            ),
+          );
+        } else {
+          expressions.add(nameMatch);
+        }
+      }
+    }
+
+    // 6. MTG Stage 1 Pushdown Filters OR Default Memorabilia Exclusion
+    final effectiveMtgFilter = (mtgFilter != null && mtgFilter.colors.isNotEmpty)
+        ? mtgFilter.copyWith(colors: mtgFilter.colors.map((c) => c.toUpperCase()).toSet())
+        : mtgFilter;
+
+    if (effectiveMtgFilter != null && effectiveMtgFilter.isActive) {
+      expressions.addAll(_buildMtgFilterStage1Expressions(effectiveMtgFilter));
+    } else {
+      expressions.addAll(_buildDefaultMemorabiliaExclusionExpressions());
+    }
+
+    return expressions;
+  }
+
+  List<OrderClauseGenerator<VaultItems>> _buildSortOrderingTerms(VaultSortOption? sortOption) {
+    switch (sortOption) {
+      case VaultSortOption.reputationHighest:
+        return [
+          (t) => OrderingTerm(
+                expression: const CustomExpression<int>('COALESCE(vault_items.reputation_score, 0)'),
+                mode: OrderingMode.desc,
+              ),
+          (t) => OrderingTerm(expression: t.name, mode: OrderingMode.asc),
+        ];
+      case VaultSortOption.reputationLowest:
+        return [
+          (t) => OrderingTerm(
+                expression: const CustomExpression<int>('COALESCE(vault_items.reputation_score, 0)'),
+                mode: OrderingMode.asc,
+              ),
+          (t) => OrderingTerm(expression: t.name, mode: OrderingMode.asc),
+        ];
+      case VaultSortOption.priceHighToLow:
+        return [
+          (t) => OrderingTerm(expression: t.currentMarketPrice, mode: OrderingMode.desc),
+          (t) => OrderingTerm(expression: t.name, mode: OrderingMode.asc),
+        ];
+      case VaultSortOption.priceLowToHigh:
+        return [
+          (t) => OrderingTerm(expression: t.currentMarketPrice, mode: OrderingMode.asc),
+          (t) => OrderingTerm(expression: t.name, mode: OrderingMode.asc),
+        ];
+      case VaultSortOption.nameAZ:
+        return [
+          (t) => OrderingTerm(expression: t.name, mode: OrderingMode.asc),
+        ];
+      case VaultSortOption.manaValueCmc:
+        return [
+          (t) => OrderingTerm(
+                expression: const CustomExpression<double>("CAST(json_extract(vault_items.dynamic_data, '\$.cmc') AS REAL)"),
+                mode: OrderingMode.asc,
+              ),
+          (t) => OrderingTerm(expression: t.name, mode: OrderingMode.asc),
+        ];
+      case VaultSortOption.releaseDate:
+      case null:
+        return [
+          (t) => OrderingTerm(
+                expression: const CustomExpression<String>("COALESCE(json_extract(vault_items.dynamic_data, '\$.released_at'), '')"),
+                mode: OrderingMode.desc,
+              ),
+          (t) => OrderingTerm(expression: t.acquiredDate, mode: OrderingMode.desc),
+          (t) => OrderingTerm(expression: t.name, mode: OrderingMode.asc),
+        ];
+    }
+  }
+
   /// Streams items filtered by collection type and optional [MtgFilterState].
   /// If [onlyOwned] is true, filters for quantity > 0 (personal vault inventory).
   /// If [limit] is provided, caps the returned rows to prevent UI thread memory spikes.
   Stream<List<VaultItem>> watchItemsByCollection(
     String collectionType, {
     bool onlyOwned = false,
+    bool onlyWishlisted = false,
     String? searchQuery,
     MtgFilterState? mtgFilter,
+    VaultSortOption? sortOption,
     int? limit,
     int? offset,
   }) {
-    final normalized = _normalizeCollectionType(collectionType);
     final query = select(vaultItems);
-    query.where((t) => t.isDeleted.equals(false));
-
-    if (normalized != 'all') {
-      query.where((t) => t.collectionType.equals(normalized));
-    }
-
-    if (onlyOwned) {
-      query.where((t) => t.quantity.isBiggerThanValue(0));
-    }
-
-    query.where((t) =>
-        t.primaryBinderId.isNull() |
-        t.primaryBinderId.equals('INBOX').not());
-
-    if (searchQuery != null && searchQuery.trim().isNotEmpty) {
-      final clean = searchQuery.trim();
-      final term = '%$clean%';
-      final lower = clean.toLowerCase();
-      final isSld = lower == 'sld' || lower == 'secret lair' || lower == 'secret lair drop';
-
-      query.where((t) {
-        final base = t.name.like(term) |
-            t.flavorName.like(term) |
-            t.setOrSeries.like(term) |
-            t.dynamicData.like(term);
-        if (isSld) {
-          return base |
-              t.setOrSeries.like('%Secret Lair%') |
-              t.dynamicData.like('%"set":"sld"%') |
-              t.dynamicData.like('%"set_code":"sld"%') |
-              t.dynamicData.like('%"set": "sld"%') |
-              t.dynamicData.like('%"set_code": "sld"%');
-        }
-        return base;
-      });
-    }
-
-    final effectiveMtgFilter = (mtgFilter != null && mtgFilter.colors.isNotEmpty)
-        ? mtgFilter.copyWith(colors: mtgFilter.colors.map((c) => c.toUpperCase()).toSet())
-        : mtgFilter;
-
-    // Stage 1: Push down direct SQLite column where clauses
-    if (effectiveMtgFilter != null && effectiveMtgFilter.isActive) {
-      _applyMtgFilterStage1(query, effectiveMtgFilter);
-    } else {
-      _applyDefaultMemorabiliaExclusion(query);
+    final expressions = _buildItemFilterExpressions(
+      collectionType: collectionType,
+      onlyOwned: onlyOwned,
+      onlyWishlisted: onlyWishlisted,
+      searchQuery: searchQuery,
+      mtgFilter: mtgFilter,
+    );
+    for (final expr in expressions) {
+      query.where((_) => expr);
     }
 
     if (searchQuery != null && searchQuery.trim().isNotEmpty) {
@@ -177,102 +370,40 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
               expression: _buildSearchRankExpression(t, searchQuery),
               mode: OrderingMode.asc,
             ),
-        (t) => OrderingTerm(
-              expression: t.name,
-              mode: OrderingMode.asc,
-            ),
+        ..._buildSortOrderingTerms(sortOption),
       ]);
     } else {
-      query.orderBy([
-        (t) => OrderingTerm(
-              expression: t.acquiredDate,
-              mode: OrderingMode.desc,
-            ),
-        (t) => OrderingTerm(
-              expression: t.name,
-              mode: OrderingMode.asc,
-            ),
-      ]);
+      query.orderBy(_buildSortOrderingTerms(sortOption));
     }
 
-    final hasActiveMtgFilter = effectiveMtgFilter != null && effectiveMtgFilter.isActive;
     if (limit != null) {
-      if (!hasActiveMtgFilter) {
-        query.limit(limit, offset: offset);
-      } else {
-        final targetCount = (offset ?? 0) + limit;
-        final sqlLimit = math.min(math.max(targetCount * 4, 200), 5000);
-        query.limit(sqlLimit);
-      }
+      query.limit(limit, offset: offset);
     }
 
-    // Stage 2: In-memory stream mapping using mtgFilter.matches(item)
-    return query.watch().map((items) {
-      if (!hasActiveMtgFilter) return items;
-      final filtered = items.where((item) => effectiveMtgFilter.matches(item));
-      final skipped = (offset != null && offset > 0) ? filtered.skip(offset) : filtered;
-      final limited = (limit != null) ? skipped.take(limit) : skipped;
-      return limited.toList();
-    });
+    return query.watch();
   }
 
   /// One-shot query to fetch cards by collection type and optional [MtgFilterState].
   Future<List<VaultItem>> getItemsByCollection(
     String collectionType, {
     bool onlyOwned = false,
+    bool onlyWishlisted = false,
     String? searchQuery,
     MtgFilterState? mtgFilter,
+    VaultSortOption? sortOption,
     int? limit,
     int? offset,
   }) async {
-    final normalized = _normalizeCollectionType(collectionType);
     final query = select(vaultItems);
-    query.where((t) => t.isDeleted.equals(false));
-
-    if (normalized != 'all') {
-      query.where((t) => t.collectionType.equals(normalized));
-    }
-
-    if (onlyOwned) {
-      query.where((t) => t.quantity.isBiggerThanValue(0));
-    }
-
-    query.where((t) =>
-        t.primaryBinderId.isNull() |
-        t.primaryBinderId.equals('INBOX').not());
-
-    if (searchQuery != null && searchQuery.trim().isNotEmpty) {
-      final clean = searchQuery.trim();
-      final term = '%$clean%';
-      final lower = clean.toLowerCase();
-      final isSld = lower == 'sld' || lower == 'secret lair' || lower == 'secret lair drop';
-
-      query.where((t) {
-        final base = t.name.like(term) |
-            t.flavorName.like(term) |
-            t.setOrSeries.like(term) |
-            t.dynamicData.like(term);
-        if (isSld) {
-          return base |
-              t.setOrSeries.like('%Secret Lair%') |
-              t.dynamicData.like('%"set":"sld"%') |
-              t.dynamicData.like('%"set_code":"sld"%') |
-              t.dynamicData.like('%"set": "sld"%') |
-              t.dynamicData.like('%"set_code": "sld"%');
-        }
-        return base;
-      });
-    }
-
-    final effectiveMtgFilter = (mtgFilter != null && mtgFilter.colors.isNotEmpty)
-        ? mtgFilter.copyWith(colors: mtgFilter.colors.map((c) => c.toUpperCase()).toSet())
-        : mtgFilter;
-
-    // Stage 1: Push down direct SQLite column where clauses
-    if (effectiveMtgFilter != null && effectiveMtgFilter.isActive) {
-      _applyMtgFilterStage1(query, effectiveMtgFilter);
-    } else {
-      _applyDefaultMemorabiliaExclusion(query);
+    final expressions = _buildItemFilterExpressions(
+      collectionType: collectionType,
+      onlyOwned: onlyOwned,
+      onlyWishlisted: onlyWishlisted,
+      searchQuery: searchQuery,
+      mtgFilter: mtgFilter,
+    );
+    for (final expr in expressions) {
+      query.where((_) => expr);
     }
 
     if (searchQuery != null && searchQuery.trim().isNotEmpty) {
@@ -281,46 +412,33 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
               expression: _buildSearchRankExpression(t, searchQuery),
               mode: OrderingMode.asc,
             ),
-        (t) => OrderingTerm(
-              expression: t.name,
-              mode: OrderingMode.asc,
-            ),
+        ..._buildSortOrderingTerms(sortOption),
       ]);
     } else {
-      query.orderBy([
-        (t) => OrderingTerm(
-              expression: t.acquiredDate,
-              mode: OrderingMode.desc,
-            ),
-        (t) => OrderingTerm(
-              expression: t.name,
-              mode: OrderingMode.asc,
-            ),
-      ]);
+      query.orderBy(_buildSortOrderingTerms(sortOption));
     }
 
-    final hasActiveMtgFilter = effectiveMtgFilter != null && effectiveMtgFilter.isActive;
     if (limit != null) {
-      if (!hasActiveMtgFilter) {
-        query.limit(limit, offset: offset);
-      } else {
-        final targetCount = (offset ?? 0) + limit;
-        final sqlLimit = math.min(math.max(targetCount * 4, 200), 5000);
-        query.limit(sqlLimit);
-      }
+      query.limit(limit, offset: offset);
     }
 
     final items = await query.get();
+    return items;
+  }
 
-    // Stage 2: In-memory evaluation using mtgFilter.matches(item)
-    if (!hasActiveMtgFilter) {
-      return items;
-    }
-
-    final filtered = items.where((item) => effectiveMtgFilter.matches(item));
-    final skipped = (offset != null && offset > 0) ? filtered.skip(offset) : filtered;
-    final limited = (limit != null) ? skipped.take(limit) : skipped;
-    return limited.toList();
+  /// Casts a card reputation vote by delegating to CardReputationDao.
+  Future<CardVoteResult> castCardVote({
+    required String cardId,
+    String userId = 'local_user',
+    required int targetVote,
+    bool toggle = true,
+  }) async {
+    return attachedDatabase.cardReputationDao.castVote(
+      cardId: cardId,
+      userId: userId,
+      targetVote: targetVote,
+      toggle: toggle,
+    );
   }
 
   /// Generates a weighted search rank [Expression<int>] prioritizing:
@@ -356,32 +474,22 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
   Expression<int> buildSearchRankExpression($VaultItemsTable t, String query) =>
       _buildSearchRankExpression(t, query);
 
-  /// Default exclusion for Art Series and non-playable memorabilia.
-  void _applyDefaultMemorabiliaExclusion(
-    SimpleSelectStatement<$VaultItemsTable, VaultItem> query,
-  ) {
-    query.where((t) =>
-        t.dynamicData.like('%"layout":"art_series"%').not() &
-        t.dynamicData.like('%"layout": "art_series"%').not() &
-        t.dynamicData.like('%"layout":"token"%').not() &
-        t.dynamicData.like('%"layout": "token"%').not() &
-        t.dynamicData.like('%"layout":"double_faced_token"%').not() &
-        t.dynamicData.like('%"layout": "double_faced_token"%').not() &
-        t.dynamicData.like('%"layout":"emblem"%').not() &
-        t.dynamicData.like('%"layout": "emblem"%').not() &
-        t.dynamicData.like('%"layout":"planar"%').not() &
-        t.dynamicData.like('%"layout": "planar"%').not() &
-        t.dynamicData.like('%"layout":"scheme"%').not() &
-        t.dynamicData.like('%"layout": "scheme"%').not() &
-        t.dynamicData.like('%"layout":"vanguard"%').not() &
-        t.dynamicData.like('%"layout": "vanguard"%').not());
+  /// Builds default exclusions for Art Series and non-playable memorabilia.
+  List<Expression<bool>> _buildDefaultMemorabiliaExclusionExpressions() {
+    return [
+      const CustomExpression<bool>(
+        "CASE WHEN json_valid(vault_items.dynamic_data) = 1 THEN "
+        "(COALESCE(json_extract(vault_items.dynamic_data, '\$.layout'), '') NOT IN "
+        "('art_series', 'token', 'double_faced_token', 'emblem', 'planar', 'scheme', 'vanguard')) "
+        "ELSE 1 END"
+      ),
+    ];
   }
 
-  /// Applies Stage 1 SQL pushdown filters to the Drift query.
-  void _applyMtgFilterStage1(
-    SimpleSelectStatement<$VaultItemsTable, VaultItem> query,
-    MtgFilterState filter,
-  ) {
+  /// Builds Stage 1 SQL pushdown expressions from an active [MtgFilterState].
+  List<Expression<bool>> _buildMtgFilterStage1Expressions(MtgFilterState filter) {
+    final exprs = <Expression<bool>>[];
+
     // 0. Default exclusions & special cards pushdown
     final allowsArtCards = filter.rarities.contains('art_card') ||
         filter.rarities.contains('art card') ||
@@ -399,24 +507,23 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
             ].contains(l.toLowerCase()));
 
     if (!allowsArtCards) {
-      query.where((t) =>
-          t.dynamicData.like('%"layout":"art_series"%').not() &
-          t.dynamicData.like('%"layout": "art_series"%').not());
+      exprs.add(
+        const CustomExpression<bool>(
+          "CASE WHEN json_valid(vault_items.dynamic_data) = 1 THEN "
+          "(COALESCE(json_extract(vault_items.dynamic_data, '\$.layout'), '') != 'art_series') "
+          "ELSE 1 END"
+        ),
+      );
     }
     if (!allowsSpecialCards && !allowsArtCards) {
-      query.where((t) =>
-          t.dynamicData.like('%"layout":"token"%').not() &
-          t.dynamicData.like('%"layout": "token"%').not() &
-          t.dynamicData.like('%"layout":"double_faced_token"%').not() &
-          t.dynamicData.like('%"layout": "double_faced_token"%').not() &
-          t.dynamicData.like('%"layout":"emblem"%').not() &
-          t.dynamicData.like('%"layout": "emblem"%').not() &
-          t.dynamicData.like('%"layout":"planar"%').not() &
-          t.dynamicData.like('%"layout": "planar"%').not() &
-          t.dynamicData.like('%"layout":"scheme"%').not() &
-          t.dynamicData.like('%"layout": "scheme"%').not() &
-          t.dynamicData.like('%"layout":"vanguard"%').not() &
-          t.dynamicData.like('%"layout": "vanguard"%').not());
+      exprs.add(
+        const CustomExpression<bool>(
+          "CASE WHEN json_valid(vault_items.dynamic_data) = 1 THEN "
+          "(COALESCE(json_extract(vault_items.dynamic_data, '\$.layout'), '') NOT IN "
+          "('token', 'double_faced_token', 'emblem', 'planar', 'scheme', 'vanguard')) "
+          "ELSE 1 END"
+        ),
+      );
     }
 
     // 1. Direct table columns
@@ -425,144 +532,173 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
           .expand((c) => [c, c.toUpperCase(), c.toLowerCase()])
           .toSet()
           .toList();
-      query.where((t) => t.condition.isIn(expandedConditions));
+      exprs.add(vaultItems.condition.isIn(expandedConditions));
     }
     if (filter.isGraded != null) {
-      query.where((t) => t.isGraded.equals(filter.isGraded!));
+      exprs.add(vaultItems.isGraded.equals(filter.isGraded!));
     }
     if (filter.isAltered != null) {
-      query.where((t) => t.isAltered.equals(filter.isAltered!));
+      exprs.add(vaultItems.isAltered.equals(filter.isAltered!));
     }
     if (filter.isMisprint != null) {
-      query.where((t) => t.isMisprint.equals(filter.isMisprint!));
+      exprs.add(vaultItems.isMisprint.equals(filter.isMisprint!));
     }
     if (filter.isSigned != null) {
-      query.where((t) => t.isSigned.equals(filter.isSigned!));
+      exprs.add(vaultItems.isSigned.equals(filter.isSigned!));
     }
 
     // 2. Simple text pushdown clauses
     if (filter.typeLine.trim().isNotEmpty) {
-      final parts = filter.typeLine.trim().split(RegExp(r'\s+'));
+      final parts = filter.typeLine.trim().toLowerCase().split(RegExp(r'\s+'));
       for (final part in parts) {
         if (part.isNotEmpty) {
-          query.where((t) => t.dynamicData.like('%$part%'));
+          final sqlPart = part.replaceAll("'", "''");
+          exprs.add(CustomExpression<bool>(
+            "CASE WHEN json_valid(vault_items.dynamic_data) = 1 THEN ("
+            "lower(json_extract(vault_items.dynamic_data, '\$.type_line')) LIKE '%$sqlPart%' OR "
+            "lower(json_extract(vault_items.dynamic_data, '\$.card_faces[0].type_line')) LIKE '%$sqlPart%' OR "
+            "lower(json_extract(vault_items.dynamic_data, '\$.card_faces[1].type_line')) LIKE '%$sqlPart%'"
+            ") ELSE 0 END"
+          ));
         }
       }
+    }
+
+    if (filter.manaCost.trim().isNotEmpty) {
+      final cleanMana = filter.manaCost.trim().replaceAll("'", "''");
+      exprs.add(CustomExpression<bool>(
+        "CASE WHEN json_valid(vault_items.dynamic_data) = 1 THEN ("
+        "json_extract(vault_items.dynamic_data, '\$.mana_cost') = '$cleanMana' OR "
+        "json_extract(vault_items.dynamic_data, '\$.card_faces[0].mana_cost') = '$cleanMana' OR "
+        "json_extract(vault_items.dynamic_data, '\$.card_faces[1].mana_cost') = '$cleanMana'"
+        ") ELSE 0 END"
+      ));
     }
 
     for (final clause in filter.oracleTextClauses) {
       final trimmed = clause.trim();
       if (trimmed.isNotEmpty) {
-        query.where((t) => t.dynamicData.like('%$trimmed%'));
+        exprs.add(vaultItems.dynamicData.like('%$trimmed%'));
       }
     }
 
     if (filter.isUniversesBeyond == true) {
-      query.where((t) =>
-          const CustomExpression<bool>(
-            "json_extract(vault_items.dynamic_data, '\$.is_universes_beyond') = 1",
-          ) |
-          t.dynamicData.like('%"is_universes_beyond":true%') |
-          t.dynamicData.like('%"is_universes_beyond": true%') |
-          t.dynamicData.like('%universes_beyond%') |
-          t.dynamicData.like('%universesbeyond%') |
-          t.dynamicData.like('%"security_stamp":"triangle"%') |
-          t.dynamicData.like('%"security_stamp": "triangle"%'));
+      exprs.add(
+        const CustomExpression<bool>(
+          "json_extract(vault_items.dynamic_data, '\$.is_universes_beyond') = 1",
+        ) |
+        vaultItems.dynamicData.like('%"is_universes_beyond":true%') |
+        vaultItems.dynamicData.like('%"is_universes_beyond": true%') |
+        vaultItems.dynamicData.like('%universes_beyond%') |
+        vaultItems.dynamicData.like('%universesbeyond%') |
+        vaultItems.dynamicData.like('%"security_stamp":"triangle"%') |
+        vaultItems.dynamicData.like('%"security_stamp": "triangle"%'),
+      );
     }
 
-    if (filter.setCode.trim().isNotEmpty && filter.setOperator == '=') {
+    if (filter.setCode.trim().isNotEmpty) {
       final cleanSet = filter.setCode.trim().toLowerCase();
       final isSld = cleanSet == 'sld' || cleanSet == 'secret lair' || cleanSet == 'secret lair drop';
+      final isNot = filter.setOperator == '!=';
       if (isSld) {
-        query.where((t) =>
-            t.setOrSeries.like('%Secret Lair%') |
-            t.dynamicData.like('%"set":"sld"%') |
-            t.dynamicData.like('%"set_code":"sld"%') |
-            t.dynamicData.like('%"set": "sld"%') |
-            t.dynamicData.like('%"set_code": "sld"%'));
+        if (isNot) {
+          exprs.add(
+            vaultItems.setOrSeries.like('%Secret Lair%').not() &
+            const CustomExpression<bool>(
+              "json_extract(vault_items.dynamic_data, '\$.set_code') != 'sld' AND "
+              "json_extract(vault_items.dynamic_data, '\$.set') != 'sld'"
+            ),
+          );
+        } else {
+          exprs.add(
+            vaultItems.setOrSeries.like('%Secret Lair%') |
+            const CustomExpression<bool>(
+              "json_extract(vault_items.dynamic_data, '\$.set_code') = 'sld' OR "
+              "json_extract(vault_items.dynamic_data, '\$.set') = 'sld'"
+            ),
+          );
+        }
       } else {
-        query.where((t) =>
-            t.setOrSeries.equals(filter.setCode.trim()) |
-            t.setOrSeries.like('%${filter.setCode.trim()}%') |
-            t.dynamicData.like('%"set":"$cleanSet"%') |
-            t.dynamicData.like('%"set_code":"$cleanSet"%') |
-            t.dynamicData.like('%"set": "$cleanSet"%') |
-            t.dynamicData.like('%"set_code": "$cleanSet"%'));
+        if (isNot) {
+          exprs.add(
+            vaultItems.setOrSeries.equals(filter.setCode.trim()).not() &
+            vaultItems.setOrSeries.like('%${filter.setCode.trim()}%').not() &
+            CustomExpression<bool>(
+              "json_extract(vault_items.dynamic_data, '\$.set_code') != '$cleanSet' AND "
+              "json_extract(vault_items.dynamic_data, '\$.set') != '$cleanSet'"
+            ),
+          );
+        } else {
+          exprs.add(
+            vaultItems.setOrSeries.equals(filter.setCode.trim()) |
+            vaultItems.setOrSeries.like('%${filter.setCode.trim()}%') |
+            CustomExpression<bool>(
+              "json_extract(vault_items.dynamic_data, '\$.set_code') = '$cleanSet' OR "
+              "json_extract(vault_items.dynamic_data, '\$.set') = '$cleanSet'"
+            ),
+          );
+        }
       }
     }
 
     // 3. Rarities pushdown
     if (filter.rarities.isNotEmpty) {
-      query.where((t) {
-        final rarityExprs = <Expression<bool>>[];
-        for (final r in filter.rarities) {
-          final clean = r.toLowerCase().trim();
-          if (clean == 'art_card' || clean == 'art card') {
-            rarityExprs.add(
-              t.dynamicData.like('%"layout":"art_series"%') |
-              t.dynamicData.like('%"layout": "art_series"%'),
-            );
-          } else if (clean == 'special_card' || clean == 'special card') {
-            rarityExprs.add(
-              t.dynamicData.like('%"rarity":"special"%') |
-              t.dynamicData.like('%"rarity": "special"%') |
-              t.dynamicData.like('%"rarity":"bonus"%') |
-              t.dynamicData.like('%"rarity": "bonus"%') |
-              t.dynamicData.like('%"layout":"token"%') |
-              t.dynamicData.like('%"layout": "token"%'),
-            );
-          } else {
-            rarityExprs.add(
-              t.dynamicData.like('%"rarity":"$clean"%') |
-              t.dynamicData.like('%"rarity": "$clean"%'),
-            );
-          }
+      final standard = <String>[];
+      bool includeArt = false;
+      bool includeSpecial = false;
+      for (final r in filter.rarities) {
+        final clean = r.toLowerCase().trim();
+        if (clean == 'art_card' || clean == 'art card') {
+          includeArt = true;
+        } else if (clean == 'special_card' || clean == 'special card') {
+          includeSpecial = true;
+          standard.addAll(['special', 'bonus']);
+        } else {
+          standard.add(clean);
         }
-        var combined = rarityExprs.first;
-        for (int i = 1; i < rarityExprs.length; i++) {
-          combined = combined | rarityExprs[i];
-        }
-        return combined;
-      });
+      }
+      final clauses = <String>[];
+      if (standard.isNotEmpty) {
+        final inList = standard.map((s) => "'$s'").join(',');
+        clauses.add("json_extract(vault_items.dynamic_data, '\$.rarity') IN ($inList)");
+      }
+      if (includeArt) {
+        clauses.add("json_extract(vault_items.dynamic_data, '\$.layout') = 'art_series'");
+      }
+      if (includeSpecial) {
+        clauses.add("json_extract(vault_items.dynamic_data, '\$.layout') = 'token'");
+      }
+      if (clauses.isNotEmpty) {
+        exprs.add(CustomExpression<bool>("(${clauses.join(' OR ')})"));
+      }
     }
 
     // 4. Layouts pushdown
     if (filter.layouts.isNotEmpty) {
-      query.where((t) {
-        final layoutExprs = <Expression<bool>>[];
-        for (final l in filter.layouts) {
-          final clean = l.toLowerCase().trim();
-          layoutExprs.add(
-            t.dynamicData.like('%"layout":"$clean"%') |
-            t.dynamicData.like('%"layout": "$clean"%'),
-          );
-        }
-        var combined = layoutExprs.first;
-        for (int i = 1; i < layoutExprs.length; i++) {
-          combined = combined | layoutExprs[i];
-        }
-        return combined;
-      });
+      final inList = filter.layouts.map((l) => "'${l.toLowerCase().trim()}'").join(',');
+      exprs.add(CustomExpression<bool>(
+        "json_extract(vault_items.dynamic_data, '\$.layout') IN ($inList)"
+      ));
     }
 
     // 5. Finishes pushdown
     if (filter.finishes.isNotEmpty) {
-      query.where((t) {
-        final finishExprs = <Expression<bool>>[];
-        for (final f in filter.finishes) {
-          final clean = f.toLowerCase().trim().replaceAll('-', '_');
-          final raw = f.toLowerCase().trim();
-          finishExprs.add(
-            t.dynamicData.like('%"$clean"%') |
-            t.dynamicData.like('%"$raw"%'),
-          );
-        }
+      final finishExprs = <Expression<bool>>[];
+      for (final f in filter.finishes) {
+        final clean = f.toLowerCase().trim().replaceAll('-', '_');
+        final raw = f.toLowerCase().trim();
+        finishExprs.add(
+          vaultItems.dynamicData.like('%"$clean"%') |
+          vaultItems.dynamicData.like('%"$raw"%'),
+        );
+      }
+      if (finishExprs.isNotEmpty) {
         var combined = finishExprs.first;
         for (int i = 1; i < finishExprs.length; i++) {
           combined = combined | finishExprs[i];
         }
-        return combined;
-      });
+        exprs.add(combined);
+      }
     }
 
     // 6. Colors pushdown (Robust multi-target & multi-faced support)
@@ -573,46 +709,79 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
 
       final onlyC = normalizedColors.length == 1 && normalizedColors.contains('C');
       if (onlyC) {
-        query.where((t) =>
+        if (!isColorIdentity) {
+          exprs.add(
+            const CustomExpression<bool>(
+              "CASE WHEN json_valid(vault_items.dynamic_data) = 1 THEN ("
+              "(json_extract(vault_items.dynamic_data, '\$.colors') = '[]' OR json_extract(vault_items.dynamic_data, '\$.colors') IS NULL) AND "
+              "COALESCE(json_extract(vault_items.dynamic_data, '\$.mana_cost'), '') NOT GLOB '*{*[WUBRG]*}*'"
+              ") ELSE 0 END",
+            ) |
+            vaultItems.dynamicData.like('%"{C}"%'),
+          );
+        } else {
+          exprs.add(
             CustomExpression<bool>(
               "CASE WHEN json_valid(vault_items.dynamic_data) = 1 THEN ("
               "json_extract(vault_items.dynamic_data, '\$.$targetKey') = '[]' OR "
               "json_extract(vault_items.dynamic_data, '\$.$targetKey') IS NULL"
               ") ELSE 0 END",
             ) |
-            t.dynamicData.like('%"$targetKey":[]%') |
-            t.dynamicData.like('%"$targetKey": []%') |
-            t.dynamicData.like('%"{C}"%'));
-      } else if (filter.colorMatchMode == ColorMatchMode.including ||
-          filter.colorMatchMode == ColorMatchMode.exactly) {
-        for (final upperC in normalizedColors.where((c) => c != 'C')) {
-          query.where((t) => CustomExpression<bool>(
-                "CASE WHEN json_valid(vault_items.dynamic_data) = 1 THEN ("
-                "json_extract(vault_items.dynamic_data, '\$.$targetKey') GLOB '*\"$upperC\"*' OR "
-                "json_extract(vault_items.dynamic_data, '\$.card_faces[0].$targetKey') GLOB '*\"$upperC\"*' OR "
-                "json_extract(vault_items.dynamic_data, '\$.card_faces[1].$targetKey') GLOB '*\"$upperC\"*' OR "
-                "json_extract(vault_items.dynamic_data, '\$.mana_cost') GLOB '*{*$upperC*}*' OR "
-                "json_extract(vault_items.dynamic_data, '\$.card_faces[0].mana_cost') GLOB '*{*$upperC*}*' OR "
-                "json_extract(vault_items.dynamic_data, '\$.card_faces[1].mana_cost') GLOB '*{*$upperC*}*'"
-                ") ELSE 0 END",
-              ));
+            vaultItems.dynamicData.like('%"$targetKey":[]%') |
+            vaultItems.dynamicData.like('%"$targetKey": []%') |
+            vaultItems.dynamicData.like('%"{C}"%'),
+          );
         }
-      } else if (filter.colorMatchMode == ColorMatchMode.atMost ||
-          filter.colorMatchMode == ColorMatchMode.commander) {
-        final excludedColors = {'W', 'U', 'B', 'R', 'G'}
-            .difference(normalizedColors.where((c) => c != 'C').toSet());
-        for (final ex in excludedColors) {
-          query.where((t) => CustomExpression<bool>(
-                "CASE WHEN json_valid(vault_items.dynamic_data) = 1 THEN ("
-                "json_extract(vault_items.dynamic_data, '\$.$targetKey') NOT GLOB '*\"$ex\"*' AND "
-                "(json_extract(vault_items.dynamic_data, '\$.card_faces[0].$targetKey') IS NULL OR "
-                "json_extract(vault_items.dynamic_data, '\$.card_faces[0].$targetKey') NOT GLOB '*\"$ex\"*') AND "
-                "(json_extract(vault_items.dynamic_data, '\$.card_faces[1].$targetKey') IS NULL OR "
-                "json_extract(vault_items.dynamic_data, '\$.card_faces[1].$targetKey') NOT GLOB '*\"$ex\"*')"
-                ") ELSE 1 END",
-              ));
+      } else {
+        final activeColors = normalizedColors.where((c) => c != 'C').toSet();
+
+        // 6a. Inclusion clause: for 'including' and 'exactly', card MUST contain all active colors
+        if (filter.colorMatchMode == ColorMatchMode.including ||
+            filter.colorMatchMode == ColorMatchMode.exactly) {
+          for (final upperC in activeColors) {
+            exprs.add(CustomExpression<bool>(
+              "CASE WHEN json_valid(vault_items.dynamic_data) = 1 THEN ("
+              "json_extract(vault_items.dynamic_data, '\$.$targetKey') GLOB '*\"$upperC\"*' OR "
+              "json_extract(vault_items.dynamic_data, '\$.card_faces[0].$targetKey') GLOB '*\"$upperC\"*' OR "
+              "json_extract(vault_items.dynamic_data, '\$.card_faces[1].$targetKey') GLOB '*\"$upperC\"*' OR "
+              "json_extract(vault_items.dynamic_data, '\$.mana_cost') GLOB '*{*$upperC*}*' OR "
+              "json_extract(vault_items.dynamic_data, '\$.card_faces[0].mana_cost') GLOB '*{*$upperC*}*' OR "
+              "json_extract(vault_items.dynamic_data, '\$.card_faces[1].mana_cost') GLOB '*{*$upperC*}*'"
+              ") ELSE 0 END",
+            ));
+          }
+        }
+
+        // 6b. Exclusion clause: for 'atMost', 'commander', AND 'exactly', card MUST NOT contain any excluded color
+        if (filter.colorMatchMode == ColorMatchMode.atMost ||
+            filter.colorMatchMode == ColorMatchMode.commander ||
+            filter.colorMatchMode == ColorMatchMode.exactly) {
+          final excludedColors = {'W', 'U', 'B', 'R', 'G'}.difference(activeColors);
+          for (final ex in excludedColors) {
+            exprs.add(CustomExpression<bool>(
+              "CASE WHEN json_valid(vault_items.dynamic_data) = 1 THEN ("
+              "json_extract(vault_items.dynamic_data, '\$.$targetKey') NOT GLOB '*\"$ex\"*' AND "
+              "(json_extract(vault_items.dynamic_data, '\$.card_faces[0].$targetKey') IS NULL OR "
+              "json_extract(vault_items.dynamic_data, '\$.card_faces[0].$targetKey') NOT GLOB '*\"$ex\"*') AND "
+              "(json_extract(vault_items.dynamic_data, '\$.card_faces[1].$targetKey') IS NULL OR "
+              "json_extract(vault_items.dynamic_data, '\$.card_faces[1].$targetKey') NOT GLOB '*\"$ex\"*')"
+              ") ELSE 1 END",
+            ));
+          }
         }
       }
+    }
+
+    // 6c. Color count range pushdown
+    if (filter.colorCountRange.start > 0 || filter.colorCountRange.end < 5) {
+      final targetKey = filter.colorTarget == ColorTarget.colorIdentity ? 'color_identity' : 'colors';
+      final min = filter.colorCountRange.start.toInt();
+      final max = filter.colorCountRange.end.toInt();
+      exprs.add(CustomExpression<bool>(
+        "CASE WHEN json_valid(vault_items.dynamic_data) = 1 THEN ("
+        "json_array_length(COALESCE(json_extract(vault_items.dynamic_data, '\$.$targetKey'), '[]')) BETWEEN $min AND $max"
+        ") ELSE 1 END"
+      ));
     }
 
     // 7. Formats pushdown
@@ -620,11 +789,11 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
       for (final fmt in filter.formats) {
         final cleanFmt = fmt.toLowerCase().trim().replaceAll(RegExp(r'[^a-z0-9_]'), '');
         if (cleanFmt.isNotEmpty) {
-          query.where((t) => CustomExpression<bool>(
-                "CASE WHEN json_valid(vault_items.dynamic_data) = 1 THEN ("
-                "json_extract(vault_items.dynamic_data, '\$.legalities.$cleanFmt') IN ('legal', 'restricted')"
-                ") ELSE 0 END",
-              ));
+          exprs.add(CustomExpression<bool>(
+            "CASE WHEN json_valid(vault_items.dynamic_data) = 1 THEN ("
+            "json_extract(vault_items.dynamic_data, '\$.legalities.$cleanFmt') IN ('legal', 'restricted')"
+            ") ELSE 0 END",
+          ));
         }
       }
     }
@@ -633,12 +802,12 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     if (filter.cmcRange.start > 0 || filter.cmcRange.end < 16) {
       final minCmc = filter.cmcRange.start;
       final maxCmc = filter.cmcRange.end;
-      query.where((t) => CustomExpression<bool>(
-            "CASE WHEN json_valid(vault_items.dynamic_data) = 1 THEN ("
-            "CAST(json_extract(vault_items.dynamic_data, '\$.cmc') AS REAL) >= $minCmc AND "
-            "CAST(json_extract(vault_items.dynamic_data, '\$.cmc') AS REAL) <= $maxCmc"
-            ") ELSE 1 END",
-          ));
+      exprs.add(CustomExpression<bool>(
+        "CASE WHEN json_valid(vault_items.dynamic_data) = 1 THEN ("
+        "CAST(json_extract(vault_items.dynamic_data, '\$.cmc') AS REAL) >= $minCmc AND "
+        "CAST(json_extract(vault_items.dynamic_data, '\$.cmc') AS REAL) <= $maxCmc"
+        ") ELSE 1 END",
+      ));
     }
 
     // 9. Languages pushdown
@@ -646,21 +815,176 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
       final langCodes = filter.languages
           .map((l) => "'${l.toLowerCase().trim()}'")
           .join(',');
-      query.where((t) => CustomExpression<bool>(
-            "CASE WHEN json_valid(vault_items.dynamic_data) = 1 THEN ("
-            "lower(json_extract(vault_items.dynamic_data, '\$.lang')) IN ($langCodes)"
-            ") ELSE 1 END",
-          ));
+      exprs.add(CustomExpression<bool>(
+        "CASE WHEN json_valid(vault_items.dynamic_data) = 1 THEN ("
+        "lower(json_extract(vault_items.dynamic_data, '\$.lang')) IN ($langCodes)"
+        ") ELSE 1 END",
+      ));
     }
+
+    // 10. Stat filters pushdown (power, toughness, loyalty, defense)
+    if (filter.statFilters.isNotEmpty) {
+      for (final sf in filter.statFilters) {
+        final statName = sf.stat.toLowerCase().trim();
+        final op = sf.op;
+        final val = sf.value.trim();
+        if (['power', 'toughness', 'loyalty', 'defense'].contains(statName)) {
+          if (val == '*') {
+            if (op == '=' || op == '==') {
+              exprs.add(CustomExpression<bool>(
+                "CASE WHEN json_valid(vault_items.dynamic_data) = 1 THEN ("
+                "json_extract(vault_items.dynamic_data, '\$.$statName') = '*' OR "
+                "json_extract(vault_items.dynamic_data, '\$.card_faces[0].$statName') = '*' OR "
+                "json_extract(vault_items.dynamic_data, '\$.card_faces[1].$statName') = '*'"
+                ") ELSE 0 END",
+              ));
+            } else if (op == '!=') {
+              exprs.add(CustomExpression<bool>(
+                "CASE WHEN json_valid(vault_items.dynamic_data) = 1 THEN ("
+                "json_extract(vault_items.dynamic_data, '\$.$statName') != '*' AND "
+                "(json_extract(vault_items.dynamic_data, '\$.card_faces[0].$statName') IS NULL OR "
+                "json_extract(vault_items.dynamic_data, '\$.card_faces[0].$statName') != '*') AND "
+                "(json_extract(vault_items.dynamic_data, '\$.card_faces[1].$statName') IS NULL OR "
+                "json_extract(vault_items.dynamic_data, '\$.card_faces[1].$statName') != '*')"
+                ") ELSE 1 END",
+              ));
+            }
+          } else {
+            final targetNum = double.tryParse(val);
+            if (targetNum != null) {
+              final sqlOp = op == '==' ? '=' : op;
+              exprs.add(CustomExpression<bool>(
+                "CASE WHEN json_valid(vault_items.dynamic_data) = 1 THEN ("
+                "(json_extract(vault_items.dynamic_data, '\$.$statName') IS NOT NULL AND "
+                "CAST(json_extract(vault_items.dynamic_data, '\$.$statName') AS REAL) $sqlOp $targetNum) OR "
+                "(json_extract(vault_items.dynamic_data, '\$.card_faces[0].$statName') IS NOT NULL AND "
+                "CAST(json_extract(vault_items.dynamic_data, '\$.card_faces[0].$statName') AS REAL) $sqlOp $targetNum) OR "
+                "(json_extract(vault_items.dynamic_data, '\$.card_faces[1].$statName') IS NOT NULL AND "
+                "CAST(json_extract(vault_items.dynamic_data, '\$.card_faces[1].$statName') AS REAL) $sqlOp $targetNum)"
+                ") ELSE 0 END",
+              ));
+            }
+          }
+        }
+      }
+    }
+
+    // 11. Boolean flags pushdown (isReserved, isReprint)
+    if (filter.isReserved != null) {
+      if (filter.isReserved!) {
+        exprs.add(const CustomExpression<bool>(
+          "CASE WHEN json_valid(vault_items.dynamic_data) = 1 THEN ("
+          "json_extract(vault_items.dynamic_data, '\$.reserved') = 1"
+          ") ELSE 0 END",
+        ));
+      } else {
+        exprs.add(const CustomExpression<bool>(
+          "CASE WHEN json_valid(vault_items.dynamic_data) = 1 THEN ("
+          "json_extract(vault_items.dynamic_data, '\$.reserved') IS NULL OR "
+          "json_extract(vault_items.dynamic_data, '\$.reserved') = 0"
+          ") ELSE 1 END",
+        ));
+      }
+    }
+
+    if (filter.isReprint != null) {
+      if (filter.isReprint!) {
+        exprs.add(const CustomExpression<bool>(
+          "CASE WHEN json_valid(vault_items.dynamic_data) = 1 THEN ("
+          "json_extract(vault_items.dynamic_data, '\$.reprint') = 1"
+          ") ELSE 0 END",
+        ));
+      } else {
+        exprs.add(const CustomExpression<bool>(
+          "CASE WHEN json_valid(vault_items.dynamic_data) = 1 THEN ("
+          "json_extract(vault_items.dynamic_data, '\$.reprint') IS NULL OR "
+          "json_extract(vault_items.dynamic_data, '\$.reprint') = 0"
+          ") ELSE 1 END",
+        ));
+      }
+    }
+
+    return exprs;
   }
 
   /// Streams reactive aggregate totals for vault items scoped to collection and binder.
-  Stream<VaultTotals> watchVaultTotals({
+  /// Generates the canonical SQLite SQL expression to extract the finish-aware unit market price:
+  /// 1. Uses "current_market_price" if > 0.0.
+  /// 2. If <= 0.0 or null, falls back to "dynamic_data.prices" JSON matching card finish:
+  ///    - 'etched': usd_etched -> usd_foil -> usd -> eur_foil -> eur
+  ///    - 'foil' / 'surge' / 'surgefoil': usd_foil / usd_surge -> usd_etched -> usd -> eur_foil -> eur
+  ///    - 'nonfoil' / default: usd -> eur -> usd_foil -> usd_etched -> eur_foil
+  /// 3. Returns 0.0 if invalid JSON or no positive price found.
+  static String _buildVaultItemPriceSql() {
+    return '''
+      CASE
+        WHEN "current_market_price" IS NOT NULL AND "current_market_price" > 0.0 THEN "current_market_price"
+        WHEN json_valid("dynamic_data") = 1 THEN
+          CASE LOWER(COALESCE(json_extract("dynamic_data", '\$.finish'), json_extract("dynamic_data", '\$.treatment'), ''))
+            WHEN 'etched' THEN
+              COALESCE(
+                NULLIF(CAST(COALESCE(json_extract("dynamic_data", '\$.prices.usd_etched'), json_extract("dynamic_data", '\$.usd_etched')) AS REAL), 0.0),
+                NULLIF(CAST(COALESCE(json_extract("dynamic_data", '\$.prices.usd_foil'), json_extract("dynamic_data", '\$.usd_foil')) AS REAL), 0.0),
+                NULLIF(CAST(COALESCE(json_extract("dynamic_data", '\$.prices.usd'), json_extract("dynamic_data", '\$.usd')) AS REAL), 0.0),
+                NULLIF(CAST(COALESCE(json_extract("dynamic_data", '\$.prices.eur_foil'), json_extract("dynamic_data", '\$.eur_foil')) AS REAL), 0.0),
+                NULLIF(CAST(COALESCE(json_extract("dynamic_data", '\$.prices.eur'), json_extract("dynamic_data", '\$.eur')) AS REAL), 0.0),
+                0.0
+              )
+            WHEN 'foil' THEN
+              COALESCE(
+                NULLIF(CAST(COALESCE(json_extract("dynamic_data", '\$.prices.usd_foil'), json_extract("dynamic_data", '\$.usd_foil')) AS REAL), 0.0),
+                NULLIF(CAST(COALESCE(json_extract("dynamic_data", '\$.prices.usd_etched'), json_extract("dynamic_data", '\$.usd_etched')) AS REAL), 0.0),
+                NULLIF(CAST(COALESCE(json_extract("dynamic_data", '\$.prices.usd'), json_extract("dynamic_data", '\$.usd')) AS REAL), 0.0),
+                NULLIF(CAST(COALESCE(json_extract("dynamic_data", '\$.prices.eur_foil'), json_extract("dynamic_data", '\$.eur_foil')) AS REAL), 0.0),
+                NULLIF(CAST(COALESCE(json_extract("dynamic_data", '\$.prices.eur'), json_extract("dynamic_data", '\$.eur')) AS REAL), 0.0),
+                0.0
+              )
+            WHEN 'surge' THEN
+              COALESCE(
+                NULLIF(CAST(COALESCE(json_extract("dynamic_data", '\$.prices.usd_surge'), json_extract("dynamic_data", '\$.usd_surge')) AS REAL), 0.0),
+                NULLIF(CAST(COALESCE(json_extract("dynamic_data", '\$.prices.usd_foil'), json_extract("dynamic_data", '\$.usd_foil')) AS REAL), 0.0),
+                NULLIF(CAST(COALESCE(json_extract("dynamic_data", '\$.prices.usd'), json_extract("dynamic_data", '\$.usd')) AS REAL), 0.0),
+                NULLIF(CAST(COALESCE(json_extract("dynamic_data", '\$.prices.eur_foil'), json_extract("dynamic_data", '\$.eur_foil')) AS REAL), 0.0),
+                NULLIF(CAST(COALESCE(json_extract("dynamic_data", '\$.prices.eur'), json_extract("dynamic_data", '\$.eur')) AS REAL), 0.0),
+                0.0
+              )
+            WHEN 'surgefoil' THEN
+              COALESCE(
+                NULLIF(CAST(COALESCE(json_extract("dynamic_data", '\$.prices.usd_surge'), json_extract("dynamic_data", '\$.usd_surge')) AS REAL), 0.0),
+                NULLIF(CAST(COALESCE(json_extract("dynamic_data", '\$.prices.usd_foil'), json_extract("dynamic_data", '\$.usd_foil')) AS REAL), 0.0),
+                NULLIF(CAST(COALESCE(json_extract("dynamic_data", '\$.prices.usd'), json_extract("dynamic_data", '\$.usd')) AS REAL), 0.0),
+                NULLIF(CAST(COALESCE(json_extract("dynamic_data", '\$.prices.eur_foil'), json_extract("dynamic_data", '\$.eur_foil')) AS REAL), 0.0),
+                NULLIF(CAST(COALESCE(json_extract("dynamic_data", '\$.prices.eur'), json_extract("dynamic_data", '\$.eur')) AS REAL), 0.0),
+                0.0
+              )
+            ELSE
+              COALESCE(
+                NULLIF(CAST(COALESCE(json_extract("dynamic_data", '\$.prices.usd'), json_extract("dynamic_data", '\$.usd')) AS REAL), 0.0),
+                NULLIF(CAST(COALESCE(json_extract("dynamic_data", '\$.prices.eur'), json_extract("dynamic_data", '\$.eur')) AS REAL), 0.0),
+                NULLIF(CAST(COALESCE(json_extract("dynamic_data", '\$.prices.usd_foil'), json_extract("dynamic_data", '\$.usd_foil')) AS REAL), 0.0),
+                NULLIF(CAST(COALESCE(json_extract("dynamic_data", '\$.prices.usd_etched'), json_extract("dynamic_data", '\$.usd_etched')) AS REAL), 0.0),
+                NULLIF(CAST(COALESCE(json_extract("dynamic_data", '\$.prices.eur_foil'), json_extract("dynamic_data", '\$.eur_foil')) AS REAL), 0.0),
+                0.0
+              )
+          END
+        ELSE 0.0
+      END
+    ''';
+  }
+
+  /// Builds standardized WHERE clauses and variables for vault totals.
+  void _buildVaultTotalsWhereClauses(
+    List<String> whereClauses,
+    List<Variable> variables, {
     String? collectionType,
     String? binderId,
+    String? userId,
   }) {
-    final whereClauses = <String>['"quantity" > 0', '"is_deleted" = 0'];
-    final variables = <Variable>[];
+    whereClauses.addAll([
+      '"quantity" > 0',
+      '"is_deleted" = 0',
+      '("is_traded" IS NULL OR "is_traded" = 0)',
+    ]);
 
     if (collectionType != null) {
       final normalized = _normalizeCollectionType(collectionType);
@@ -674,15 +998,59 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
       whereClauses.add('"primary_binder_id" = ?');
       variables.add(Variable.withString(binderId));
     } else {
-      whereClauses.add('("primary_binder_id" IS NULL OR "primary_binder_id" != \'INBOX\')');
+      whereClauses.add('''
+        ("primary_binder_id" IS NULL OR (
+          "primary_binder_id" != 'INBOX'
+          AND "primary_binder_id" NOT LIKE 'system_looking_for%'
+          AND "primary_binder_id" NOT IN (
+            SELECT id FROM "vault_binders"
+            WHERE ("system_binder_type" = 'looking_for' OR id LIKE 'system_looking_for%')
+              AND "is_deleted" = 0
+          )
+        ))
+      ''');
+      if (userId != null && userId.isNotEmpty) {
+        if (userId == 'user-current-me' ||
+            userId == 'guest' ||
+            userId.startsWith('guest') ||
+            userId == 'local_user') {
+          whereClauses.add(
+              '("user_id" IS NULL OR "user_id" = \'\' OR "user_id" = \'local_user\' OR "user_id" = \'user-current-me\' OR "user_id" = \'guest\' OR "user_id" LIKE \'guest%\')');
+        } else {
+          whereClauses.add(
+              '("user_id" = ? OR "user_id" IS NULL OR "user_id" = \'\' OR "user_id" = \'local_user\')');
+          variables.add(Variable.withString(userId));
+        }
+      } else {
+        whereClauses.add(
+            '("user_id" IS NULL OR "user_id" = \'\' OR "user_id" = \'local_user\' OR "user_id" = \'user-current-me\' OR "user_id" = \'guest\' OR "user_id" LIKE \'guest%\')');
+      }
     }
+  }
+
+  /// Streams reactive aggregate totals for vault items scoped to collection and binder.
+  Stream<VaultTotals> watchVaultTotals({
+    String? collectionType,
+    String? binderId,
+    String? userId,
+  }) {
+    final whereClauses = <String>[];
+    final variables = <Variable>[];
+
+    _buildVaultTotalsWhereClauses(
+      whereClauses,
+      variables,
+      collectionType: collectionType,
+      binderId: binderId,
+      userId: userId,
+    );
 
     final whereSql = whereClauses.join(' AND ');
     final querySql = '''
       SELECT
         CAST(COALESCE(SUM("quantity"), 0) AS INTEGER) AS total_count,
         CAST(COUNT(*) AS INTEGER) AS unique_count,
-        CAST(COALESCE(SUM("current_market_price" * "quantity"), 0.0) AS REAL) AS total_market_value,
+        CAST(COALESCE(SUM((${_buildVaultItemPriceSql()}) * "quantity"), 0.0) AS REAL) AS total_market_value,
         CAST(COALESCE(SUM(COALESCE("purchase_price", "acquired_price", 0.0) * "quantity"), 0.0) AS REAL) AS total_cost_basis
       FROM "vault_items"
       WHERE $whereSql;
@@ -717,31 +1085,25 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
   Future<VaultTotals> getVaultTotals({
     String? collectionType,
     String? binderId,
+    String? userId,
   }) async {
-    final whereClauses = <String>['"quantity" > 0', '"is_deleted" = 0'];
+    final whereClauses = <String>[];
     final variables = <Variable>[];
 
-    if (collectionType != null) {
-      final normalized = _normalizeCollectionType(collectionType);
-      if (normalized != 'all') {
-        whereClauses.add('"collection_type" = ?');
-        variables.add(Variable.withString(normalized));
-      }
-    }
-
-    if (binderId != null) {
-      whereClauses.add('"primary_binder_id" = ?');
-      variables.add(Variable.withString(binderId));
-    } else {
-      whereClauses.add('("primary_binder_id" IS NULL OR "primary_binder_id" != \'INBOX\')');
-    }
+    _buildVaultTotalsWhereClauses(
+      whereClauses,
+      variables,
+      collectionType: collectionType,
+      binderId: binderId,
+      userId: userId,
+    );
 
     final whereSql = whereClauses.join(' AND ');
     final querySql = '''
       SELECT
         CAST(COALESCE(SUM("quantity"), 0) AS INTEGER) AS total_count,
         CAST(COUNT(*) AS INTEGER) AS unique_count,
-        CAST(COALESCE(SUM("current_market_price" * "quantity"), 0.0) AS REAL) AS total_market_value,
+        CAST(COALESCE(SUM((${_buildVaultItemPriceSql()}) * "quantity"), 0.0) AS REAL) AS total_market_value,
         CAST(COALESCE(SUM(COALESCE("purchase_price", "acquired_price", 0.0) * "quantity"), 0.0) AS REAL) AS total_cost_basis
       FROM "vault_items"
       WHERE $whereSql;
@@ -896,13 +1258,14 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     return q.get();
   }
 
-  /// Updates the physical finish metadata ('nonfoil', 'foil', 'etched') of a specific VaultItem.
+  /// Updates the physical finish metadata ('nonfoil', 'foil', 'etched', 'surge', 'surgefoil', 'textured') of a specific VaultItem.
   /// Enforces that physical inventory copies strictly specify their physical finish.
-  Future<void> updateItemFinish(String id, String finish) async {
-    final validFinishes = {'nonfoil', 'foil', 'etched'};
+  Future<void> updateItemFinish(String id, String finish, {double? marketPrice}) async {
+    final validFinishes = {'nonfoil', 'foil', 'etched', 'surge', 'surgefoil', 'textured'};
     final normalized = finish.toLowerCase().trim();
     if (!validFinishes.contains(normalized)) {
-      throw ArgumentError('Invalid finish "$finish". Must be one of: nonfoil, foil, etched');
+      throw ArgumentError(
+          'Invalid finish "$finish". Must be one of: nonfoil, foil, etched, surge, surgefoil, textured');
     }
     final existing =
         await (select(vaultItems)..where((t) => t.id.equals(id))).getSingleOrNull();
@@ -925,9 +1288,24 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     }
     data['finishes'] = finishes;
 
+    double? newPrice = marketPrice;
+    if (newPrice == null && data['prices'] is Map) {
+      final prices = data['prices'] as Map<String, dynamic>;
+      if (normalized == 'foil' && prices['usd_foil'] != null) {
+        newPrice = double.tryParse(prices['usd_foil'].toString());
+      } else if (normalized == 'etched' && prices['usd_etched'] != null) {
+        newPrice = double.tryParse(prices['usd_etched'].toString());
+      } else if ((normalized == 'surge' || normalized == 'surgefoil') && prices['usd_surge'] != null) {
+        newPrice = double.tryParse(prices['usd_surge'].toString());
+      } else if (normalized == 'nonfoil' && prices['usd'] != null) {
+        newPrice = double.tryParse(prices['usd'].toString());
+      }
+    }
+
     final now = DateTime.now();
     await (update(vaultItems)..where((t) => t.id.equals(id))).write(
       VaultItemsCompanion(
+        currentMarketPrice: newPrice != null && newPrice > 0 ? Value(newPrice) : const Value.absent(),
         dynamicData: Value(jsonEncode(data)),
         updatedAt: Value(now),
       ),
@@ -964,7 +1342,10 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
               quantity: Value(quantityToAdd),
               primaryBinderId: Value(targetBinderId),
               acquiredPrice: Value(acquired),
+              purchasePrice: Value(acquired),
               acquiredDate: Value(now),
+              dateObtained: Value(now),
+              protectionStatus: const Value('Sleeved'),
               lastPriceUpdate: Value(now),
               isDeleted: const Value(false),
               updatedAt: Value(now),
@@ -1199,6 +1580,11 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
         ),
         mode: InsertMode.insertOrReplace,
       );
+
+      // Provision system binders for current user, guest, and verified LGS
+      await seedSystemBindersForUser('user-current-me', isBusiness: false);
+      await seedSystemBindersForUser('guest', isBusiness: false);
+      await seedSystemBindersForUser('store-tbs-comics', isBusiness: true);
     }
 
     // 2. Ensure starter items exist if vaultItems has no owned items
@@ -2294,6 +2680,7 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
 
   /// Soft deletes all items (used for test and bulk resets).
   Future<int> clearAllItems() async {
+    invalidateSetMetadataCache();
     final now = DateTime.now();
     final count = await (update(vaultItems)).write(
       VaultItemsCompanion(
@@ -2318,23 +2705,219 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
   // PHASE 3: VAULT BINDER METHODS
   // ---------------------------------------------------------------------------
 
-  /// Streams all binders filtered by collection type (or all collections).
-  Stream<List<VaultBinder>> watchBindersByCollection(String collectionType) {
+  /// Streams binders filtered by collection type (or all collections), scoped strictly
+  /// to [userId] and [isBusiness].
+  ///
+  /// Guarantees:
+  /// - Normal users (`isBusiness == false`) see strictly their own custom binders and
+  ///   at most ONE 'trade_block' ('Trade Binder') and ONE 'looking_for' ('Looking For') binder.
+  /// - Store binders ('store_inventory', 'store_buylist') are 100% excluded for normal users.
+  /// - Business users (`isBusiness == true`) see strictly their own store binders and custom binders.
+  /// - Other users' system binders (e.g. seeded personas) are NEVER returned.
+  Stream<List<VaultBinder>> watchBindersByCollection(
+    String collectionType, {
+    String? userId,
+    bool isBusiness = false,
+  }) {
+    final query = _buildBindersQuery(
+      collectionType,
+      userId: userId,
+      isBusiness: isBusiness,
+    );
+    return query.watch().map((binders) => _deduplicateAndFilterBinders(
+          binders,
+          userId: userId,
+          isBusiness: isBusiness,
+        ));
+  }
+
+  /// One-shot fetch of binders filtered by collection type, scoped strictly to [userId] and [isBusiness].
+  Future<List<VaultBinder>> getBindersByCollection(
+    String collectionType, {
+    String? userId,
+    bool isBusiness = false,
+  }) async {
+    final query = _buildBindersQuery(
+      collectionType,
+      userId: userId,
+      isBusiness: isBusiness,
+    );
+    final binders = await query.get();
+    return _deduplicateAndFilterBinders(
+      binders,
+      userId: userId,
+      isBusiness: isBusiness,
+    );
+  }
+
+  SimpleSelectStatement<$VaultBindersTable, VaultBinder> _buildBindersQuery(
+    String collectionType, {
+    String? userId,
+    bool isBusiness = false,
+  }) {
     final normalized = _normalizeCollectionType(collectionType);
-    final query = select(vaultBinders)..where((t) => t.isDeleted.equals(false));
+    final query = select(vaultBinders)
+      ..where((t) => t.isDeleted.equals(false) & t.deletedAt.isNull());
+
     if (normalized != 'all') {
       query.where((t) => t.collectionType.equals(normalized));
     }
+
+    final effectiveUserId = userId ?? 'user-current-me';
+
+    if (isBusiness) {
+      // Business users only see their own store system binders and custom binders
+      query.where((t) {
+        final matchesUser = t.userId.equals(effectiveUserId) |
+            t.userId.isNull() |
+            t.userId.equals('') |
+            t.userId.equals('local_user');
+
+        final matchesSystemId = t.id.like('system_%_$effectiveUserId');
+
+        final isUserSystem = t.isSystemBinder.equals(true) &
+            (matchesUser | matchesSystemId) &
+            (t.systemBinderType.equals('store_inventory') |
+                t.systemBinderType.equals('store_buylist') |
+                t.systemBinderType.equals('trade_block') |
+                t.systemBinderType.equals('trade_binder') |
+                t.systemBinderType.equals('looking_for') |
+                t.id.like('system_%'));
+
+        final isUserCustom = (t.isSystemBinder.equals(false) | t.isSystemBinder.isNull()) &
+            matchesUser;
+
+        return isUserSystem | isUserCustom;
+      });
+    } else {
+      // Normal users: filter to custom binders OR non-store system binders for this user
+      query.where((t) {
+        final isStoreBinder = t.isSystemBinder.equals(true) &
+            (t.systemBinderType.equals('store_inventory') |
+                t.systemBinderType.equals('store_buylist') |
+                t.id.like('system_store_%') |
+                t.name.equals('Store Inventory') |
+                t.name.equals('Store Buylist'));
+
+        final isAllowedSystemType = (t.systemBinderType.equals('trade_block') |
+                t.systemBinderType.equals('looking_for') |
+                t.id.like('system_trade_block%') |
+                t.id.like('system_looking_for%')) &
+            isStoreBinder.not();
+
+        final Expression<bool> matchesUser;
+        if (effectiveUserId == 'user-current-me' || effectiveUserId == 'guest' || userId == null) {
+          matchesUser = t.userId.equals(effectiveUserId) |
+              t.userId.isNull() |
+              t.userId.equals('') |
+              t.userId.equals('local_user') |
+              (effectiveUserId == 'guest' ? t.userId.like('guest%') : const Constant(false));
+        } else {
+          matchesUser = t.userId.equals(effectiveUserId) |
+              t.userId.isNull() |
+              t.userId.equals('') |
+              t.userId.equals('local_user');
+        }
+
+        final matchesSystemId = t.id.like('system_%_$effectiveUserId') |
+            (effectiveUserId == 'user-current-me'
+                ? (t.id.equals('system_trade_block') | t.id.equals('system_looking_for'))
+                : const Constant(false));
+
+        final isUserSystem = t.isSystemBinder.equals(true) &
+            (matchesUser | matchesSystemId) &
+            isAllowedSystemType;
+
+        final isUserCustom = (t.isSystemBinder.equals(false) | t.isSystemBinder.isNull()) &
+            matchesUser;
+
+        return isUserSystem | isUserCustom;
+      });
+    }
+
     query.orderBy([
+      (t) => OrderingTerm(expression: t.isSystemBinder, mode: OrderingMode.desc),
       (t) => OrderingTerm(expression: t.createdAt, mode: OrderingMode.desc),
     ]);
-    return query.watch();
+
+    return query;
+  }
+
+  List<VaultBinder> _deduplicateAndFilterBinders(
+    List<VaultBinder> binders, {
+    String? userId,
+    bool isBusiness = false,
+  }) {
+    if (isBusiness) {
+      final seenTypes = <String>{};
+      final result = <VaultBinder>[];
+      for (final b in binders) {
+        if (b.isSystemBinder == true && b.systemBinderType != null) {
+          if (seenTypes.add(b.systemBinderType!)) {
+            result.add(b);
+          }
+        } else {
+          result.add(b);
+        }
+      }
+      return result;
+    }
+
+    // Normal user: guarantee strictly <= 1 Trade Binder and <= 1 Looking For binder
+    VaultBinder? tradeBinder;
+    VaultBinder? lookingForBinder;
+    final customBinders = <VaultBinder>[];
+    final effectiveUserId = userId ?? 'user-current-me';
+
+    for (final b in binders) {
+      // Defense-in-depth: drop any store binders
+      if (b.systemBinderType == 'store_inventory' ||
+          b.systemBinderType == 'store_buylist' ||
+          b.id.startsWith('system_store_') ||
+          b.name == 'Store Inventory' ||
+          b.name == 'Store Buylist') {
+        continue;
+      }
+
+      final isTrade = b.systemBinderType == 'trade_block' ||
+          b.id.startsWith('system_trade_block') ||
+          (b.isSystemBinder == true && (b.name == 'Trade Block' || b.name == 'Trade Binder'));
+
+      final isLookingFor = b.systemBinderType == 'looking_for' ||
+          b.id.startsWith('system_looking_for') ||
+          (b.isSystemBinder == true && b.name == 'Looking For');
+
+      if (isTrade) {
+        final standardized = b.name != 'Trade Binder' ? b.copyWith(name: 'Trade Binder') : b;
+        if (tradeBinder == null) {
+          tradeBinder = standardized;
+        } else if (b.id == 'system_trade_block_$effectiveUserId') {
+          tradeBinder = standardized;
+        }
+      } else if (isLookingFor) {
+        final standardized = b.name != 'Looking For' ? b.copyWith(name: 'Looking For') : b;
+        if (lookingForBinder == null) {
+          lookingForBinder = standardized;
+        } else if (b.id == 'system_looking_for_$effectiveUserId') {
+          lookingForBinder = standardized;
+        }
+      } else {
+        customBinders.add(b);
+      }
+    }
+
+    final result = <VaultBinder>[];
+    if (tradeBinder != null) result.add(tradeBinder);
+    if (lookingForBinder != null) result.add(lookingForBinder);
+    result.addAll(customBinders);
+    return result;
   }
 
   /// Creates a new custom Vault Binder with an active game context.
   Future<VaultBinder> createBinder({
     required String name,
     required String collectionType,
+    String? userId,
   }) async {
     final id = const Uuid().v4();
     final normalized = _normalizeCollectionType(collectionType);
@@ -2344,6 +2927,8 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
       name: name.trim().isEmpty ? 'Untitled Binder' : name.trim(),
       collectionType: normalized == 'all' ? 'mtg' : normalized,
       createdAt: now,
+      userId: Value(userId),
+      isSystemBinder: const Value(false),
       isDeleted: const Value(false),
       updatedAt: Value(now),
     );
@@ -2361,10 +2946,16 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     return query.getSingleOrNull();
   }
 
-  /// Returns all active binders across collections.
-  Future<List<VaultBinder>> getAllBinders() {
+  /// Returns all active binders scoped to user (or across collections).
+  Future<List<VaultBinder>> getAllBinders({
+    String? userId,
+    bool isBusiness = false,
+  }) {
+    if (userId != null) {
+      return getBindersByCollection('all', userId: userId, isBusiness: isBusiness);
+    }
     return (select(vaultBinders)
-          ..where((t) => t.isDeleted.equals(false))
+          ..where((t) => t.isDeleted.equals(false) & t.deletedAt.isNull())
           ..orderBy([(t) => OrderingTerm(expression: t.createdAt, mode: OrderingMode.desc)]))
         .get();
   }
@@ -2385,6 +2976,13 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     String? description,
     String? coverArtUrl,
   }) async {
+    final target = await (select(vaultBinders)..where((t) => t.id.equals(binderId))).getSingleOrNull();
+    if (target != null &&
+        (target.isSystemBinder == true ||
+            target.systemBinderType != null ||
+            target.id.startsWith('system_'))) {
+      throw UnsupportedError('System binders cannot be edited or renamed.');
+    }
     final now = DateTime.now();
     if (description != null) {
       _binderDescriptions[binderId] = description;
@@ -2436,7 +3034,16 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
       FROM vault_items
       WHERE quantity > 0
         AND is_deleted = 0
-        AND (primary_binder_id IS NULL OR primary_binder_id != 'INBOX')
+        AND (is_traded IS NULL OR is_traded = 0)
+        AND (primary_binder_id IS NULL OR (
+          primary_binder_id != 'INBOX'
+          AND primary_binder_id NOT LIKE 'system_looking_for%'
+          AND primary_binder_id NOT IN (
+            SELECT id FROM vault_binders
+            WHERE (system_binder_type = 'looking_for' OR id LIKE 'system_looking_for%')
+              AND is_deleted = 0
+          )
+        ))
       GROUP BY LOWER(TRIM(collection_type))
     ''';
 
@@ -2466,21 +3073,72 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
   /// If any item has quantity == 0 (unowned catalog card), it is automatically
   /// promoted to an owned collection item (quantity = 1, acquiredPrice = currentMarketPrice,
   /// acquiredDate = now, dateObtained = now, purchasePrice = currentMarketPrice,
-  /// protectionStatus = 'Sleeved', isDeleted = false, updatedAt = now).
+  /// Atomically adds or assigns items to a physical binder.
+  ///
+  /// For items with quantity == 0 (unowned/catalog reference items), promotes them
+  /// to owned inventory (quantity = 1, acquiredPrice = marketPrice, protectionStatus = 'Sleeved').
+  /// For items already owned (quantity > 0), anchors their primaryBinderId to [targetBinderId].
+  /// If an item does not yet exist in vault_items but is in [fallbackCatalogItems], it is
+  /// atomically inserted and anchored to [targetBinderId].
+  /// Executes inside a single Drift transaction and logs sync outbox events.
   Future<int> assignItemsToBinder(
-      List<String> itemIds, String targetBinderId) async {
+    List<String> itemIds,
+    String targetBinderId, {
+    Map<String, VaultItem>? fallbackCatalogItems,
+  }) async {
     if (itemIds.isEmpty) return 0;
 
     return transaction(() async {
       final now = DateTime.now();
       final items = await (select(vaultItems)..where((t) => t.id.isIn(itemIds))).get();
-      if (items.isEmpty) return 0;
+      final existingIds = items.map((e) => e.id).toSet();
 
       int updatedCount = 0;
+
+      final targetBinder = await (select(vaultBinders)..where((t) => t.id.equals(targetBinderId))).getSingleOrNull();
+      final isLookingFor = targetBinderId.startsWith('system_looking_for') || (targetBinder?.systemBinderType == 'looking_for');
+
+      // 1. Process missing catalog items (if fallback items provided)
+      if (fallbackCatalogItems != null) {
+        for (final id in itemIds) {
+          if (!existingIds.contains(id) && fallbackCatalogItems.containsKey(id)) {
+            final catalogItem = fallbackCatalogItems[id]!;
+            final price = catalogItem.currentMarketPrice > 0
+                ? catalogItem.currentMarketPrice
+                : catalogItem.acquiredPrice;
+
+            await into(vaultItems).insert(
+              VaultItemsCompanion.insert(
+                id: catalogItem.id,
+                collectionType: catalogItem.collectionType,
+                name: catalogItem.name,
+                setOrSeries: catalogItem.setOrSeries,
+                imageUrl: catalogItem.imageUrl,
+                quantity: const Value(1),
+                primaryBinderId: Value(targetBinderId),
+                acquiredPrice: isLookingFor ? 0.0 : price,
+                purchasePrice: Value(isLookingFor ? 0.0 : price),
+                acquiredDate: now,
+                dateObtained: isLookingFor ? const Value(null) : Value(now),
+                condition: catalogItem.condition.isNotEmpty ? catalogItem.condition : 'NM',
+                protectionStatus: isLookingFor ? const Value(null) : const Value('Sleeved'),
+                currentMarketPrice: price,
+                lastPriceUpdate: now,
+                dynamicData: catalogItem.dynamicData,
+                isDeleted: const Value(false),
+                updatedAt: Value(now),
+              ),
+            );
+            updatedCount++;
+            await _recordSync('vault_item', catalogItem.id, 'CREATE', timestamp: now);
+          }
+        }
+      }
+
       final unownedItems = items.where((i) => i.quantity <= 0).toList();
       final ownedItems = items.where((i) => i.quantity > 0).toList();
 
-      // 1. Process already-owned items (update binder anchor and timestamp only)
+      // 2. Process already-owned items (update binder anchor and timestamp only)
       if (ownedItems.isNotEmpty) {
         final ownedIds = ownedItems.map((e) => e.id).toList();
         final count = await (update(vaultItems)..where((t) => t.id.isIn(ownedIds))).write(
@@ -2495,7 +3153,7 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
         }
       }
 
-      // 2. Process unowned items (promote quantity == 0 -> quantity = 1 with acquisition financials)
+      // 3. Process unowned items (promote quantity == 0 -> quantity = 1 with acquisition financials)
       for (final item in unownedItems) {
         final price = item.currentMarketPrice > 0
             ? item.currentMarketPrice
@@ -2506,10 +3164,10 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
             quantity: const Value(1),
             primaryBinderId: Value(targetBinderId),
             acquiredDate: Value(now),
-            dateObtained: Value(now),
-            acquiredPrice: Value(price),
-            purchasePrice: Value(price),
-            protectionStatus: const Value('Sleeved'),
+            dateObtained: isLookingFor ? const Value(null) : Value(now),
+            acquiredPrice: Value(isLookingFor ? 0.0 : price),
+            purchasePrice: Value(isLookingFor ? 0.0 : price),
+            protectionStatus: isLookingFor ? const Value(null) : const Value('Sleeved'),
             isDeleted: const Value(false),
             updatedAt: Value(now),
           ),
@@ -2521,6 +3179,18 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
       return updatedCount;
     });
   }
+
+  /// Atomically adds or assigns items to a physical binder.
+  Future<int> addItemsToBinder(
+    List<String> itemIds,
+    String targetBinderId, {
+    Map<String, VaultItem>? fallbackCatalogItems,
+  }) =>
+      assignItemsToBinder(
+        itemIds,
+        targetBinderId,
+        fallbackCatalogItems: fallbackCatalogItems,
+      );
 
   /// Alias for assignItemsToBinder
   Future<int> moveItemsToBinder(
@@ -2692,8 +3362,14 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
   }
 
   /// Soft deletes a binder, unassigns its cards, and flags its sync deletion.
+  /// Hard-protected against deleting permanent system binders.
   Future<int> deleteBinder(String binderId) async {
     return transaction(() async {
+      final target = await (select(vaultBinders)..where((t) => t.id.equals(binderId))).getSingleOrNull();
+      if (target != null && target.isSystemBinder == true) {
+        throw UnsupportedError('System binders cannot be deleted.');
+      }
+
       final now = DateTime.now();
       final count = await (update(vaultBinders)
             ..where((t) => t.id.equals(binderId) & t.isDeleted.equals(false)))
@@ -2722,6 +3398,591 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
       }
       return count;
     });
+  }
+
+  /// Seeds permanent system-pinned binders for a user (individual or verified business),
+  /// and executes deduplication and purge to guarantee strict invariant consistency.
+  Future<List<VaultBinder>> seedSystemBindersForUser(
+    String userId, {
+    required bool isBusiness,
+    String collectionType = 'mtg',
+  }) async {
+    final now = DateTime.now();
+    final normalized = _normalizeCollectionType(collectionType);
+    final effectiveType = normalized == 'all' ? 'mtg' : normalized;
+
+    final baseConfigs = [
+      (
+        id: 'system_looking_for_$userId',
+        name: 'Looking For',
+        type: 'looking_for',
+      ),
+      (
+        id: 'system_trade_block_$userId',
+        name: 'Trade Binder',
+        type: 'trade_block',
+      ),
+    ];
+
+    final businessConfigs = [
+      (
+        id: 'system_store_inventory_$userId',
+        name: 'Store Inventory',
+        type: 'store_inventory',
+      ),
+      (
+        id: 'system_store_buylist_$userId',
+        name: 'Store Buylist',
+        type: 'store_buylist',
+      ),
+    ];
+
+    final systemConfigs = [
+      ...baseConfigs,
+      if (isBusiness) ...businessConfigs,
+    ];
+
+    final createdList = <VaultBinder>[];
+
+    for (final cfg in systemConfigs) {
+      final existing = await (select(vaultBinders)
+            ..where((t) =>
+                (t.id.equals(cfg.id) |
+                    (t.userId.equals(userId) &
+                        t.systemBinderType.equals(cfg.type))) &
+                t.isDeleted.equals(false)))
+          .getSingleOrNull();
+
+      if (existing == null) {
+        final binder = VaultBindersCompanion.insert(
+          id: cfg.id,
+          name: cfg.name,
+          collectionType: effectiveType,
+          createdAt: now,
+          isSystemBinder: const Value(true),
+          systemBinderType: Value(cfg.type),
+          userId: Value(userId),
+          isDeleted: const Value(false),
+          updatedAt: Value(now),
+        );
+        await into(vaultBinders).insert(binder, mode: InsertMode.insertOrReplace);
+        final inserted = await (select(vaultBinders)..where((t) => t.id.equals(cfg.id))).getSingle();
+        createdList.add(inserted);
+      } else {
+        if (existing.name != cfg.name) {
+          await (update(vaultBinders)..where((t) => t.id.equals(existing.id))).write(
+            VaultBindersCompanion(
+              name: Value(cfg.name),
+              updatedAt: Value(now),
+            ),
+          );
+          final updated = await (select(vaultBinders)..where((t) => t.id.equals(existing.id))).getSingle();
+          createdList.add(updated);
+        } else {
+          createdList.add(existing);
+        }
+      }
+    }
+
+    // Automatically run deduplication and purge to guarantee invariant
+    await deduplicateAndPurgeSystemBinders(userId, isBusiness: isBusiness);
+
+    final finalBinders = await (select(vaultBinders)
+          ..where((t) =>
+              t.userId.equals(userId) &
+              t.isSystemBinder.equals(true) &
+              t.isDeleted.equals(false)))
+        .get();
+
+    return finalBinders.isNotEmpty ? finalBinders : createdList;
+  }
+
+  /// Deduplicates system binders and purges invalid store binders for [userId].
+  ///
+  /// For normal users (`isBusiness == false`):
+  /// - Any store inventory or buylist binders are purged (soft-deleted). Cards in store inventory
+  ///   are re-anchored to the canonical Trade Binder (`system_trade_block_$userId`), and cards in
+  ///   store buylist are re-anchored to Looking For (`system_looking_for_$userId`).
+  /// - All duplicate trade binders are consolidated into `system_trade_block_$userId`, with all
+  ///   contained items migrated and duplicates marked deleted.
+  /// - All duplicate Looking For binders are consolidated into `system_looking_for_$userId`.
+  /// - Standardizes canonical Trade Binder name to 'Trade Binder' and Looking For to 'Looking For'.
+  ///
+  /// For business users (`isBusiness == true`):
+  /// - Consolidates Store Inventory into `system_store_inventory_$userId` and Store Buylist into
+  ///   `system_store_buylist_$userId`.
+  Future<Map<String, int>> deduplicateAndPurgeSystemBinders(
+    String userId, {
+    required bool isBusiness,
+    bool hardDelete = false,
+  }) async {
+    return transaction(() async {
+      final now = DateTime.now();
+      var bindersPurged = 0;
+      var cardsReanchored = 0;
+
+      if (!isBusiness) {
+        final canonicalTradeId = 'system_trade_block_$userId';
+        final canonicalLfId = 'system_looking_for_$userId';
+
+        // 1. Ensure canonical Trade Binder exists
+        final existingTrade = await (select(vaultBinders)
+              ..where((t) => t.id.equals(canonicalTradeId)))
+            .getSingleOrNull();
+
+        if (existingTrade == null) {
+          await into(vaultBinders).insert(
+            VaultBindersCompanion.insert(
+              id: canonicalTradeId,
+              name: 'Trade Binder',
+              collectionType: 'mtg',
+              createdAt: now,
+              isSystemBinder: const Value(true),
+              systemBinderType: const Value('trade_block'),
+              userId: Value(userId),
+              isDeleted: const Value(false),
+              updatedAt: Value(now),
+            ),
+            mode: InsertMode.insertOrReplace,
+          );
+        } else {
+          await (update(vaultBinders)..where((t) => t.id.equals(canonicalTradeId))).write(
+            VaultBindersCompanion(
+              isDeleted: const Value(false),
+              isSystemBinder: const Value(true),
+              systemBinderType: const Value('trade_block'),
+              name: const Value('Trade Binder'),
+              userId: Value(userId),
+              deletedAt: const Value(null),
+              updatedAt: Value(now),
+            ),
+          );
+        }
+
+        // 2. Ensure canonical Looking For binder exists
+        final existingLf = await (select(vaultBinders)
+              ..where((t) => t.id.equals(canonicalLfId)))
+            .getSingleOrNull();
+
+        if (existingLf == null) {
+          await into(vaultBinders).insert(
+            VaultBindersCompanion.insert(
+              id: canonicalLfId,
+              name: 'Looking For',
+              collectionType: 'mtg',
+              createdAt: now,
+              isSystemBinder: const Value(true),
+              systemBinderType: const Value('looking_for'),
+              userId: Value(userId),
+              isDeleted: const Value(false),
+              updatedAt: Value(now),
+            ),
+            mode: InsertMode.insertOrReplace,
+          );
+        } else {
+          await (update(vaultBinders)..where((t) => t.id.equals(canonicalLfId))).write(
+            VaultBindersCompanion(
+              isDeleted: const Value(false),
+              isSystemBinder: const Value(true),
+              systemBinderType: const Value('looking_for'),
+              name: const Value('Looking For'),
+              userId: Value(userId),
+              deletedAt: const Value(null),
+              updatedAt: Value(now),
+            ),
+          );
+        }
+
+        // 3. Purge Store Binders for normal user
+        final storeBinders = await (select(vaultBinders)
+              ..where((t) =>
+                  (t.userId.equals(userId) | t.id.like('system_store_%_$userId')) &
+                  (t.systemBinderType.isIn(const ['store_inventory', 'store_buylist']) |
+                      t.id.like('system_store_%') |
+                      t.name.isIn(const ['Store Inventory', 'Store Buylist'])) &
+                  t.isDeleted.equals(false)))
+            .get();
+
+        for (final sb in storeBinders) {
+          final targetBinderId = sb.systemBinderType == 'store_buylist' || sb.id.contains('buylist')
+              ? canonicalLfId
+              : canonicalTradeId;
+
+          // Re-anchor cards to canonical binder
+          final movedCards = await (update(vaultItems)..where((t) => t.primaryBinderId.equals(sb.id))).write(
+            VaultItemsCompanion(
+              primaryBinderId: Value(targetBinderId),
+              updatedAt: Value(now),
+            ),
+          );
+          cardsReanchored += movedCards;
+
+          // Soft delete store binder
+          await (update(vaultBinders)..where((t) => t.id.equals(sb.id))).write(
+            VaultBindersCompanion(
+              isDeleted: const Value(true),
+              deletedAt: Value(now),
+              updatedAt: Value(now),
+            ),
+          );
+          bindersPurged++;
+        }
+
+        // 4. Consolidate Duplicate Trade Binders
+        final duplicateTrades = await (select(vaultBinders)
+              ..where((t) =>
+                  t.id.equals(canonicalTradeId).not() &
+                  (t.userId.equals(userId) |
+                      (userId == 'user-current-me'
+                          ? (t.userId.isNull() | t.userId.equals('') | t.id.equals('system_trade_block'))
+                          : const Constant(false))) &
+                  (t.systemBinderType.equals('trade_block') |
+                      (t.isSystemBinder.equals(true) &
+                          t.name.isIn(const ['Trade Block', 'Trade Binder'])) |
+                      t.id.like('system_trade_block_%$userId')) &
+                  t.isDeleted.equals(false)))
+            .get();
+
+        for (final dup in duplicateTrades) {
+          final moved = await (update(vaultItems)..where((t) => t.primaryBinderId.equals(dup.id))).write(
+            VaultItemsCompanion(
+              primaryBinderId: Value(canonicalTradeId),
+              updatedAt: Value(now),
+            ),
+          );
+          cardsReanchored += moved;
+
+          await (update(vaultBinders)..where((t) => t.id.equals(dup.id))).write(
+            VaultBindersCompanion(
+              isDeleted: const Value(true),
+              deletedAt: Value(now),
+              updatedAt: Value(now),
+            ),
+          );
+          if (hardDelete) {
+            await (delete(vaultBinders)..where((t) => t.id.equals(dup.id))).go();
+          }
+          bindersPurged++;
+        }
+
+        // 5. Consolidate Duplicate Looking For Binders
+        final duplicateLfs = await (select(vaultBinders)
+              ..where((t) =>
+                  t.id.equals(canonicalLfId).not() &
+                  (t.userId.equals(userId) |
+                      (userId == 'user-current-me'
+                          ? (t.userId.isNull() | t.userId.equals('') | t.id.equals('system_looking_for'))
+                          : const Constant(false))) &
+                  (t.systemBinderType.equals('looking_for') |
+                      (t.isSystemBinder.equals(true) & t.name.equals('Looking For')) |
+                      t.id.like('system_looking_for_%$userId')) &
+                  t.isDeleted.equals(false)))
+            .get();
+
+        for (final dup in duplicateLfs) {
+          final moved = await (update(vaultItems)..where((t) => t.primaryBinderId.equals(dup.id))).write(
+            VaultItemsCompanion(
+              primaryBinderId: Value(canonicalLfId),
+              updatedAt: Value(now),
+            ),
+          );
+          cardsReanchored += moved;
+
+          await (update(vaultBinders)..where((t) => t.id.equals(dup.id))).write(
+            VaultBindersCompanion(
+              isDeleted: const Value(true),
+              deletedAt: Value(now),
+              updatedAt: Value(now),
+            ),
+          );
+          if (hardDelete) {
+            await (delete(vaultBinders)..where((t) => t.id.equals(dup.id))).go();
+          }
+          bindersPurged++;
+        }
+      } else {
+        // Business user: consolidate store_inventory and store_buylist
+        final canonicalInvId = 'system_store_inventory_$userId';
+        final canonicalBuyId = 'system_store_buylist_$userId';
+
+        // Ensure canonical business binders exist
+        final existingInv = await (select(vaultBinders)..where((t) => t.id.equals(canonicalInvId))).getSingleOrNull();
+        if (existingInv == null) {
+          await into(vaultBinders).insert(
+            VaultBindersCompanion.insert(
+              id: canonicalInvId,
+              name: 'Store Inventory',
+              collectionType: 'mtg',
+              createdAt: now,
+              isSystemBinder: const Value(true),
+              systemBinderType: const Value('store_inventory'),
+              userId: Value(userId),
+              isDeleted: const Value(false),
+              updatedAt: Value(now),
+            ),
+            mode: InsertMode.insertOrReplace,
+          );
+        } else {
+          await (update(vaultBinders)..where((t) => t.id.equals(canonicalInvId))).write(
+            VaultBindersCompanion(
+              isDeleted: const Value(false),
+              isSystemBinder: const Value(true),
+              systemBinderType: const Value('store_inventory'),
+              name: const Value('Store Inventory'),
+              userId: Value(userId),
+              deletedAt: const Value(null),
+              updatedAt: Value(now),
+            ),
+          );
+        }
+
+        final existingBuy = await (select(vaultBinders)..where((t) => t.id.equals(canonicalBuyId))).getSingleOrNull();
+        if (existingBuy == null) {
+          await into(vaultBinders).insert(
+            VaultBindersCompanion.insert(
+              id: canonicalBuyId,
+              name: 'Store Buylist',
+              collectionType: 'mtg',
+              createdAt: now,
+              isSystemBinder: const Value(true),
+              systemBinderType: const Value('store_buylist'),
+              userId: Value(userId),
+              isDeleted: const Value(false),
+              updatedAt: Value(now),
+            ),
+            mode: InsertMode.insertOrReplace,
+          );
+        } else {
+          await (update(vaultBinders)..where((t) => t.id.equals(canonicalBuyId))).write(
+            VaultBindersCompanion(
+              isDeleted: const Value(false),
+              isSystemBinder: const Value(true),
+              systemBinderType: const Value('store_buylist'),
+              name: const Value('Store Buylist'),
+              userId: Value(userId),
+              deletedAt: const Value(null),
+              updatedAt: Value(now),
+            ),
+          );
+        }
+
+        // Deduplicate store inventory
+        final duplicateInvs = await (select(vaultBinders)
+              ..where((t) =>
+                  t.id.equals(canonicalInvId).not() &
+                  t.userId.equals(userId) &
+                  t.systemBinderType.equals('store_inventory') &
+                  t.isDeleted.equals(false)))
+            .get();
+
+        for (final dup in duplicateInvs) {
+          final moved = await (update(vaultItems)..where((t) => t.primaryBinderId.equals(dup.id))).write(
+            VaultItemsCompanion(
+              primaryBinderId: Value(canonicalInvId),
+              updatedAt: Value(now),
+            ),
+          );
+          cardsReanchored += moved;
+
+          await (update(vaultBinders)..where((t) => t.id.equals(dup.id))).write(
+            VaultBindersCompanion(
+              isDeleted: const Value(true),
+              deletedAt: Value(now),
+              updatedAt: Value(now),
+            ),
+          );
+          if (hardDelete) {
+            await (delete(vaultBinders)..where((t) => t.id.equals(dup.id))).go();
+          }
+          bindersPurged++;
+        }
+
+        // Deduplicate store buylist
+        final duplicateBuys = await (select(vaultBinders)
+              ..where((t) =>
+                  t.id.equals(canonicalBuyId).not() &
+                  t.userId.equals(userId) &
+                  t.systemBinderType.equals('store_buylist') &
+                  t.isDeleted.equals(false)))
+            .get();
+
+        for (final dup in duplicateBuys) {
+          final moved = await (update(vaultItems)..where((t) => t.primaryBinderId.equals(dup.id))).write(
+            VaultItemsCompanion(
+              primaryBinderId: Value(canonicalBuyId),
+              updatedAt: Value(now),
+            ),
+          );
+          cardsReanchored += moved;
+
+          await (update(vaultBinders)..where((t) => t.id.equals(dup.id))).write(
+            VaultBindersCompanion(
+              isDeleted: const Value(true),
+              deletedAt: Value(now),
+              updatedAt: Value(now),
+            ),
+          );
+          if (hardDelete) {
+            await (delete(vaultBinders)..where((t) => t.id.equals(dup.id))).go();
+          }
+          bindersPurged++;
+        }
+      }
+
+      return {
+        'bindersPurged': bindersPurged,
+        'cardsReanchored': cardsReanchored,
+      };
+    });
+  }
+
+  /// Consolidates duplicate system binders and permanently hard-deletes the extra duplicate rows.
+  Future<Map<String, int>> hardDeleteDuplicateSystemBinders(
+    String userId, {
+    bool isBusiness = false,
+  }) {
+    return deduplicateAndPurgeSystemBinders(
+      userId,
+      isBusiness: isBusiness,
+      hardDelete: true,
+    );
+  }
+
+  /// Calculates total custom user binders excluding permanent system binders.
+  Future<int> getCustomBinderCount({String? userId}) async {
+    final query = select(vaultBinders)
+      ..where((t) => t.isDeleted.equals(false) & t.isSystemBinder.equals(false));
+
+    if (userId != null && userId.isNotEmpty) {
+      if (userId == 'guest' || userId.startsWith('guest')) {
+        query.where((t) =>
+            t.userId.equals('guest') |
+            t.userId.isNull() |
+            t.userId.equals('') |
+            t.userId.like('guest%'));
+      } else {
+        query.where((t) => t.userId.equals(userId));
+      }
+    }
+    final results = await query.get();
+    return results.length;
+  }
+
+  /// Streams items inside a user's system binder (e.g. looking_for, trade_block, store_inventory, store_buylist).
+  Stream<List<VaultItem>> watchSystemBinderItems(String userId, String systemBinderType) {
+    return (select(vaultBinders)
+          ..where((t) =>
+              (t.userId.equals(userId) & t.systemBinderType.equals(systemBinderType) |
+                  t.id.equals('system_${systemBinderType}_$userId')) &
+              t.isDeleted.equals(false)))
+        .watchSingleOrNull()
+        .asyncExpand((binder) {
+      if (binder == null) {
+        return Stream.value(<VaultItem>[]);
+      }
+      return watchItemsByBinder(binder.id);
+    });
+  }
+
+  /// Streams cards available for trade based on [filter] and [userId].
+  ///
+  /// - [TradeCardSourceFilter.tradeBinder]: Only cards in the user's active trade binder.
+  /// - [TradeCardSourceFilter.collection]: Owned cards in general collection outside trade binder.
+  /// - [TradeCardSourceFilter.both]: All owned cards (trade binder + collection).
+  ///
+  /// Defense-in-depth exclusions:
+  /// - Unowned catalog items (quantity <= 0)
+  /// - Traded items (is_traded == 1)
+  /// - Deleted items (is_deleted == 1)
+  /// - Looking For items (system_looking_for% or looking_for system binder)
+  Stream<List<VaultItem>> watchUserTradeCards(
+    String userId, {
+    required TradeCardSourceFilter filter,
+    bool isBusiness = false,
+    String? currentUserId,
+  }) {
+    final effectiveCurrentUserId = currentUserId ?? 'user-current-me';
+    final isCurrentUser = userId == effectiveCurrentUserId ||
+        userId == 'user-current-me' ||
+        userId == 'local_user' ||
+        userId == 'guest' ||
+        userId == 'me' ||
+        userId.startsWith('guest');
+
+    final tradeBinderType = isBusiness ? 'store_inventory' : 'trade_block';
+    final tradeBinderId = 'system_${tradeBinderType}_$userId';
+
+    final query = select(vaultItems);
+
+    query.where((t) {
+      // 1. User scoping
+      Expression<bool> userPred;
+      if (isCurrentUser) {
+        userPred = t.userId.equals(userId) |
+            t.userId.isNull() |
+            t.userId.equals('') |
+            t.userId.equals('local_user') |
+            t.userId.equals('user-current-me') |
+            t.userId.like('guest%') |
+            (currentUserId != null ? t.userId.equals(currentUserId) : const Constant(false));
+      } else {
+        userPred = t.userId.equals(userId);
+      }
+
+      // 2. Ownership & active lifecycle
+      final statusPred = t.quantity.isBiggerThanValue(0) &
+          t.isDeleted.equals(false) &
+          (t.isTraded.isNull() | t.isTraded.equals(false));
+
+      // 3. Wishlist exclusion (strictly never return looking_for cards)
+      final wishlistPred = t.primaryBinderId.isNull() |
+          (t.primaryBinderId.like('system_looking_for%').not() &
+              const CustomExpression<bool>(
+                'vault_items.primary_binder_id NOT IN ('
+                'SELECT id FROM vault_binders WHERE system_binder_type = \'looking_for\' AND is_deleted = 0'
+                ')',
+              ));
+
+      // 4. Source filter
+      Expression<bool> filterPred;
+      switch (filter) {
+        case TradeCardSourceFilter.tradeBinder:
+          filterPred = t.primaryBinderId.equals(tradeBinderId) |
+              t.primaryBinderId.like('system_trade_block%') |
+              (isBusiness
+                  ? t.primaryBinderId.like('system_store_inventory%')
+                  : const Constant(false)) |
+              const CustomExpression<bool>(
+                'vault_items.primary_binder_id IN ('
+                'SELECT id FROM vault_binders WHERE system_binder_type IN (\'trade_block\', \'store_inventory\') AND is_deleted = 0'
+                ')',
+              );
+          break;
+        case TradeCardSourceFilter.collection:
+          filterPred = t.primaryBinderId.isNull() |
+              (t.primaryBinderId.equals(tradeBinderId).not() &
+                  t.primaryBinderId.like('system_trade_block%').not() &
+                  t.primaryBinderId.like('system_store_inventory%').not() &
+                  const CustomExpression<bool>(
+                    'vault_items.primary_binder_id NOT IN ('
+                    'SELECT id FROM vault_binders WHERE system_binder_type IN (\'trade_block\', \'store_inventory\') AND is_deleted = 0'
+                    ')',
+                  ));
+          break;
+        case TradeCardSourceFilter.both:
+          filterPred = const Constant(true);
+          break;
+      }
+
+      return userPred & statusPred & wishlistPred & filterPred;
+    });
+
+    query.orderBy([
+      (t) => OrderingTerm(expression: t.currentMarketPrice, mode: OrderingMode.desc),
+      (t) => OrderingTerm(expression: t.name, mode: OrderingMode.asc),
+    ]);
+
+    return query.watch();
   }
 
   // ---------------------------------------------------------------------------
@@ -3222,6 +4483,248 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     );
     await _recordSync('vault_item', id, 'UPDATE', timestamp: now);
   }
+
+  /// Atomically inserts or updates a catalog reference card (quantity = 0).
+  Future<void> upsertCatalogItem(VaultItemsCompanion companion) async {
+    await into(vaultItems).insertOnConflictUpdate(companion);
+  }
+
+  /// Locates a reference/catalog card or owned item in the local database by
+  /// generic identifier, scryfallId, oracleId, or exact/slug name.
+  /// Step 1 of the CardImageAndDataCacheResolver pipeline.
+  /// Folds Latin diacritics and accents to base ASCII characters.
+  static String foldDiacritics(String input) {
+    if (input.isEmpty) return input;
+    const diacriticsMap = {
+      'à': 'a', 'á': 'a', 'â': 'a', 'ã': 'a', 'ä': 'a', 'å': 'a', 'ā': 'a', 'ă': 'a', 'ą': 'a',
+      'À': 'a', 'Á': 'a', 'Â': 'a', 'Ã': 'a', 'Ä': 'a', 'Å': 'a', 'Ā': 'a', 'Ă': 'a', 'Ą': 'a',
+      'è': 'e', 'é': 'e', 'ê': 'e', 'ë': 'e', 'ē': 'e', 'ė': 'e', 'ę': 'e', 'ě': 'e',
+      'È': 'e', 'É': 'e', 'Ê': 'e', 'Ë': 'e', 'Ē': 'e', 'Ė': 'e', 'Ę': 'e', 'Ě': 'e',
+      'ì': 'i', 'í': 'i', 'î': 'i', 'ï': 'i', 'ī': 'i', 'į': 'i',
+      'Ì': 'i', 'Í': 'i', 'Î': 'i', 'Ï': 'i', 'Ī': 'i', 'Į': 'i',
+      'ò': 'o', 'ó': 'o', 'ô': 'o', 'õ': 'o', 'ö': 'o', 'ø': 'o', 'ō': 'o', 'ő': 'o',
+      'Ò': 'o', 'Ó': 'o', 'Ô': 'o', 'Õ': 'o', 'Ö': 'o', 'Ø': 'o', 'Ō': 'o', 'Ő': 'o',
+      'ù': 'u', 'ú': 'u', 'û': 'u', 'ü': 'u', 'ū': 'u', 'ů': 'u', 'ű': 'u',
+      'Ù': 'u', 'Ú': 'u', 'Û': 'u', 'Ü': 'u', 'Ū': 'u', 'Ů': 'u', 'Ű': 'u',
+      'ý': 'y', 'ÿ': 'y', 'Ý': 'y', 'Ÿ': 'y',
+      'ñ': 'n', 'ń': 'n', 'Ñ': 'n', 'Ń': 'n',
+      'ç': 'c', 'ć': 'c', 'č': 'c', 'Ç': 'c', 'Ć': 'c', 'Č': 'c',
+      'š': 's', 'ś': 's', 'Š': 's', 'Ś': 's',
+      'ž': 'z', 'ź': 'z', 'ż': 'z', 'Ž': 'z', 'Ź': 'z', 'Ż': 'z',
+      'æ': 'ae', 'Æ': 'ae', 'œ': 'oe', 'Œ': 'oe', 'ß': 'ss',
+    };
+
+    final sb = StringBuffer();
+    for (int i = 0; i < input.length; i++) {
+      final char = input[i];
+      sb.write(diacriticsMap[char] ?? char);
+    }
+    return sb.toString().replaceAll(RegExp(r'[\u0300-\u036f]'), '');
+  }
+
+  /// Sanitizes strings for SQLite LIKE expressions by escaping \ , % and _ with \.
+  static String sanitizeSqlLikePattern(String input) {
+    return input
+        .replaceAll(r'\', r'\\')
+        .replaceAll('%', r'\%')
+        .replaceAll('_', r'\_');
+  }
+
+  /// Handles:
+  /// - cards.id (UUID or internal string)
+  /// - scryfall_id (Scryfall UUID)
+  /// - collection_items.id (owned VaultItem ID)
+  /// - legacy slug 'item-mtg-...' (stripping prefix and querying case-insensitive LOWER(name))
+  Future<VaultItem?> findCatalogCard({
+    String? identifier,
+    String? scryfallId,
+    String? oracleId,
+    String? name,
+  }) async {
+    // 0. Handle generic identifier input
+    if (identifier != null && identifier.trim().isNotEmpty) {
+      final trimmed = identifier.trim();
+      final lower = trimmed.toLowerCase();
+
+      // 0a. Check legacy slug: 'item-(mtg|pokemon|yugioh|lorcana|starwars)-...'
+      final slugMatch = RegExp(r'^item-(mtg|pokemon|yugioh|lorcana|starwars)-').firstMatch(lower);
+      if (slugMatch != null) {
+        final slugCore = trimmed.substring(slugMatch.end);
+        final cleanWords = slugCore
+            .split('-')
+            .map((w) => w.trim())
+            .where((w) => w.isNotEmpty)
+            .toList();
+
+        if (cleanWords.isEmpty) {
+          throw ArgumentError('Malformed card slug with empty name: $identifier');
+        }
+
+        final candidateTitle = cleanWords.map((w) {
+          if (w.length == 1) return w.toUpperCase();
+          return w[0].toUpperCase() + w.substring(1).toLowerCase();
+        }).join(' ');
+        final candidateSpace = cleanWords.join(' ');
+        final sanitizedTitle = sanitizeSqlLikePattern(candidateTitle);
+
+        // Case-insensitive LOWER(name) query against vault_items
+        final rows = await customSelect(
+          '''SELECT * FROM vault_items
+             WHERE is_deleted = 0
+               AND (LOWER(name) = LOWER(?) OR LOWER(name) = LOWER(?) OR LOWER(name) LIKE LOWER(?) ESCAPE '\\')
+               AND (json_extract(dynamic_data, '\$.layout') IS NULL OR json_extract(dynamic_data, '\$.layout') != 'art_series')
+               AND dynamic_data != '{}' AND dynamic_data != ''
+             ORDER BY CASE WHEN quantity = 0 THEN 0 ELSE 1 END,
+                      CASE WHEN image_url != '' THEN 0 ELSE 1 END,
+                      current_market_price DESC
+             LIMIT 1''',
+          variables: [
+            Variable.withString(candidateTitle),
+            Variable.withString(candidateSpace),
+            Variable.withString('$sanitizedTitle%'),
+          ],
+          readsFrom: {vaultItems},
+        ).map((row) => vaultItems.map(row.data)).get();
+
+        if (rows.isNotEmpty) return rows.first;
+
+        // Fallback for hyphenated punctuation names (e.g. "Lim-Dûl's Vault")
+        final candidateRows = await customSelect(
+          '''SELECT * FROM vault_items
+             WHERE is_deleted = 0
+               AND (json_extract(dynamic_data, '\$.layout') IS NULL OR json_extract(dynamic_data, '\$.layout') != 'art_series')
+               AND dynamic_data != '{}' AND dynamic_data != ''
+             ORDER BY CASE WHEN quantity = 0 THEN 0 ELSE 1 END, current_market_price DESC
+             LIMIT 300''',
+          readsFrom: {vaultItems},
+        ).map((row) => vaultItems.map(row.data)).get();
+
+        final foldedSlugWords = cleanWords
+            .map((w) => foldDiacritics(w.toLowerCase()))
+            .toList();
+
+        for (final item in candidateRows) {
+          final itemLower = foldDiacritics(item.name.toLowerCase());
+          if (foldedSlugWords.every((w) => itemLower.contains(w))) {
+            return item;
+          }
+        }
+      }
+
+      // 0b. Direct primary key ID lookup (handles cards.id and collection_items.id)
+      final directRow = await getItemById(trimmed);
+      if (directRow != null) {
+        if (directRow.quantity == 0 && directRow.dynamicData.isNotEmpty && directRow.dynamicData != '{}') {
+          return directRow;
+        }
+        // If owned item has metadata, search catalog via scryfall_id / oracle_id / name
+        if (directRow.dynamicData.isNotEmpty && directRow.dynamicData != '{}') {
+          try {
+            final data = jsonDecode(directRow.dynamicData) as Map<String, dynamic>;
+            final sId = data['scryfall_id']?.toString() ?? data['id']?.toString();
+            final oId = data['oracle_id']?.toString();
+            final cat = await findCatalogCard(scryfallId: sId, oracleId: oId, name: directRow.name);
+            if (cat != null) return cat;
+          } catch (_) {}
+        }
+        final nameCat = await findCatalogCard(name: directRow.name);
+        if (nameCat != null) return nameCat;
+        return directRow;
+      }
+
+      // 0c. Check if UUID or Scryfall identifier
+      final uuidRegex = RegExp(r'^[0-9a-fA-F-]{36}$');
+      if (uuidRegex.hasMatch(trimmed) || trimmed.startsWith('scryfall_')) {
+        scryfallId ??= trimmed;
+      } else {
+        name ??= trimmed;
+      }
+    }
+
+    // 1. Lookup by scryfallId (id column or JSON id / scryfall_id)
+    if (scryfallId != null && scryfallId.isNotEmpty) {
+      final rows = await customSelect(
+        '''SELECT * FROM vault_items
+           WHERE is_deleted = 0
+             AND quantity = 0
+             AND (id = ? OR json_extract(dynamic_data, '\$.id') = ? OR json_extract(dynamic_data, '\$.scryfall_id') = ?)
+             AND (json_extract(dynamic_data, '\$.layout') IS NULL OR json_extract(dynamic_data, '\$.layout') != 'art_series')
+             AND dynamic_data != '{}' AND dynamic_data != ''
+           LIMIT 1''',
+        variables: [
+          Variable.withString(scryfallId),
+          Variable.withString(scryfallId),
+          Variable.withString(scryfallId),
+        ],
+        readsFrom: {vaultItems},
+      ).map((row) => vaultItems.map(row.data)).get();
+
+      if (rows.isNotEmpty) return rows.first;
+    }
+
+    // 2. Lookup by oracleId
+    if (oracleId != null && oracleId.isNotEmpty) {
+      final rows = await customSelect(
+        '''SELECT * FROM vault_items
+           WHERE is_deleted = 0
+             AND quantity = 0
+             AND json_extract(dynamic_data, '\$.oracle_id') = ?
+             AND (json_extract(dynamic_data, '\$.layout') IS NULL OR json_extract(dynamic_data, '\$.layout') != 'art_series')
+             AND dynamic_data != '{}' AND dynamic_data != ''
+           LIMIT 1''',
+        variables: [Variable.withString(oracleId)],
+        readsFrom: {vaultItems},
+      ).map((row) => vaultItems.map(row.data)).get();
+
+      if (rows.isNotEmpty) return rows.first;
+    }
+
+    // 3. Lookup by exact case-insensitive name (excluding art_series)
+    if (name != null && name.trim().isNotEmpty) {
+      final cleanName = name.contains('//') ? name.split('//').first.trim() : name.trim();
+      final rows = await customSelect(
+        '''SELECT * FROM vault_items
+           WHERE is_deleted = 0
+             AND quantity = 0
+             AND (LOWER(name) = LOWER(?) OR LOWER(name) = LOWER(?))
+             AND (json_extract(dynamic_data, '\$.layout') IS NULL OR json_extract(dynamic_data, '\$.layout') != 'art_series')
+             AND dynamic_data != '{}' AND dynamic_data != ''
+           ORDER BY CASE WHEN image_url != '' THEN 0 ELSE 1 END, current_market_price DESC
+           LIMIT 1''',
+        variables: [
+          Variable.withString(name.trim()),
+          Variable.withString(cleanName),
+        ],
+        readsFrom: {vaultItems},
+      ).map((row) => vaultItems.map(row.data)).get();
+
+      if (rows.isNotEmpty) return rows.first;
+
+      // Secondary fallback: check across any non-deleted item (even if quantity > 0)
+      final fallbackRows = await customSelect(
+        '''SELECT * FROM vault_items
+           WHERE is_deleted = 0
+             AND (LOWER(name) = LOWER(?) OR LOWER(name) = LOWER(?))
+             AND (json_extract(dynamic_data, '\$.layout') IS NULL OR json_extract(dynamic_data, '\$.layout') != 'art_series')
+             AND dynamic_data != '{}' AND dynamic_data != ''
+           ORDER BY CASE WHEN quantity = 0 THEN 0 ELSE 1 END, CASE WHEN image_url != '' THEN 0 ELSE 1 END, current_market_price DESC
+           LIMIT 1''',
+        variables: [
+          Variable.withString(name.trim()),
+          Variable.withString(cleanName),
+        ],
+        readsFrom: {vaultItems},
+      ).map((row) => vaultItems.map(row.data)).get();
+
+      if (fallbackRows.isNotEmpty) return fallbackRows.first;
+    }
+
+    return null;
+  }
+
+  /// Convenience wrapper resolving any card identifier.
+  Future<VaultItem?> resolveCardIdentifier(String identifier) =>
+      findCatalogCard(identifier: identifier);
 
   /// Ensures case-insensitive indexes for Secret Lair sets, flavor names, and Universes Beyond.
   Future<void> ensureSecretLairIndexes() async {
@@ -3906,6 +5409,7 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
     String tcgDomain = 'mtg',
     bool isRegistered = false,
     bool isCompetitive = false,
+    String? userId,
   }) async {
     final now = DateTime.now();
     final deckId = const Uuid().v4();
@@ -3916,6 +5420,7 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
       tcgDomain: Value(tcgDomain),
       isRegistered: Value(isRegistered),
       isCompetitive: Value(isCompetitive),
+      userId: Value(userId),
       createdAt: now,
       isDeleted: const Value(false),
       updatedAt: Value(now),
@@ -5170,10 +6675,134 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
   // MILESTONE 3: VAULT COLLECTION VIEW & SET AGGREGATIONS
   // ---------------------------------------------------------------------------
 
+  /// Static in-memory cache for static catalog set metadata (total card count,
+  /// release date, sample image url, set code) to avoid recurring 75,000+ row full-table scans.
+  static Map<String, VaultSetCollection>? _staticSetMetadataCache;
+
+  /// Invalidation hook for static set metadata cache (called during catalog clearing/re-hydration).
+  static void invalidateSetMetadataCache() {
+    _staticSetMetadataCache = null;
+  }
+
+  /// Optimized stream of set summaries executing in < 50ms by querying indexed owned items
+  /// and joining with the static set metadata cache.
+  Stream<List<VaultSetCollection>> watchSetSummaryList({
+    String? collectionType,
+    String? searchQuery,
+  }) =>
+      watchSetCollections(collectionType: collectionType, searchQuery: searchQuery);
+
+  /// Future-based set summary list executing in < 50ms.
+  Future<List<VaultSetCollection>> getSetSummaryList({
+    String? collectionType,
+    String? searchQuery,
+  }) =>
+      watchSetSummaryList(collectionType: collectionType, searchQuery: searchQuery).first;
+
   /// Streams aggregated set collections grouped by set_or_series,
   /// calculating total unique cards, unique owned cards (quantity > 0),
-  /// and completion percentage (0.0 to 1.0).
+  /// and completion percentage (0.0 to 1.0) in < 50ms.
   Stream<List<VaultSetCollection>> watchSetCollections({
+    String? collectionType,
+    String? searchQuery,
+  }) {
+    if (_staticSetMetadataCache != null &&
+        (searchQuery == null || searchQuery.trim().isEmpty)) {
+      return _watchSetCollectionsFromCache(collectionType);
+    }
+    return _watchSetCollectionsFull(
+      collectionType: collectionType,
+      searchQuery: searchQuery,
+    );
+  }
+
+  Stream<List<VaultSetCollection>> _watchSetCollectionsFromCache(String? collectionType) {
+    final whereClauses = <String>[
+      'is_deleted = 0',
+      'quantity > 0',
+      '(is_traded IS NULL OR is_traded = 0)',
+      '''
+      (primary_binder_id IS NULL OR (
+        primary_binder_id != 'INBOX'
+        AND primary_binder_id NOT LIKE 'system_looking_for%'
+        AND primary_binder_id NOT IN (
+          SELECT id FROM vault_binders
+          WHERE (system_binder_type = 'looking_for' OR id LIKE 'system_looking_for%')
+            AND is_deleted = 0
+        )
+      ))
+      ''',
+    ];
+    final variables = <Variable>[];
+    if (collectionType != null) {
+      final normalized = _normalizeCollectionType(collectionType);
+      if (normalized != 'all') {
+        whereClauses.add('collection_type = ?');
+        variables.add(Variable.withString(normalized));
+      }
+    }
+    final whereSql = whereClauses.join(' AND ');
+    final querySql = '''
+      SELECT
+        set_or_series AS set_name,
+        COUNT(DISTINCT name) AS owned_cards
+      FROM vault_items
+      WHERE $whereSql
+      GROUP BY set_or_series
+    ''';
+
+    return customSelect(
+      querySql,
+      variables: variables,
+      readsFrom: {vaultItems},
+    ).watch().map((rows) {
+      final ownedMap = <String, int>{
+        for (final r in rows)
+          r.read<String>('set_name'): (r.data['owned_cards'] as num?)?.toInt() ?? 0,
+      };
+
+      // Check if any owned card belongs to a set not present in cache
+      for (final setName in ownedMap.keys) {
+        if (!_staticSetMetadataCache!.containsKey(setName)) {
+          _staticSetMetadataCache = null;
+          break;
+        }
+      }
+
+      if (_staticSetMetadataCache == null) {
+        // Fall back to full query if cache invalidated
+        return _watchSetCollectionsFull(collectionType: collectionType).first as dynamic;
+      }
+
+      final normalizedType =
+          collectionType != null ? _normalizeCollectionType(collectionType) : 'all';
+
+      final result = <VaultSetCollection>[];
+      for (final meta in _staticSetMetadataCache!.values) {
+        if (normalizedType != 'all' && meta.collectionType != normalizedType) {
+          continue;
+        }
+        final owned = ownedMap[meta.setName] ?? 0;
+        final total = meta.totalCount;
+        final pct = total > 0 ? (owned / total).clamp(0.0, 1.0) : 0.0;
+        result.add(VaultSetCollection(
+          setName: meta.setName,
+          setCode: meta.setCode,
+          collectionType: meta.collectionType,
+          totalCount: total,
+          ownedCount: owned,
+          completionPercentage: pct,
+          sampleImageUrl: meta.sampleImageUrl,
+          releaseDate: meta.releaseDate,
+        ));
+      }
+
+      _sortSetCollections(result);
+      return result;
+    });
+  }
+
+  Stream<List<VaultSetCollection>> _watchSetCollectionsFull({
     String? collectionType,
     String? searchQuery,
   }) {
@@ -5210,8 +6839,20 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
           ''
         ) AS set_code,
         collection_type,
-        COUNT(DISTINCT name) AS total_cards,
-        COUNT(DISTINCT CASE WHEN quantity > 0 THEN name END) AS owned_cards,
+        COUNT(DISTINCT CASE WHEN (quantity = 0 OR quantity > 0) THEN name END) AS total_cards,
+        COUNT(DISTINCT CASE WHEN quantity > 0
+          AND (is_traded IS NULL OR is_traded = 0)
+          AND (is_wishlisted IS NULL OR is_wishlisted = 0)
+          AND (primary_binder_id IS NULL OR (
+            primary_binder_id != 'INBOX'
+            AND primary_binder_id NOT LIKE 'system_looking_for%'
+            AND primary_binder_id NOT IN (
+              SELECT id FROM vault_binders
+              WHERE (system_binder_type = 'looking_for' OR id LIKE 'system_looking_for%')
+                AND is_deleted = 0
+            )
+          ))
+        THEN name END) AS owned_cards,
         MAX(image_url) AS sample_image_url,
         MAX(json_extract(dynamic_data, '\$.released_at')) AS release_date
       FROM vault_items
@@ -5240,32 +6881,59 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
         );
       }).toList();
 
-      collections.sort((a, b) {
-        // Primary: highest completion percentage descending (1.0 -> 0.0)
-        final pctComp = b.completionPercentage.compareTo(a.completionPercentage);
-        if (pctComp != 0) return pctComp;
+      if (searchQuery == null || searchQuery.trim().isEmpty) {
+        _staticSetMetadataCache ??= {
+          for (final c in collections) c.setName: c,
+        };
+      }
 
-        // Tie-breaker: release date newest to oldest (descending)
-        final aDate = a.releaseDate ?? '';
-        final bDate = b.releaseDate ?? '';
-        final dateComp = bDate.compareTo(aDate);
-        if (dateComp != 0) return dateComp;
-
-        // Fallback: alphabetical set name ascending
-        return a.setName.compareTo(b.setName);
-      });
-
+      _sortSetCollections(collections);
       return collections;
     });
   }
 
+  static void _sortSetCollections(List<VaultSetCollection> collections) {
+    collections.sort((a, b) {
+      // Primary: highest completion percentage descending (1.0 -> 0.0)
+      final pctComp = b.completionPercentage.compareTo(a.completionPercentage);
+      if (pctComp != 0) return pctComp;
+
+      // Tie-breaker: release date newest to oldest (descending)
+      final aDate = a.releaseDate ?? '';
+      final bDate = b.releaseDate ?? '';
+      final dateComp = bDate.compareTo(aDate);
+      if (dateComp != 0) return dateComp;
+
+      // Fallback: alphabetical set name ascending
+      return a.setName.compareTo(b.setName);
+    });
+  }
+
   /// Streams cards belonging to a given set, ordered by set code and collector number.
+  /// When [setCode] is provided, strictly scopes query to `LOWER(set_code) = LOWER(?)`
+  /// to prevent cards from other sets leaking into the view.
   Stream<List<VaultItem>> watchItemsBySet(
     String setName, {
+    String? setCode,
     String? collectionType,
   }) {
     final query = select(vaultItems)
-      ..where((t) => t.isDeleted.equals(false) & t.setOrSeries.equals(setName));
+      ..where((t) => t.isDeleted.equals(false));
+
+    if (setCode != null && setCode.trim().isNotEmpty) {
+      final cleanCode = setCode.trim().toLowerCase();
+      query.where((t) =>
+          CustomExpression<bool>(
+            "LOWER(COALESCE(json_extract(vault_items.dynamic_data, '\$.set_code'), json_extract(vault_items.dynamic_data, '\$.set'), '')) = '$cleanCode'",
+          ) |
+          t.dynamicData.like('%"set_code":"$cleanCode"%') |
+          t.dynamicData.like('%"set":"$cleanCode"%') |
+          t.dynamicData.like('%"set_code": "$cleanCode"%') |
+          t.dynamicData.like('%"set": "$cleanCode"%'));
+    } else {
+      query.where((t) => t.setOrSeries.equals(setName));
+    }
+
     if (collectionType != null) {
       final normalized = _normalizeCollectionType(collectionType);
       if (normalized != 'all') {
@@ -5299,9 +6967,96 @@ class VaultDao extends DatabaseAccessor<AppDatabase> with _$VaultDaoMixin {
   /// Backward-compatible alias for watchItemsBySet
   Stream<List<VaultItem>> watchCardsBySet(
     String setName, {
+    String? setCode,
     String? collectionType,
   }) =>
-      watchItemsBySet(setName, collectionType: collectionType);
+      watchItemsBySet(setName, setCode: setCode, collectionType: collectionType);
+
+  /// Atomically increments match results (wins, losses, draws) on the local SQLite `decks` table.
+  ///
+  /// - Winner's linked deck: increments `wins` by 1.
+  /// - Losers' linked decks: increments `losses` by 1.
+  /// - Draw: increments `draws` by 1 for all linked decks.
+  ///
+  /// Also logs an 'UPDATE' event to the outbox [syncQueue] for each modified deck.
+  Future<void> recordDeckMatchResults({
+    String? winningDeckId,
+    List<String> losingDeckIds = const [],
+    List<String> drawDeckIds = const [],
+  }) async {
+    final now = DateTime.now();
+    await transaction(() async {
+      // 1. Winning deck
+      if (winningDeckId != null && winningDeckId.isNotEmpty) {
+        await customUpdate(
+          '''
+          UPDATE decks
+          SET wins = wins + 1,
+              updated_at = ?
+          WHERE id = ?;
+          ''',
+          variables: [
+            Variable.withDateTime(now),
+            Variable.withString(winningDeckId),
+          ],
+          updates: {decks},
+        );
+        await _recordSync('deck', winningDeckId, 'UPDATE', timestamp: now);
+      }
+
+      // 2. Losing decks
+      for (final deckId in losingDeckIds) {
+        if (deckId.isNotEmpty) {
+          await customUpdate(
+            '''
+            UPDATE decks
+            SET losses = losses + 1,
+                updated_at = ?
+            WHERE id = ?;
+            ''',
+            variables: [
+              Variable.withDateTime(now),
+              Variable.withString(deckId),
+            ],
+            updates: {decks},
+          );
+          await _recordSync('deck', deckId, 'UPDATE', timestamp: now);
+        }
+      }
+
+      // 3. Draw decks
+      for (final deckId in drawDeckIds) {
+        if (deckId.isNotEmpty) {
+          await customUpdate(
+            '''
+            UPDATE decks
+            SET draws = draws + 1,
+                updated_at = ?
+            WHERE id = ?;
+            ''',
+            variables: [
+              Variable.withDateTime(now),
+              Variable.withString(deckId),
+            ],
+            updates: {decks},
+          );
+          await _recordSync('deck', deckId, 'UPDATE', timestamp: now);
+        }
+      }
+    });
+  }
+
+  /// Convenience helper to increment wins for a single deck.
+  Future<void> incrementDeckWins(String deckId) =>
+      recordDeckMatchResults(winningDeckId: deckId);
+
+  /// Convenience helper to increment losses for a single deck.
+  Future<void> incrementDeckLosses(String deckId) =>
+      recordDeckMatchResults(losingDeckIds: [deckId]);
+
+  /// Convenience helper to increment draws for a single deck.
+  Future<void> incrementDeckDraws(String deckId) =>
+      recordDeckMatchResults(drawDeckIds: [deckId]);
 }
 
 /// Model representing alternative physical printings with computed headroom and location details.

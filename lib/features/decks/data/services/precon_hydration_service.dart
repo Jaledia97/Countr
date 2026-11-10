@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -169,6 +171,9 @@ class PreconHydrationService {
     String? assetPath,
     List<PreconDeckDto>? customPrecons,
   }) async {
+    // Startup repair pass: always sanitize legacy / cached art_series, art_crop, and identical X // X rows
+    await repairArtSeriesCards(db);
+
     if (!force && customPrecons == null) {
       final alreadySeeded = await isHistoricalPreconSeeded(db);
       if (alreadySeeded) {
@@ -301,39 +306,67 @@ class PreconHydrationService {
 
     final vaultCompanions = vaultItemsMap.values.toList();
 
-    // Execute all precon insertions atomically inside a single Drift batch
-    await db.batch((b) {
-      b.insertAll(db.decks, deckCompanions, mode: InsertMode.insertOrReplace);
-      b.insertAll(db.deckVersions, versionCompanions, mode: InsertMode.insertOrReplace);
-      b.insertAll(
-        db.vaultItems,
-        vaultCompanions,
-        onConflict: DoUpdate<$VaultItemsTable, VaultItem>.withExcluded(
-          (old, excluded) => VaultItemsCompanion.custom(
-            name: excluded.name,
-            flavorName: excluded.flavorName,
-            setOrSeries: excluded.setOrSeries,
-            imageUrl: const CustomExpression<String>(
-              'CASE WHEN vault_items.image_url IS NOT NULL AND vault_items.image_url != \'\' THEN vault_items.image_url ELSE excluded.image_url END',
+    // Execute all precon insertions in chunked transactions (chunkSize <= 250)
+    await db.transaction(() async {
+      for (var i = 0; i < deckCompanions.length; i += batchChunkSize) {
+        final chunk = deckCompanions.sublist(
+          i,
+          math.min(i + batchChunkSize, deckCompanions.length),
+        );
+        await db.batch((b) => b.insertAll(db.decks, chunk, mode: InsertMode.insertOrReplace));
+      }
+
+      for (var i = 0; i < versionCompanions.length; i += batchChunkSize) {
+        final chunk = versionCompanions.sublist(
+          i,
+          math.min(i + batchChunkSize, versionCompanions.length),
+        );
+        await db.batch((b) => b.insertAll(db.deckVersions, chunk, mode: InsertMode.insertOrReplace));
+      }
+
+      for (var i = 0; i < vaultCompanions.length; i += batchChunkSize) {
+        final chunk = vaultCompanions.sublist(
+          i,
+          math.min(i + batchChunkSize, vaultCompanions.length),
+        );
+        await db.batch((b) => b.insertAll(
+          db.vaultItems,
+          chunk,
+          onConflict: DoUpdate<$VaultItemsTable, VaultItem>.withExcluded(
+            (old, excluded) => VaultItemsCompanion.custom(
+              name: excluded.name,
+              flavorName: excluded.flavorName,
+              setOrSeries: excluded.setOrSeries,
+              imageUrl: const CustomExpression<String>(
+                'CASE WHEN vault_items.image_url IS NOT NULL AND vault_items.image_url != \'\' THEN vault_items.image_url ELSE excluded.image_url END',
+              ),
+              currentMarketPrice: const CustomExpression<double>(
+                'CASE WHEN excluded.current_market_price > 0.0 THEN excluded.current_market_price ELSE vault_items.current_market_price END',
+              ),
+              lastPriceUpdate: const CustomExpression<DateTime>(
+                'CASE WHEN excluded.current_market_price > 0.0 THEN excluded.last_price_update ELSE vault_items.last_price_update END',
+              ),
+              dynamicData: const CustomExpression<String>(
+                'CASE WHEN vault_items.dynamic_data IS NOT NULL AND vault_items.dynamic_data != \'\' AND vault_items.dynamic_data != \'{}\' THEN vault_items.dynamic_data ELSE excluded.dynamic_data END',
+              ),
+              collectionType: excluded.collectionType,
             ),
-            currentMarketPrice: const CustomExpression<double>(
-              'CASE WHEN excluded.current_market_price > 0.0 THEN excluded.current_market_price ELSE vault_items.current_market_price END',
-            ),
-            lastPriceUpdate: const CustomExpression<DateTime>(
-              'CASE WHEN excluded.current_market_price > 0.0 THEN excluded.last_price_update ELSE vault_items.last_price_update END',
-            ),
-            dynamicData: const CustomExpression<String>(
-              'CASE WHEN vault_items.dynamic_data IS NOT NULL AND vault_items.dynamic_data != \'\' AND vault_items.dynamic_data != \'{}\' THEN vault_items.dynamic_data ELSE excluded.dynamic_data END',
-            ),
-            collectionType: excluded.collectionType,
+            target: [db.vaultItems.id],
           ),
-          target: [db.vaultItems.id],
-        ),
-      );
-      b.insertAll(db.deckVersionItems, itemCompanions, mode: InsertMode.insertOrReplace);
+        ));
+      }
+
+      for (var i = 0; i < itemCompanions.length; i += batchChunkSize) {
+        final chunk = itemCompanions.sublist(
+          i,
+          math.min(i + batchChunkSize, itemCompanions.length),
+        );
+        await db.batch((b) => b.insertAll(db.deckVersionItems, chunk, mode: InsertMode.insertOrReplace));
+      }
     });
 
     await repairSyntheticPreconVaultItems(db);
+    await repairArtSeriesCards(db);
   }
 
   /// Repairs synthetic precon vault_items rows in SQLite so that cards with
@@ -391,4 +424,165 @@ class PreconHydrationService {
       }
     });
   }
+
+  /// Inspects explore_decks, explore_deck_items, and vault_items to automatically
+  /// repair stored art_series URLs, identical "X // X" names, or /art_crop/ URLs.
+  static Future<void> repairArtSeriesCards(AppDatabase db) async {
+    // 1. Repair explore_decks
+    final dirtyDecks = await db.customSelect('''
+      SELECT id, name, commander_name, commander_image_url, commander_art_crop
+      FROM explore_decks
+      WHERE commander_image_url LIKE '%art_series%'
+         OR commander_image_url LIKE '%/art_crop/%'
+         OR commander_art_crop LIKE '%art_series%'
+         OR commander_name LIKE '%//%'
+         OR commander_name LIKE '%Art Card%'
+         OR commander_name LIKE '%Art Series%';
+    ''').get();
+
+    for (final row in dirtyDecks) {
+      final id = row.read<String>('id');
+      final deckName = row.read<String>('name');
+      final rawCmdr = row.readNullable<String>('commander_name') ?? deckName;
+
+      String cleanName = rawCmdr;
+      if (cleanName.contains('//')) {
+        final parts = cleanName.split('//').map((p) => p.trim()).toList();
+        if (parts.length >= 2 && parts[0].toLowerCase() == parts[1].toLowerCase()) {
+          cleanName = parts[0];
+        } else {
+          cleanName = parts.first;
+        }
+      }
+      cleanName = cleanName
+          .replaceAll(RegExp(r'\s*\((?:Art Card|Art Series)\)', caseSensitive: false), '')
+          .replaceAll(RegExp(r'\s*-\s*(?:Art Card|Art Series)', caseSensitive: false), '')
+          .trim();
+      if (cleanName.isEmpty) cleanName = deckName;
+
+      final normalUrl = CountrCachedImage.buildScryfallNamedUrl(cleanName, version: 'normal');
+      final artCropUrl = CountrCachedImage.buildScryfallNamedUrl(cleanName, version: 'art_crop');
+
+      await db.customUpdate('''
+        UPDATE explore_decks
+        SET commander_name = ?,
+            commander_image_url = ?,
+            commander_art_crop = ?
+        WHERE id = ?;
+      ''', variables: [
+        Variable.withString(cleanName),
+        Variable.withString(normalUrl),
+        Variable.withString(artCropUrl),
+        Variable.withString(id),
+      ]);
+    }
+
+    // 2. Repair explore_deck_items
+    final dirtyItems = await db.customSelect('''
+      SELECT id, card_name, image_url, art_crop_url, dynamic_data
+      FROM explore_deck_items
+      WHERE image_url LIKE '%art_series%'
+         OR image_url LIKE '%/art_crop/%'
+         OR art_crop_url LIKE '%art_series%'
+         OR card_name LIKE '%//%'
+         OR card_name LIKE '%Art Card%'
+         OR card_name LIKE '%Art Series%'
+         OR dynamic_data LIKE '%art_series%'
+         OR dynamic_data LIKE '%double_faced_token%'
+         OR dynamic_data LIKE '%memorabilia%';
+    ''').get();
+
+    for (final row in dirtyItems) {
+      final id = row.read<String>('id');
+      final rawName = row.read<String>('card_name');
+      String cleanName = rawName;
+      if (cleanName.contains('//')) {
+        final parts = cleanName.split('//').map((p) => p.trim()).toList();
+        if (parts.length >= 2 && parts[0].toLowerCase() == parts[1].toLowerCase()) {
+          cleanName = parts[0];
+        }
+      }
+      cleanName = cleanName
+          .replaceAll(RegExp(r'\s*\((?:Art Card|Art Series)\)', caseSensitive: false), '')
+          .replaceAll(RegExp(r'\s*-\s*(?:Art Card|Art Series)', caseSensitive: false), '')
+          .trim();
+
+      final normalUrl = CountrCachedImage.buildScryfallNamedUrl(cleanName, version: 'normal');
+      final artCropUrl = CountrCachedImage.buildScryfallNamedUrl(cleanName, version: 'art_crop');
+
+      await db.customUpdate('''
+        UPDATE explore_deck_items
+        SET card_name = ?,
+            image_url = ?,
+            art_crop_url = ?
+        WHERE id = ?;
+      ''', variables: [
+        Variable.withString(cleanName),
+        Variable.withString(normalUrl),
+        Variable.withString(artCropUrl),
+        Variable.withString(id),
+      ]);
+    }
+
+    // 3. Repair vault_items
+    final dirtyVault = await db.customSelect('''
+      SELECT id, name, image_url, dynamic_data
+      FROM vault_items
+      WHERE image_url LIKE '%art_series%'
+         OR image_url LIKE '%/art_crop/%'
+         OR name LIKE '%//%'
+         OR name LIKE '%Art Card%'
+         OR name LIKE '%Art Series%'
+         OR dynamic_data LIKE '%art_series%'
+         OR dynamic_data LIKE '%double_faced_token%'
+         OR dynamic_data LIKE '%memorabilia%';
+    ''').get();
+
+    for (final row in dirtyVault) {
+      final id = row.read<String>('id');
+      final rawName = row.read<String>('name');
+      String cleanName = rawName;
+      if (cleanName.contains('//')) {
+        final parts = cleanName.split('//').map((p) => p.trim()).toList();
+        if (parts.length >= 2 && parts[0].toLowerCase() == parts[1].toLowerCase()) {
+          cleanName = parts[0];
+        }
+      }
+      cleanName = cleanName
+          .replaceAll(RegExp(r'\s*\((?:Art Card|Art Series)\)', caseSensitive: false), '')
+          .replaceAll(RegExp(r'\s*-\s*(?:Art Card|Art Series)', caseSensitive: false), '')
+          .trim();
+
+      final normalUrl = CountrCachedImage.buildScryfallNamedUrl(cleanName, version: 'normal');
+      final dynStr = row.readNullable<String>('dynamic_data');
+      String? cleanDyn = dynStr;
+      if (dynStr != null && dynStr.isNotEmpty) {
+        try {
+          final dyn = jsonDecode(dynStr) as Map<String, dynamic>;
+          dyn['layout'] = 'normal';
+          dyn['image_uris'] = {
+            'small': normalUrl,
+            'normal': normalUrl,
+            'large': normalUrl,
+            'art_crop': CountrCachedImage.buildScryfallNamedUrl(cleanName, version: 'art_crop'),
+          };
+          cleanDyn = jsonEncode(dyn);
+        } catch (_) {}
+      }
+
+      await db.customUpdate('''
+        UPDATE vault_items
+        SET name = ?,
+            image_url = ?,
+            dynamic_data = ?
+        WHERE id = ?;
+      ''', variables: [
+        Variable.withString(cleanName),
+        Variable.withString(normalUrl),
+        Variable.withString(cleanDyn ?? '{}'),
+        Variable.withString(id),
+      ]);
+    }
+  }
 }
+

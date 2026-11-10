@@ -47,6 +47,7 @@ void main() {
       isDeleted: false,
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
+      isCloned: false,
     );
   }
 

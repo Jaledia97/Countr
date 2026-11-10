@@ -120,6 +120,15 @@ void main() {
 
       // Verify initial sheet is displayed showing Commander 2011 and $1.75
       expect(find.textContaining('1.75'), findsWidgets);
+
+      // Open Versions & Printings modal via See More button (Feature 26)
+      await tester.tap(find.byKey(const Key('card_detail_see_more_versions_button')));
+      await tester.pumpAndSettle();
+
+      // Switch to Printings tab
+      await tester.tap(find.text('Printings'));
+      await tester.pumpAndSettle();
+
       expect(find.byKey(const Key('variant_card_cmd_243')), findsOneWidget);
       expect(find.byKey(const Key('variant_card_2x2_313')), findsOneWidget);
 
@@ -166,6 +175,14 @@ void main() {
           viewportSize: const Size(800, 2600),
         ),
       );
+      await tester.pumpAndSettle();
+
+      // Open Versions & Printings modal via See More button (Feature 26)
+      await tester.tap(find.byKey(const Key('card_detail_see_more_versions_button')));
+      await tester.pumpAndSettle();
+
+      // Switch to Printings tab
+      await tester.tap(find.text('Printings'));
       await tester.pumpAndSettle();
 
       // Tapping the active printing (cmd #243)

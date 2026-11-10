@@ -21,6 +21,7 @@ abstract class AppColors {
   static const Color accentCyanGlow = Color(0x3300E5FF);
   static const Color accentEmerald = Color(0xFF00E676); // Mint / Graded
   static const Color accentRose = Color(0xFFFF3366); // Hype / Likes
+  static const Color accentRed = Color(0xFFEF4444); // Banned / Error / Red
 
   // Neutrals & Typography
   static const Color textPrimary = Color(0xFFF1F5F9);

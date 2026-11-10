@@ -9,12 +9,18 @@ import 'package:countr/features/life_counter/domain/models/randomizer_models.dar
 import 'package:countr/features/life_counter/domain/services/dice_roller_service.dart';
 
 /// Modal bottom sheet providing animated Coin Flipping, Polyhedral Dice Rolling,
-/// Random Player/Opponent Selection, and Global Reset Game action.
+/// Custom 1..N Dice, Result History Strip, Random Player/Opponent Selection,
+/// and Global Reset Game action.
 ///
 /// Fully satisfies test keys and contracts:
 /// - Key `'randomizer_hub_modal'`
 /// - Key `'coin_flip_btn'`
 /// - Key `'dice_d20_btn'` (and all `dice_${d.name}_btn`)
+/// - Key `'custom_dice_minus_btn'`
+/// - Key `'custom_dice_sides_text'`
+/// - Key `'custom_dice_plus_btn'`
+/// - Key `'custom_dice_roll_btn'`
+/// - Key `'randomizer_history_strip'`
 /// - Key `'reset_game_btn'`
 /// - Key `'random_player_btn'`
 /// - Key `'random_opponent_btn'`
@@ -73,6 +79,7 @@ class _RandomizerHubModalState extends State<RandomizerHubModal>
 
   String _lastResult = 'Select a tool to roll or flip';
   CoinSide _currentCoinSide = CoinSide.heads;
+  int _customSides = 20;
 
   // 3D Coin Flip Animation Controller
   late final AnimationController _coinAnimController;
@@ -145,6 +152,19 @@ class _RandomizerHubModalState extends State<RandomizerHubModal>
     });
   }
 
+  void _rollCustomDice() {
+    HapticFeedback.lightImpact();
+    final roll = _randomizer.rollCustomDice(_customSides);
+
+    setState(() {
+      _lastResult = 'D$_customSides Roll: $roll';
+    });
+
+    _diceAnimController.forward(from: 0.0).then((_) {
+      HapticFeedback.selectionClick();
+    });
+  }
+
   void _chooseRandomPlayer() {
     HapticFeedback.mediumImpact();
     final seat = _randomizer.selectRandomPlayerIndex(widget.playerCount);
@@ -177,7 +197,7 @@ class _RandomizerHubModalState extends State<RandomizerHubModal>
           top: BorderSide(color: AppColors.surfaceBorder, width: 2),
         ),
       ),
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
       child: SafeArea(
         top: false,
         child: SingleChildScrollView(
@@ -187,9 +207,9 @@ class _RandomizerHubModalState extends State<RandomizerHubModal>
               // Modal Drag Handle
               Center(
                 child: Container(
-                  width: 40,
+                  width: 36,
                   height: 4,
-                  margin: const EdgeInsets.only(bottom: 12),
+                  margin: const EdgeInsets.only(bottom: 8),
                   decoration: BoxDecoration(
                     color: Colors.white24,
                     borderRadius: BorderRadius.circular(2),
@@ -206,24 +226,26 @@ class _RandomizerHubModalState extends State<RandomizerHubModal>
                     style: TextStyle(
                       color: AppColors.textPrimary,
                       fontWeight: FontWeight.bold,
-                      fontSize: 18,
+                      fontSize: 17,
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close, color: AppColors.textSecondary),
+                    icon: const Icon(Icons.close, color: AppColors.textSecondary, size: 20),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                     onPressed: () => Navigator.of(context).maybePop(),
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
 
               // Result Banner (Strict Test Key: 'randomizer_result_text')
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 decoration: BoxDecoration(
                   color: AppColors.surfaceRaised,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(10),
                   border: Border.all(color: AppColors.surfaceBorder),
                 ),
                 child: Center(
@@ -234,23 +256,23 @@ class _RandomizerHubModalState extends State<RandomizerHubModal>
                     style: const TextStyle(
                       color: AppColors.accentAmber,
                       fontWeight: FontWeight.bold,
-                      fontSize: 16,
+                      fontSize: 15,
                       letterSpacing: 0.3,
                     ),
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 8),
 
               // 3D Coin & Interactive Stage
               _build3dCoinStage(),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
 
               // Polyhedral Dice & Coin Action Buttons
               // All required Keys are directly present at root level for test automation
               Wrap(
-                spacing: 8,
-                runSpacing: 8,
+                spacing: 6,
+                runSpacing: 6,
                 alignment: WrapAlignment.center,
                 children: [
                   ElevatedButton(
@@ -259,19 +281,20 @@ class _RandomizerHubModalState extends State<RandomizerHubModal>
                       backgroundColor: const Color(0xFF2C2C40),
                       foregroundColor: AppColors.accentAmber,
                       elevation: 2,
+                      visualDensity: VisualDensity.compact,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(8),
                         side: const BorderSide(color: AppColors.accentAmber, width: 1.5),
                       ),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     ),
                     onPressed: _flipCoin,
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.monetization_on, size: 16, color: AppColors.accentAmber),
-                        SizedBox(width: 6),
-                        Text('Coin', style: TextStyle(fontWeight: FontWeight.bold)),
+                        Icon(Icons.monetization_on, size: 15, color: AppColors.accentAmber),
+                        SizedBox(width: 4),
+                        Text('Coin', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                       ],
                     ),
                   ),
@@ -287,29 +310,108 @@ class _RandomizerHubModalState extends State<RandomizerHubModal>
                             ? AppColors.accentAmber
                             : AppColors.textPrimary,
                         elevation: 1,
+                        visualDensity: VisualDensity.compact,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(8),
                           side: BorderSide(
                             color: isD20 ? AppColors.accentAmber : AppColors.surfaceBorder,
                             width: isD20 ? 1.5 : 1.0,
                           ),
                         ),
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                       ),
                       onPressed: () => _rollDice(d),
                       child: Text(
                         d.label,
                         style: TextStyle(
                           fontWeight: isD20 ? FontWeight.bold : FontWeight.w600,
+                          fontSize: 13,
                         ),
                       ),
                     );
                   }),
                 ],
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 8),
 
-              // Random Player & Opponent Utilities
+              // Custom Dice Stepper Row (Key: 'custom_dice_minus_btn', etc.)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceRaised,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.surfaceBorder),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    IconButton(
+                      key: const Key('custom_dice_minus_btn'),
+                      icon: const Icon(Icons.remove_circle_outline, size: 18, color: AppColors.textSecondary),
+                      padding: const EdgeInsets.all(2),
+                      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                      tooltip: 'Decrease sides',
+                      onPressed: () {
+                        if (_customSides > 2) {
+                          setState(() {
+                            _customSides--;
+                          });
+                          HapticFeedback.lightImpact();
+                        }
+                      },
+                    ),
+                    Container(
+                      constraints: const BoxConstraints(minWidth: 42),
+                      alignment: Alignment.center,
+                      child: Text(
+                        'D$_customSides',
+                        key: const Key('custom_dice_sides_text'),
+                        style: const TextStyle(
+                          color: AppColors.textPrimary,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      key: const Key('custom_dice_plus_btn'),
+                      icon: const Icon(Icons.add_circle_outline, size: 18, color: AppColors.textSecondary),
+                      padding: const EdgeInsets.all(2),
+                      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                      tooltip: 'Increase sides',
+                      onPressed: () {
+                        if (_customSides < 999) {
+                          setState(() {
+                            _customSides++;
+                          });
+                          HapticFeedback.lightImpact();
+                        }
+                      },
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton.icon(
+                      key: const Key('custom_dice_roll_btn'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF2C2C40),
+                        foregroundColor: AppColors.accentAmber,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          side: const BorderSide(color: AppColors.accentAmber, width: 1),
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      icon: const Icon(Icons.casino_outlined, size: 14),
+                      label: const Text('Roll Custom', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                      onPressed: _rollCustomDice,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+
+              // Random Player & Opponent Utilities (Opponent disabled when playerCount < 3)
               Row(
                 children: [
                   Expanded(
@@ -318,14 +420,15 @@ class _RandomizerHubModalState extends State<RandomizerHubModal>
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF1E2532),
                         foregroundColor: AppColors.accentCyan,
+                        visualDensity: VisualDensity.compact,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(8),
                           side: const BorderSide(color: AppColors.accentCyan, width: 1),
                         ),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        padding: const EdgeInsets.symmetric(vertical: 8),
                       ),
-                      icon: const Icon(Icons.person_pin, size: 18),
-                      label: const Text('Random Player', style: TextStyle(fontSize: 13)),
+                      icon: const Icon(Icons.person_pin, size: 16),
+                      label: const Text('Random Player', style: TextStyle(fontSize: 12)),
                       onPressed: _chooseRandomPlayer,
                     ),
                   ),
@@ -336,24 +439,36 @@ class _RandomizerHubModalState extends State<RandomizerHubModal>
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF1E2532),
                         foregroundColor: AppColors.accentViolet,
+                        disabledBackgroundColor: const Color(0xFF141922),
+                        disabledForegroundColor: AppColors.textSecondary.withValues(alpha: 0.4),
+                        visualDensity: VisualDensity.compact,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          side: const BorderSide(color: AppColors.accentViolet, width: 1),
+                          borderRadius: BorderRadius.circular(8),
+                          side: BorderSide(
+                            color: widget.playerCount < 3
+                                ? AppColors.surfaceBorder
+                                : AppColors.accentViolet,
+                            width: 1,
+                          ),
                         ),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        padding: const EdgeInsets.symmetric(vertical: 8),
                       ),
-                      icon: const Icon(Icons.sports_kabaddi, size: 18),
-                      label: const Text('Random Opponent', style: TextStyle(fontSize: 13)),
-                      onPressed: _chooseRandomOpponent,
+                      icon: const Icon(Icons.sports_kabaddi, size: 16),
+                      label: const Text('Random Opponent', style: TextStyle(fontSize: 12)),
+                      onPressed: widget.playerCount < 3 ? null : _chooseRandomOpponent,
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 8),
+
+              // Result History Strip (Key: 'randomizer_history_strip')
+              _buildHistoryStrip(),
+              const SizedBox(height: 8),
 
               // Coin Tally Strip & Reset Tally
               _buildCoinTallyStrip(),
-              const SizedBox(height: 20),
+              const SizedBox(height: 10),
 
               // Global Reset Game Button (Strict Test Key: 'reset_game_btn')
               ElevatedButton.icon(
@@ -361,15 +476,16 @@ class _RandomizerHubModalState extends State<RandomizerHubModal>
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.red.shade800,
                   foregroundColor: Colors.white,
-                  minimumSize: const Size(double.infinity, 44),
+                  minimumSize: const Size(double.infinity, 38),
+                  visualDensity: VisualDensity.compact,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(8),
                   ),
                 ),
-                icon: const Icon(Icons.replay),
+                icon: const Icon(Icons.replay, size: 16),
                 label: const Text(
                   'Reset Game (Preserve Pod)',
-                  style: TextStyle(fontWeight: FontWeight.bold),
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                 ),
                 onPressed: () {
                   widget.onResetGame?.call();
@@ -379,6 +495,75 @@ class _RandomizerHubModalState extends State<RandomizerHubModal>
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  /// Result history strip showing the 5 most recent rolls/flips.
+  Widget _buildHistoryStrip() {
+    final rolls = _randomizer.recentRolls;
+
+    return Container(
+      key: const Key('randomizer_history_strip'),
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceBorderSubtle,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.surfaceBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Recent Rolls',
+            style: TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 4),
+          if (rolls.isEmpty)
+            const Text(
+              'No recent rolls',
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
+            )
+          else
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: rolls.asMap().entries.map((entry) {
+                  final idx = entry.key;
+                  final item = entry.value;
+                  // Format as "D20: 3", "Coin: HEADS", "Player: Seat 2", "Opponent: Seat 3" to avoid colliding with text finders in existing tests
+                  final formattedText = item.summary
+                      .replaceFirst(' Roll:', ':')
+                      .replaceFirst('Flip: ', '')
+                      .replaceFirst('Chosen Player: ', 'Player: ')
+                      .replaceFirst('Chosen Opponent: ', 'Opponent: ');
+                  return Container(
+                    key: Key('recent_roll_$idx'),
+                    margin: const EdgeInsets.only(right: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceRaised,
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: AppColors.surfaceBorder),
+                    ),
+                    child: Text(
+                      formattedText,
+                      style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -396,7 +581,7 @@ class _RandomizerHubModalState extends State<RandomizerHubModal>
             : (_currentCoinSide.isHeads ? CoinSide.tails : CoinSide.heads);
 
         // Vertical parabolic toss displacement
-        final verticalOffset = math.sin(_coinCurvedAnimation.value * math.pi) * -40.0;
+        final verticalOffset = math.sin(_coinCurvedAnimation.value * math.pi) * -28.0;
 
         return Transform.translate(
           offset: Offset(0, verticalOffset),
@@ -433,34 +618,34 @@ class _RandomizerHubModalState extends State<RandomizerHubModal>
     final borderColor = isHeads ? const Color(0xFFFFD54F) : const Color(0xFFB0BEC5);
 
     return Container(
-      width: 90,
-      height: 90,
+      width: 72,
+      height: 72,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         gradient: primaryGradient,
-        border: Border.all(color: borderColor, width: 3),
+        border: Border.all(color: borderColor, width: 2.5),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.5),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: Colors.black.withValues(alpha: 0.4),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
           ),
         ],
       ),
       child: Center(
         child: Container(
-          width: 76,
-          height: 76,
+          width: 60,
+          height: 60,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            border: Border.all(color: Colors.black12, width: 2),
+            border: Border.all(color: Colors.black12, width: 1.5),
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
                 isHeads ? Icons.wb_sunny_rounded : Icons.shield_rounded,
-                size: 28,
+                size: 22,
                 color: isHeads ? const Color(0xFF5D4037) : const Color(0xFF37474F),
               ),
               const SizedBox(height: 2),
@@ -469,8 +654,8 @@ class _RandomizerHubModalState extends State<RandomizerHubModal>
                 style: TextStyle(
                   color: isHeads ? const Color(0xFF5D4037) : const Color(0xFF37474F),
                   fontWeight: FontWeight.w900,
-                  fontSize: 12,
-                  letterSpacing: 1.0,
+                  fontSize: 11,
+                  letterSpacing: 0.8,
                 ),
               ),
             ],
@@ -483,23 +668,23 @@ class _RandomizerHubModalState extends State<RandomizerHubModal>
   /// Running coin flip tally with reset action.
   Widget _buildCoinTallyStrip() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         color: AppColors.surfaceBorderSubtle,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Row(
             children: [
-              const Icon(Icons.analytics_outlined, size: 16, color: AppColors.textSecondary),
-              const SizedBox(width: 8),
+              const Icon(Icons.analytics_outlined, size: 15, color: AppColors.textSecondary),
+              const SizedBox(width: 6),
               Text(
                 'Tally: ${_randomizer.headsCount}H / ${_randomizer.tailsCount}T (${_randomizer.totalFlips} total)',
                 style: const TextStyle(
                   color: AppColors.textSecondary,
-                  fontSize: 12,
+                  fontSize: 11,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -509,7 +694,7 @@ class _RandomizerHubModalState extends State<RandomizerHubModal>
             key: const Key('reset_tally_btn'),
             style: TextButton.styleFrom(
               padding: EdgeInsets.zero,
-              minimumSize: const Size(50, 24),
+              minimumSize: const Size(44, 20),
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
             onPressed: () {

@@ -31,9 +31,33 @@ class MyDeckCard extends StatelessWidget {
     this.cardMatch,
   });
 
+  String? _resolveCommanderArtUrl() {
+    final rawUrl = deck.commanderArtCrop ?? deck.commanderImageUrl;
+    if (rawUrl == null || rawUrl.isEmpty) return null;
+    final isArtSeries = rawUrl.contains('art_series');
+    final cmdr = deck.commanderName ?? deck.name;
+    final hasIdenticalFaces = cmdr.contains('//') &&
+        cmdr.split('//')[0].trim().toLowerCase() ==
+            cmdr.split('//')[1].trim().toLowerCase();
+    final hasArtSeriesName = cmdr.toLowerCase().contains('art card') ||
+        cmdr.toLowerCase().contains('art series') ||
+        hasIdenticalFaces;
+
+    if (isArtSeries || hasArtSeriesName) {
+      String clean = cmdr.contains('//') ? cmdr.split('//').first.trim() : cmdr.trim();
+      clean = clean
+          .replaceAll(RegExp(r'\s*\((?:Art Card|Art Series)\)', caseSensitive: false), '')
+          .replaceAll(RegExp(r'\s*-\s*(?:Art Card|Art Series)', caseSensitive: false), '')
+          .trim();
+      return CountrCachedImage.buildScryfallNamedUrl(clean, version: 'art_crop');
+    }
+    return rawUrl;
+  }
+
   Widget _buildCommanderCardArt() {
-    final artUrl = deck.commanderArtCrop ?? deck.commanderImageUrl;
+    final artUrl = _resolveCommanderArtUrl();
     if (artUrl != null && artUrl.isNotEmpty) {
+      final isFallback = artUrl.contains('api.scryfall.com/cards/named');
       return ClipRRect(
         borderRadius: BorderRadius.circular(8),
         child: Container(
@@ -42,10 +66,12 @@ class MyDeckCard extends StatelessWidget {
           color: AppColors.surfaceRaised,
           child: CountrCachedImage(
             imageUrl: artUrl,
-            cacheKey: 'deck_cover_${deck.id}',
+            cacheKey: isFallback ? 'deck_cover_${deck.id}_fallback' : 'deck_cover_${deck.id}',
             cardName: deck.commanderName ?? deck.name,
             tcgDomain: deck.tcgDomain,
             fit: BoxFit.cover,
+            width: 44,
+            height: 56,
             placeholder: const SkeletonShimmerBox(
               width: 44,
               height: 56,
@@ -200,38 +226,42 @@ class MyDeckCard extends StatelessWidget {
               _buildCommanderCardArt(),
               const SizedBox(width: 14),
 
-              // Title, Format, Completeness & Inline Color Pips
+              // Title, Format, Relocated Assembly Status & Inline Color Pips
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Full deck name spanning available horizontal width (maxLines: 2)
+                    Text(
+                      deck.name,
+                      style: AppTypography.heading2.copyWith(fontSize: 14),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+
+                    // Secondary metadata row with format, card count, and relocated status badge
                     Row(
                       children: [
-                        Expanded(
-                          child: Text(
-                            deck.name,
-                            style: AppTypography.heading2.copyWith(fontSize: 14),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
                         Flexible(
                           child: FittedBox(
                             fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              '${deck.format} • $cardCountDisplay',
+                              style: AppTypography.caption,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
                             child: _buildAssemblyStatusPill(),
                           ),
                         ),
                       ],
-                    ),
-                    const SizedBox(height: 3),
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        '${deck.format} • $cardCountDisplay',
-                        style: AppTypography.caption,
-                      ),
                     ),
                     _buildColorPips(),
 
@@ -276,32 +306,7 @@ class MyDeckCard extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(width: 10),
-
-              // Completeness Percentage or Win Rate Pill
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceRaised,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: AppColors.surfaceBorder,
-                  ),
-                ),
-                child: Text(
-                  deck.isRegistered
-                      ? '100%'
-                      : '${(deck.completeness * 100).toInt()}%',
-                  style: const TextStyle(
-                    color: AppColors.accentEmerald,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 11,
-                  ),
-                ),
-              ),
+              const SizedBox(width: 4),
 
               // 3-Dot Overflow Menu
               PopupMenuButton<String>(

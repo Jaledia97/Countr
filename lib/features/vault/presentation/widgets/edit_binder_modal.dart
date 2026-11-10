@@ -66,6 +66,19 @@ class _EditBinderModalState extends ConsumerState<EditBinderModal> {
   }
 
   Future<void> _handleSave() async {
+    final isSystem = widget.binder.isSystemBinder == true ||
+        widget.binder.id.startsWith('system_') ||
+        widget.binder.systemBinderType != null;
+    if (isSystem) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('System binders cannot be edited or renamed.'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+
     final name = _nameController.text.trim();
     if (name.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -180,6 +193,39 @@ class _EditBinderModalState extends ConsumerState<EditBinderModal> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  if (widget.binder.isSystemBinder == true ||
+                      widget.binder.id.startsWith('system_') ||
+                      widget.binder.systemBinderType != null) ...[
+                    Container(
+                      key: const Key('edit_binder_system_protected_banner'),
+                      margin: const EdgeInsets.only(bottom: 16),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppColors.accentCyan.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: AppColors.accentCyan.withValues(alpha: 0.5),
+                        ),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.lock_rounded, color: AppColors.accentCyan, size: 20),
+                          SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'Permanent System Binder — Protected against deletion.',
+                              style: TextStyle(
+                                color: AppColors.accentCyan,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
                   // Binder Name Input
                   const Text(
                     'BINDER NAME',
@@ -194,6 +240,9 @@ class _EditBinderModalState extends ConsumerState<EditBinderModal> {
                   TextField(
                     key: const Key('edit_binder_name_input'),
                     controller: _nameController,
+                    readOnly: widget.binder.isSystemBinder == true ||
+                        widget.binder.id.startsWith('system_') ||
+                        widget.binder.systemBinderType != null,
                     style: const TextStyle(color: Colors.white, fontSize: 14),
                     decoration: InputDecoration(
                       filled: true,
@@ -452,7 +501,12 @@ class _EditBinderModalState extends ConsumerState<EditBinderModal> {
                   flex: 2,
                   child: ElevatedButton(
                     key: const Key('edit_binder_save_button'),
-                    onPressed: _isSaving ? null : _handleSave,
+                    onPressed: (_isSaving ||
+                            widget.binder.isSystemBinder == true ||
+                            widget.binder.id.startsWith('system_') ||
+                            widget.binder.systemBinderType != null)
+                        ? null
+                        : _handleSave,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.accentCyan,
                       foregroundColor: Colors.black,

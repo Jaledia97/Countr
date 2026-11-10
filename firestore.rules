@@ -1,0 +1,149 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isValidUserCreate(data, userId) {
+      return data.id == userId
+        && data.username is string
+        && data.username.size() >= 3
+        && data.username.size() <= 30
+        && data.displayName is string
+        && data.displayName.size() >= 1
+        && data.displayName.size() <= 50
+        && (data.tier in ['guest', 'free', 'pro', 'business'])
+        // Cannot self-escalate to verified business via client write
+        && (!('isVerifiedBusiness' in data) || data.isVerifiedBusiness == false);
+    }
+
+    function isValidUserUpdate(newData, oldData) {
+      return newData.id == oldData.id
+        && (!('username' in newData) || (newData.username is string && newData.username.size() >= 3 && newData.username.size() <= 30))
+        && (!('displayName' in newData) || (newData.displayName is string && newData.displayName.size() >= 1 && newData.displayName.size() <= 50))
+        // Cannot escalate isVerifiedBusiness without admin
+        && (!('isVerifiedBusiness' in newData) || newData.isVerifiedBusiness == oldData.isVerifiedBusiness);
+    }
+
+    // 1. System Market Sync Document (Feature 26 / Feature 27)
+    // Public read for all users/guests; write restricted to Admin/Cloud Functions
+    match /system/market_sync {
+      allow read: if true;
+      allow write: if false; // Cloud Functions Admin SDK only
+    }
+
+    // 2. User Profiles Collection (Feature 18 / Feature 26)
+    match /users/{userId} {
+      allow read: if true; // Publicly searchable per Epic 4
+      allow create: if isOwner(userId) && isValidUserCreate(request.resource.data, userId);
+      allow update: if isOwner(userId) && isValidUserUpdate(request.resource.data, resource.data);
+      allow delete: if isOwner(userId);
+    }
+
+    // 3. User Vault Items (Personal Catalog Sync)
+    match /vault_items/{itemId} {
+      allow read: if isOwner(resource.data.userId);
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isOwner(resource.data.userId);
+    }
+
+    // 4. Binders Collection (Feature 16 / Feature 26)
+    match /binders/{binderId} {
+      allow read: if resource.data.isSystemBinder == true
+                  || resource.data.isPublic == true
+                  || isOwner(resource.data.userId);
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update: if isOwner(resource.data.userId);
+      // Permanent undeletable system binders protection
+      allow delete: if isOwner(resource.data.userId) && resource.data.isSystemBinder != true;
+    }
+
+    // 5. Decks Collection (Feature 8-12 / Feature 26)
+    match /decks/{deckId} {
+      allow read: if resource.data.isPublic == true
+                  || resource.data.sourceType == 'official'
+                  || isOwner(resource.data.userId);
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update: if isOwner(resource.data.userId) && request.resource.data.userId == resource.data.userId;
+      allow delete: if isOwner(resource.data.userId);
+
+      // Deck Versions and Items subcollections
+      match /versions/{versionId} {
+        allow read: if resource.data.isPublic == true || isOwner(resource.data.userId);
+        allow write: if isOwner(resource.data.userId);
+
+        match /items/{itemKey} {
+          allow read: if true;
+          allow write: if isAuthenticated();
+        }
+      }
+    }
+
+    // 6. Explore Decks & Votes
+    match /explore_decks/{exploreDeckId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    match /explore_deck_votes/{voteId} {
+      allow read: if true;
+      allow create, update, delete: if isOwner(request.resource.data.userId);
+    }
+
+    // 7. Feed Posts & Comments & Likes (Feature 24 / Feature 26)
+    match /posts/{postId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && request.resource.data.authorId == request.auth.uid;
+      allow update, delete: if isOwner(resource.data.authorId);
+
+      match /comments/{commentId} {
+        allow read: if true;
+        allow create: if isAuthenticated() && request.resource.data.authorId == request.auth.uid;
+        allow update, delete: if isOwner(resource.data.authorId);
+      }
+
+      match /likes/{userId} {
+        allow read: if true;
+        allow write: if isOwner(userId);
+      }
+    }
+
+    // 8. Social Connections & Direct Messages (Feature 21-22 / Feature 26)
+    match /friendships/{friendshipId} {
+      allow read: if isAuthenticated() && (request.auth.uid == resource.data.userId || request.auth.uid == resource.data.friendId);
+      allow create: if isAuthenticated() && (request.auth.uid == request.resource.data.userId || request.auth.uid == request.resource.data.friendId);
+      allow update, delete: if isAuthenticated() && (request.auth.uid == resource.data.userId || request.auth.uid == resource.data.friendId);
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if isOwner(resource.data.recipientId);
+      allow create: if isAuthenticated() && request.resource.data.senderId == request.auth.uid;
+      allow update, delete: if isOwner(resource.data.recipientId);
+    }
+
+    match /messages/{messageId} {
+      allow read: if isAuthenticated() && (request.auth.uid == resource.data.senderId || request.auth.uid == resource.data.recipientId);
+      allow create: if isAuthenticated() && request.resource.data.senderId == request.auth.uid;
+      allow update, delete: if isAuthenticated() && (request.auth.uid == resource.data.senderId || request.auth.uid == resource.data.recipientId);
+    }
+
+    match /trade_proposals/{tradeId} {
+      allow read: if isAuthenticated() && (request.auth.uid == resource.data.proposerId || request.auth.uid == resource.data.receiverId);
+      allow create: if isAuthenticated() && request.resource.data.proposerId == request.auth.uid;
+      allow update: if isAuthenticated() && (request.auth.uid == resource.data.proposerId || request.auth.uid == resource.data.receiverId);
+      allow delete: if isAuthenticated() && request.auth.uid == resource.data.proposerId;
+    }
+
+    // 9. Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -11,6 +11,7 @@ import 'package:countr/features/vault/presentation/providers/vault_providers.dar
 import 'package:countr/features/vault/presentation/screens/vault_screen.dart';
 import 'package:countr/features/vault/presentation/widgets/card_detail_sheet.dart';
 import 'package:countr/features/vault/presentation/widgets/vault_collection_view_sliver.dart';
+import 'package:countr/features/vault/presentation/screens/master_set_screen.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -296,7 +297,7 @@ void main() {
       await tester.pump(const Duration(seconds: 4));
     });
 
-    testWidgets('Tapping collection card expands and displays member cards', (tester) async {
+    testWidgets('Tapping collection card navigates to MasterSetScreen with member cards', (tester) async {
       tester.view.physicalSize = const Size(1080, 2400);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() {
@@ -316,30 +317,36 @@ void main() {
       await tester.pumpWidget(createTestWidget(container: container));
       await tester.pumpAndSettle();
 
-      // Cards inside LTR are not visible yet before expansion
-      expect(find.byKey(const Key('vault_collection_grid_LTR')), findsNothing);
+      // MasterSetScreen is not open initially
+      expect(find.byType(MasterSetScreen), findsNothing);
 
-      // Tap on LTR collection tile header to expand
+      // Tap on LTR collection tile header to open MasterSetScreen
       await tester.tap(find.byKey(const Key('vault_collection_tile_LTR')));
       await tester.pumpAndSettle();
 
-      // Grid is now visible
-      expect(find.byKey(const Key('vault_collection_grid_LTR')), findsOneWidget);
+      // MasterSetScreen is now visible
+      expect(find.byType(MasterSetScreen), findsOneWidget);
 
-      // Member cards are displayed
-      expect(find.text('Frodo, Sauron\'s Bane'), findsWidgets);
-      expect(find.text('The One Ring'), findsOneWidget);
+      // Set header info is displayed
+      expect(find.text('Tales of Middle-earth'), findsWidgets);
+      expect(find.text('Set: LTR'), findsOneWidget);
+      expect(find.text('1 / 2'), findsOneWidget);
+      expect(find.text('cards owned'), findsOneWidget);
 
-      // Tap again collapses the collection
-      await tester.tap(find.byKey(const Key('vault_collection_header_LTR')));
+      // Member cards are displayed in 3x3 grid
+      expect(find.byKey(const Key('master_set_card_ltr-card-1')), findsOneWidget);
+      expect(find.byKey(const Key('master_set_card_ltr-card-2')), findsOneWidget);
+
+      // Tap back button pops MasterSetScreen
+      await tester.tap(find.byKey(const Key('master_set_back_button')));
       await tester.pumpAndSettle();
-      expect(find.byKey(const Key('vault_collection_grid_LTR')), findsNothing);
+      expect(find.byType(MasterSetScreen), findsNothing);
 
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(seconds: 4));
     });
 
-    testWidgets('Grayscale ColorFiltered renders for unowned cards and full color for owned cards', (tester) async {
+    testWidgets('Grayscale ColorFiltered renders for unowned cards and full color for owned cards in MasterSetScreen', (tester) async {
       tester.view.physicalSize = const Size(1080, 2400);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() {
@@ -359,28 +366,28 @@ void main() {
       await tester.pumpWidget(createTestWidget(container: container));
       await tester.pumpAndSettle();
 
-      // Expand LTR
+      // Open LTR MasterSetScreen
       await tester.tap(find.byKey(const Key('vault_collection_tile_LTR')));
       await tester.pumpAndSettle();
 
       // Unowned card (ltr-card-2: "The One Ring") has ColorFiltered with vaultGrayscaleColorFilter
-      expect(find.byKey(const Key('vault_collection_grayscale_ltr-card-2')), findsOneWidget);
+      expect(find.byKey(const Key('master_set_grayscale_ltr-card-2')), findsOneWidget);
       final colorFilteredWidget = tester.widget<ColorFiltered>(
-        find.byKey(const Key('vault_collection_grayscale_ltr-card-2')),
+        find.byKey(const Key('master_set_grayscale_ltr-card-2')),
       );
       expect(colorFilteredWidget.colorFilter, equals(vaultGrayscaleColorFilter));
 
       // Owned card (ltr-card-1) does NOT have grayscale ColorFiltered
-      expect(find.byKey(const Key('vault_collection_grayscale_ltr-card-1')), findsNothing);
+      expect(find.byKey(const Key('master_set_grayscale_ltr-card-1')), findsNothing);
 
-      // Unowned card displays "UNOWNED" badge
-      expect(find.text('UNOWNED'), findsOneWidget);
+      // Unowned card displays "Missing" badge
+      expect(find.text('Missing'), findsOneWidget);
 
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(seconds: 4));
     });
 
-    testWidgets('Tapping a card in expanded collection opens CardDetailSheet', (tester) async {
+    testWidgets('Tapping a card in MasterSetScreen opens CardDetailSheet', (tester) async {
       tester.view.physicalSize = const Size(1080, 2400);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() {
@@ -400,17 +407,21 @@ void main() {
       await tester.pumpWidget(createTestWidget(container: container));
       await tester.pumpAndSettle();
 
-      // Expand LTR
+      // Open LTR MasterSetScreen
       await tester.tap(find.byKey(const Key('vault_collection_tile_LTR')));
       await tester.pumpAndSettle();
 
-      // Tap on card
-      await tester.tap(find.byKey(const Key('vault_collection_item_ltr-card-2')));
+      // Tap on card in MasterSetScreen (tap quantity badge inside the card)
+      final cardBadgeFinder = find.descendant(
+        of: find.byKey(const Key('master_set_card_ltr-card-1')),
+        matching: find.text('x1'),
+      );
+      await tester.tap(cardBadgeFinder);
       await tester.pumpAndSettle();
 
       // CardDetailSheet should be opened
       expect(find.byType(CardDetailSheet), findsOneWidget);
-      expect(find.text('The One Ring'), findsWidgets);
+      expect(find.text('Frodo, Sauron\'s Bane'), findsWidgets);
 
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(seconds: 4));

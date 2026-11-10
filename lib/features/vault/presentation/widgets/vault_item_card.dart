@@ -225,6 +225,17 @@ class _VaultItemCardState extends State<VaultItemCard> {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
+                if (item.isWishlisted == true) ...[
+                  const SizedBox(width: 6),
+                  Container(
+                    key: const Key('vault_card_wishlist_badge'),
+                    child: const Icon(
+                      Icons.bookmark,
+                      color: Colors.purpleAccent,
+                      size: 14,
+                    ),
+                  ),
+                ],
                 if (manaCost != null && manaCost.isNotEmpty) ...[
                   const SizedBox(width: 6),
                   Flexible(

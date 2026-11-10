@@ -1,0 +1,51 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isValidImage() {
+      return request.resource.size <= 5 * 1024 * 1024 // 5 Megabytes Max
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    // 1. Daily Market Price Sync Gzip Snapshot (Feature 26 / Feature 27)
+    // Publicly downloadable by all app instances; client write strictly prohibited
+    match /market_prices/{allPaths=**} {
+      allow read: if true;
+      allow write: if false; // Cloud Functions Admin SDK only
+    }
+
+    // Legacy / Alternative prices path support
+    match /prices/{allPaths=**} {
+      allow read: if true;
+      allow write: if false; // Cloud Functions Admin SDK only
+    }
+
+    // 2. User Profile Avatars (Feature 18 / Feature 26)
+    // Public read; write only by account owner, max 5MB, image only
+    match /user_avatars/{userId}/{fileName} {
+      allow read: if true;
+      allow write: if isOwner(userId) && isValidImage();
+    }
+
+    // 3. Deck Cover Art Banners (Feature 8 / Feature 26)
+    // Public read; write by authenticated owner, max 5MB, image only
+    match /deck_covers/{deckId}/{fileName} {
+      allow read: if true;
+      allow write: if isAuthenticated() && isValidImage();
+    }
+
+    // 4. Default Deny
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

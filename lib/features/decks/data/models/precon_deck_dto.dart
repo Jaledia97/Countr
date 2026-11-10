@@ -156,8 +156,11 @@ class PreconCardDto {
     merged['scryfall_id'] ??= scryfallId;
     if (oracleId != null) merged['oracle_id'] ??= oracleId;
 
-    // Strict layout enforcement: never allow non-playable art_series layout into dynamicData
-    if (layout == 'art_series' || merged['layout'] == 'art_series') {
+    // Strict layout enforcement: never allow non-playable art_series or double_faced_token layout into dynamicData
+    if (layout == 'art_series' ||
+        layout == 'double_faced_token' ||
+        merged['layout'] == 'art_series' ||
+        merged['layout'] == 'double_faced_token') {
       merged['layout'] = 'normal';
     } else {
       merged['layout'] = layout;
@@ -267,12 +270,21 @@ class PreconCardDto {
     }
     final dynLayout = dynData['layout']?.toString().toLowerCase();
 
-    // Enforce art series exclusion (Requirement R5):
-    // Detects explicit layout, nested dynamicData layout, type line variants ("Art Card", "Art Series"),
-    // name suffixes ("// ... Art Card", "(Art Card)"), Scryfall CDN art_series URLs,
-    // and art series set codes (e.g. AMH1, AMH2, AAFR, AMID, ASTX).
+    final setTypeLower = PreconSafeCast.string(map['set_type'] ?? map['setType'] ?? dynData['set_type'])?.toLowerCase();
+    final splitFaces = rawName.contains('//')
+        ? rawName.split('//').map((f) => f.trim().toLowerCase()).toList()
+        : const <String>[];
+    final bool isIdenticalSplitName = splitFaces.length >= 2 &&
+        splitFaces[0].isNotEmpty &&
+        splitFaces[0] == splitFaces[1];
+
+    // Enforce strict art series & memorabilia exclusion (Requirement R4):
     final isArtSeries = rawLayout == 'art_series' ||
+        rawLayout == 'double_faced_token' ||
         dynLayout == 'art_series' ||
+        dynLayout == 'double_faced_token' ||
+        setTypeLower == 'memorabilia' ||
+        isIdenticalSplitName ||
         (typeLineLower != null &&
             (typeLineLower.contains('art series') || typeLineLower.contains('art card'))) ||
         nameLower.contains('art series') ||
@@ -282,7 +294,8 @@ class PreconCardDto {
         (setCodeLower != null &&
             setCodeLower.length >= 4 &&
             setCodeLower.startsWith('a') &&
-            RegExp(r'^a[a-z0-9]{3,4}$').hasMatch(setCodeLower));
+            RegExp(r'^a[a-z0-9]{3,4}$', caseSensitive: false).hasMatch(setCodeLower));
+
 
     final effectiveLayout = isArtSeries ? 'normal' : (rawLayout ?? 'normal');
 

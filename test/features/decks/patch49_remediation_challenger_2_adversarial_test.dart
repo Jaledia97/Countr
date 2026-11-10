@@ -227,6 +227,7 @@ void main() {
       draws: 0,
       isDeleted: false,
       createdAt: now,
+      isCloned: false,
     );
 
     Future<void> setupDeckInDb() async {
@@ -387,6 +388,7 @@ void main() {
         draws: 0,
         isDeleted: false,
         createdAt: now,
+        isCloned: false,
       );
       await db.into(db.decks).insert(
         DecksCompanion(
